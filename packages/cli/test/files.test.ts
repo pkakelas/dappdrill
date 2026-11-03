@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UsageError, parseChain, parseEdgeCases } from "../src/files.js";
+import { UsageError, parseChain, parseEdgeCases, parseToken } from "../src/files.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
@@ -28,5 +28,20 @@ describe("parseEdgeCases", () => {
 
   it("names the unknown ones", () => {
     expect(() => parseEdgeCases("happy,nope")).toThrow(/Unknown edge case\(s\): nope/);
+  });
+});
+
+describe("parseToken", () => {
+  it("reads chain, token and a whole-token amount", () => {
+    expect(parseToken("1:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48=5000.5")).toEqual({
+      chainId: 1,
+      address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      amount: "5000.5",
+    });
+  });
+
+  it("rejects anything else", () => {
+    expect(() => parseToken("1:usdc=5")).toThrow(UsageError);
+    expect(() => parseToken("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48=5")).toThrow(/expected <chain id>/);
   });
 });

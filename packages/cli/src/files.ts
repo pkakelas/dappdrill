@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
-import { ChainConfig, EdgeCaseId, Flow, SigningReview, chainInfo, type ScanReport } from "@dappdrill/core";
+import { ChainConfig, EdgeCaseId, Flow, SigningReview, chainInfo, type DrillTarget, type ScanReport } from "@dappdrill/core";
 
 export class UsageError extends Error {}
 
@@ -75,6 +75,23 @@ export function parseChain(spec: string): ChainConfig {
   const rpcUrl = rpc || known?.rpcUrl;
   if (!rpcUrl) throw new UsageError(`Chain ${id} is not one we know; pass its RPC: --chain ${id}=https://…`);
   return { id, name: known?.name, rpcUrl, mode: known && !known.forkable ? "live" : "fork" };
+}
+
+/** --token 1:0xA0b8…eB48=5000 gives the test accounts 5,000 of that token on the chain-1 fork. */
+export function parseToken(spec: string): DrillTarget["tokens"][number] {
+  const m = /^(\d+):(0x[0-9a-fA-F]{40})=(\d+(\.\d+)?)$/.exec(spec);
+  if (!m) throw new UsageError(`Bad --token "${spec}": expected <chain id>:<token address>=<amount>`);
+  return { chainId: Number(m[1]), address: m[2]!, amount: m[3]! };
+}
+
+export async function readInitScripts(paths: string[]): Promise<string[]> {
+  return Promise.all(
+    paths.map((p) =>
+      readFile(p, "utf8").catch((e: Error) => {
+        throw new UsageError(`Can't read ${p}: ${e.message}`);
+      }),
+    ),
+  );
 }
 
 export function parseEdgeCases(csv: string): EdgeCaseId[] {

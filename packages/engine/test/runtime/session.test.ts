@@ -221,6 +221,29 @@ describe("session", () => {
     }
   }, 60_000);
 
+  it("deals the target's tokens on the fork and runs its init scripts before the page's code", async () => {
+    const snap = await chains.snapshot(CHAIN_ID);
+    const url = fx.pageUrl([]);
+    const t = DrillTarget.parse({
+      url,
+      chains: [{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }],
+      accounts: ACCOUNTS,
+      tokens: [{ chainId: CHAIN_ID, address: fx.token, amount: "2500.5" }],
+      initScripts: ["window.__seen = { wallet: typeof window.ethereum, ready: document.readyState };"],
+    });
+    const session = await createSession(t, chains, { artifactsDir, sink: () => {}, video: false });
+    try {
+      const onFork = (who: `0x${string}`) => readBalance((m, p) => rpcCall(chains.rpcUrl(CHAIN_ID), m, p), fx.token, who);
+      expect(await onFork(session.wallet.accounts.A)).toBe(2_500_500_000n);
+      expect(await onFork(session.wallet.accounts.B)).toBe(2_500_500_000n);
+      await session.page.goto(url);
+      expect(await session.page.evaluate(() => (window as any).__seen)).toEqual({ wallet: "object", ready: "loading" });
+    } finally {
+      await session.close();
+      await chains.revert(CHAIN_ID, snap);
+    }
+  }, 60_000);
+
   it("two wallets: both announced, and we record which one the dApp used", async () => {
     const session = await open(["wrongprovider"], { twoWallets: true });
     try {

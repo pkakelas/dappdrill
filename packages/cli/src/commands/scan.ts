@@ -1,7 +1,7 @@
 import { join, resolve } from "node:path";
 import { DrillTarget, DEFAULT_EDGE_CASES, type ChainConfig } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
-import { UsageError, parseChain, parseEdgeCases, saveFlows, writeJson, writeText } from "../files.js";
+import { UsageError, parseChain, parseEdgeCases, parseToken, readInitScripts, saveFlows, writeJson, writeText } from "../files.js";
 import { consoleSink } from "../progress.js";
 import { healthLine, renderMarkdown } from "../report/index.js";
 import { interruptSignal } from "./util.js";
@@ -15,13 +15,22 @@ export interface ScanFlags {
   liveKeyEnv?: string;
   hints?: string;
   headed?: boolean;
+  token: string[];
+  initScript: string[];
 }
 
 export async function scanCommand(url: string, flags: ScanFlags): Promise<number> {
   const chains: ChainConfig[] = flags.chain.map(parseChain);
   const liveKey = flags.liveKeyEnv ? process.env[flags.liveKeyEnv] : undefined;
   if (flags.liveKeyEnv && !liveKey) throw new UsageError(`${flags.liveKeyEnv} is not set.`);
-  const target = parseTarget({ url, chains, edgeCases: flags.edgeCases ? parseEdgeCases(flags.edgeCases) : DEFAULT_EDGE_CASES, liveKey });
+  const target = parseTarget({
+    url,
+    chains,
+    edgeCases: flags.edgeCases ? parseEdgeCases(flags.edgeCases) : DEFAULT_EDGE_CASES,
+    liveKey,
+    tokens: flags.token.map(parseToken),
+    initScripts: await readInitScripts(flags.initScript),
+  });
 
   const out = resolve(flags.out);
   const engine = await loadEngine();

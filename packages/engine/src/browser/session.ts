@@ -74,7 +74,7 @@ export async function createSession(target: DrillTarget, chains: ChainController
     policy: opts.policy,
     log,
   });
-  await wallet.fundOnForks();
+  await wallet.fundOnForks(target.tokens);
 
   const browser = await chromium.launch({ headless: opts.headless ?? true });
   const context = await browser.newContext({
@@ -164,6 +164,7 @@ class Session implements EngineSession {
       binding: BINDING_NAME,
     };
     await context.addInitScript({ content: walletInitScript(cfg) });
+    for (const content of this.target.initScripts ?? []) await context.addInitScript({ content });
     await this.router.install(context);
 
     context.on("page", (p) => this.watchPage(p));

@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 import { nowIso, type ChainConfig, type EdgeCaseId, type Flow, type ScanReport, type WalletProfileId } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
 import { CiApi, ciContext } from "../ci-api.js";
-import { UsageError, loadBaselines, loadFlows, parseChain, parseEdgeCases, writeJson, writeText } from "../files.js";
+import { UsageError, loadBaselines, loadFlows, parseChain, parseEdgeCases, parseToken, readInitScripts, writeJson, writeText } from "../files.js";
 import { consoleSink } from "../progress.js";
 import { exitCodeFor, healthLine, renderJunit, renderMarkdown, reportHealth, type FailOn } from "../report/index.js";
 import { parseTarget } from "./scan.js";
@@ -22,6 +22,8 @@ export interface RunFlags {
   tokenEnv: string;
   headed?: boolean;
   video: boolean;
+  token: string[];
+  initScript: string[];
 }
 
 export async function runCommand(files: string[], flags: RunFlags): Promise<number> {
@@ -47,7 +49,14 @@ export async function runCommand(files: string[], flags: RunFlags): Promise<numb
   if (!url) throw new UsageError("Pass --url <dApp url> (or --pull to use the app's URL).");
   if (flows.length === 0) throw new UsageError(`No flows in ${flags.flowsDir}. Save some with \`dappdrill scan\` or \`dappdrill describe\`, or use --pull.`);
 
-  const target = parseTarget({ url, chains, edgeCases: edgeCases ?? ["happy"], wallets });
+  const target = parseTarget({
+    url,
+    chains,
+    edgeCases: edgeCases ?? ["happy"],
+    wallets,
+    tokens: flags.token.map(parseToken),
+    initScripts: await readInitScripts(flags.initScript),
+  });
   const out = resolve(flags.out);
   const engine = await loadEngine();
   const signal = interruptSignal();

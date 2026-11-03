@@ -5,8 +5,8 @@
  * messages so dApps take the same code paths they would with a real wallet.
  */
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { recoverMessageAddress, isHex } from "viem";
-import { KNOWN_CHAINS, SIGN_METHODS, chainName, newId, nowIso, type WalletProfileId, type WalletRequest } from "@dappdrill/core";
+import { recoverMessageAddress, isHex, parseUnits } from "viem";
+import { KNOWN_CHAINS, SIGN_METHODS, chainName, newId, nowIso, type DrillTarget, type WalletProfileId, type WalletRequest } from "@dappdrill/core";
 import type { ChainController, Hex, PendingSign, WalletController, WalletPolicy } from "../types.js";
 import { JsonRpcError, hexToNumber, rpcCall, toHex, toRpcError } from "../chain/rpc.js";
 import { WalletErrors } from "./errors.js";
@@ -47,6 +47,7 @@ interface Pending {
   run: () => Promise<BridgeResponse>;
 }
 
+const DECIMALS_ABI = [{ type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] }] as const;
 const DEFAULT_POLICY: WalletPolicy = { autoConnect: true, autoSwitch: true, unknownChainOnce: false, autoSign: false };
 const PASSTHROUGH_CAP = 40;
 
@@ -91,12 +92,19 @@ export class Wallet implements WalletController {
     this.accounts = { A: this.keys.A.address, B: this.keys.B.address };
   }
 
-  /** Give both accounts 100 ETH on every fork. */
-  async fundOnForks(): Promise<void> {
+  /** Give both accounts 100 ETH, and the requested ERC-20 balances, on every fork. */
+  async fundOnForks(tokens: DrillTarget["tokens"] = []): Promise<void> {
     for (const c of this.chains.configs()) {
       if (c.mode !== "fork") continue;
       await this.chains.setBalance(c.id, this.accounts.A, 100n * 10n ** 18n);
       await this.chains.setBalance(c.id, this.accounts.B, 100n * 10n ** 18n);
+      for (const t of tokens.filter((t) => t.chainId === c.id)) {
+        const token = t.address as Hex;
+        const decimals = await this.chains.client(c.id).readContract({ address: token, abi: DECIMALS_ABI, functionName: "decimals" });
+        const amount = parseUnits(t.amount, decimals);
+        await this.chains.dealErc20(c.id, token, this.accounts.A, amount);
+        await this.chains.dealErc20(c.id, token, this.accounts.B, amount);
+      }
     }
   }
 

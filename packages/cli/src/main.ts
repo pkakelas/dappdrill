@@ -30,6 +30,8 @@ program
   .option("--hints <text>", "plain-English hints for the explorer")
   .option("--out <dir>", "output directory", "dappdrill-out")
   .option("--live-key-env <VAR>", "env var holding a funded testnet key for chains that can't be forked")
+  .option("--token <chain:address=amount>", "ERC-20 balance for the test accounts on a fork (repeatable)", collect, [])
+  .option("--init-script <file>", "JavaScript to run in every page before the dApp (repeatable)", collect, [])
   .option("--headed", "show the browser")
   .action(action((url: string, flags) => scanCommand(url, flags)));
 
@@ -49,6 +51,8 @@ program
   .option("--report-to <app url>", "DappDrill web app to pull flows from and report results to")
   .option("--token-env <VAR>", "env var holding the app's API token", "DAPPDRILL_TOKEN")
   .option("--no-video", "don't record video")
+  .option("--token <chain:address=amount>", "ERC-20 balance for the test accounts on a fork (repeatable)", collect, [])
+  .option("--init-script <file>", "JavaScript to run in every page before the dApp (repeatable)", collect, [])
   .option("--headed", "show the browser")
   .action(action((files: string[], flags) => runCommand(files, flags)));
 
