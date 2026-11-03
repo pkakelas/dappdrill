@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
-import { cx, Logo } from "@/components/ui";
+import { ChevronIcon, cx, Logo } from "@/components/ui";
 import { Menu, MenuItem, menuLinkClass } from "./menu";
 
 export interface ShellApp {
@@ -60,16 +60,14 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
 
         <Menu
           label="Switch app"
-          buttonClassName="flex max-w-[220px] cursor-pointer items-center gap-2.5 rounded-full border border-line-strong px-3.5 py-1 text-left hover:bg-sub"
+          buttonClassName="flex h-10 max-w-[240px] cursor-pointer items-center gap-2.5 rounded-full border border-line-strong px-3.5 text-left transition-colors hover:bg-sub"
           button={
             <>
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[14px] leading-tight font-medium">{app ? app.name : "No apps yet"}</span>
+                <span className="truncate text-sm leading-tight font-medium">{app ? app.name : "No apps yet"}</span>
                 {app && <span className="truncate font-mono text-[10.5px] text-muted">{app.host}</span>}
               </span>
-              <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                <path d="M3.5 5.5L7 9l3.5-3.5" />
-              </svg>
+              <ChevronIcon className="shrink-0 text-muted" />
             </>
           }
         >
@@ -96,7 +94,7 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
                 href={base + n.path}
                 aria-current={active(n.path) ? "page" : undefined}
                 className={cx(
-                  "-mb-px border-b py-1.5 font-mono text-[12.5px] no-underline",
+                  "border-b-2 py-2 font-mono text-[12.5px] no-underline transition-colors",
                   active(n.path) ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink",
                 )}
               >
@@ -107,11 +105,6 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
         )}
 
         <div className="ml-auto flex items-center gap-3">
-          {app && (
-            <span className="hidden font-mono text-[11px] text-muted lg:inline" title={devQuota ? "Plan limits are lifted in dev mode" : undefined}>
-              {app.scansUsed} of {app.scansLimit} discovery scans used · replays unlimited
-            </span>
-          )}
           <Link href={app ? `/new?app=${app.id}` : "/new"} className="btn btn-primary btn-sm h-9">
             Scan
           </Link>
@@ -122,11 +115,11 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
             button={initial}
           >
             <div className="flex flex-col gap-0.5 border-b border-divide px-4 pt-2 pb-3">
-              <span className="text-[15px] font-medium">{user.name || user.email}</span>
+              <span className="text-body font-medium">{user.name || user.email}</span>
               <span className="font-mono text-[11px] text-muted">{user.email}</span>
               {app && (
-                <span className="mt-1.5 font-mono text-[11px] text-muted">
-                  {planName} · {app.scansUsed} of {app.scansLimit} discovery scans used
+                <span className="mt-1.5 font-mono text-[11px] text-muted" title={devQuota ? "Plan limits are lifted in dev mode" : undefined}>
+                  {planName} · {app.scansUsed} of {app.scansLimit} discovery scans used · replays unlimited
                 </span>
               )}
             </div>
@@ -146,6 +139,13 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
                 Account
               </Link>
             </MenuItem>
+            {devQuota && (
+              <MenuItem>
+                <Link href="/design" className={menuLinkClass}>
+                  Design system
+                </Link>
+              </MenuItem>
+            )}
             <MenuItem>
               <button
                 type="button"

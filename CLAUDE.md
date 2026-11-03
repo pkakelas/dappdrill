@@ -6,7 +6,10 @@ deterministic tests, replays them under wallet edge cases, and reviews every
 signature request. Product context: `docs/product-context.md`. Layout reference:
 `docs/designs/*.html`, where the v2 UX notes in the product context win where the two differ.
 The look (paper and ink, Newsreader for text, Plex Mono for controls, pill buttons) follows the
-marketing site in `../dappdrill-site`; tokens live in `apps/web/src/app/globals.css`.
+marketing site in `../dappdrill-site`. The design system: tokens and CSS components in
+`apps/web/src/app/globals.css`, React components in `apps/web/src/components/ui` (import from
+`@/components/ui`), the rules in `docs/design-system.md`, and every piece live at `/design`.
+Build pages from those pieces; add to the system rather than styling around it.
 
 ## Layout
 

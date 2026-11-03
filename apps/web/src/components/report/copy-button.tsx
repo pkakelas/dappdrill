@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cx } from "@/components/ui";
+import { CheckIcon, cx } from "@/components/ui";
 
 export function CopyButton({ text, label, className }: { text: string; label: string; className?: string }) {
   const [copied, setCopied] = useState(false);
@@ -15,7 +15,15 @@ export function CopyButton({ text, label, className }: { text: string; label: st
         setTimeout(() => setCopied(false), 1800);
       }}
     >
-      {copied ? "Copied" : label}
+      <span aria-live="polite" className="inline-flex items-center gap-1.5">
+        {copied ? (
+          <>
+            <CheckIcon /> Copied
+          </>
+        ) : (
+          label
+        )}
+      </span>
     </button>
   );
 }

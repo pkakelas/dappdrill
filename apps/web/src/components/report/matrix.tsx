@@ -1,11 +1,11 @@
 import { edgeCaseInfo } from "@dappdrill/core";
 import Link from "next/link";
-import { Cell } from "@/components/ui";
+import { Blank, Cell } from "@/components/ui";
 import type { Matrix } from "@/lib/report";
 import type { ViewCtx } from "./ctx";
 
 export function MatrixTable({ matrix, ctx }: { matrix: Matrix; ctx: ViewCtx }) {
-  if (matrix.rows.length === 0) return <p className="hint m-0">No runs yet.</p>;
+  if (matrix.rows.length === 0) return <Blank>No runs yet.</Blank>;
   return (
     <div className="card overflow-x-auto">
       <table className="table min-w-[640px]">
@@ -24,7 +24,7 @@ export function MatrixTable({ matrix, ctx }: { matrix: Matrix; ctx: ViewCtx }) {
         <tbody>
           {matrix.rows.map((row) => (
             <tr key={row.flowId}>
-              <th scope="row" className="border-b border-divide text-left text-[15px] font-medium text-ink">
+              <th scope="row" className="border-b border-divide text-left text-body font-medium text-ink">
                 {ctx.readOnly ? (
                   row.name
                 ) : (
@@ -38,7 +38,7 @@ export function MatrixTable({ matrix, ctx }: { matrix: Matrix; ctx: ViewCtx }) {
                 return (
                   <td key={e} className="text-center">
                     {cell ? (
-                      <Link href={ctx.panelHref(`run.${cell.runId}`)} scroll={false} className="no-underline" aria-label={`${row.name}, ${edgeCaseInfo(e).label}`}>
+                      <Link href={ctx.panelHref(`run.${cell.runId}`)} scroll={false} className="inline-block rounded-[5px] no-underline transition-opacity hover:opacity-75" aria-label={`${row.name}, ${edgeCaseInfo(e).label}`}>
                         <Cell kind={cell.kind} />
                       </Link>
                     ) : (

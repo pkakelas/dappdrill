@@ -14,7 +14,7 @@ import { StepsEditor } from "@/components/flows/steps-editor";
 import { AddVariation } from "@/components/flows/variations";
 import { makePanelHref } from "@/components/report/ctx";
 import { ResultPanel } from "@/components/report/panels";
-import { cx, PlayIcon, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/ui";
+import { ActionButton, Disclosure, Empty, PageHeader, PlayIcon, RunState, Section, Sparkbars } from "@/components/ui";
 import { env } from "@/lib/env";
 import { plural, timeAgo } from "@/lib/format";
 import { githubRepo, recentStatuses } from "@/lib/queries";
@@ -73,55 +73,46 @@ export default async function FlowPage({ params, searchParams }: Props) {
   const origin =
     def.origin === "discovered" ? `found by scan #${scan?.number ?? "?"}` : def.origin === "described" ? "added in plain English" : def.origin === "recorded" ? "recorded" : "from your repo";
 
-  return (
-    <div className="page flex flex-col gap-7">
-      {busy && <AutoRefresh every={4000} />}
-      <header className="flex flex-col gap-3">
-        <span className="crumbs">
-          <Link href={`/apps/${app.id}/flows`}>Flows</Link> / {flow.name}
-        </span>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <h1 className="h1">{flow.name}</h1>
-            <p className="m-0 text-sm">
-              {repair ? (
-                <span className="text-warn">Needs a fix</span>
-              ) : last ? (
-                <span className={RUN_STATUS_TEXT[last.status]}>{RUN_STATUS_LABEL[last.status]}</span>
-              ) : (
-                <span className="text-muted">Not run yet</span>
-              )}
-              {last && <span className="text-muted"> {timeAgo(last.createdAt)}</span>}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Sparkbars statuses={statuses.get(flow.id) ?? []} />
-            <form action={duplicateFlowAction}>
-              <input type="hidden" name="flowId" value={flow.id} />
-              <button type="submit" className="btn">
-                Duplicate
-              </button>
-            </form>
-            <form action={rerunAction}>
-              <input type="hidden" name="appId" value={app.id} />
-              <input type="hidden" name="flowId" value={flow.id} />
-              <button type="submit" className="btn btn-primary">
-                <PlayIcon /> Run
-              </button>
-            </form>
-          </div>
-        </div>
-        <p className="m-0 text-[13px] text-muted">
-          {plural(def.steps.length, "step")} · {plural(signatures, "signature")} · {plural(vars.length, "variation")} · {origin}
-          {flow.updatedAt.getTime() - flow.createdAt.getTime() > 60_000 && `, edited ${timeAgo(flow.updatedAt)}`}
-        </p>
-      </header>
+  const runLink = (r: (typeof runRows)[number]) => (r.batchId ? `/apps/${app.id}/runs/${r.batchId}` : r.scanId ? `/apps/${app.id}/scans/${r.scanId}` : null);
 
-      <nav className="seg w-fit" aria-label="Flow sections">
+  return (
+    <div className="page gap-8">
+      {busy && <AutoRefresh every={4000} />}
+      <PageHeader
+        crumbs={[{ label: "Flows", href: `/apps/${app.id}/flows` }, { label: flow.name }]}
+        title={flow.name}
+        status={
+          <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-2 text-body">
+            <span>
+              <RunState status={last?.status} needsFix={Boolean(repair)} />
+              {last && <span className="text-muted"> {timeAgo(last.createdAt)}</span>}
+            </span>
+            <Sparkbars statuses={statuses.get(flow.id) ?? []} />
+          </p>
+        }
+        sub={
+          <span className="meta">
+            {plural(def.steps.length, "step")} · {plural(signatures, "signature")} · {plural(vars.length, "variation")} · {origin}
+            {flow.updatedAt.getTime() - flow.createdAt.getTime() > 60_000 && `, edited ${timeAgo(flow.updatedAt)}`}
+          </span>
+        }
+        actions={
+          <>
+            <ActionButton action={duplicateFlowAction} fields={{ flowId: flow.id }} pendingText="Duplicating…">
+              Duplicate
+            </ActionButton>
+            <ActionButton action={rerunAction} fields={{ appId: app.id, flowId: flow.id }} className="btn-primary" pendingText="Queuing…">
+              <PlayIcon /> Run
+            </ActionButton>
+          </>
+        }
+      />
+
+      <nav className="seg" aria-label="Flow sections">
         {TABS.map((t) => (
-          <Link key={t.id} href={t.id === "steps" ? path : `${path}?tab=${t.id}`} aria-current={tab === t.id ? "true" : undefined}>
+          <Link key={t.id} href={t.id === "steps" ? path : `${path}?tab=${t.id}`} aria-current={tab === t.id ? "page" : undefined} scroll={false}>
             {t.label}
-            {t.id === "runs" && runRows.length > 0 && <span className="text-muted"> {runRows.length}</span>}
+            {t.id === "runs" && runRows.length > 0 && <span className="count">{runRows.length}</span>}
           </Link>
         ))}
       </nav>
@@ -129,13 +120,10 @@ export default async function FlowPage({ params, searchParams }: Props) {
       {repair && <RepairBanner repair={repair} flowName={flow.name} current={def} />}
 
       {tab === "steps" && (
-        <div className="flex flex-col gap-9">
+        <div className="flex flex-col gap-10">
           <StepsEditor key={flow.updatedAt.toISOString()} flow={def} />
 
-          <section aria-labelledby="change" className="flex flex-col gap-4">
-            <h2 id="change" className="h2">
-              Change this flow
-            </h2>
+          <Section title="Change this flow" hint="Describe the change. The agent tries it on the site with the wallet and shows you the new steps before anything is saved.">
             {changes.map((c) => (
               <ChangeCard key={c.id} change={c} current={def} />
             ))}
@@ -143,24 +131,23 @@ export default async function FlowPage({ params, searchParams }: Props) {
               <DescribeForm
                 appId={app.id}
                 flowId={flow.id}
-                label="Describe a change…"
+                label="Describe a change"
                 placeholder="After depositing, check the share price didn't move by more than 0.1%"
-                hint="It tries the change on the site with the wallet and shows you the new steps before anything is saved."
+                hint={
+                  <>
+                    Prefer files? Use the{" "}
+                    <Link href={`${path}?tab=code`} className="prose-link">
+                      Code
+                    </Link>{" "}
+                    tab, or keep flows in your repo.
+                  </>
+                }
                 button="Propose change"
               />
             </div>
-            <p className="hint m-0">
-              Prefer files? Open the <Link href={`${path}?tab=code`}>Code</Link> tab, or keep flows in your repo and sync them with the GitHub Action.
-            </p>
-          </section>
+          </Section>
 
-          <section aria-labelledby="variations" className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <h2 id="variations" className="h2">
-                Variations
-              </h2>
-              <p className="hint m-0">The same steps with other inputs, wallet, chain or account. One result per row.</p>
-            </div>
+          <Section title="Variations" hint="The same steps with other inputs, wallet, chain or account. If the steps themselves differ, duplicate the flow instead.">
             {vars.length > 0 && (
               <div className="card overflow-x-auto">
                 <table className="table min-w-[640px]">
@@ -169,7 +156,9 @@ export default async function FlowPage({ params, searchParams }: Props) {
                       <th>Variation</th>
                       <th>Changes</th>
                       <th>Last result</th>
-                      <th className="sr-only">Actions</th>
+                      <th>
+                        <span className="sr-only">Actions</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -184,34 +173,25 @@ export default async function FlowPage({ params, searchParams }: Props) {
                       return (
                         <tr key={v.id}>
                           <td className="font-medium">{v.name}</td>
-                          <td className="font-mono text-[13px] text-ink-3">{changesText.join(" · ") || "—"}</td>
-                          <td>
+                          <td className="font-mono text-meta text-ink-3">{changesText.join(" · ") || "—"}</td>
+                          <td className="text-sm">
                             {r ? (
-                              <Link href={ctx.panelHref(`run.${r.id}`)} className={cx("text-sm no-underline hover:underline", RUN_STATUS_TEXT[r.status])}>
-                                {RUN_STATUS_LABEL[r.status]}
+                              <Link href={ctx.panelHref(`run.${r.id}`)} scroll={false} className="no-underline hover:underline">
+                                <RunState status={r.status} />
                                 {r.result.reason && <span className="text-muted"> · {r.result.reason}</span>}
                               </Link>
                             ) : (
-                              <span className="text-sm text-muted">Not run yet</span>
+                              <RunState />
                             )}
                           </td>
                           <td>
                             <div className="flex justify-end gap-2">
-                              <form action={rerunAction}>
-                                <input type="hidden" name="appId" value={app.id} />
-                                <input type="hidden" name="flowId" value={flow.id} />
-                                <input type="hidden" name="variationId" value={v.id} />
-                                <input type="hidden" name="edgeCase" value="happy" />
-                                <button type="submit" className="btn btn-xs">
-                                  Run with…
-                                </button>
-                              </form>
-                              <form action={removeVariationAction}>
-                                <input type="hidden" name="variationId" value={v.id} />
-                                <button type="submit" className="btn btn-xs" aria-label={`Remove ${v.name}`}>
-                                  Remove
-                                </button>
-                              </form>
+                              <ActionButton action={rerunAction} fields={{ appId: app.id, flowId: flow.id, variationId: v.id, edgeCase: "happy" }} className="btn-xs" pendingText="Queuing…">
+                                Run with…
+                              </ActionButton>
+                              <ActionButton action={removeVariationAction} fields={{ variationId: v.id }} className="btn-xs" confirm="Remove?" aria-label={`Remove ${v.name}`}>
+                                Remove
+                              </ActionButton>
                             </div>
                           </td>
                         </tr>
@@ -222,24 +202,29 @@ export default async function FlowPage({ params, searchParams }: Props) {
               </div>
             )}
             <AddVariation flowId={flow.id} params={def.params} />
-            <p className="hint m-0">Variations share this flow&apos;s steps. If the steps themselves differ, duplicate the flow instead.</p>
-          </section>
+          </Section>
 
-          <section className="flex flex-col gap-2 border-t border-line pt-6">
-            <form action={archiveFlowAction}>
-              <input type="hidden" name="flowId" value={flow.id} />
-              <button type="submit" className="btn btn-sm text-bad">
-                Archive this flow
-              </button>
-            </form>
+          <section aria-label="Archive" className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
             <p className="hint m-0">Archived flows stop running. Their past results stay in the reports.</p>
+            <ActionButton action={archiveFlowAction} fields={{ flowId: flow.id }} className="btn-sm" confirm="Archive it?">
+              Archive this flow
+            </ActionButton>
           </section>
         </div>
       )}
 
       {tab === "runs" &&
         (runRows.length === 0 ? (
-          <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">This flow hasn&apos;t run yet.</p>
+          <Empty
+            title="Not run yet"
+            action={
+              <ActionButton action={rerunAction} fields={{ appId: app.id, flowId: flow.id }} className="btn-primary" pendingText="Queuing…">
+                <PlayIcon /> Run it now
+              </ActionButton>
+            }
+          >
+            Each run replays the saved steps against a fresh fork, once per edge case.
+          </Empty>
         ) : (
           <div className="card overflow-x-auto">
             <table className="table min-w-[560px]">
@@ -252,29 +237,32 @@ export default async function FlowPage({ params, searchParams }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {runRows.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <Link href={ctx.panelHref(`run.${r.id}`)} className="no-underline hover:underline">
-                        {edgeCaseInfo(r.edgeCase).label}
-                      </Link>
-                    </td>
-                    <td className={cx("text-sm", RUN_STATUS_TEXT[r.status])}>
-                      {RUN_STATUS_LABEL[r.status]}
-                      {r.result.reason && <span className="text-muted"> · {r.result.reason}</span>}
-                    </td>
-                    <td className="text-sm text-muted">{(r.result.variationId && vars.find((v) => v.id === r.result.variationId)?.name) || "—"}</td>
-                    <td className="text-sm text-muted">
-                      {r.batchId ? (
-                        <Link href={`/apps/${app.id}/runs/${r.batchId}`}>{timeAgo(r.createdAt)}</Link>
-                      ) : r.scanId ? (
-                        <Link href={`/apps/${app.id}/scans/${r.scanId}`}>{timeAgo(r.createdAt)}</Link>
-                      ) : (
-                        timeAgo(r.createdAt)
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {runRows.map((r) => {
+                  const href = runLink(r);
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <Link href={ctx.panelHref(`run.${r.id}`)} scroll={false} className="stretched no-underline">
+                          {edgeCaseInfo(r.edgeCase).label}
+                        </Link>
+                      </td>
+                      <td className="text-sm">
+                        <RunState status={r.status} />
+                        {r.result.reason && <span className="text-muted"> · {r.result.reason}</span>}
+                      </td>
+                      <td className="text-sm text-muted">{(r.result.variationId && vars.find((v) => v.id === r.result.variationId)?.name) || "—"}</td>
+                      <td className="text-sm text-muted">
+                        {href ? (
+                          <Link href={href} className="prose-link">
+                            {timeAgo(r.createdAt)}
+                          </Link>
+                        ) : (
+                          timeAgo(r.createdAt)
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -283,18 +271,21 @@ export default async function FlowPage({ params, searchParams }: Props) {
       {tab === "code" && (
         <div className="flex flex-col gap-6">
           <CodeEditor key={flow.updatedAt.toISOString()} flowId={flow.id} json={JSON.stringify(def, null, 2)} fileName={`${flow.id}.json`} />
-          <section aria-labelledby="repo" className="card flex flex-col gap-3 p-5">
-            <h2 id="repo" className="m-0 text-[15px] font-semibold">
-              Keep flows in your repo
-            </h2>
-            <p className="m-0 text-sm text-ink-2">
-              Save this file as <code className="font-mono text-[13px]">.dappdrill/flows/{flow.id}.json</code>. The CLI replays it locally; push edits back with:
-            </p>
-            <pre className="codeblock m-0">{`DAPPDRILL_TOKEN=… dappdrill push-flows --report-to ${env.appUrl}`}</pre>
-            <p className="hint m-0">
-              Get a token under <Link href="/account#tokens">Account → API tokens</Link>. The GitHub Action can also pull these flows on every pull request.
-            </p>
-          </section>
+          <Disclosure summary="Keep flows in your repo">
+            <div className="flex flex-col gap-3 p-5">
+              <p className="m-0 text-sm text-ink-2">
+                Save this file as <code className="font-mono text-meta">.dappdrill/flows/{flow.id}.json</code>. The CLI replays it locally; push edits back with:
+              </p>
+              <pre className="codeblock m-0">{`DAPPDRILL_TOKEN=… dappdrill push-flows --report-to ${env.appUrl}`}</pre>
+              <p className="hint m-0">
+                Get a token under{" "}
+                <Link href="/account#tokens-section" className="prose-link">
+                  Account → API tokens
+                </Link>
+                . The GitHub Action can also pull these flows on every pull request.
+              </p>
+            </div>
+          </Disclosure>
         </div>
       )}
 

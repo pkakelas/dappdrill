@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { acceptInviteAction } from "@/actions/team";
+import { AuthCard } from "@/components/auth/auth-card";
+import { Hidden, SubmitButton } from "@/components/ui";
 import { getSession, isMember } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Join a team" };
@@ -18,13 +20,11 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   if (!row || row.invite.acceptedAt) {
     return (
-      <div className="card flex flex-col gap-3 p-6">
-        <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">This invite isn&apos;t valid</h1>
-        <p className="m-0 text-sm text-muted">It was already used or cancelled. Ask whoever invited you for a new link.</p>
+      <AuthCard title="This invite isn't valid" sub="It was already used or cancelled. Ask whoever invited you for a new link.">
         <Link href="/" className="btn w-fit">
           Go to DappDrill
         </Link>
-      </div>
+      </AuthCard>
     );
   }
 
@@ -33,33 +33,33 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const already = session ? await isMember(session.user.id, row.invite.teamId) : false;
 
   return (
-    <div className="card flex flex-col gap-4 p-6">
-      <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">Join {row.teamName}</h1>
-      <p className="m-0 text-sm text-ink-2">
-        {row.inviter ? `${row.inviter} invited ${row.invite.email}` : `This invite is for ${row.invite.email}`} to test dApps together on DappDrill.
-      </p>
+    <AuthCard
+      title={`Join ${row.teamName}`}
+      sub={`${row.inviter ? `${row.inviter} invited ${row.invite.email}` : `This invite is for ${row.invite.email}`} to test dApps together on DappDrill.`}
+    >
       {!session ? (
         <div className="flex flex-col gap-2">
-          <Link href={`/signup?next=${next}`} className="btn btn-primary">
+          <Link href={`/signup?next=${next}`} className="btn btn-primary btn-lg">
             Create an account
           </Link>
-          <Link href={`/login?next=${next}`} className="btn">
+          <Link href={`/login?next=${next}`} className="btn btn-lg">
             I already have one
           </Link>
         </div>
       ) : already ? (
-        <Link href="/" className="btn btn-primary">
-          You&apos;re already in this team
+        <Link href="/" className="btn btn-primary btn-lg">
+          Go to {row.teamName}
         </Link>
       ) : (
         <form action={acceptInviteAction} className="flex flex-col gap-2">
-          <input type="hidden" name="token" value={token} />
-          <button type="submit" className="btn btn-primary">
+          <Hidden fields={{ token }} />
+          <SubmitButton className="btn-primary btn-lg" pendingText="Joining…">
             Join {row.teamName}
-          </button>
-          <span className="hint">Signed in as {session.user.email}.</span>
+          </SubmitButton>
+          <span className="hint text-center">Signed in as {session.user.email}.</span>
         </form>
       )}
-    </div>
+      {already && <p className="hint m-0">You&apos;re already in this team.</p>}
+    </AuthCard>
   );
 }

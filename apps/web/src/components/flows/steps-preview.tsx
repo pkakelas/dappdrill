@@ -24,24 +24,24 @@ export function WithParams({ text }: { text: string }) {
 export function StepsPreview({ flow, before }: { flow: Flow; before?: Flow }) {
   const old = before?.steps.map((s) => describeStep(s)) ?? null;
   return (
-    <ol className="m-0 list-none rounded-xl border border-line bg-card p-0">
+    <ol className="list">
       {flow.steps.map((s, i) => {
         const text = describeStep(s);
         const changed = old && old[i] !== text;
         return (
-          <li key={i} className={cx("grid grid-cols-[28px_minmax(0,1fr)_auto] gap-3 border-b border-divide px-4 py-3 last:border-b-0", changed && "bg-live-soft")}>
-            <span className={cx("font-mono text-[13px]", changed ? "text-live-ink" : "text-faint")}>{changed ? (old && i >= old.length ? "+" : "~") : ""}{String(i + 1).padStart(2, "0")}</span>
+          <li key={i} className={cx("grid grid-cols-[28px_minmax(0,1fr)_auto] gap-3 px-4 py-3", changed && "bg-sub")}>
+            <span className={cx("font-mono text-meta", changed ? "font-medium text-ink" : "text-faint")} title={changed ? (old && i >= old.length ? "Added" : "Changed") : undefined}>{changed ? (old && i >= old.length ? "+" : "~") : ""}{String(i + 1).padStart(2, "0")}</span>
             <span className="text-sm">
               <WithParams text={text} />
-              {s.optional && <span className="text-[13px] text-muted"> (optional)</span>}
-              {changed && old?.[i] && <span className="mt-0.5 block text-[13px] text-muted line-through">{old[i]}</span>}
+              {s.optional && <span className="meta"> (optional)</span>}
+              {changed && old?.[i] && <span className="meta mt-0.5 block line-through">{old[i]}</span>}
             </span>
-            {s.kind === "wallet" ? <span className="rounded-md bg-hair px-2 py-0.5 text-xs font-medium text-ink-2">Wallet</span> : <span />}
+            {s.kind === "wallet" ? <span className="tag bg-hair text-ink-2">Wallet</span> : <span />}
           </li>
         );
       })}
       {old && old.length > flow.steps.length && (
-        <li className="px-4 py-3 text-[13px] text-muted">
+        <li className="meta px-4 py-3">
           Removes {old.length - flow.steps.length} {old.length - flow.steps.length === 1 ? "step" : "steps"} at the end.
         </li>
       )}

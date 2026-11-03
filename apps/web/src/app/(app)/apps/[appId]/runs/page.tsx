@@ -4,7 +4,7 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { Empty, HealthBadge } from "@/components/ui";
+import { Empty, JobStatus, Mono, PageHeader, type JobStatusValue } from "@/components/ui";
 import { dateTime, minutesBetween, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { healthOfCounts, issueCounts } from "@/lib/queries";
 import { requireApp } from "@/lib/session";
@@ -16,7 +16,7 @@ type Row = {
   href: string;
   what: string;
   sub?: string;
-  status: string;
+  status: JobStatusValue;
   trigger: keyof typeof TRIGGER_LABEL;
   commit?: string;
   branch?: string;
@@ -73,15 +73,24 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
   const busy = rows.some((r) => r.status === "queued" || r.status === "running");
 
   return (
-    <div className="page flex flex-col gap-6">
+    <div className="page gap-8">
       {busy && <AutoRefresh every={4000} />}
-      <div className="flex flex-col gap-1">
-        <h1 className="h1">Runs</h1>
-        <p className="m-0 text-[15px] text-ink-3">Discovery scans and replays of your saved flows, newest first.</p>
-      </div>
+      <PageHeader title="Runs" sub="Discovery scans and replays of your saved flows, newest first." />
       {rows.length === 0 ? (
-        <Empty title="Nothing has run yet">
-          <Link href={`/new?app=${app.id}`}>Start a scan</Link> or run your flows from the Flows tab.
+        <Empty
+          title="Nothing has run yet"
+          action={
+            <>
+              <Link href={`/new?app=${app.id}`} className="btn btn-primary">
+                Start a scan
+              </Link>
+              <Link href={`/apps/${app.id}/flows`} className="btn">
+                Go to flows
+              </Link>
+            </>
+          }
+        >
+          A scan finds the flows; replays run them against every wallet edge case.
         </Empty>
       ) : (
         <div className="card overflow-x-auto">
@@ -97,34 +106,28 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-sub">
+                <tr key={r.id}>
                   <td>
-                    <Link href={r.href} className="flex flex-col no-underline">
+                    <Link href={r.href} className="stretched flex flex-col no-underline">
                       <span className="font-medium">{r.what}</span>
-                      {r.sub && <span className="text-[13px] text-muted">{r.sub}</span>}
+                      {r.sub && <span className="meta">{r.sub}</span>}
                     </Link>
                   </td>
                   <td>
-                    {r.status === "done" ? (
-                      <HealthBadge health={healthOfCounts(r.counts)} />
-                    ) : r.status === "queued" || r.status === "running" ? (
-                      <span className="pill bg-live-bg text-live-ink">{r.status === "queued" ? "Queued" : "Running"}</span>
-                    ) : (
-                      <span className="pill bg-hair text-muted">{r.status === "failed" ? "Failed" : "Stopped"}</span>
-                    )}
+                    <JobStatus status={r.status} health={healthOfCounts(r.counts)} />
                   </td>
-                  <td className="text-[13px] text-ink-2">{TRIGGER_LABEL[r.trigger]}</td>
-                  <td className="text-[13px]">
+                  <td className="text-meta text-ink-2">{TRIGGER_LABEL[r.trigger]}</td>
+                  <td className="text-meta">
                     {r.commit || r.branch ? (
-                      <span className="font-mono">
+                      <Mono>
                         {r.commit?.slice(0, 7)}
                         {r.branch && <span className="text-muted"> {r.branch}</span>}
-                      </span>
+                      </Mono>
                     ) : (
                       <span className="text-faint">—</span>
                     )}
                   </td>
-                  <td className="text-[13px] text-muted" title={dateTime(r.at)}>
+                  <td className="meta" title={dateTime(r.at)}>
                     {timeAgo(r.at)}
                     {r.duration && ` · ${r.duration}`}
                   </td>

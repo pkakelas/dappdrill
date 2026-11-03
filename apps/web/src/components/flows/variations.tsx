@@ -3,44 +3,37 @@
 import { KNOWN_CHAINS, type ParamDef } from "@dappdrill/core";
 import { useActionState } from "react";
 import { addVariationAction, type ActionResult } from "@/actions/flows";
-import { Feedback } from "./forms";
+import { Disclosure, Field, FormMessage, SubmitButton } from "@/components/ui";
 
 /** "Add a variation" form, inline under the Variations table. */
 export function AddVariation({ flowId, params }: { flowId: string; params: ParamDef[] }) {
-  const [state, action, pending] = useActionState<ActionResult, FormData>(addVariationAction, undefined);
+  const [state, action] = useActionState<ActionResult, FormData>(addVariationAction, undefined);
   return (
-    <details className="card px-5 py-4">
-      <summary className="btn-link w-fit cursor-pointer">Add a variation</summary>
-      <form action={action} className="mt-4 flex flex-col gap-4">
+    <Disclosure summary="Add a variation">
+      <form action={action} className="flex flex-col gap-4 p-5">
         <input type="hidden" name="flowId" value={flowId} />
-        <label className="flex flex-col gap-1.5">
-          <span className="label">Name</span>
+        <Field label="Name">
           <input name="name" required maxLength={80} className="field" placeholder="Dust amount" />
-        </label>
+        </Field>
         {params.length > 0 && (
           <div className="flex flex-wrap gap-3">
             {params.map((p) => (
-              <label key={p.name} className="flex min-w-0 flex-[1_1_180px] flex-col gap-1.5">
-                <span className="label">
-                  <span className="param">{p.name}</span>
-                </span>
+              <Field key={p.name} label={<span className="param normal-case">{p.name}</span>} className="flex-[1_1_180px]">
                 <input name={`input:${p.name}`} className="field" placeholder={p.default} />
-              </label>
+              </Field>
             ))}
           </div>
         )}
         <div className="flex flex-wrap gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="label">Wallet</span>
+          <Field label="Wallet">
             <select name="wallet" className="field" defaultValue="">
               <option value="">Same as the flow</option>
               <option value="metamask">MetaMask-style</option>
               <option value="rabby">Rabby</option>
               <option value="coinbase">Coinbase Wallet</option>
             </select>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="label">Chain</span>
+          </Field>
+          <Field label="Chain">
             <select name="chainId" className="field" defaultValue="">
               <option value="">Same as the flow</option>
               {KNOWN_CHAINS.map((c) => (
@@ -49,22 +42,21 @@ export function AddVariation({ flowId, params }: { flowId: string; params: Param
                 </option>
               ))}
             </select>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="label">Account</span>
+          </Field>
+          <Field label="Account">
             <select name="account" className="field" defaultValue="">
               <option value="">Test account A</option>
               <option value="B">Test account B</option>
             </select>
-          </label>
+          </Field>
         </div>
         <div className="flex items-center gap-3">
-          <button type="submit" className="btn btn-sm btn-primary" disabled={pending}>
-            {pending ? "Adding…" : "Add variation"}
-          </button>
-          <Feedback state={state} />
+          <SubmitButton className="btn-sm btn-primary" pendingText="Adding…">
+            Add variation
+          </SubmitButton>
+          <FormMessage state={state} />
         </div>
       </form>
-    </details>
+    </Disclosure>
   );
 }

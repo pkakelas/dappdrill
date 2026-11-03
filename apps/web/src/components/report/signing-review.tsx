@@ -1,7 +1,6 @@
 import { chainName, type SigningCheck } from "@dappdrill/core";
-import Link from "next/link";
 import { acceptBaselineAction, markExpectedAction } from "@/actions/results";
-import { Addr, CheckIcon, cx, VerdictTag } from "@/components/ui";
+import { ActionButton, Addr, CheckIcon, CloseIcon, cx, Disclosure, List, ListRow, Mono, Pill, VerdictTag } from "@/components/ui";
 import { artifactOwner, artifactUrl } from "@/lib/artifacts";
 import { shortDate } from "@/lib/format";
 import { githubNewIssueUrl, reviewMarkdown } from "@/lib/github";
@@ -15,9 +14,7 @@ function CheckMark({ status }: { status: SigningCheck["status"] }) {
   if (status === "fail")
     return (
       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-bad text-paper" aria-label="Failed">
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-          <path d="M2.5 2.5l5 5M7.5 2.5l-5 5" />
-        </svg>
+        <CloseIcon className="size-2.5" />
       </span>
     );
   if (status === "warn")
@@ -46,9 +43,13 @@ function CheckLine({ c }: { c: SigningCheck }) {
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-medium">
           {c.label}
-          {(c.unverified || c.status === "unverified") && <span className="pill ml-2 bg-hair align-middle text-muted">Unverified</span>}
+          {(c.unverified || c.status === "unverified") && (
+            <span className="ml-2 align-middle">
+              <Pill>Unverified</Pill>
+            </span>
+          )}
         </span>
-        <span className="text-[13px] leading-normal text-muted">{c.detail}</span>
+        <span className="meta">{c.detail}</span>
       </div>
     </li>
   );
@@ -65,44 +66,70 @@ export function SigningReviewView({ row, ctx, siblings = [], compact }: { row: R
   const md = reviewMarkdown(r);
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <VerdictTag verdict={r.verdict} large />
-          {row.isBaseline && <span className="pill bg-hair text-muted">Baseline</span>}
-          <span className="text-[13px] text-muted">
-            {chainName(r.chainId)} · <span className="font-mono">{r.method}</span>
+          {row.isBaseline && <Pill>Baseline</Pill>}
+          <span className="meta">
+            {chainName(r.chainId)} · <Mono>{r.method}</Mono>
           </span>
         </div>
-        <p className="m-0 text-[15px] leading-relaxed text-ink-2">{r.summary}</p>
+        <p className="m-0 max-w-[68ch] text-lead text-ink-2">{r.summary}</p>
+        {!ctx.readOnly && (
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex flex-wrap gap-2">
+              {!row.isBaseline && (
+                <ActionButton action={acceptBaselineAction} fields={{ reviewId: row.id }} className="btn-sm btn-primary" pendingText="Saving…">
+                  Accept as new baseline
+                </ActionButton>
+              )}
+              {r.verdict !== "consistent" && (
+                <ActionButton action={markExpectedAction} fields={{ reviewId: row.id }} className="btn-sm">
+                  This is expected
+                </ActionButton>
+              )}
+              {ctx.githubRepo ? (
+                <a href={githubNewIssueUrl(ctx.githubRepo, r.title, md)} target="_blank" rel="noreferrer" className="btn btn-sm">
+                  Open GitHub issue
+                </a>
+              ) : (
+                <CopyButton text={md} label="Copy as Markdown" />
+              )}
+            </div>
+            <p className="meta m-0">
+              {row.isBaseline ? "This is the baseline: future runs compare this request against it." : "Accepting makes future runs compare this request against this one."}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-7">
         <div className={cx("flex min-w-0 flex-col gap-7", compact ? "basis-full" : "flex-[3_1_460px]")}>
           <section aria-labelledby={`cmp-${row.id}`} className="flex flex-col gap-3">
-            <h3 id={`cmp-${row.id}`} className="m-0 text-[15px] font-semibold">
+            <h3 id={`cmp-${row.id}`} className="h3">
               What the user saw, and what they&apos;d sign
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-card p-4">
-                <span className="text-xs text-muted">On the page</span>
+              <div className="card flex flex-col gap-2.5 p-4">
+                <span className="label">On the page</span>
                 {shot ? (
                   <a href={shot} target="_blank" rel="noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={shot} alt="The page when the request was made" className="w-full rounded-lg border border-divide" />
                   </a>
                 ) : (
-                  <div className="flex h-24 items-center justify-center rounded-lg bg-sub text-[13px] text-faint">No screenshot</div>
+                  <div className="meta flex h-24 items-center justify-center rounded-lg bg-sub">No screenshot</div>
                 )}
-                <span className="text-[13px]">
+                <span className="text-sm">
                   Button text: <strong className="font-semibold">{r.ui.buttonLabel ? `“${r.ui.buttonLabel}”` : "—"}</strong>
                 </span>
-                {r.ui.context && <span className="text-[13px] text-muted">{r.ui.context}</span>}
+                {r.ui.context && <span className="meta">{r.ui.context}</span>}
               </div>
-              <div className={cx("flex flex-col gap-2.5 rounded-xl border p-4", r.verdict === "dangerous" ? "border-bad-line bg-bad-soft" : "border-line bg-card")}>
-                <span className={cx("text-xs", r.verdict === "dangerous" ? "text-bad-ink" : "text-muted")}>In the wallet request</span>
+              <div className={cx("card flex flex-col gap-2.5 p-4", r.verdict === "dangerous" && "border-bad-line bg-bad-soft")}>
+                <span className={cx("label", r.verdict === "dangerous" && "text-bad-ink")}>In the wallet request</span>
                 <div className="font-mono text-sm font-medium break-words">{r.decoded.signature ?? r.decoded.functionName ?? r.decoded.primaryType ?? r.method}</div>
-                <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[13px]">
+                <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-meta">
                   {r.decoded.to && (
                     <>
                       <dt className="text-muted">Contract</dt>
@@ -158,37 +185,32 @@ export function SigningReviewView({ row, ctx, siblings = [], compact }: { row: R
 
           {checks.length > 0 && (
             <section aria-labelledby={`checks-${row.id}`} className="flex flex-col gap-3">
-              <h3 id={`checks-${row.id}`} className="m-0 text-[15px] font-semibold">
+              <h3 id={`checks-${row.id}`} className="h3">
                 Checks
               </h3>
-              {flagged.length > 0 && <ul className="card m-0 list-none divide-y divide-divide p-0">{flagged.map((c) => <CheckLine key={c.id} c={c} />)}</ul>}
+              {flagged.length > 0 && <ul className="list">{flagged.map((c) => <CheckLine key={c.id} c={c} />)}</ul>}
               {passed.length > 0 && (
-                <details className="card">
-                  <summary className="px-4 py-3 text-sm text-muted">{passed.length} checks passed</summary>
-                  <ul className="m-0 list-none divide-y divide-divide border-t border-divide p-0">{passed.map((c) => <CheckLine key={c.id} c={c} />)}</ul>
-                </details>
+                <Disclosure summary={`${passed.length} ${passed.length === 1 ? "check" : "checks"} passed`}>
+                  <ul className="m-0 list-none divide-y divide-divide p-0">{passed.map((c) => <CheckLine key={c.id} c={c} />)}</ul>
+                </Disclosure>
               )}
             </section>
           )}
 
           {r.decoded.calldata && (
-            <details className="card">
-              <summary className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
-                <span className="text-sm font-semibold">Calldata</span>
-                {r.decoded.abiSource && r.decoded.abiSource !== "none" && <span className="text-[13px] text-muted">Decoded with an ABI from {r.decoded.abiSource}</span>}
-              </summary>
-              <pre className="codeblock m-0 rounded-t-none text-xs break-all whitespace-pre-wrap">{r.decoded.calldata}</pre>
-            </details>
+            <Disclosure summary="Calldata" aside={r.decoded.abiSource && r.decoded.abiSource !== "none" ? `Decoded with an ABI from ${r.decoded.abiSource}` : undefined}>
+              <pre className="codeblock m-0 rounded-none text-xs break-all whitespace-pre-wrap">{r.decoded.calldata}</pre>
+            </Disclosure>
           )}
         </div>
 
         <aside className={cx("flex min-w-0 flex-col gap-6", compact ? "basis-full" : "flex-[2_1_280px]")}>
           <section className="flex flex-col gap-2">
-            <h3 className="m-0 text-[15px] font-semibold">Why</h3>
+            <h3 className="h3">Why</h3>
             <p className="m-0 text-sm leading-relaxed text-ink-2">{r.explanation}</p>
             {r.advice && (
               <>
-                <h3 className="m-0 mt-2 text-[15px] font-semibold">What to change</h3>
+                <h3 className="h3 mt-3">What to change</h3>
                 <p className="m-0 text-sm leading-relaxed text-ink-2">{r.advice}</p>
               </>
             )}
@@ -196,14 +218,14 @@ export function SigningReviewView({ row, ctx, siblings = [], compact }: { row: R
 
           {changes.length > 0 && (
             <section className="flex flex-col gap-2">
-              <h3 className="m-0 text-[15px] font-semibold">Changed since {r.baseline?.previousAt ? shortDate(r.baseline.previousAt) : "the baseline"}</h3>
+              <h3 className="h3">Changed since {r.baseline?.previousAt ? shortDate(r.baseline.previousAt) : "the baseline"}</h3>
               <div className="codeblock text-xs leading-[1.9]">
                 {changes.map((c, i) => (
                   <div key={i}>
-                    <div className="text-[#f2a58e]">
+                    <div className="text-diff-del">
                       − {c.field} {c.before}
                     </div>
-                    <div className="text-[#b9e3c6]">
+                    <div className="text-diff-add">
                       + {c.field} {c.after}
                     </div>
                   </div>
@@ -214,54 +236,26 @@ export function SigningReviewView({ row, ctx, siblings = [], compact }: { row: R
 
           {siblings.length > 1 && (
             <section className="flex flex-col gap-2">
-              <h3 className="m-0 text-[15px] font-semibold">Requests in this flow</h3>
-              <ol className="card m-0 list-none divide-y divide-divide p-0">
+              <h3 className="h3">Requests in this flow</h3>
+              <List ordered>
                 {siblings.map((s, i) => (
-                  <li key={s.id}>
-                    <Link href={ctx.panelHref(`review.${s.id}`)} scroll={false} className={cx("flex items-center justify-between gap-3 px-4 py-3 text-[13px] no-underline hover:bg-sub", s.id === row.id && "bg-sub font-medium")}>
-                      <span className="min-w-0 truncate">
+                  <ListRow
+                    key={s.id}
+                    href={ctx.panelHref(`review.${s.id}`)}
+                    scroll={false}
+                    current={s.id === row.id}
+                    title={
+                      <span className="block truncate text-sm font-normal">
                         {i + 1} · {s.data.title}
                       </span>
-                      <VerdictTag verdict={s.verdict} />
-                    </Link>
-                  </li>
+                    }
+                    aside={<VerdictTag verdict={s.verdict} />}
+                  />
                 ))}
-              </ol>
+              </List>
             </section>
           )}
 
-          {!ctx.readOnly && (
-            <section className="flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                {!row.isBaseline && (
-                  <form action={acceptBaselineAction}>
-                    <input type="hidden" name="reviewId" value={row.id} />
-                    <button type="submit" className="btn btn-sm btn-primary">
-                      Accept as new baseline
-                    </button>
-                  </form>
-                )}
-                {r.verdict !== "consistent" && (
-                  <form action={markExpectedAction}>
-                    <input type="hidden" name="reviewId" value={row.id} />
-                    <button type="submit" className="btn btn-sm">
-                      This is expected
-                    </button>
-                  </form>
-                )}
-                {ctx.githubRepo ? (
-                  <a href={githubNewIssueUrl(ctx.githubRepo, r.title, md)} target="_blank" rel="noreferrer" className="btn btn-sm">
-                    Open GitHub issue
-                  </a>
-                ) : (
-                  <CopyButton text={md} label="Copy as Markdown" />
-                )}
-              </div>
-              <p className="hint m-0">
-                {row.isBaseline ? "This is the baseline: future runs compare this request against it." : "Accepting makes future runs compare this request against this one."}
-              </p>
-            </section>
-          )}
         </aside>
       </div>
     </div>

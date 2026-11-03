@@ -7,7 +7,7 @@ import { z } from "zod";
 import { makePanelHref } from "@/components/report/ctx";
 import { ResultPanel } from "@/components/report/panels";
 import { headline, ReportBody } from "@/components/report/report-body";
-import { Logo } from "@/components/ui";
+import { Empty, Logo, Mono, PageHeader, Pill } from "@/components/ui";
 import { hostFromUrl, minutesBetween, plural, shortDate } from "@/lib/format";
 import { loadPanel, loadResults, summarize } from "@/lib/report";
 
@@ -43,12 +43,12 @@ export default async function SharePage({ params, searchParams }: Props) {
   return (
     <>
       <header className="border-b border-line">
-        <div className="page flex items-center justify-between gap-3 py-3.5">
+        <div className="mx-auto flex w-full max-w-[1080px] items-center justify-between gap-3 px-4 py-3.5 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5 no-underline">
             <Logo />
             <span className="font-serif text-[20px] tracking-[-0.02em]">DappDrill</span>
           </Link>
-          <span className="font-mono text-[11px] tracking-[0.08em] text-muted uppercase">Shared report · read-only</span>
+          <Pill>Shared report · read-only</Pill>
         </div>
       </header>
       <main>{scan ? <Report app={app} scan={scan} path={path} token={token} panel={panel} cat={cat} host={host} /> : <NoReport name={app.name} />}</main>
@@ -63,17 +63,18 @@ async function Report({ app, scan, path, token, panel, cat, host }: { app: typeo
   const ctx = { appId: app.id, panelHref: makePanelHref(path, { scan: scan.id, cat }), readOnly: true, share: token };
   const s = summarize(results);
   return (
-    <div className="page flex flex-col gap-8">
-      <header className="flex flex-col gap-2">
-        <span className="crumbs">
-          {app.name} · Scan #{scan.number} · <span className="font-mono">{host}</span> · {shortDate(scan.createdAt)}
-          {scan.finishedAt && `, ${minutesBetween(scan.startedAt ?? scan.createdAt, scan.finishedAt)}`}
-        </span>
-        <h1 className="h1">{headline(s)}</h1>
-        <p className="m-0 text-[15px] text-ink-3">
-          {plural(s.flowCount, "flow")} found, {plural(s.edgeCasesTried, "wallet edge case")} tried, {plural(s.reviewCount, "signature request")} reviewed.
-        </p>
-      </header>
+    <div className="page">
+      <PageHeader
+        crumbs={[{ label: app.name }, { label: `Scan #${scan.number}` }]}
+        title={headline(s)}
+        sub={`${plural(s.flowCount, "flow")} found, ${plural(s.edgeCasesTried, "wallet edge case")} tried, ${plural(s.reviewCount, "signature request")} reviewed.`}
+        status={
+          <p className="meta m-0">
+            <Mono>{host}</Mono> · {shortDate(scan.createdAt)}
+            {scan.finishedAt && ` · took ${minutesBetween(scan.startedAt ?? scan.createdAt, scan.finishedAt)}`}
+          </p>
+        }
+      />
       <ReportBody results={results} ctx={ctx} cat={cat} filterHref={(c) => makePanelHref(path, { scan: scan.id, cat: c === "all" ? undefined : c })(null)} />
       {panelData && <ResultPanel data={panelData} ctx={ctx} />}
     </div>
@@ -83,9 +84,7 @@ async function Report({ app, scan, path, token, panel, cat, host }: { app: typeo
 function NoReport({ name }: { name: string }) {
   return (
     <div className="page">
-      <div className="card px-6 py-8 text-center">
-        <p className="m-0 text-[15px] font-medium">{name} has no finished scan to show yet.</p>
-      </div>
+      <Empty title={`${name} has no finished scan to show yet.`}>The report appears here once a scan finishes.</Empty>
     </div>
   );
 }

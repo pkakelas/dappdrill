@@ -2,12 +2,12 @@ import { edgeCaseInfo } from "@dappdrill/core";
 import { db, runBatches, variations } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { stopBatchAction } from "@/actions/results";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { makePanelHref } from "@/components/report/ctx";
 import { ResultPanel } from "@/components/report/panels";
+import { ActionButton, JobStatus, Mono, Notice, PageHeader } from "@/components/ui";
 import { headline, ReportBody } from "@/components/report/report-body";
 import { dateTime, minutesBetween, plural, TRIGGER_LABEL } from "@/lib/format";
 import { githubRepo } from "@/lib/queries";
@@ -38,40 +38,56 @@ export default async function BatchPage({ params, searchParams }: Props) {
   const cases = batch.request.edgeCases.map((e) => edgeCaseInfo(e).label).join(", ");
 
   return (
-    <div className="page flex flex-col gap-8">
+    <div className="page gap-8">
       {active && <AutoRefresh every={3000} />}
-      <header className="flex flex-col gap-2">
-        <span className="crumbs">
-          <Link href={`/apps/${app.id}/runs`}>Runs</Link> / {TRIGGER_LABEL[batch.trigger]} run · {dateTime(batch.createdAt)}
-          {batch.finishedAt && `, ${minutesBetween(batch.startedAt ?? batch.createdAt, batch.finishedAt)}`}
-        </span>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="h1">
-            {active ? (batch.stopRequested ? "Stopping…" : batch.status === "queued" ? "Waiting for a worker…" : "Running…") : batch.status === "failed" ? "This run failed" : batch.status === "stopped" ? `Stopped early. ${headline(s)}` : headline(s)}
-          </h1>
-          {active && !batch.stopRequested && (
-            <form action={stopBatchAction}>
-              <input type="hidden" name="batchId" value={batch.id} />
-              <button type="submit" className="btn btn-sm">
-                Stop
-              </button>
-            </form>
-          )}
-        </div>
-        <p className="m-0 text-[15px] text-ink-3">
-          {plural(batch.request.flowIds.length, "flow")} × {cases}
-          {variation && ` · variation “${variation.name}”`}
-          {(batch.request.commit || batch.request.branch) && (
-            <>
-              {" · "}
-              <span className="font-mono text-sm">
-                {batch.request.commit?.slice(0, 7)} {batch.request.branch}
-              </span>
-            </>
-          )}
-        </p>
-        {batch.error && <p className="m-0 rounded-xl border border-bad-line bg-bad-soft px-5 py-4 text-sm text-bad-ink">{batch.error}</p>}
-      </header>
+      <PageHeader
+        crumbs={[{ label: "Runs", href: `/apps/${app.id}/runs` }, { label: `${TRIGGER_LABEL[batch.trigger]} run` }]}
+        title={
+          active
+            ? batch.stopRequested
+              ? "Stopping…"
+              : batch.status === "queued"
+                ? "Waiting for a worker…"
+                : "Running…"
+            : batch.status === "failed"
+              ? "This run failed"
+              : batch.status === "stopped"
+                ? `Stopped early. ${headline(s)}`
+                : headline(s)
+        }
+        status={!active && batch.status === "done" ? undefined : <JobStatus status={batch.status} />}
+        sub={
+          <>
+            {plural(batch.request.flowIds.length, "flow")} × {cases}
+            {variation && ` · variation “${variation.name}”`}
+            {(batch.request.commit || batch.request.branch) && (
+              <>
+                {" · "}
+                <Mono className="text-sm">
+                  {batch.request.commit?.slice(0, 7)} {batch.request.branch}
+                </Mono>
+              </>
+            )}
+            <span className="meta block">
+              {dateTime(batch.createdAt)}
+              {batch.finishedAt && ` · took ${minutesBetween(batch.startedAt ?? batch.createdAt, batch.finishedAt)}`}
+            </span>
+          </>
+        }
+        actions={
+          active &&
+          !batch.stopRequested && (
+            <ActionButton action={stopBatchAction} fields={{ batchId: batch.id }} className="btn-sm" confirm="Stop the run?">
+              Stop
+            </ActionButton>
+          )
+        }
+      />
+      {batch.error && (
+        <Notice tone="bad" role="alert" title="The run stopped with an error">
+          {batch.error}
+        </Notice>
+      )}
       <ReportBody batch results={results} ctx={ctx} cat={cat} filterHref={(c) => makePanelHref(path, { cat: c === "all" ? undefined : c })(null)} />
       {panelData && <ResultPanel data={panelData} ctx={ctx} />}
     </div>

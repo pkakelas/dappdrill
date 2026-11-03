@@ -2,7 +2,7 @@
 
 import { useActionState, type ReactNode } from "react";
 import type { ActionResult } from "@/lib/action-result";
-import { cx } from "@/components/ui";
+import { cx, FormMessage } from "@/components/ui";
 import { CopyButton } from "@/components/report/copy-button";
 
 type Action = (prev: ActionResult, form: FormData) => Promise<ActionResult>;
@@ -15,21 +15,12 @@ export function ActionForm({ action, children, className, secretLabel }: { actio
       <fieldset disabled={pending} className="m-0 contents border-0 p-0">
         {children}
       </fieldset>
-      {state?.error && (
-        <p role="alert" className="m-0 text-[13px] text-bad">
-          {state.error}
-        </p>
-      )}
-      {state?.ok && !state.error && (
-        <p role="status" className="m-0 text-[13px] text-muted">
-          {state.ok}
-        </p>
-      )}
+      <FormMessage state={state} />
       {state?.secret && (
-        <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-sub p-3">
-          {secretLabel && <span className="text-[13px] text-ink-2">{secretLabel}</span>}
+        <div role="status" className="notice flex-col !gap-2">
+          {secretLabel && <span className="meta">{secretLabel}</span>}
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 font-mono text-[13px] break-all">{state.secret}</code>
+            <code className="min-w-0 flex-1 font-mono text-meta break-all">{state.secret}</code>
             <CopyButton text={state.secret} label="Copy" />
           </div>
         </div>

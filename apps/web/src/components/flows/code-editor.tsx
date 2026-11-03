@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveFlowAction, type ActionResult } from "@/actions/flows";
-import { Feedback } from "./forms";
+import { FormMessage } from "@/components/ui";
 
 /** The flow as JSON: edit, save, download. */
 export function CodeEditor({ flowId, json, fileName }: { flowId: string; json: string; fileName: string }) {
@@ -20,7 +20,7 @@ export function CodeEditor({ flowId, json, fileName }: { flowId: string; json: s
       <textarea
         id="flow-json"
         spellCheck={false}
-        className="field min-h-[480px] resize-y font-mono text-[13px] leading-relaxed"
+        className="field min-h-[480px] resize-y font-mono text-meta leading-relaxed"
         value={text}
         onChange={(e) => (setText(e.target.value), setState(undefined))}
       />
@@ -47,7 +47,7 @@ export function CodeEditor({ flowId, json, fileName }: { flowId: string; json: s
             Revert
           </button>
         )}
-        <Feedback state={state} />
+        <FormMessage state={state} />
       </div>
     </div>
   );

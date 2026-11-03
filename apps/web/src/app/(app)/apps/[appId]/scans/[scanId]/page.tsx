@@ -8,6 +8,7 @@ import { ResultPanel } from "@/components/report/panels";
 import { headline, ReportBody } from "@/components/report/report-body";
 import { ShareControl } from "@/components/report/share-control";
 import { LiveView } from "@/components/scan/live-view";
+import { Crumbs, Mono, Notice, PageHeader } from "@/components/ui";
 import { shortDate, minutesBetween, hostFromUrl, plural } from "@/lib/format";
 import type { LiveEvent, ScanSnapshot } from "@/lib/live";
 import { githubRepo } from "@/lib/queries";
@@ -52,10 +53,8 @@ export default async function ScanPage({ params, searchParams }: Props) {
       chains: scan.chains.map((c) => ({ id: c.id, name: c.name, mode: c.mode })),
     };
     return (
-      <div className="page flex flex-col gap-2">
-        <nav className="crumbs">
-          <Link href={`/apps/${app.id}/runs`}>Runs</Link> / Scan #{scan.number}
-        </nav>
+      <div className="page gap-2">
+        <Crumbs items={[{ label: "Runs", href: `/apps/${app.id}/runs` }, { label: `Scan #${scan.number}` }]} />
         <LiveView scanId={scan.id} host={host} initialEvents={events} initialSnapshot={snapshot} frameBase={`/api/artifacts/scans/${scan.id}`} />
       </div>
     );
@@ -66,30 +65,38 @@ export default async function ScanPage({ params, searchParams }: Props) {
   const s = summarize(results);
 
   return (
-    <div className="page flex flex-col gap-8">
-      <header className="flex flex-wrap items-end justify-between gap-5">
-        <div className="flex min-w-0 flex-col gap-2">
-          <span className="crumbs">
-            <Link href={`/apps/${app.id}/runs`}>Runs</Link> / Scan #{scan.number} · <span className="font-mono">{host}</span> · {shortDate(scan.createdAt)}
-            {scan.finishedAt && `, ${minutesBetween(scan.startedAt ?? scan.createdAt, scan.finishedAt)}`}
-          </span>
-          <h1 className="h1">{headline(s)}</h1>
-          <p className="m-0 text-[15px] text-ink-3">
+    <div className="page gap-8">
+      <PageHeader
+        crumbs={[{ label: "Runs", href: `/apps/${app.id}/runs` }, { label: `Scan #${scan.number}` }]}
+        title={headline(s)}
+        sub={
+          <>
             {plural(s.flowCount, "flow")} found, {plural(s.edgeCasesTried, "wallet edge case")} tried, {plural(s.reviewCount, "signature request")} reviewed.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <ShareControl appId={app.id} shareToken={app.shareToken} scanId={scan.id} />
-          <Link href={`/apps/${app.id}/flows`} className="btn btn-sm btn-primary">
-            Saved flows
-          </Link>
-        </div>
-      </header>
+            <span className="meta block">
+              <Mono>{host}</Mono> · {shortDate(scan.createdAt)}
+              {scan.finishedAt && ` · took ${minutesBetween(scan.startedAt ?? scan.createdAt, scan.finishedAt)}`}
+            </span>
+          </>
+        }
+        actions={
+          <>
+            <ShareControl appId={app.id} shareToken={app.shareToken} scanId={scan.id} />
+            <Link href={`/apps/${app.id}/flows`} className="btn btn-sm btn-primary">
+              Saved flows
+            </Link>
+          </>
+        }
+      />
 
-      {scan.status !== "done" && (
-        <p role="status" className={scan.status === "failed" ? "m-0 rounded-xl border border-bad-line bg-bad-soft px-5 py-4 text-sm text-bad-ink" : "m-0 rounded-xl border border-line bg-sub px-5 py-4 text-sm text-ink-2"}>
-          {scan.status === "failed" ? `This scan failed${scan.error ? `: ${scan.error}` : "."} Results below are what it found before stopping.` : "This scan was stopped early. Results below are what it found until then."}
-        </p>
+      {scan.status === "failed" && (
+        <Notice tone="bad" role="alert" title="This scan failed">
+          {scan.error ? `${scan.error} ` : ""}Results below are what it found before stopping.
+        </Notice>
+      )}
+      {scan.status === "stopped" && (
+        <Notice role="status" title="Stopped early">
+          Results below are what the scan found until then.
+        </Notice>
       )}
 
       <ReportBody results={results} ctx={ctx} cat={cat} filterHref={(c) => makePanelHref(path, { cat: c === "all" ? undefined : c })(null)} />

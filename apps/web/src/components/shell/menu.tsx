@@ -1,62 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { cx } from "@/components/ui";
+import type { ReactNode } from "react";
+import { cx, Popover } from "@/components/ui";
 
-/** A button that opens a small popover; closes on outside click, Escape, or navigation. */
-export function Menu({
-  label,
-  button,
-  children,
-  align = "left",
-  buttonClassName,
-}: {
-  label: string;
-  button: ReactNode;
-  children: ReactNode;
-  align?: "left" | "right";
-  buttonClassName?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
+/** A menu in the header: a Popover that closes when an item is chosen. */
+export function Menu({ label, button, children, align = "left", buttonClassName }: { label: string; button: ReactNode; children: ReactNode; align?: "left" | "right"; buttonClassName?: string }) {
   return (
-    <div ref={ref} className="relative">
-      <button type="button" aria-label={label} aria-expanded={open} className={buttonClassName} onClick={() => setOpen((o) => !o)}>
-        {button}
-      </button>
-      {open && (
-        <div
-          role="menu"
-          onClick={(e) => (e.target as HTMLElement).closest("a,button") && setOpen(false)}
-          className={cx(
-            "absolute top-[calc(100%+6px)] z-40 flex w-[280px] max-w-[calc(100vw-32px)] flex-col rounded-xl border border-line-strong bg-card py-1.5 shadow-[0_24px_48px_-24px_rgba(20,18,15,0.35)]",
-            align === "right" ? "right-0" : "left-0",
-          )}
-        >
-          {children}
-        </div>
-      )}
-    </div>
+    <Popover menu label={label} button={button} align={align} buttonClassName={buttonClassName}>
+      {children}
+    </Popover>
   );
 }
 
 export function MenuItem({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("px-1.5", className)}>{children}</div>;
+  return (
+    <div role="none" className={cx("px-1.5", className)}>
+      {children}
+    </div>
+  );
 }
 
-export const menuLinkClass = "flex w-full cursor-pointer flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[15px] text-ink no-underline hover:bg-sub";
+export const menuLinkClass = "flex w-full cursor-pointer flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-body text-ink no-underline transition-colors hover:bg-sub hover:text-ink";

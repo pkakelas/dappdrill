@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { Field, FormMessage } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
+import { AuthCard } from "./auth-card";
 
 export function ResetForm({ token }: { token: string }) {
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -21,16 +23,16 @@ export function ResetForm({ token }: { token: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="card flex flex-col gap-4 p-7">
-      <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">Choose a new password</h1>
-      <label className="flex flex-col gap-1.5">
-        <span className="label">New password</span>
-        <input name="password" type="password" required minLength={8} className="field" autoComplete="new-password" />
-      </label>
-      {error && <p className="m-0 text-sm text-bad">{error}</p>}
-      <button className="btn btn-primary w-full" disabled={pending}>
-        Save password
-      </button>
-    </form>
+    <AuthCard title="Choose a new password">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4" aria-busy={pending}>
+        <Field label="New password" hint="At least 8 characters.">
+          <input name="password" type="password" required minLength={8} className="field" autoComplete="new-password" aria-invalid={error ? true : undefined} />
+        </Field>
+        <FormMessage state={{ error }} />
+        <button className="btn btn-primary btn-lg w-full" disabled={pending}>
+          {pending ? "Saving…" : "Save password"}
+        </button>
+      </form>
+    </AuthCard>
   );
 }

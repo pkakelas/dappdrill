@@ -1,6 +1,6 @@
 import { CATEGORY_LABEL, EDGE_CASES, type IssueCategory } from "@dappdrill/core";
 import Link from "next/link";
-import { PlayIcon, StatGrid, VerdictTag } from "@/components/ui";
+import { Blank, Cell, List, ListRow, PlayIcon, Reveal, Section, StatGrid, VerdictTag } from "@/components/ui";
 import { plural } from "@/lib/format";
 import { buildMatrix, summarize, type Results } from "@/lib/report";
 import type { ViewCtx } from "./ctx";
@@ -46,47 +46,47 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
         ]}
       />
 
-      <section aria-labelledby="issues" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="issues" className="h2">
-            Issues
-          </h2>
-          {s.open.length > 0 && (
-            <div className="seg" role="group" aria-label="Filter issues">
+      <Section
+        title="Issues"
+        action={
+          s.open.length > 0 && (
+            <nav className="seg" aria-label="Filter issues">
               {FILTERS.filter((c) => c === "all" || c !== "rpc" || counts("rpc") > 0).map((c) => (
-                <Link key={c} href={filterHref(c)} scroll={false} aria-current={filter === c} replace>
-                  {c === "all" ? "All" : CATEGORY_LABEL[c]} {counts(c)}
+                <Link key={c} href={filterHref(c)} scroll={false} aria-current={filter === c ? "true" : undefined} replace>
+                  {c === "all" ? "All" : CATEGORY_LABEL[c]}
+                  <span className="count">{counts(c)}</span>
                 </Link>
               ))}
-            </div>
-          )}
-        </div>
+            </nav>
+          )
+        }
+      >
         {filter === "all" &&
           s.brokenRuns.map((run) => {
             const edge = EDGE_CASES.find((e) => e.id === run.edgeCase)?.label ?? run.edgeCase;
             return (
-              <article key={run.id} className="card flex flex-wrap items-center gap-4 px-5 py-4 sm:px-6">
+              <article key={run.id} className="card relative flex flex-wrap items-center gap-4 px-5 py-4 transition-colors has-[.stretched:hover]:bg-sub sm:px-6">
                 <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="tag bg-bad-bg text-bad">Failed</span>
-                    <span className="text-[13px] text-muted">
+                    <Cell kind="fail" />
+                    <span className="meta">
                       {names.get(run.flowId ?? run.result.flowId) ?? "Flow"} · {edge}
                     </span>
                   </div>
-                  <h3 className="m-0 text-base font-semibold">
-                    <Link href={ctx.panelHref(`run.${run.id}`)} scroll={false} className="no-underline hover:underline">
+                  <h3 className="m-0 text-lead font-medium">
+                    <Link href={ctx.panelHref(`run.${run.id}`)} scroll={false} className="stretched no-underline">
                       {run.result.reason ?? "The flow didn't finish"}
                     </Link>
                   </h3>
                 </div>
-                <Link href={ctx.panelHref(`run.${run.id}`)} scroll={false} className="btn btn-sm">
+                <span className="meta flex items-center gap-1.5" aria-hidden="true">
                   <PlayIcon />
                   Watch run
-                </Link>
+                </span>
               </article>
             );
           })}
-        {visible.length === 0 && s.brokenRuns.length === 0 && <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">{s.open.length ? "No issues in this category." : "No issues found."}</p>}
+        {visible.length === 0 && s.brokenRuns.length === 0 && <Blank>{s.open.length ? "No issues in this category." : "No issues found."}</Blank>}
         {main.map((i) =>
           i.severity === "critical" ? (
             <CriticalIssueCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} reviewHref={reviewHref(i.data.evidence.signingReviewId)} />
@@ -95,60 +95,47 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
           ),
         )}
         {low.length > 0 && (
-          <details className="flex flex-col gap-3">
-            <summary className="btn-link w-fit text-sm text-muted">Show {low.length} low-severity {low.length === 1 ? "issue" : "issues"}</summary>
-            <div className="mt-3 flex flex-col gap-3">
-              {low.map((i) => (
-                <IssueRowCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
-              ))}
-            </div>
-          </details>
+          <Reveal label={`Show ${plural(low.length, "low-severity issue")}`}>
+            {low.map((i) => (
+              <IssueRowCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
+            ))}
+          </Reveal>
         )}
         {ignored.length > 0 && (
-          <details>
-            <summary className="btn-link w-fit text-sm text-muted">{ignored.length} marked as expected</summary>
-            <div className="mt-3 flex flex-col gap-3">
-              {ignored.map((i) => (
-                <IssueRowCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
-              ))}
-            </div>
-          </details>
+          <Reveal label={`${ignored.length} marked as expected`}>
+            {ignored.map((i) => (
+              <IssueRowCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
+            ))}
+          </Reveal>
         )}
-      </section>
+      </Section>
 
       {reviews.length > 0 && (
-        <section aria-labelledby="signing" className="flex flex-col gap-3">
-          <h2 id="signing" className="h2">
-            Signature requests
-          </h2>
-          <ul className="card m-0 list-none divide-y divide-divide p-0">
-            {flagged.map((r) => (
-              <ReviewLine key={r.id} review={r} ctx={ctx} />
-            ))}
-            {flagged.length === 0 && <li className="px-5 py-3.5 text-sm text-muted">Every request matched what the page said.</li>}
-          </ul>
+        <Section title="Signature requests" hint="Each distinct request the dApp asked the wallet to sign, worst first.">
+          {flagged.length > 0 ? (
+            <List>
+              {flagged.map((r) => (
+                <ReviewLine key={r.id} review={r} ctx={ctx} />
+              ))}
+            </List>
+          ) : (
+            <Blank>Every request matched what the page said.</Blank>
+          )}
           {consistent.length > 0 && (
-            <details>
-              <summary className="btn-link w-fit text-sm text-muted">{plural(consistent.reduce((n, r) => n + r.count, 0), "request")} looked consistent</summary>
-              <ul className="card m-0 mt-3 list-none divide-y divide-divide p-0">
+            <Reveal label={`${plural(consistent.reduce((n, r) => n + r.count, 0), "request")} looked consistent`}>
+              <List>
                 {consistent.map((r) => (
                   <ReviewLine key={r.id} review={r} ctx={ctx} />
                 ))}
-              </ul>
-            </details>
+              </List>
+            </Reveal>
           )}
-        </section>
+        </Section>
       )}
 
-      <section aria-labelledby="matrix" className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 id="matrix" className="h2">
-            Every flow, every edge case
-          </h2>
-          <p className="hint m-0">Each cell is one run. Click a cell to watch it.</p>
-        </div>
+      <Section id="matrix" title="Every flow, every edge case" hint="Each cell is one run. Click a cell to watch it.">
         <MatrixTable matrix={buildMatrix(results)} ctx={ctx} />
-      </section>
+      </Section>
     </>
   );
 }
@@ -179,17 +166,17 @@ function groupReviews(rows: Results["reviews"], names: Map<string, string>): Rev
 
 function ReviewLine({ review: r, ctx }: { review: ReviewGroup; ctx: ViewCtx }) {
   return (
-    <li>
-      <Link href={ctx.panelHref(`review.${r.id}`)} scroll={false} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 no-underline hover:bg-sub">
-        <span className="flex min-w-0 flex-col">
-          <span className="text-sm font-medium">
-            {r.title}
-            {r.count > 1 && <span className="font-normal text-muted"> · {r.count} times</span>}
-          </span>
-          {r.flows.length > 0 && <span className="text-[13px] text-muted">{r.flows.join(", ")}</span>}
-        </span>
-        <VerdictTag verdict={r.verdict} />
-      </Link>
-    </li>
+    <ListRow
+      href={ctx.panelHref(`review.${r.id}`)}
+      scroll={false}
+      title={
+        <>
+          {r.title}
+          {r.count > 1 && <span className="font-normal text-muted"> · {r.count} times</span>}
+        </>
+      }
+      meta={r.flows.length > 0 ? r.flows.join(", ") : undefined}
+      aside={<VerdictTag verdict={r.verdict} />}
+    />
   );
 }

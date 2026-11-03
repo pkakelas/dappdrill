@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Field, Notice } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
+import { AuthCard } from "./auth-card";
 
 export function ForgotForm() {
   const [sent, setSent] = useState(false);
@@ -17,24 +19,22 @@ export function ForgotForm() {
   }
 
   return (
-    <div className="card flex flex-col gap-5 p-7">
-      <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">Reset your password</h1>
+    <AuthCard title="Reset your password" sub={sent ? undefined : "We'll email you a link to choose a new one."}>
       {sent ? (
-        <p className="m-0 text-sm text-ink-2">If that email has an account, a reset link is on its way.</p>
+        <Notice role="status">If that email has an account, a reset link is on its way.</Notice>
       ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="label">Email</span>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4" aria-busy={pending}>
+          <Field label="Email">
             <input name="email" type="email" required className="field" autoComplete="email" />
-          </label>
-          <button className="btn btn-primary w-full" disabled={pending}>
-            Send reset link
+          </Field>
+          <button className="btn btn-primary btn-lg w-full" disabled={pending}>
+            {pending ? "Sending…" : "Send reset link"}
           </button>
         </form>
       )}
-      <Link href="/login" className="text-sm text-muted">
+      <Link href="/login" className="btn-link w-fit text-muted">
         Back to log in
       </Link>
-    </div>
+    </AuthCard>
   );
 }

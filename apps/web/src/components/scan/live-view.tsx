@@ -4,7 +4,7 @@ import { chainName, SCAN_STAGE_LABEL, type FlowLiveStatus, type ScanStage, type 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { stopScanAction } from "@/actions/scan";
-import { cx } from "@/components/ui";
+import { Addr, Blank, ConfirmButton, cx, LiveDot, Mono, Pill, StatGrid } from "@/components/ui";
 import { TERMINAL, type LiveEvent, type ScanSnapshot } from "@/lib/live";
 
 const STAGES: ScanStage[] = ["map", "flows", "edge-cases", "signing"];
@@ -26,10 +26,6 @@ function elapsed(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(s / 60);
   return m ? `${m} min ${s % 60} s` : `${s} s`;
-}
-
-function shortAddr(a?: string) {
-  return a && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : (a ?? "");
 }
 
 export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBase }: { scanId: string; host: string; initialEvents: LiveEvent[]; initialSnapshot: ScanSnapshot; frameBase: string }) {
@@ -134,11 +130,11 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="h1">
-            Scanning <span className="font-mono text-[23px] font-medium break-all sm:text-[27px]">{host}</span>
+            Scanning <Mono className="text-[23px] font-medium break-all sm:text-[27px]">{host}</Mono>
           </h1>
           <p className="m-0 flex flex-wrap items-center gap-2.5 text-sm text-ink-3">
             <span className="inline-flex items-center gap-2" suppressHydrationWarning>
-              <span className={cx("size-2 rounded-full", running ? "animate-pulse bg-live" : "bg-quiet")} />
+              {running ? <LiveDot /> : <span className="size-2 rounded-full bg-quiet" aria-hidden="true" />}
               {snap.status === "queued" ? "Waiting for a worker" : startedAt ? `Running for ${elapsed(now - startedAt)}` : "Starting"}
             </span>
             <span aria-hidden="true">·</span>
@@ -152,9 +148,9 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
           </p>
         </div>
         <form action={() => startStop(() => stopScanAction(scanId).then(() => setSnap((s) => ({ ...s, stopRequested: true }))))}>
-          <button type="submit" className="btn" disabled={snap.stopRequested || stopping}>
+          <ConfirmButton confirm="Stop the scan?" disabled={snap.stopRequested || stopping}>
             {snap.stopRequested ? "Stopping…" : "Stop scan"}
-          </button>
+          </ConfirmButton>
         </form>
       </header>
 
@@ -166,8 +162,8 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
               <div className="h-1 rounded-sm bg-divide">
                 <div className={cx("h-1 rounded-sm transition-all", s?.status === "done" ? "bg-ink" : "bg-live")} style={{ width: s?.status === "done" ? "100%" : `${Math.round((s?.progress ?? 0) * 100)}%` }} />
               </div>
-              <span className={cx("text-[13px] font-medium", !s && "text-ink-3")}>{SCAN_STAGE_LABEL[st]}</span>
-              <span className="text-xs text-muted">{s?.status === "done" ? `${stageNote[st]} · done` : s ? stageNote[st] : "Waiting"}</span>
+              <span className={cx("text-meta font-medium", !s && "text-ink-3")}>{SCAN_STAGE_LABEL[st]}</span>
+              <span className="meta">{s?.status === "done" ? `${stageNote[st]} · done` : s ? stageNote[st] : "Waiting"}</span>
             </li>
           );
         })}
@@ -192,14 +188,18 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
                 <span className="text-sm text-muted">{snap.status === "queued" ? "Waiting for the browser to start…" : "Loading the first frame…"}</span>
               )}
               {showSign && derived.lastSign && (
-                <div className="absolute top-4 right-4 flex w-[280px] max-w-[calc(100%-32px)] flex-col gap-2.5 rounded-xl border border-ink bg-card p-4 shadow-[0_8px_24px_rgba(23,24,28,0.12)]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold tracking-[0.04em] text-ink-3 uppercase">Signature request</span>
-                    <span className="pill bg-live-bg px-2 py-0.5 text-[11px] text-live-ink">{chainName(derived.lastSign.req.chainId)}</span>
+                <div className="popover absolute top-4 right-4 flex w-[280px] max-w-[calc(100%-32px)] flex-col gap-2.5 border-ink p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="label">Signature request</span>
+                    <Pill>{chainName(derived.lastSign.req.chainId)}</Pill>
                   </div>
                   <div className="font-mono text-sm font-medium break-all">{derived.lastSign.req.method}</div>
-                  {derived.lastSign.req.from && <div className="text-xs text-muted">From <span className="font-mono">{shortAddr(derived.lastSign.req.from)}</span></div>}
-                  <div className="text-xs text-muted">{derived.lastSign.req.outcome === "pending" ? "Waiting for the wallet" : `Wallet ${derived.lastSign.req.outcome}`}</div>
+                  {derived.lastSign.req.from && (
+                    <div className="meta">
+                      From <Addr value={derived.lastSign.req.from} />
+                    </div>
+                  )}
+                  <div className="meta">{derived.lastSign.req.outcome === "pending" ? "Waiting for the wallet" : `Wallet ${derived.lastSign.req.outcome}`}</div>
                 </div>
               )}
             </div>
@@ -207,31 +207,27 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
         </section>
 
         <aside className="flex min-w-0 flex-[2_1_320px] flex-col gap-5">
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { v: derived.flows.length, l: "flows found" },
-              { v: derived.signs, l: "sign requests" },
-              { v: derived.issues, l: "issues so far", bad: derived.issues > 0 },
-            ].map((s) => (
-              <div key={s.l} className="rounded-[10px] border border-line bg-card p-3.5">
-                <div className={cx("text-2xl font-semibold", s.bad && "text-bad")}>{s.v}</div>
-                <div className="text-xs text-muted">{s.l}</div>
-              </div>
-            ))}
-          </div>
+          <StatGrid
+            size="sm"
+            stats={[
+              { value: derived.flows.length, label: "flows found" },
+              { value: derived.signs, label: "sign requests" },
+              { value: derived.issues, label: "issues so far", tone: derived.issues > 0 ? "bad" : undefined },
+            ]}
+          />
 
           <section aria-labelledby="log" className="flex flex-col gap-2.5">
             <h2 id="log" className="eyebrow">
               What it&apos;s doing
             </h2>
             {derived.log.length === 0 ? (
-              <p className="hint m-0">Nothing yet.</p>
+              <Blank>Nothing yet.</Blank>
             ) : (
-              <ol className="m-0 max-h-[360px] list-none overflow-y-auto rounded-[10px] border border-line bg-card p-0" aria-live="polite">
+              <ol className="list max-h-[360px] overflow-y-auto" aria-live="polite">
                 {derived.log.map((l, i) => (
-                  <li key={l.id + ":" + i} className={cx("grid grid-cols-[48px_minmax(0,1fr)] gap-3 border-b border-divide px-3.5 py-3 last:border-b-0", i === 0 && running && "bg-live-soft")}>
+                  <li key={l.id + ":" + i} className={cx("grid grid-cols-[48px_minmax(0,1fr)] gap-3 px-3.5 py-3", i === 0 && running && "bg-live-soft")}>
                     <span className={cx("font-mono text-xs", i === 0 && running ? "text-live-ink" : "text-muted")}>{startedAt ? clock(new Date(l.at).getTime() - startedAt) : "--:--"}</span>
-                    <span className={cx("text-[13px] leading-snug break-words", l.tone === "bad" && "font-semibold text-bad", l.tone === "warn" && "text-warn")}>{l.text}</span>
+                    <span className={cx("text-meta leading-snug break-words", l.tone === "bad" && "font-semibold text-bad", l.tone === "warn" && "text-warn")}>{l.text}</span>
                   </li>
                 ))}
               </ol>
@@ -243,9 +239,9 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
               Flows found
             </h2>
             {derived.flows.length === 0 ? (
-              <p className="hint m-0">None yet. Mapping the site first.</p>
+              <Blank>None yet. Mapping the site first.</Blank>
             ) : (
-              <ul className="m-0 flex list-none flex-col p-0 text-[13px]">
+              <ul className="m-0 flex list-none flex-col p-0 text-meta">
                 {derived.flows.map(([id, f]) => (
                   <li key={id} className="flex justify-between gap-3 border-b border-divide px-0.5 py-2 last:border-b-0">
                     <span className={cx("min-w-0 truncate", f.status === "running" && "font-medium")}>{f.name}</span>

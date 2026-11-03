@@ -3,7 +3,7 @@ import { db, flows, issues, runs, signingReviews } from "@dappdrill/db";
 import { and, asc, eq, or, sql } from "drizzle-orm";
 import Link from "next/link";
 import { setIssueStatusAction } from "@/actions/results";
-import { Cell, cx, RUN_STATUS_LABEL, SeverityTag, VerdictTag } from "@/components/ui";
+import { ActionButton, Cell, cx, Facts, List, ListRow, Notice, Pill, RUN_STATUS_LABEL, SeverityTag, VerdictTag } from "@/components/ui";
 import { artifactOwner, artifactUrl } from "@/lib/artifacts";
 import { dateTime } from "@/lib/format";
 import { githubNewIssueUrl, issueMarkdown } from "@/lib/github";
@@ -58,34 +58,43 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
         <>
           <SeverityTag severity={issue.severity} />
           <span>{issueMeta(issue, name)}</span>
-          {d.unverified && <span className="pill bg-hair text-muted">Unverified</span>}
+          {d.unverified && <Pill>Unverified</Pill>}
+          {issue.status === "ignored" && <Pill>Marked expected</Pill>}
         </>
       }
       title={issue.title}
+      footer={
+        !ctx.readOnly && (
+          <>
+            <RerunButton ctx={ctx} flowId={issue.flowId} edgeCase={d.edgeCase} label="Re-run" />
+            <ActionButton action={setIssueStatusAction} fields={{ issueId: issue.id, status: issue.status === "ignored" ? "open" : "ignored" }} className="btn-sm">
+              {issue.status === "ignored" ? "Reopen" : "This is expected"}
+            </ActionButton>
+            {ctx.githubRepo ? (
+              <a href={githubNewIssueUrl(ctx.githubRepo, issue.title, md)} target="_blank" rel="noreferrer" className="btn btn-sm">
+                Open GitHub issue
+              </a>
+            ) : (
+              <CopyButton text={md} label="Copy as Markdown" />
+            )}
+          </>
+        )
+      }
     >
-      <p className="m-0 text-[15px] leading-relaxed text-ink-2">{d.summary}</p>
+      <p className="m-0 text-body text-ink-2">{d.summary}</p>
       <SaidVsAsked said={d.evidence.buttonLabel} asked={d.evidence.walletAsked} />
       {(d.expected || d.actual) && (
-        <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
-          {d.expected && (
-            <>
-              <dt className="text-muted">Expected</dt>
-              <dd className="m-0">{d.expected}</dd>
-            </>
-          )}
-          {d.actual && (
-            <>
-              <dt className="text-muted">Actual</dt>
-              <dd className="m-0">{d.actual}</dd>
-            </>
-          )}
-        </dl>
+        <Facts
+          items={[
+            ...(d.expected ? [["Expected", d.expected] as [string, string]] : []),
+            ...(d.actual ? [["Actual", d.actual] as [string, string]] : []),
+          ]}
+        />
       )}
       {review && (
-        <Link href={ctx.panelHref(`review.${review.id}`)} scroll={false} className="card flex items-center justify-between gap-3 px-4 py-3 no-underline hover:bg-sub">
-          <span className="text-sm font-medium">Signing review: {review.data.title}</span>
-          <VerdictTag verdict={review.verdict} />
-        </Link>
+        <List>
+          <ListRow href={ctx.panelHref(`review.${review.id}`)} scroll={false} title={`Signing review: ${review.data.title}`} aside={<VerdictTag verdict={review.verdict} />} />
+        </List>
       )}
       {d.stepsToReproduce.length > 0 && (
         <PanelSection title="Steps to reproduce">
@@ -100,25 +109,6 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
       <Screenshot src={shot} alt={`Screenshot: ${issue.title}`} />
       <ConsoleLog entries={d.evidence.console ?? result?.console} />
       <RpcLog entries={d.evidence.rpc ?? result?.rpc} />
-      {!ctx.readOnly && (
-        <div className="flex flex-wrap gap-2 border-t border-divide pt-5">
-          <RerunButton ctx={ctx} flowId={issue.flowId} edgeCase={d.edgeCase} label="Re-run" />
-          <form action={setIssueStatusAction}>
-            <input type="hidden" name="issueId" value={issue.id} />
-            <input type="hidden" name="status" value={issue.status === "ignored" ? "open" : "ignored"} />
-            <button type="submit" className="btn btn-sm">
-              {issue.status === "ignored" ? "Reopen" : "This is expected"}
-            </button>
-          </form>
-          {ctx.githubRepo ? (
-            <a href={githubNewIssueUrl(ctx.githubRepo, issue.title, md)} target="_blank" rel="noreferrer" className="btn btn-sm">
-              Open GitHub issue
-            </a>
-          ) : (
-            <CopyButton text={md} label="Copy as Markdown" />
-          )}
-        </div>
-      )}
     </SidePanel>
   );
 }
@@ -152,52 +142,52 @@ async function RunPanel({ run, ctx }: { run: RunRow; ctx: ViewCtx }) {
         </>
       }
       title={flowRow?.name ?? "Deleted flow"}
+      footer={
+        !ctx.readOnly && (
+          <>
+            <RerunButton ctx={ctx} flowId={flowRow?.id} edgeCase={run.edgeCase} label="Re-run" />
+            <span className="meta ml-auto">
+              {RUN_STATUS_LABEL[run.status]} · run <span className="font-mono">{run.id.slice(0, 8)}</span>
+            </span>
+          </>
+        )
+      }
     >
       <p className="m-0 text-sm text-ink-2">{edgeCaseInfo(run.edgeCase).description}</p>
-      {r.reason && <p className={cx("m-0 rounded-lg px-4 py-3 text-sm", run.status === "fail" ? "bg-bad-soft text-bad-ink" : "bg-sub text-ink-2")}>{r.reason}</p>}
+      {r.reason && <Notice tone={run.status === "fail" ? "bad" : run.status === "issue" ? "warn" : "neutral"}>{r.reason}</Notice>}
 
       {issueRows.length > 0 && (
         <PanelSection title="Issues in this run">
-          <ul className="card m-0 list-none divide-y divide-divide p-0">
+          <List>
             {issueRows.map((i) => (
-              <li key={i.id}>
-                <Link href={ctx.panelHref(`issue.${i.id}`)} scroll={false} className="flex items-center gap-3 px-4 py-3 text-sm no-underline hover:bg-sub">
-                  <SeverityTag severity={i.severity} />
-                  <span className="min-w-0">{i.title}</span>
-                </Link>
-              </li>
+              <ListRow key={i.id} href={ctx.panelHref(`issue.${i.id}`)} scroll={false} title={i.title} aside={<SeverityTag severity={i.severity} />} />
             ))}
-          </ul>
+          </List>
         </PanelSection>
       )}
       {reviewRows.length > 0 && (
         <PanelSection title="Signing requests">
-          <ul className="card m-0 list-none divide-y divide-divide p-0">
+          <List>
             {reviewRows.map((v) => (
-              <li key={v.id}>
-                <Link href={ctx.panelHref(`review.${v.id}`)} scroll={false} className="flex items-center justify-between gap-3 px-4 py-3 text-sm no-underline hover:bg-sub">
-                  <span className="min-w-0">{v.data.title}</span>
-                  <VerdictTag verdict={v.verdict} />
-                </Link>
-              </li>
+              <ListRow key={v.id} href={ctx.panelHref(`review.${v.id}`)} scroll={false} title={v.data.title} aside={<VerdictTag verdict={v.verdict} />} />
             ))}
-          </ul>
+          </List>
         </PanelSection>
       )}
 
       {steps.length > 0 && (
         <PanelSection title="Steps">
-          <ol className="card m-0 list-none divide-y divide-divide p-0">
+          <ol className="list">
             {steps.map((s, i) => {
               const res = results.get(i);
               return (
                 <li key={i} className="flex items-start gap-3 px-4 py-2.5 text-sm">
-                  <span className="w-5 shrink-0 text-right text-faint">{i + 1}</span>
+                  <span className="w-5 shrink-0 text-right font-mono text-meta text-faint">{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     {describeStep(s)}
-                    {res?.error && <span className="mt-1 block text-[13px] text-bad">{res.error}</span>}
+                    {res?.error && <span className="mt-1 block text-meta text-bad">{res.error}</span>}
                   </span>
-                  <span className={cx("shrink-0 text-[13px]", res?.status === "fail" ? "text-bad" : "text-muted")}>
+                  <span className={cx("shrink-0 text-meta tabular-nums", res?.status === "fail" ? "text-bad" : "text-muted")}>
                     {res ? (res.status === "pass" ? `${(res.durationMs / 1000).toFixed(1)} s` : res.status === "fail" ? "Failed" : "Skipped") : "—"}
                   </span>
                 </li>
@@ -211,12 +201,6 @@ async function RunPanel({ run, ctx }: { run: RunRow; ctx: ViewCtx }) {
       <Screenshot src={artifactUrl(owner, r.finalScreenshot, ctx.share)} alt="Final screen" title="Final screen" />
       <ConsoleLog entries={r.console} />
       <RpcLog entries={r.rpc} />
-      {!ctx.readOnly && (
-        <div className="flex flex-wrap items-center gap-3 border-t border-divide pt-5">
-          <RerunButton ctx={ctx} flowId={flowRow?.id} edgeCase={run.edgeCase} label="Re-run" />
-          <span className="hint">{RUN_STATUS_LABEL[run.status]} · run {run.id}</span>
-        </div>
-      )}
     </SidePanel>
   );
 }
