@@ -91,8 +91,10 @@ async function checkServed(dapps: Dapp[]): Promise<void> {
   if (down.length) throw new Error(`Local frontends not running at their URL. Start them with:\n  ${down.join("\n  ")}`);
 }
 
+/** BENCH_RPC_<chainId> picks the fork's upstream; the public default rate-limits and prunes state under a real dApp's load. */
 function targetFlags(d: Dapp): string[] {
-  return [...d.chains.flatMap((c) => ["--chain", String(c)]), ...d.tokens.flatMap((t) => ["--token", `${t.chainId}:${t.address}=${t.amount}`])];
+  const chain = (c: number) => (process.env[`BENCH_RPC_${c}`] ? `${c}=${process.env[`BENCH_RPC_${c}`]}` : String(c));
+  return [...d.chains.flatMap((c) => ["--chain", chain(c)]), ...d.tokens.flatMap((t) => ["--token", `${t.chainId}:${t.address}=${t.amount}`])];
 }
 
 async function scanDapp(d: Dapp): Promise<void> {

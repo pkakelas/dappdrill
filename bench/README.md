@@ -16,6 +16,13 @@ Mainnet dApps run on local Anvil forks, so nothing reaches a real chain. The cor
 
 The `*-local` entries are open-source frontends (Aave, CoW Swap, GMX) built from source and served on this machine, because their live sites show a bot check to headless browsers. Their `serve` field is the command that starts each one (from `~/workspace/dappdrill-frontends`); `scan` and `replay` refuse to start until they answer. They still read market data, quotes and prices from the live backends, so those can disagree with the fork.
 
+Forks pull state lazily from their upstream RPC. The public defaults (publicnode) rate-limit with 429s under a big dApp's multicalls and keep only recent state, which on Arbitrum ages out within minutes of the pinned block; the page then sees failed or 10-second-plus reads and never loads its data. Set an archive RPC per chain in `.env` to fork from instead:
+
+```bash
+BENCH_RPC_1=https://eth-mainnet.g.alchemy.com/v2/<key>
+BENCH_RPC_42161=https://arb-mainnet.g.alchemy.com/v2/<key>
+```
+
 Spend: `report` adds up `costUsd` from every `scan*` folder of a dApp, so scans that an engine fix made obsolete (kept as `scan-v1`, `scan-v2`) still count. Replays make no model calls.
 
 ## Running
