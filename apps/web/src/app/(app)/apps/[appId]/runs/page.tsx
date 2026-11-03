@@ -4,7 +4,11 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { Empty, HealthBadge } from "@/components/ui";
+import { Empty, HealthBadge, PageHeader } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { dateTime, minutesBetween, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { healthOfCounts, issueCounts } from "@/lib/queries";
 import { requireApp } from "@/lib/session";
@@ -73,66 +77,70 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
   const busy = rows.some((r) => r.status === "queued" || r.status === "running");
 
   return (
-    <div className="page flex flex-col gap-6">
+    <div className="page">
       {busy && <AutoRefresh every={4000} />}
-      <div className="flex flex-col gap-1">
-        <h1 className="h1">Runs</h1>
-        <p className="m-0 text-[15px] text-ink-3">Discovery scans and replays of your saved flows, newest first.</p>
-      </div>
+      <PageHeader title="Runs" description="Discovery scans and replays of your saved flows, newest first." />
       {rows.length === 0 ? (
         <Empty title="Nothing has run yet">
-          <Link href={`/new?app=${app.id}`}>Start a scan</Link> or run your flows from the Flows tab.
+          <p className="mb-4">Start a scan, or run your flows from the Flows tab.</p>
+          <Button asChild>
+            <Link href={`/new?app=${app.id}`}>Start a scan</Link>
+          </Button>
         </Empty>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="table min-w-[680px]">
-            <thead>
-              <tr>
-                <th>What</th>
-                <th>Status</th>
-                <th>Trigger</th>
-                <th>Commit</th>
-                <th>When</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="py-0">
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-4">What</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Trigger</TableHead>
+                <TableHead>Commit</TableHead>
+                <TableHead className="pr-4">When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-sub">
-                  <td>
-                    <Link href={r.href} className="flex flex-col no-underline">
-                      <span className="font-medium">{r.what}</span>
-                      {r.sub && <span className="text-[13px] text-muted">{r.sub}</span>}
+                <TableRow key={r.id}>
+                  <TableCell className="pl-4">
+                    <Link href={r.href} className="flex flex-col">
+                      <span className="font-medium hover:underline">{r.what}</span>
+                      {r.sub && <span className="text-xs text-muted-foreground">{r.sub}</span>}
                     </Link>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {r.status === "done" ? (
                       <HealthBadge health={healthOfCounts(r.counts)} />
                     ) : r.status === "queued" || r.status === "running" ? (
-                      <span className="pill bg-live-bg text-live-ink">{r.status === "queued" ? "Queued" : "Running"}</span>
+                      <Badge variant="secondary" className="rounded-md bg-live-bg text-live-ink">
+                        {r.status === "queued" ? "Queued" : "Running"}
+                      </Badge>
                     ) : (
-                      <span className="pill bg-hair text-muted">{r.status === "failed" ? "Failed" : "Stopped"}</span>
+                      <Badge variant="secondary" className="rounded-md text-muted-foreground">
+                        {r.status === "failed" ? "Failed" : "Stopped"}
+                      </Badge>
                     )}
-                  </td>
-                  <td className="text-[13px] text-ink-2">{TRIGGER_LABEL[r.trigger]}</td>
-                  <td className="text-[13px]">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{TRIGGER_LABEL[r.trigger]}</TableCell>
+                  <TableCell>
                     {r.commit || r.branch ? (
-                      <span className="font-mono">
+                      <span className="font-mono text-xs">
                         {r.commit?.slice(0, 7)}
-                        {r.branch && <span className="text-muted"> {r.branch}</span>}
+                        {r.branch && <span className="text-muted-foreground"> {r.branch}</span>}
                       </span>
                     ) : (
-                      <span className="text-faint">—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
-                  </td>
-                  <td className="text-[13px] text-muted" title={dateTime(r.at)}>
+                  </TableCell>
+                  <TableCell className="pr-4 text-muted-foreground" title={dateTime(r.at)}>
                     {timeAgo(r.at)}
                     {r.duration && ` · ${r.duration}`}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );

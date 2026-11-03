@@ -2,7 +2,7 @@
 
 import { useActionState, type ReactNode } from "react";
 import type { ActionResult } from "@/lib/action-result";
-import { cx } from "@/components/ui";
+import { cx } from "@/components/common";
 import { CopyButton } from "@/components/report/copy-button";
 
 type Action = (prev: ActionResult, form: FormData) => Promise<ActionResult>;
@@ -12,24 +12,24 @@ export function ActionForm({ action, children, className, secretLabel }: { actio
   const [state, act, pending] = useActionState<ActionResult, FormData>(action, undefined);
   return (
     <form action={act} className={cx("flex flex-col gap-3", className)} aria-busy={pending}>
-      <fieldset disabled={pending} className="m-0 contents border-0 p-0">
+      <fieldset disabled={pending} className="contents">
         {children}
       </fieldset>
       {state?.error && (
-        <p role="alert" className="m-0 text-[13px] text-bad">
+        <p role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
       )}
       {state?.ok && !state.error && (
-        <p role="status" className="m-0 text-[13px] text-muted">
+        <p role="status" className="text-sm text-muted-foreground">
           {state.ok}
         </p>
       )}
       {state?.secret && (
-        <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-sub p-3">
-          {secretLabel && <span className="text-[13px] text-ink-2">{secretLabel}</span>}
+        <div className="flex flex-col gap-2 rounded-lg border bg-muted/50 p-3">
+          {secretLabel && <span className="text-sm">{secretLabel}</span>}
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 font-mono text-[13px] break-all">{state.secret}</code>
+            <code className="min-w-0 flex-1 font-mono text-sm break-all">{state.secret}</code>
             <CopyButton text={state.secret} label="Copy" />
           </div>
         </div>

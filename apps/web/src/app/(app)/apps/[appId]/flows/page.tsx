@@ -1,13 +1,19 @@
 import { apiTokens, db, flowChanges, flows, repairs, scans, variations } from "@dappdrill/db";
 import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
+import { CalendarClock, Play } from "lucide-react";
 import Link from "next/link";
 import { runAllAction } from "@/actions/flows";
 import { rerunAction } from "@/actions/results";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { DescribeForm, ScheduleForm } from "@/components/flows/forms";
 import { ChangeCard, RepairBanner } from "@/components/flows/proposals";
-import { cx, PlayIcon, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/ui";
+import { cx, Empty, PageHeader, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/common";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { isHostVerified } from "@/lib/domains";
 import { env } from "@/lib/env";
 import { plural, timeAgo } from "@/lib/format";
@@ -58,55 +64,49 @@ export default async function FlowsPage({ params, searchParams }: Props) {
   }
 
   return (
-    <div className="page flex flex-col gap-8">
+    <div className="page flex flex-col gap-6">
       {busy && <AutoRefresh every={4000} />}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="h1">Flows</h1>
-          <p className="m-0 text-[15px] text-ink-2">
-            {plural(flowRows.length, "saved flow")}. Replays don&apos;t use your scan allowance, so run them as often as you like.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <details className="relative">
-            <summary className="btn list-none">Schedule</summary>
-            <div className="card absolute right-0 z-20 mt-2 w-[320px] p-5 shadow-lg">
-              <ScheduleForm appId={app.id} time={app.scheduleTime} verified={verified} host={app.host} />
-            </div>
-          </details>
-          <form action={runAllAction}>
-            <input type="hidden" name="appId" value={app.id} />
-            <button type="submit" className="btn btn-primary" disabled={flowRows.length === 0}>
-              <PlayIcon /> Run all
-            </button>
-          </form>
-        </div>
-      </div>
+      <PageHeader
+        title="Flows"
+        description={`${plural(flowRows.length, "saved flow")}. Replays don't use your scan allowance, so run them as often as you like.`}
+        actions={
+          <>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <CalendarClock /> Schedule
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80">
+                <ScheduleForm appId={app.id} time={app.scheduleTime} verified={verified} host={app.host} />
+              </PopoverContent>
+            </Popover>
+            <form action={runAllAction}>
+              <input type="hidden" name="appId" value={app.id} />
+              <Button type="submit" disabled={flowRows.length === 0}>
+                <Play /> Run all
+              </Button>
+            </form>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          {app.scheduleTime ? `Runs every day at ${app.scheduleTime} UTC` : "No daily schedule"} ·{" "}
+          {ciUsed ? (
+            "On every pull request, via GitHub Action"
+          ) : (
+            <Link href="/account#tokens" className="underline underline-offset-4">
+              Set up the GitHub Action
+            </Link>
+          )}
+        </p>
+      </PageHeader>
 
       {error && (
-        <p role="alert" className="m-0 rounded-xl border border-bad-line bg-bad-soft px-5 py-3 text-sm text-bad-ink">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
-
-      <section className="card flex flex-col gap-3 p-5 sm:p-6" aria-label="Add a flow">
-        <DescribeForm
-          appId={app.id}
-          label="Add a flow"
-          placeholder="e.g. Deposit 50 USDC, then withdraw half of it"
-          hint="It walks the flow once with the wallet, shows you the steps, and saves them after you confirm."
-          button="Add flow"
-        />
-        <p className="hint m-0">
-          Keeping flows in your repo? <code className="font-mono">dappdrill push-flows --report-to {env.appUrl}</code> uploads them; see{" "}
-          <Link href="/account#tokens">API tokens</Link>.
-        </p>
-      </section>
-
-      <p className="m-0 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-muted">
-        <span>{app.scheduleTime ? `Every day at ${app.scheduleTime} UTC` : "No daily schedule"}</span>
-        <span>{ciUsed ? "On every pull request, via GitHub Action" : <Link href="/account#tokens">Set up the GitHub Action</Link>}</span>
-      </p>
 
       {changes.map((c) => (
         <ChangeCard key={c.id} change={c} />
@@ -117,75 +117,78 @@ export default async function FlowsPage({ params, searchParams }: Props) {
       })}
 
       {flowRows.length === 0 ? (
-        <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">
-          No saved flows yet. A scan saves every flow it finds, or describe one above.
-        </p>
+        <Empty title="No saved flows yet">A scan saves every flow it finds, or describe one below.</Empty>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="table min-w-[760px]">
-            <thead>
-              <tr>
-                <th>Flow</th>
-                <th className="text-right">Steps</th>
-                <th className="text-right">Signatures</th>
-                <th>Last run</th>
-                <th>Last 10 runs</th>
-                <th className="sr-only">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="py-0">
+          <Table className="md:min-w-[720px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-4">Flow</TableHead>
+                <TableHead className="hidden text-right md:table-cell">Steps</TableHead>
+                <TableHead className="hidden text-right md:table-cell">Signatures</TableHead>
+                <TableHead className="hidden sm:table-cell">Last run</TableHead>
+                <TableHead className="hidden sm:table-cell">Last 10 runs</TableHead>
+                <TableHead className="sr-only">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {flowRows.map((f) => {
                 const l = last.get(f.id);
                 const needsFix = repairFor.has(f.id);
                 return (
-                  <tr key={f.id}>
-                    <td>
-                      <Link href={`/apps/${app.id}/flows/${f.id}`} className="font-medium no-underline hover:underline">
+                  <TableRow key={f.id}>
+                    <TableCell className="pl-4 whitespace-normal">
+                      <Link href={`/apps/${app.id}/flows/${f.id}`} className="font-medium hover:underline">
                         {f.name}
                       </Link>
-                      <div className="text-[13px] text-muted">{origin(f)}</div>
-                    </td>
-                    <td className="text-right tabular-nums">{f.definition.steps.length}</td>
-                    <td className="text-right tabular-nums">{f.definition.steps.filter((s) => s.kind === "wallet").length}</td>
-                    <td>
-                      <span className={cx("text-sm", needsFix ? "text-warn" : l ? RUN_STATUS_TEXT[l.status] : "text-muted")}>
+                      <div className="text-xs text-muted-foreground">{origin(f)}</div>
+                    </TableCell>
+                    <TableCell className="hidden text-right tabular-nums md:table-cell">{f.definition.steps.length}</TableCell>
+                    <TableCell className="hidden text-right tabular-nums md:table-cell">{f.definition.steps.filter((s) => s.kind === "wallet").length}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <span className={cx(needsFix ? "text-warn" : l ? RUN_STATUS_TEXT[l.status] : "text-muted-foreground")}>
                         {needsFix ? "Needs a fix" : l ? RUN_STATUS_LABEL[l.status] : "Not run yet"}
                       </span>
-                      {l && <span className="text-[13px] text-muted"> · {timeAgo(l.at)}</span>}
-                    </td>
-                    <td>
+                      {l && <span className="text-muted-foreground"> · {timeAgo(l.at)}</span>}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Sparkbars statuses={statuses.get(f.id) ?? []} />
-                    </td>
-                    <td className="text-right">
+                    </TableCell>
+                    <TableCell className="pr-4 text-right">
                       <form action={rerunAction}>
                         <input type="hidden" name="appId" value={app.id} />
                         <input type="hidden" name="flowId" value={f.id} />
-                        <button type="submit" className="btn btn-sm" aria-label={`Run ${f.name}`}>
-                          <PlayIcon /> Run
-                        </button>
+                        <Button type="submit" variant="outline" size="sm" aria-label={`Run ${f.name}`}>
+                          <Play /> Run
+                        </Button>
                       </form>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
-      <p className="m-0 flex gap-4 text-[13px] text-muted">
-        <Legend cls="bg-quiet" label="Passed" />
-        <Legend cls="bg-warn-bar" label="Note or fix needed" />
-        <Legend cls="bg-bad" label="Failed" />
-      </p>
-    </div>
-  );
-}
 
-function Legend({ cls, label }: { cls: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={cx("h-3 w-2 rounded-[2px]", cls)} />
-      {label}
-    </span>
+      <Card>
+        <CardContent className="flex flex-col gap-3">
+          <DescribeForm
+            appId={app.id}
+            label="Add a flow"
+            placeholder="e.g. Deposit 50 USDC, then withdraw half of it"
+            hint="It walks the flow once with the wallet, shows you the steps, and saves them after you confirm."
+            button="Add flow"
+          />
+          <p className="text-sm text-muted-foreground">
+            Keeping flows in your repo? <code className="font-mono">dappdrill push-flows --report-to {env.appUrl}</code> uploads them; see{" "}
+            <Link href="/account#tokens" className="underline underline-offset-4">
+              API tokens
+            </Link>
+            .
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

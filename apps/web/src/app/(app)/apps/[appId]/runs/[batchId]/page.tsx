@@ -9,6 +9,8 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { makePanelHref } from "@/components/report/ctx";
 import { ResultPanel } from "@/components/report/panels";
 import { headline, ReportBody } from "@/components/report/report-body";
+import { PageHeader } from "@/components/common";
+import { Button } from "@/components/ui/button";
 import { dateTime, minutesBetween, plural, TRIGGER_LABEL } from "@/lib/format";
 import { githubRepo } from "@/lib/queries";
 import { loadPanel, loadResults, summarize } from "@/lib/report";
@@ -38,40 +40,43 @@ export default async function BatchPage({ params, searchParams }: Props) {
   const cases = batch.request.edgeCases.map((e) => edgeCaseInfo(e).label).join(", ");
 
   return (
-    <div className="page flex flex-col gap-8">
+    <div className="page flex flex-col gap-6">
       {active && <AutoRefresh every={3000} />}
-      <header className="flex flex-col gap-2">
-        <span className="crumbs">
+      <div>
+        <nav className="mb-2 text-sm text-muted-foreground [&_a]:hover:text-foreground">
           <Link href={`/apps/${app.id}/runs`}>Runs</Link> / {TRIGGER_LABEL[batch.trigger]} run · {dateTime(batch.createdAt)}
           {batch.finishedAt && `, ${minutesBetween(batch.startedAt ?? batch.createdAt, batch.finishedAt)}`}
-        </span>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="h1">
-            {active ? (batch.stopRequested ? "Stopping…" : batch.status === "queued" ? "Waiting for a worker…" : "Running…") : batch.status === "failed" ? "This run failed" : batch.status === "stopped" ? `Stopped early. ${headline(s)}` : headline(s)}
-          </h1>
-          {active && !batch.stopRequested && (
-            <form action={stopBatchAction}>
-              <input type="hidden" name="batchId" value={batch.id} />
-              <button type="submit" className="btn btn-sm">
-                Stop
-              </button>
-            </form>
-          )}
-        </div>
-        <p className="m-0 text-[15px] text-ink-3">
-          {plural(batch.request.flowIds.length, "flow")} × {cases}
-          {variation && ` · variation “${variation.name}”`}
-          {(batch.request.commit || batch.request.branch) && (
+        </nav>
+        <PageHeader
+          title={active ? (batch.stopRequested ? "Stopping…" : batch.status === "queued" ? "Waiting for a worker…" : "Running…") : batch.status === "failed" ? "This run failed" : batch.status === "stopped" ? `Stopped early. ${headline(s)}` : headline(s)}
+          description={
             <>
-              {" · "}
-              <span className="font-mono text-sm">
-                {batch.request.commit?.slice(0, 7)} {batch.request.branch}
-              </span>
+              {plural(batch.request.flowIds.length, "flow")} × {cases}
+              {variation && ` · variation “${variation.name}”`}
+              {(batch.request.commit || batch.request.branch) && (
+                <>
+                  {" · "}
+                  <span className="font-mono">
+                    {batch.request.commit?.slice(0, 7)} {batch.request.branch}
+                  </span>
+                </>
+              )}
             </>
-          )}
-        </p>
-        {batch.error && <p className="m-0 rounded-xl border border-bad-line bg-bad-soft px-5 py-4 text-sm text-bad-ink">{batch.error}</p>}
-      </header>
+          }
+          actions={
+            active &&
+            !batch.stopRequested && (
+              <form action={stopBatchAction}>
+                <input type="hidden" name="batchId" value={batch.id} />
+                <Button type="submit" variant="outline" size="sm">
+                  Stop
+                </Button>
+              </form>
+            )
+          }
+        />
+        {batch.error && <p className="rounded-lg border border-bad-line bg-bad-soft px-4 py-3 text-bad-ink">{batch.error}</p>}
+      </div>
       <ReportBody batch results={results} ctx={ctx} cat={cat} filterHref={(c) => makePanelHref(path, { cat: c === "all" ? undefined : c })(null)} />
       {panelData && <ResultPanel data={panelData} ctx={ctx} />}
     </div>

@@ -6,7 +6,10 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { makePanelHref } from "@/components/report/ctx";
 import { CriticalIssueCard, IssueRowCard } from "@/components/report/issues";
 import { ResultPanel } from "@/components/report/panels";
-import { cx, Empty, HEALTH_TEXT, HealthBadge, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/ui";
+import { cx, Empty, HealthBadge, PageHeader, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { hostFromUrl, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { fixedSince, githubRepo, healthOfCounts, issueCounts, latestScan, openIssues, recentStatuses } from "@/lib/queries";
 import { loadPanel } from "@/lib/report";
@@ -50,55 +53,63 @@ export default async function OverviewPage({ params, searchParams }: Props) {
 
   if (!current) {
     return (
-      <div className="page flex flex-col gap-6">
-        <Header name={app.name} url={app.url} />
+      <div className="page">
+        <PageHeader title={app.name} description={<Host url={app.url} />} />
         <Empty title="No scans yet">
-          <p className="m-0 mb-4">Run the first scan and DappDrill will find this app&apos;s flows and try them with every wallet edge case.</p>
-          <Link href={`/new?app=${app.id}`} className="btn btn-primary">
-            Run the first scan
-          </Link>
+          <p className="mb-4">Run the first scan and DappDrill will find this app&apos;s flows and try them with every wallet edge case.</p>
+          <Button asChild>
+            <Link href={`/new?app=${app.id}`}>Run the first scan</Link>
+          </Button>
         </Empty>
       </div>
     );
   }
 
+  const summary =
+    health === "broken"
+      ? `${plural(attention.length, "thing needs", "things need")} your attention.`
+      : health === "review"
+        ? `Nothing broken. ${plural(issues.length, "thing")} worth a look.`
+        : "Nothing needs your attention.";
+
   return (
-    <div className="page flex flex-col gap-9">
+    <div className="page flex flex-col gap-6">
       {busy && <AutoRefresh every={5000} />}
-      <div className="flex flex-col gap-4">
-        <Header name={app.name} url={app.url} />
-        <div className="flex flex-wrap items-center gap-3">
-          <HealthBadge health={health} className="px-3 py-1.5 text-sm" />
-          <p className={cx("m-0 text-[17px]", HEALTH_TEXT[health] === "text-muted" ? "text-ink-2" : HEALTH_TEXT[health])}>
-            {health === "broken"
-              ? `${plural(attention.length, "thing needs", "things need")} your attention.`
-              : health === "review"
-                ? `Nothing broken. ${plural(issues.length, "thing")} worth a look.`
-                : "Nothing needs your attention."}
-            <span className="text-muted"> Last checked {timeAgo(lastChecked ?? current.createdAt)}.</span>
-          </p>
+      <PageHeader
+        title={app.name}
+        description={<Host url={app.url} />}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href={`${path}/scans/${finished?.id ?? current.id}`}>Latest report</Link>
+          </Button>
+        }
+      >
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <HealthBadge health={health} />
+          <span>{summary}</span>
+          <span className="text-muted-foreground">Last checked {timeAgo(lastChecked ?? current.createdAt)}.</span>
         </div>
-      </div>
+      </PageHeader>
 
       {running && (
-        <Link href={`${path}/scans/${running.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-live-bg bg-live-soft px-5 py-4 no-underline">
-          <span className="flex items-center gap-2.5 text-sm">
+        <Link href={`${path}/scans/${running.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-live-bg bg-live-soft px-4 py-3">
+          <span className="flex items-center gap-2">
             <span className="size-2 animate-pulse rounded-full bg-live" />
             Scan #{running.number} is {running.status === "queued" ? "queued" : "running"}.
           </span>
-          <span className="text-sm font-medium text-live-ink">Watch it live →</span>
+          <span className="font-medium text-live-ink">Watch it live →</span>
         </Link>
       )}
 
       <section aria-labelledby="open" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 id="open" className="h2">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="open" className="text-lg font-semibold">
             Open issues
           </h2>
-          {fixed > 0 && <span className="text-sm text-muted">{plural(fixed, "issue")} fixed since the last scan</span>}
+          {fixed > 0 && <span className="text-muted-foreground">{plural(fixed, "issue")} fixed since the last scan</span>}
         </div>
         {issues.length === 0 ? (
-          <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">None. The latest scan and runs found nothing to fix.</p>
+          <Empty title="No open issues">The latest scan and runs found nothing to fix.</Empty>
         ) : (
           issues.map((i) =>
             i.severity === "critical" ? (
@@ -110,84 +121,29 @@ export default async function OverviewPage({ params, searchParams }: Props) {
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <section aria-labelledby="latest" className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between">
-            <h2 id="latest" className="h2">
-              Latest scan
-            </h2>
-            <Link href={`/new?app=${app.id}`} className="btn-link">
-              New scan
-            </Link>
-          </div>
-          {finished ? (
-            <Link href={`${path}/scans/${finished.id}`} className="card flex items-center justify-between gap-3 px-5 py-4 no-underline hover:bg-sub">
-              <span className="flex flex-col">
-                <span className="text-sm font-medium">Scan #{finished.number}</span>
-                <span className="text-[13px] text-muted">
-                  {timeAgo(finished.finishedAt ?? finished.createdAt)}
-                  {finished.status === "stopped" ? " · stopped early" : ""}
-                </span>
-              </span>
-              <span className="text-[13px] text-muted">Open report →</span>
-            </Link>
-          ) : (
-            <p className="hint m-0">No finished scan yet.</p>
-          )}
-
-          <div className="mt-3 flex items-baseline justify-between">
-            <h2 className="h2">Recent runs</h2>
-            <Link href={`${path}/runs`} className="btn-link">
-              All runs
-            </Link>
-          </div>
-          {batches.length === 0 ? (
-            <p className="hint m-0">No replays yet. Run your flows from the Flows tab.</p>
-          ) : (
-            <ul className="card m-0 list-none divide-y divide-divide p-0">
-              {batches.map((b) => {
-                const h = healthOfCounts(batchCounts.get(b.id));
-                return (
-                  <li key={b.id}>
-                    <Link href={`${path}/runs/${b.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 no-underline hover:bg-sub">
-                      <span className="flex min-w-0 flex-col">
-                        <span className="text-sm">
-                          {plural(b.request.flowIds.length, "flow")} · {TRIGGER_LABEL[b.trigger]}
-                          {b.request.branch && <span className="font-mono text-[13px] text-muted"> {b.request.branch}</span>}
-                        </span>
-                        <span className="text-[13px] text-muted">{timeAgo(b.createdAt)}</span>
-                      </span>
-                      {b.status === "done" ? <HealthBadge health={h} /> : <span className="pill bg-live-bg text-live-ink capitalize">{b.status}</span>}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="flowhealth" className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between">
-            <h2 id="flowhealth" className="h2">
-              Flow health
-            </h2>
-            <Link href={`${path}/flows`} className="btn-link">
-              All flows
-            </Link>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="gap-0 pb-0">
+          <CardHeader className="pb-4">
+            <CardTitle>Flows</CardTitle>
+            <CardAction>
+              <Button asChild variant="link" size="sm" className="h-auto p-0">
+                <Link href={`${path}/flows`}>All flows</Link>
+              </Button>
+            </CardAction>
+          </CardHeader>
           {flowRows.length === 0 ? (
-            <p className="hint m-0">No saved flows yet. The scan saves the flows it finds.</p>
+            <CardContent className="pb-6 text-muted-foreground">No saved flows yet. The scan saves the flows it finds.</CardContent>
           ) : (
-            <ul className="card m-0 list-none divide-y divide-divide p-0">
+            <ul className="divide-y border-t">
               {flowRows.map((f) => {
                 const st = statuses.get(f.id) ?? [];
                 const last = st.at(-1);
                 return (
                   <li key={f.id}>
-                    <Link href={`${path}/flows/${f.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 no-underline hover:bg-sub">
+                    <Link href={`${path}/flows/${f.id}`} className="flex items-center justify-between gap-3 px-6 py-3 hover:bg-muted/50">
                       <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-sm font-medium">{f.name}</span>
-                        <span className={cx("text-[13px]", last ? RUN_STATUS_TEXT[last] : "text-muted")}>{last ? RUN_STATUS_LABEL[last] : "Not run yet"}</span>
+                        <span className="truncate font-medium">{f.name}</span>
+                        <span className={cx("text-xs", last ? RUN_STATUS_TEXT[last] : "text-muted-foreground")}>{last ? RUN_STATUS_LABEL[last] : "Not run yet"}</span>
                       </span>
                       <Sparkbars statuses={st} />
                     </Link>
@@ -196,20 +152,57 @@ export default async function OverviewPage({ params, searchParams }: Props) {
               })}
             </ul>
           )}
-        </section>
+        </Card>
+
+        <Card className="gap-0 pb-0">
+          <CardHeader className="pb-4">
+            <CardTitle>Recent runs</CardTitle>
+            <CardAction>
+              <Button asChild variant="link" size="sm" className="h-auto p-0">
+                <Link href={`${path}/runs`}>All runs</Link>
+              </Button>
+            </CardAction>
+          </CardHeader>
+          {batches.length === 0 ? (
+            <CardContent className="pb-6 text-muted-foreground">No replays yet. Run your flows from the Flows tab.</CardContent>
+          ) : (
+            <ul className="divide-y border-t">
+              {batches.map((b) => {
+                const h = healthOfCounts(batchCounts.get(b.id));
+                return (
+                  <li key={b.id}>
+                    <Link href={`${path}/runs/${b.id}`} className="flex items-center justify-between gap-3 px-6 py-3 hover:bg-muted/50">
+                      <span className="flex min-w-0 flex-col">
+                        <span>
+                          {plural(b.request.flowIds.length, "flow")} · {TRIGGER_LABEL[b.trigger]}
+                          {b.request.branch && <span className="font-mono text-xs text-muted-foreground"> {b.request.branch}</span>}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{timeAgo(b.createdAt)}</span>
+                      </span>
+                      {b.status === "done" ? (
+                        <HealthBadge health={h} />
+                      ) : (
+                        <Badge variant="secondary" className="bg-live-bg text-live-ink capitalize">
+                          {b.status}
+                        </Badge>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
       </div>
       {panelData && <ResultPanel data={panelData} ctx={ctx} />}
     </div>
   );
 }
 
-function Header({ name, url }: { name: string; url: string }) {
+function Host({ url }: { url: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <h1 className="h1">{name}</h1>
-      <a href={url} target="_blank" rel="noreferrer" className="w-fit font-mono text-sm text-muted no-underline hover:underline">
-        {hostFromUrl(url)}
-      </a>
-    </div>
+    <a href={url} target="_blank" rel="noreferrer" className="font-mono text-sm hover:underline">
+      {hostFromUrl(url)}
+    </a>
   );
 }

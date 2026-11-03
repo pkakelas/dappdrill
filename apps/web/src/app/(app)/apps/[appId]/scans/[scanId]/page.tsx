@@ -8,6 +8,8 @@ import { makePanelHref } from "@/components/report/ctx";
 import { ResultPanel } from "@/components/report/panels";
 import { headline, ReportBody } from "@/components/report/report-body";
 import { ShareControl } from "@/components/report/share-control";
+import { PageHeader } from "@/components/common";
+import { Button } from "@/components/ui/button";
 import { LiveView } from "@/components/scan/live-view";
 import { shortDate, minutesBetween, hostFromUrl, plural } from "@/lib/format";
 import type { LiveEvent, ScanSnapshot } from "@/lib/live";
@@ -54,7 +56,7 @@ export default async function ScanPage({ params, searchParams }: Props) {
     };
     return (
       <div className="page flex flex-col gap-2">
-        <nav className="crumbs">
+        <nav className="text-sm text-muted-foreground [&_a]:hover:text-foreground">
           <Link href={`/apps/${app.id}/runs`}>Runs</Link> / Scan #{scan.number}
         </nav>
         <LiveView scanId={scan.id} host={host} initialEvents={events} initialSnapshot={snapshot} frameBase={`/api/artifacts/scans/${scan.id}`} />
@@ -67,34 +69,34 @@ export default async function ScanPage({ params, searchParams }: Props) {
   const s = summarize(results);
 
   return (
-    <div className="page flex flex-col gap-8">
-      <header className="flex flex-wrap items-end justify-between gap-5">
-        <div className="flex min-w-0 flex-col gap-2">
-          <span className="crumbs">
-            <Link href={`/apps/${app.id}/runs`}>Runs</Link> / Scan #{scan.number} · <span className="font-mono">{host}</span> · {shortDate(scan.createdAt)}
-            {scan.finishedAt && `, ${minutesBetween(scan.startedAt ?? scan.createdAt, scan.finishedAt)}`}
-          </span>
-          <h1 className="h1">{headline(s)}</h1>
-          <p className="m-0 text-[15px] text-ink-3">
-            {plural(s.flowCount, "flow")} found, {plural(s.edgeCasesTried, "wallet edge case")} tried, {plural(s.reviewCount, "signature request")} reviewed.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <ShareControl appId={app.id} shareToken={app.shareToken} scanId={scan.id} />
-          <Link href={`/apps/${app.id}/flows`} className="btn btn-sm btn-primary">
-            Saved flows
-          </Link>
-        </div>
-      </header>
+    <div className="page flex flex-col gap-6">
+      <div>
+        <nav className="mb-2 text-sm text-muted-foreground [&_a]:hover:text-foreground">
+          <Link href={`/apps/${app.id}/runs`}>Runs</Link> / Scan #{scan.number} · <span className="font-mono">{host}</span> · {shortDate(scan.createdAt)}
+          {scan.finishedAt && `, ${minutesBetween(scan.startedAt ?? scan.createdAt, scan.finishedAt)}`}
+        </nav>
+        <PageHeader
+          title={headline(s)}
+          description={`${plural(s.flowCount, "flow")} found, ${plural(s.edgeCasesTried, "wallet edge case")} tried, ${plural(s.reviewCount, "signature request")} reviewed.`}
+          actions={
+            <>
+              <ShareControl appId={app.id} shareToken={app.shareToken} scanId={scan.id} />
+              <Button asChild size="sm">
+                <Link href={`/apps/${app.id}/flows`}>Saved flows</Link>
+              </Button>
+            </>
+          }
+        />
+      </div>
 
       {scan.status !== "done" && (
-        <p role="status" className={scan.status === "failed" ? "m-0 rounded-xl border border-bad-line bg-bad-soft px-5 py-4 text-sm text-bad-ink" : "m-0 rounded-xl border border-line bg-sub px-5 py-4 text-sm text-ink-2"}>
+        <p role="status" className={scan.status === "failed" ? "rounded-lg border border-bad-line bg-bad-soft px-4 py-3 text-bad-ink" : "rounded-lg border bg-muted/50 px-4 py-3"}>
           {scan.status === "failed" ? `This scan failed${scan.error ? `: ${scan.error}` : "."} Results below are what it found before stopping.` : "This scan was stopped early. Results below are what it found until then."}
         </p>
       )}
 
       {scan.blocked && (
-        <div role="note" className="flex flex-col gap-1.5 rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn-ink">
+        <div role="note" className="flex flex-col gap-1 rounded-lg border border-warn-line bg-warn-soft px-4 py-3 text-warn-ink">
           <strong className="font-semibold">{describeBlock(scan.blocked)}, so exploring stopped there.</strong>
           <span>
             DappDrill doesn&apos;t solve CAPTCHAs. If this is your app, add an allowlist header in{" "}

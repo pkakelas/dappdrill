@@ -1,89 +1,102 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* Same look as the marketing site (dappdrill-site): paper, ink, Newsreader for
- * reading, Plex Mono for the controls. Only problems get colour. */
+@custom-variant dark (&:is(.dark *));
+
+/* shadcn/ui, neutral. Only problems get colour: bad (Broken, Critical, Dangerous),
+ * warn (Review, Medium, Check this); live marks a running scan. */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 @theme {
-  --font-sans: var(--font-newsreader), "Iowan Old Style", Georgia, serif;
-  --font-serif: var(--font-newsreader), "Iowan Old Style", Georgia, serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
-
-  --color-ink: #14120f;
-  --color-ink-2: #2f2b25;
-  --color-ink-3: #4a453d;
-  --color-muted: #6b655a;
-  --color-faint: #8f887b;
-  --color-paper: #f1ede4;
-  --color-card: #f8f5ee;
-  --color-panel: #f1ede4;
-  --color-sub: #ece7dc;
-  --color-hair: #e8e2d6;
-  --color-divide: #e0d9cb;
-  --color-line: #d6cfc0;
-  --color-line-strong: #b9b1a1;
-  --color-field: #b9b1a1;
-  --color-quiet: #a8a091;
-  --color-bone: #ede6d8;
-
   --color-red: #ff4a1f;
   --color-bad: #c4340e;
-  --color-bad-bg: #f9e0d5;
-  --color-bad-soft: #f8eae2;
-  --color-bad-line: #eebda8;
-  --color-bad-ink: #8a2408;
-  --color-bad-deep: #4a1407;
-
+  --color-bad-ink: #9a2a0b;
+  --color-bad-bg: #fbe8df;
+  --color-bad-soft: #fdf2ec;
+  --color-bad-line: #f2c9b8;
+  --color-bad-mid: #e3825f;
   --color-warn: #87500f;
-  --color-warn-bg: #f5e6c9;
+  --color-warn-bg: #f8edd8;
+  --color-warn-soft: #fcf6ea;
+  --color-warn-line: #ecd9b0;
   --color-warn-bar: #c2852f;
-  --color-warn-soft: #f6eedd;
-  --color-warn-line: #e2cc9f;
   --color-warn-ink: #5c3608;
   --color-warn-icon: #a8640f;
-
   --color-live: #2c4aa6;
   --color-live-ink: #26407f;
-  --color-live-bg: #e4e6ec;
-  --color-live-soft: #eeeee9;
-
-  --radius-xl: 14px;
-
-  /* Serif bold reads heavy; the site never goes past ~450. */
-  --font-weight-semibold: 540;
+  --color-live-bg: #e8ebf3;
+  --color-live-soft: #f1f3f8;
+  --color-pass: oklch(0.922 0 0);
 }
 
 @layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
   html {
-    -webkit-text-size-adjust: 100%;
+    /* Keep the scrollbar's space on short pages too, so the header doesn't shift between pages. */
+    scrollbar-gutter: stable;
   }
   body {
-    @apply bg-paper text-ink font-sans antialiased;
-    font-optical-sizing: auto;
-    /* Newsreader runs small next to a sans; match its x-height so 13–14px text stays readable. */
-    font-size-adjust: 0.5;
-    text-rendering: optimizeLegibility;
+    @apply bg-background font-sans text-sm text-foreground antialiased;
   }
-  .font-mono,
   code,
   pre,
   kbd {
-    font-size-adjust: none;
-  }
-  a {
-    color: inherit;
-  }
-  a:hover {
-    color: var(--color-ink-3);
-  }
-  ::selection {
-    background: var(--color-ink);
-    color: var(--color-paper);
-  }
-  :focus-visible {
-    outline: 2px solid var(--color-ink);
-    outline-offset: 2px;
+    @apply font-mono;
   }
   summary {
     cursor: pointer;
+    list-style: none;
   }
   summary::-webkit-details-marker {
     display: none;
@@ -93,143 +106,6 @@
 @layer components {
   /* One content width everywhere. */
   .page {
-    @apply mx-auto w-full max-w-[1080px] px-4 pt-8 pb-16 sm:px-8 sm:pt-12;
-  }
-
-  /* Controls speak mono, like the site. */
-  .btn {
-    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-line-strong bg-transparent px-5 font-mono text-[13px] font-medium tracking-[0.01em] whitespace-nowrap text-ink no-underline transition-[background-color,transform];
-  }
-  .btn:hover {
-    @apply bg-sub text-ink;
-  }
-  .btn:active {
-    transform: translateY(1px);
-  }
-  .btn:disabled,
-  .btn[aria-disabled="true"] {
-    @apply cursor-not-allowed opacity-50;
-  }
-  .btn-primary {
-    @apply border-ink bg-ink text-paper;
-  }
-  .btn-primary:hover {
-    @apply bg-ink-2 text-paper;
-  }
-  .btn-sm {
-    @apply h-10 px-4 text-[12.5px];
-  }
-  .btn-xs {
-    @apply h-8 px-3 text-xs;
-  }
-  .btn-icon {
-    @apply h-10 w-10 px-0;
-  }
-  .btn-link {
-    @apply inline-flex cursor-pointer items-center gap-1 px-0.5 py-1.5 font-mono text-[12.5px] font-medium text-ink underline-offset-4 hover:underline;
-  }
-
-  .card {
-    @apply rounded-xl border border-line-strong bg-card;
-  }
-
-  .field {
-    @apply h-11 w-full min-w-0 rounded-lg border border-field bg-card px-3 text-[15px] text-ink outline-none;
-  }
-  .field::placeholder {
-    @apply text-faint;
-  }
-  .field:focus {
-    @apply border-ink;
-  }
-  textarea.field {
-    @apply h-auto py-2.5 leading-normal;
-  }
-  .label {
-    @apply font-mono text-[11px] font-medium tracking-[0.1em] text-muted uppercase;
-  }
-  .hint {
-    @apply text-sm text-muted;
-  }
-  /* The site's section eyebrow: a short rule, then mono caps. */
-  .eyebrow {
-    @apply m-0 flex items-center gap-3 font-mono text-[11px] font-medium tracking-[0.12em] text-muted uppercase;
-  }
-  .eyebrow::before {
-    content: "";
-    @apply h-px w-6 bg-current;
-  }
-
-  .chip {
-    @apply inline-flex h-11 cursor-pointer items-center gap-2 rounded-full border border-line-strong bg-transparent px-4 font-mono text-[12.5px] text-ink-2 select-none;
-  }
-  .chip[aria-pressed="true"],
-  .chip:has(input:checked) {
-    @apply border-ink bg-ink text-paper;
-  }
-
-  .pill {
-    @apply inline-flex items-center rounded-full px-2.5 py-[3px] font-mono text-[10.5px] font-medium tracking-[0.08em] whitespace-nowrap uppercase;
-  }
-  .tag {
-    @apply inline-flex items-center rounded-[5px] px-2 py-[3px] font-mono text-[10.5px] font-medium tracking-[0.08em] whitespace-nowrap uppercase;
-  }
-
-  .seg {
-    @apply flex flex-wrap gap-1 rounded-[22px] border border-line p-1;
-  }
-  .seg > a,
-  .seg > button {
-    @apply rounded-full px-3.5 py-1.5 font-mono text-[12px] text-ink-2 no-underline;
-  }
-  .seg > [aria-current="true"],
-  .seg > [aria-pressed="true"] {
-    @apply bg-ink font-medium text-paper;
-  }
-
-  .param {
-    @apply rounded bg-live-bg px-1.5 py-0.5 font-mono text-[13px] text-live-ink;
-  }
-
-  .h1 {
-    @apply m-0 font-serif text-[34px] leading-[1.02] font-[380] tracking-[-0.025em] text-balance sm:text-[44px];
-  }
-  .h2 {
-    @apply m-0 font-serif text-[22px] leading-tight font-[420] tracking-[-0.012em];
-  }
-  .crumbs {
-    @apply font-mono text-[11px] tracking-[0.08em] text-muted uppercase;
-  }
-  .crumbs a {
-    @apply text-muted no-underline hover:text-ink;
-  }
-
-  .table {
-    @apply w-full border-collapse text-[15px];
-  }
-  .table th {
-    @apply border-b border-line px-3 py-3 text-left font-medium;
-  }
-  .table thead th {
-    @apply font-mono text-[10.5px] tracking-[0.1em] text-muted uppercase;
-  }
-  .table td {
-    @apply border-b border-divide px-3 py-3.5 align-middle;
-  }
-  .table tr:last-child td,
-  .table tr:last-child th {
-    @apply border-b-0;
-  }
-  .table th:first-child,
-  .table td:first-child {
-    @apply pl-5;
-  }
-  .table th:last-child,
-  .table td:last-child {
-    @apply pr-5;
-  }
-
-  .codeblock {
-    @apply overflow-x-auto rounded-xl bg-ink px-5 py-4 font-mono text-[13px] leading-[1.8] text-bone;
+    @apply mx-auto w-full max-w-6xl px-4 pt-8 pb-16 sm:px-6;
   }
 }

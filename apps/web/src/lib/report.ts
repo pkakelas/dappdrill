@@ -2,7 +2,7 @@ import "server-only";
 import { EDGE_CASES, SEVERITY_ORDER, type EdgeCaseId } from "@dappdrill/core";
 import { db, flows, issues, runs, signingReviews } from "@dappdrill/db";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
-import type { CellKind } from "@/components/ui";
+import type { CellKind } from "@/components/common";
 import type { FlowRow, IssueRow, RunRow } from "./queries";
 
 export type ReviewRow = typeof signingReviews.$inferSelect;

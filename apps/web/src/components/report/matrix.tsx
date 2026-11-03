@@ -1,56 +1,64 @@
 import { edgeCaseInfo } from "@dappdrill/core";
 import Link from "next/link";
-import { Cell } from "@/components/ui";
+import { CELL, Cell, type CellKind } from "@/components/common";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Matrix } from "@/lib/report";
 import type { ViewCtx } from "./ctx";
 
 export function MatrixTable({ matrix, ctx }: { matrix: Matrix; ctx: ViewCtx }) {
-  if (matrix.rows.length === 0) return <p className="hint m-0">No runs yet.</p>;
+  if (matrix.rows.length === 0) return <p className="text-muted-foreground">No runs yet.</p>;
+  const seen = new Set<CellKind>(matrix.rows.flatMap((r) => matrix.edgeCases.map((e) => r.cells[e]?.kind ?? "skipped")));
+  const legend = LEGEND.filter((k) => seen.has(k));
   return (
-    <div className="card overflow-x-auto">
-      <table className="table min-w-[640px]">
-        <thead>
-          <tr>
-            <th scope="col" className="min-w-[180px]">
-              Flow
-            </th>
+    <div className="rounded-xl border bg-card shadow-xs">
+      <Table className="min-w-[640px]">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="min-w-[180px] pl-4">Flow</TableHead>
             {matrix.edgeCases.map((e) => (
-              <th key={e} scope="col" className="text-center whitespace-nowrap">
+              <TableHead key={e} className="text-center">
                 {edgeCaseInfo(e).label}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {matrix.rows.map((row) => (
-            <tr key={row.flowId}>
-              <th scope="row" className="border-b border-divide text-left text-[15px] font-medium text-ink">
+            <TableRow key={row.flowId}>
+              <TableHead scope="row" className="pl-4 font-medium text-foreground">
                 {ctx.readOnly ? (
                   row.name
                 ) : (
-                  <Link href={`/apps/${ctx.appId}/flows/${row.flowId}`} className="no-underline hover:underline">
+                  <Link href={`/apps/${ctx.appId}/flows/${row.flowId}`} className="hover:underline">
                     {row.name}
                   </Link>
                 )}
-              </th>
+              </TableHead>
               {matrix.edgeCases.map((e) => {
                 const cell = row.cells[e];
                 return (
-                  <td key={e} className="text-center">
+                  <TableCell key={e} className="text-center">
                     {cell ? (
-                      <Link href={ctx.panelHref(`run.${cell.runId}`)} scroll={false} className="no-underline" aria-label={`${row.name}, ${edgeCaseInfo(e).label}`}>
+                      <Link href={ctx.panelHref(`run.${cell.runId}`)} scroll={false} aria-label={`${row.name}, ${edgeCaseInfo(e).label}: ${CELL[cell.kind].label}`}>
                         <Cell kind={cell.kind} />
                       </Link>
                     ) : (
                       <Cell kind="skipped" />
                     )}
-                  </td>
+                  </TableCell>
                 );
               })}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t px-4 py-3">
+        {legend.map((k) => (
+          <Cell key={k} kind={k} label small />
+        ))}
+      </div>
     </div>
   );
 }
+
+const LEGEND: CellKind[] = ["pass", "issue", "issue-high", "fail", "signing", "error", "running", "queued", "skipped"];

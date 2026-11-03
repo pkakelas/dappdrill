@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { makePanelHref } from "@/components/report/ctx";
 import { SigningReviewView } from "@/components/report/signing-review";
+import { PageHeader } from "@/components/common";
 import { githubRepo } from "@/lib/queries";
 import { requireApp } from "@/lib/session";
 
@@ -30,20 +31,18 @@ export default async function SigningPage({ params }: Props) {
   const ctx = { appId: app.id, panelHref: (p: string | null) => (p?.startsWith("review.") ? `/apps/${app.id}/signing/${p.slice(7)}` : makePanelHref(`/apps/${app.id}/signing/${row.id}`, {})(null)), readOnly: false, githubRepo: repo };
 
   return (
-    <div className="page flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <span className="crumbs">
-          {scan ? <Link href={`/apps/${app.id}/scans/${scan.id}`}>Scan #{scan.number}</Link> : row.batchId ? <Link href={`/apps/${app.id}/runs/${row.batchId}`}>Run</Link> : "Signing review"}
-          {flow && (
-            <>
-              {"  /  "}
-              <Link href={`/apps/${app.id}/flows/${flow.id}`}>{flow.name}</Link>
-            </>
-          )}
-          {siblings.length > 1 && index >= 0 && `  /  Request ${index + 1} of ${siblings.length}`}
-        </span>
-        <h1 className="h1">{row.data.title}</h1>
-      </div>
+    <div className="page">
+      <nav className="mb-2 text-sm text-muted-foreground [&_a]:hover:text-foreground">
+        {scan ? <Link href={`/apps/${app.id}/scans/${scan.id}`}>Scan #{scan.number}</Link> : row.batchId ? <Link href={`/apps/${app.id}/runs/${row.batchId}`}>Run</Link> : "Signing review"}
+        {flow && (
+          <>
+            {"  /  "}
+            <Link href={`/apps/${app.id}/flows/${flow.id}`}>{flow.name}</Link>
+          </>
+        )}
+        {siblings.length > 1 && index >= 0 && `  /  Request ${index + 1} of ${siblings.length}`}
+      </nav>
+      <PageHeader title={row.data.title} />
       <SigningReviewView row={row} ctx={ctx} siblings={siblings} />
     </div>
   );

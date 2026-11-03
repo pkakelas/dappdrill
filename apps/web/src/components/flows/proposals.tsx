@@ -1,6 +1,7 @@
 import type { Flow } from "@dappdrill/core";
 import type { flowChanges, repairs } from "@dappdrill/db";
 import { resolveChangeAction, resolveRepairAction } from "@/actions/flows";
+import { Button } from "@/components/ui/button";
 import { StepsPreview } from "./steps-preview";
 
 type Change = typeof flowChanges.$inferSelect;
@@ -13,16 +14,16 @@ function Choice({ action, name, id, yes, no = "Discard" }: { action: (f: FormDat
         <form action={action}>
           <input type="hidden" name={name} value={id} />
           <input type="hidden" name="accept" value="1" />
-          <button type="submit" className="btn btn-sm btn-primary">
+          <Button type="submit" size="sm">
             {yes}
-          </button>
+          </Button>
         </form>
       )}
       <form action={action}>
         <input type="hidden" name={name} value={id} />
-        <button type="submit" className="btn btn-sm">
+        <Button type="submit" variant="outline" size="sm">
           {no}
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -32,27 +33,27 @@ function Choice({ action, name, id, yes, no = "Discard" }: { action: (f: FormDat
 export function ChangeCard({ change, current }: { change: Change; current?: Flow }) {
   const busy = change.status === "queued" || change.status === "running";
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5" aria-label="Proposed change">
+    <section className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-xs" aria-label="Proposed change">
       <div className="flex flex-col gap-1">
-        <span className="text-xs font-semibold text-live-ink">{busy ? "Working on it" : change.status === "done" ? "Proposed change" : "Couldn't do this one"}</span>
-        <p className="m-0 text-[15px]">“{change.prompt}”</p>
+        <span className="text-xs font-medium text-muted-foreground">{busy ? "Working on it" : change.status === "done" ? "Proposed change" : "Couldn't do this one"}</span>
+        <p className="font-medium">“{change.prompt}”</p>
       </div>
       {busy && (
-        <p className="m-0 flex items-center gap-2 text-sm text-muted">
+        <p className="flex items-center gap-2 text-muted-foreground">
           <span className="size-2 animate-pulse rounded-full bg-live" />
           Walking the app with the wallet. This takes a minute or two.
         </p>
       )}
       {change.status === "done" && change.proposed && (
         <>
-          {change.explanation && <p className="m-0 text-sm text-ink-2">{change.explanation}</p>}
+          {change.explanation && <p className="text-muted-foreground">{change.explanation}</p>}
           <StepsPreview flow={change.proposed} before={current} />
           <Choice action={resolveChangeAction} name="changeId" id={change.id} yes={current ? "Accept change" : "Save this flow"} />
         </>
       )}
       {(change.status === "failed" || change.status === "stopped" || (change.status === "done" && !change.proposed)) && (
         <>
-          <p className="m-0 text-sm text-bad">{change.error ?? "No proposal came back."}</p>
+          <p className="text-bad">{change.error ?? "No proposal came back."}</p>
           <Choice action={resolveChangeAction} name="changeId" id={change.id} no="Dismiss" />
         </>
       )}
@@ -64,15 +65,15 @@ export function RepairBanner({ repair, flowName, current }: { repair: Repair; fl
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-warn-line bg-warn-soft p-5" aria-label={`Repair for ${flowName}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-[1_1_360px] flex-col gap-1">
-          <h2 className="m-0 text-[15px] font-semibold text-warn-ink">“{flowName}” needs a small fix</h2>
-          <p className="m-0 text-sm text-ink-2">{repair.explanation}</p>
+        <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
+          <h2 className="font-semibold text-warn-ink">“{flowName}” needs a small fix</h2>
+          <p className="text-warn-ink/80">{repair.explanation}</p>
         </div>
         <Choice action={resolveRepairAction} name="repairId" id={repair.id} yes="Accept fix" no="Dismiss" />
       </div>
       <details>
-        <summary className="btn-link w-fit">Show the change</summary>
-        <div className="mt-3">
+        <summary className="w-fit text-sm font-medium text-warn-ink underline-offset-4 hover:underline">Show the change</summary>
+        <div className="mt-3 bg-card">
           <StepsPreview flow={repair.proposed} before={current} />
         </div>
       </details>

@@ -4,15 +4,19 @@ import { chainName, SCAN_STAGE_LABEL, type FlowLiveStatus, type ScanStage, type 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { stopScanAction } from "@/actions/scan";
-import { cx } from "@/components/ui";
+import { cx, PageHeader } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { TERMINAL, type LiveEvent, type ScanSnapshot } from "@/lib/live";
 
 const STAGES: ScanStage[] = ["map", "flows", "edge-cases", "signing"];
 
 const FLOW_STATUS: Record<FlowLiveStatus, { label: string; cls: string }> = {
-  queued: { label: "Queued", cls: "text-muted" },
+  queued: { label: "Queued", cls: "text-muted-foreground" },
   running: { label: "Running", cls: "text-live-ink" },
-  tested: { label: "Tested", cls: "text-muted" },
+  tested: { label: "Tested", cls: "text-muted-foreground" },
   issue: { label: "Issue", cls: "text-bad" },
   failed: { label: "Failed", cls: "text-bad" },
 };
@@ -130,132 +134,121 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
   };
 
   return (
-    <div className="flex flex-col gap-7">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="h1">
-            Scanning <span className="font-mono text-[23px] font-medium break-all sm:text-[27px]">{host}</span>
-          </h1>
-          <p className="m-0 flex flex-wrap items-center gap-2.5 text-sm text-ink-3">
-            <span className="inline-flex items-center gap-2" suppressHydrationWarning>
-              <span className={cx("size-2 rounded-full", running ? "animate-pulse bg-live" : "bg-quiet")} />
-              {snap.status === "queued" ? "Waiting for a worker" : startedAt ? `Running for ${elapsed(now - startedAt)}` : "Starting"}
-            </span>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={
+          <>
+            Scanning <span className="font-mono break-all">{host}</span>
+          </>
+        }
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1" suppressHydrationWarning>
+            <span className={cx("size-2 rounded-full", running ? "animate-pulse bg-live" : "bg-muted-foreground/40")} />
+            {snap.status === "queued" ? "Waiting for a worker" : startedAt ? `Running for ${elapsed(now - startedAt)}` : "Starting"}
             <span aria-hidden="true">·</span>
-            <span>{chainLabel}</span>
+            {chainLabel}
             {snap.costUsd > 0 && (
               <>
-                <span aria-hidden="true">·</span>
-                <span>${snap.costUsd.toFixed(2)} model cost</span>
+                <span aria-hidden="true">·</span>${snap.costUsd.toFixed(2)} model cost
               </>
             )}
-          </p>
-        </div>
-        <form action={() => startStop(() => stopScanAction(scanId).then(() => setSnap((s) => ({ ...s, stopRequested: true }))))}>
-          <button type="submit" className="btn" disabled={snap.stopRequested || stopping}>
-            {snap.stopRequested ? "Stopping…" : "Stop scan"}
-          </button>
-        </form>
-      </header>
+            {derived.issues > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="font-medium text-bad">{derived.issues === 1 ? "1 issue" : `${derived.issues} issues`} so far</span>
+              </>
+            )}
+          </span>
+        }
+        actions={
+          <form action={() => startStop(() => stopScanAction(scanId).then(() => setSnap((s) => ({ ...s, stopRequested: true }))))}>
+            <Button type="submit" variant="outline" disabled={snap.stopRequested || stopping}>
+              {snap.stopRequested ? "Stopping…" : "Stop scan"}
+            </Button>
+          </form>
+        }
+      />
 
-      <ol aria-label="Scan stages" className="m-0 grid list-none grid-cols-2 gap-x-2 gap-y-4 p-0 sm:grid-cols-4">
+      <ol aria-label="Scan stages" className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
         {STAGES.map((st) => {
           const s = snap.stages[st];
           return (
-            <li key={st} className="flex flex-col gap-2">
-              <div className="h-1 rounded-sm bg-divide">
-                <div className={cx("h-1 rounded-sm transition-all", s?.status === "done" ? "bg-ink" : "bg-live")} style={{ width: s?.status === "done" ? "100%" : `${Math.round((s?.progress ?? 0) * 100)}%` }} />
-              </div>
-              <span className={cx("text-[13px] font-medium", !s && "text-ink-3")}>{SCAN_STAGE_LABEL[st]}</span>
-              <span className="text-xs text-muted">{s?.status === "done" ? `${stageNote[st]} · done` : s ? stageNote[st] : "Waiting"}</span>
+            <li key={st} className="flex flex-col gap-1.5">
+              <Progress value={s?.status === "done" ? 100 : Math.round((s?.progress ?? 0) * 100)} className={cx("h-1", s?.status !== "done" && "[&>div]:bg-live")} />
+              <span className={cx("font-medium", !s && "text-muted-foreground")}>{SCAN_STAGE_LABEL[st]}</span>
+              <span className="text-xs text-muted-foreground">{s?.status === "done" ? `${stageNote[st]} · done` : s ? stageNote[st] : "Waiting"}</span>
             </li>
           );
         })}
       </ol>
 
-      <div className="flex flex-wrap items-start gap-6">
-        <section aria-label="Live view" className="flex min-w-0 flex-[3_1_520px] flex-col gap-3">
-          <div className="overflow-hidden rounded-xl border border-line-strong bg-card">
-            <div className="flex items-center gap-3 border-b border-divide bg-sub px-3.5 py-2.5">
-              <div className="flex gap-1.5" aria-hidden="true">
-                <span className="size-2.5 rounded-full bg-line-strong" />
-                <span className="size-2.5 rounded-full bg-line-strong" />
-                <span className="size-2.5 rounded-full bg-line-strong" />
-              </div>
-              <div className="flex h-7 min-w-0 flex-1 items-center truncate rounded-md border border-divide bg-card px-3 font-mono text-xs text-ink-3">{frameUrl}</div>
-            </div>
-            <div className="relative flex aspect-[16/10] items-center justify-center bg-sub">
-              {frameSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={frameSrc} alt="What the scanner's browser shows right now" className="h-full w-full object-contain" />
-              ) : (
-                <span className="text-sm text-muted">{snap.status === "queued" ? "Waiting for the browser to start…" : "Loading the first frame…"}</span>
-              )}
-              {showSign && derived.lastSign && (
-                <div className="absolute top-4 right-4 flex w-[280px] max-w-[calc(100%-32px)] flex-col gap-2.5 rounded-xl border border-ink bg-card p-4 shadow-[0_8px_24px_rgba(23,24,28,0.12)]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold tracking-[0.04em] text-ink-3 uppercase">Signature request</span>
-                    <span className="pill bg-live-bg px-2 py-0.5 text-[11px] text-live-ink">{chainName(derived.lastSign.req.chainId)}</span>
-                  </div>
-                  <div className="font-mono text-sm font-medium break-all">{derived.lastSign.req.method}</div>
-                  {derived.lastSign.req.from && <div className="text-xs text-muted">From <span className="font-mono">{shortAddr(derived.lastSign.req.from)}</span></div>}
-                  <div className="text-xs text-muted">{derived.lastSign.req.outcome === "pending" ? "Waiting for the wallet" : `Wallet ${derived.lastSign.req.outcome}`}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <aside className="flex min-w-0 flex-[2_1_320px] flex-col gap-5">
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { v: derived.flows.length, l: "flows found" },
-              { v: derived.signs, l: "sign requests" },
-              { v: derived.issues, l: "issues so far", bad: derived.issues > 0 },
-            ].map((s) => (
-              <div key={s.l} className="rounded-[10px] border border-line bg-card p-3.5">
-                <div className={cx("text-2xl font-semibold", s.bad && "text-bad")}>{s.v}</div>
-                <div className="text-xs text-muted">{s.l}</div>
-              </div>
-            ))}
-          </div>
-
-          <section aria-labelledby="log" className="flex flex-col gap-2.5">
-            <h2 id="log" className="eyebrow">
-              What it&apos;s doing
-            </h2>
-            {derived.log.length === 0 ? (
-              <p className="hint m-0">Nothing yet.</p>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card aria-label="Live view" className="gap-0 overflow-hidden py-0">
+          <div className="truncate border-b bg-muted/50 px-4 py-2 font-mono text-xs text-muted-foreground">{frameUrl}</div>
+          <div className="relative flex aspect-[16/10] items-center justify-center bg-muted/30">
+            {frameSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={frameSrc} alt="What the scanner's browser shows right now" className="h-full w-full object-contain" />
             ) : (
-              <ol className="m-0 max-h-[360px] list-none overflow-y-auto rounded-[10px] border border-line bg-card p-0" aria-live="polite">
+              <span className="text-muted-foreground">{snap.status === "queued" ? "Waiting for the browser to start…" : "Loading the first frame…"}</span>
+            )}
+            {showSign && derived.lastSign && (
+              <div className="absolute top-4 right-4 flex w-[280px] max-w-[calc(100%-32px)] flex-col gap-2 rounded-lg border bg-popover p-4 shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Signature request</span>
+                  <Badge variant="secondary" className="bg-live-bg text-live-ink">
+                    {chainName(derived.lastSign.req.chainId)}
+                  </Badge>
+                </div>
+                <div className="font-mono font-medium break-all">{derived.lastSign.req.method}</div>
+                {derived.lastSign.req.from && (
+                  <div className="text-xs text-muted-foreground">
+                    From <span className="font-mono">{shortAddr(derived.lastSign.req.from)}</span>
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground">{derived.lastSign.req.outcome === "pending" ? "Waiting for the wallet" : `Wallet ${derived.lastSign.req.outcome}`}</div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <div className="flex min-w-0 flex-col gap-6">
+          <Card className="gap-0 pb-0">
+            <CardHeader className="pb-4">
+              <CardTitle id="log">What it&apos;s doing</CardTitle>
+            </CardHeader>
+            {derived.log.length === 0 ? (
+              <CardContent className="pb-6 text-muted-foreground">Nothing yet.</CardContent>
+            ) : (
+              <ol aria-labelledby="log" className="max-h-[320px] divide-y overflow-y-auto border-t" aria-live="polite">
                 {derived.log.map((l, i) => (
-                  <li key={l.id + ":" + i} className={cx("grid grid-cols-[48px_minmax(0,1fr)] gap-3 border-b border-divide px-3.5 py-3 last:border-b-0", i === 0 && running && "bg-live-soft")}>
-                    <span className={cx("font-mono text-xs", i === 0 && running ? "text-live-ink" : "text-muted")}>{startedAt ? clock(new Date(l.at).getTime() - startedAt) : "--:--"}</span>
-                    <span className={cx("text-[13px] leading-snug break-words", l.tone === "bad" && "font-semibold text-bad", l.tone === "warn" && "text-warn")}>{l.text}</span>
+                  <li key={l.id + ":" + i} className="grid grid-cols-[44px_minmax(0,1fr)] gap-3 px-6 py-2.5">
+                    <span className={cx("font-mono text-xs leading-5", i === 0 && running ? "text-live-ink" : "text-muted-foreground")}>{startedAt ? clock(new Date(l.at).getTime() - startedAt) : "--:--"}</span>
+                    <span className={cx("break-words", l.tone === "bad" && "font-medium text-bad", l.tone === "warn" && "text-warn")}>{l.text}</span>
                   </li>
                 ))}
               </ol>
             )}
-          </section>
+          </Card>
 
-          <section aria-labelledby="found" className="flex flex-col gap-2.5">
-            <h2 id="found" className="eyebrow">
-              Flows found
-            </h2>
+          <Card className="gap-0 pb-0">
+            <CardHeader className="pb-4">
+              <CardTitle id="found">Flows found{derived.flows.length > 0 && <span className="font-normal text-muted-foreground"> · {derived.flows.length}</span>}</CardTitle>
+            </CardHeader>
             {derived.flows.length === 0 ? (
-              <p className="hint m-0">None yet. Mapping the site first.</p>
+              <CardContent className="pb-6 text-muted-foreground">None yet. Mapping the site first.</CardContent>
             ) : (
-              <ul className="m-0 flex list-none flex-col p-0 text-[13px]">
+              <ul aria-labelledby="found" className="divide-y border-t">
                 {derived.flows.map(([id, f]) => (
-                  <li key={id} className="flex justify-between gap-3 border-b border-divide px-0.5 py-2 last:border-b-0">
+                  <li key={id} className="flex justify-between gap-3 px-6 py-2.5">
                     <span className={cx("min-w-0 truncate", f.status === "running" && "font-medium")}>{f.name}</span>
                     <span className={FLOW_STATUS[f.status].cls}>{FLOW_STATUS[f.status].label}</span>
                   </li>
                 ))}
               </ul>
             )}
-          </section>
-        </aside>
+          </Card>
+        </div>
       </div>
     </div>
   );

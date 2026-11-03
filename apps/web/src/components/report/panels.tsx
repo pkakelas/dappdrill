@@ -4,7 +4,9 @@ import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-or
 import Link from "next/link";
 import { setIssueStatusAction } from "@/actions/results";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { Cell, cx, RUN_STATUS_LABEL, SeverityTag, VerdictTag } from "@/components/ui";
+import { Cell, cx, RUN_STATUS_LABEL, SeverityTag, VerdictTag } from "@/components/common";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { artifactOwner, artifactUrl } from "@/lib/artifacts";
 import { dateTime, timeAgo } from "@/lib/format";
 import { githubNewIssueUrl, issueMarkdown } from "@/lib/github";
@@ -74,13 +76,15 @@ async function recheck(issue: IssueRow) {
 
 function RecheckNote({ issue, ctx, check }: { issue: IssueRow; ctx: ViewCtx; check: Awaited<ReturnType<typeof recheck>> }) {
   const runLink = (id: string, label: string) => (
-    <Link href={ctx.panelHref(`run.${id}`)} scroll={false} className="btn-link shrink-0">
-      {label}
-    </Link>
+    <Button asChild variant="link" size="sm" className="h-auto shrink-0 p-0">
+      <Link href={ctx.panelHref(`run.${id}`)} scroll={false}>
+        {label}
+      </Link>
+    </Button>
   );
   if (issue.status === "fixed") {
     return (
-      <div className="card flex items-center justify-between gap-3 px-4 py-3 text-sm">
+      <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/50 px-4 py-3">
         <span>Fixed. A later run of this flow didn't hit it ({timeAgo(issue.fixedAt)}).</span>
         {issue.fixedByRunId && runLink(issue.fixedByRunId, "Open that run")}
       </div>
@@ -89,7 +93,7 @@ function RecheckNote({ issue, ctx, check }: { issue: IssueRow; ctx: ViewCtx; che
   if (!check) return null;
   if (check.kind === "running") {
     return (
-      <div className="card px-4 py-3 text-sm text-muted">
+      <div className="rounded-lg border border-live-bg bg-live-soft px-4 py-3 text-live-ink">
         <AutoRefresh every={4000} />
         Re-running this flow. This panel updates when it finishes.
       </div>
@@ -97,7 +101,7 @@ function RecheckNote({ issue, ctx, check }: { issue: IssueRow; ctx: ViewCtx; che
   }
   const ago = timeAgo(check.createdAt);
   return (
-    <div className="card flex items-center justify-between gap-3 px-4 py-3 text-sm">
+    <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/50 px-4 py-3">
       <span>
         {check.hit
           ? `Still happens. The replay ${ago} hit it again.`
@@ -139,39 +143,39 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
         <>
           <SeverityTag severity={issue.severity} />
           <span>{issueMeta(issue, name)}</span>
-          {d.unverified && <span className="pill bg-hair text-muted">Unverified</span>}
+          {d.unverified && <Badge variant="secondary">Unverified</Badge>}
         </>
       }
       title={issue.title}
     >
       <RecheckNote issue={issue} ctx={ctx} check={check} />
-      <p className="m-0 text-[15px] leading-relaxed text-ink-2">{d.summary}</p>
+      <p className="leading-relaxed">{d.summary}</p>
       <SaidVsAsked said={d.evidence.buttonLabel} asked={d.evidence.walletAsked} />
       {(d.expected || d.actual) && (
-        <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2">
           {d.expected && (
             <>
-              <dt className="text-muted">Expected</dt>
-              <dd className="m-0">{d.expected}</dd>
+              <dt className="text-muted-foreground">Expected</dt>
+              <dd>{d.expected}</dd>
             </>
           )}
           {d.actual && (
             <>
-              <dt className="text-muted">Actual</dt>
-              <dd className="m-0">{d.actual}</dd>
+              <dt className="text-muted-foreground">Actual</dt>
+              <dd>{d.actual}</dd>
             </>
           )}
         </dl>
       )}
       {review && (
-        <Link href={ctx.panelHref(`review.${review.id}`)} scroll={false} className="card flex items-center justify-between gap-3 px-4 py-3 no-underline hover:bg-sub">
-          <span className="text-sm font-medium">Signing review: {review.data.title}</span>
+        <Link href={ctx.panelHref(`review.${review.id}`)} scroll={false} className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 hover:bg-muted/50">
+          <span className="font-medium">Signing review: {review.data.title}</span>
           <VerdictTag verdict={review.verdict} />
         </Link>
       )}
       {d.stepsToReproduce.length > 0 && (
         <PanelSection title="Steps to reproduce">
-          <ol className="m-0 flex list-decimal flex-col gap-1.5 pl-5 text-sm leading-normal">
+          <ol className="flex list-decimal flex-col gap-1.5 pl-5">
             {d.stepsToReproduce.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
@@ -183,7 +187,7 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
       <ConsoleLog entries={d.evidence.console ?? result?.console} />
       <RpcLog entries={d.evidence.rpc ?? result?.rpc} />
       {!ctx.readOnly && (
-        <div className="flex flex-wrap gap-2 border-t border-divide pt-5">
+        <div className="flex flex-wrap gap-2 border-t pt-5">
           {check?.kind !== "running" && (
             <RerunButton ctx={ctx} flowId={issue.flowId} edgeCase={d.edgeCase} label="Re-run" back={ctx.panelHref(`issue.${issue.id}`)} />
           )}
@@ -191,15 +195,17 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
             <form action={setIssueStatusAction}>
               <input type="hidden" name="issueId" value={issue.id} />
               <input type="hidden" name="status" value={issue.status === "ignored" ? "open" : "ignored"} />
-              <button type="submit" className="btn btn-sm">
+              <Button type="submit" variant="outline" size="sm">
                 {issue.status === "ignored" ? "Reopen" : "This is expected"}
-              </button>
+              </Button>
             </form>
           )}
           {ctx.githubRepo ? (
-            <a href={githubNewIssueUrl(ctx.githubRepo, issue.title, md)} target="_blank" rel="noreferrer" className="btn btn-sm">
-              Open GitHub issue
-            </a>
+            <Button asChild variant="outline" size="sm">
+              <a href={githubNewIssueUrl(ctx.githubRepo, issue.title, md)} target="_blank" rel="noreferrer">
+                Open GitHub issue
+              </a>
+            </Button>
           ) : (
             <CopyButton text={md} label="Copy as Markdown" />
           )}
@@ -231,7 +237,7 @@ async function RunPanel({ run, ctx }: { run: RunRow; ctx: ViewCtx }) {
       closeHref={ctx.panelHref(null)}
       eyebrow={
         <>
-          <Cell kind={kind} />
+          <Cell kind={kind} label />
           <span>
             {edgeCaseInfo(run.edgeCase).label} · {r.mode === "live" ? "live" : "fork"} · {dateTime(run.createdAt)}
           </span>
@@ -239,15 +245,15 @@ async function RunPanel({ run, ctx }: { run: RunRow; ctx: ViewCtx }) {
       }
       title={flowRow?.name ?? "Deleted flow"}
     >
-      <p className="m-0 text-sm text-ink-2">{edgeCaseInfo(run.edgeCase).description}</p>
-      {r.reason && <p className={cx("m-0 rounded-lg px-4 py-3 text-sm", run.status === "fail" ? "bg-bad-soft text-bad-ink" : "bg-sub text-ink-2")}>{r.reason}</p>}
+      <p className="text-muted-foreground">{edgeCaseInfo(run.edgeCase).description}</p>
+      {r.reason && <p className={cx("rounded-lg px-4 py-3", run.status === "fail" ? "bg-bad-soft text-bad-ink" : "bg-muted")}>{r.reason}</p>}
 
       {issueRows.length > 0 && (
         <PanelSection title="Issues in this run">
-          <ul className="card m-0 list-none divide-y divide-divide p-0">
+          <ul className="divide-y rounded-lg border">
             {issueRows.map((i) => (
               <li key={i.id}>
-                <Link href={ctx.panelHref(`issue.${i.id}`)} scroll={false} className="flex items-center gap-3 px-4 py-3 text-sm no-underline hover:bg-sub">
+                <Link href={ctx.panelHref(`issue.${i.id}`)} scroll={false} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
                   <SeverityTag severity={i.severity} />
                   <span className="min-w-0">{i.title}</span>
                 </Link>
@@ -258,10 +264,10 @@ async function RunPanel({ run, ctx }: { run: RunRow; ctx: ViewCtx }) {
       )}
       {reviewRows.length > 0 && (
         <PanelSection title="Signing requests">
-          <ul className="card m-0 list-none divide-y divide-divide p-0">
+          <ul className="divide-y rounded-lg border">
             {reviewRows.map((v) => (
               <li key={v.id}>
-                <Link href={ctx.panelHref(`review.${v.id}`)} scroll={false} className="flex items-center justify-between gap-3 px-4 py-3 text-sm no-underline hover:bg-sub">
+                <Link href={ctx.panelHref(`review.${v.id}`)} scroll={false} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/50">
                   <span className="min-w-0">{v.data.title}</span>
                   <VerdictTag verdict={v.verdict} />
                 </Link>
@@ -273,17 +279,17 @@ async function RunPanel({ run, ctx }: { run: RunRow; ctx: ViewCtx }) {
 
       {steps.length > 0 && (
         <PanelSection title="Steps">
-          <ol className="card m-0 list-none divide-y divide-divide p-0">
+          <ol className="divide-y rounded-lg border">
             {steps.map((s, i) => {
               const res = results.get(i);
               return (
-                <li key={i} className="flex items-start gap-3 px-4 py-2.5 text-sm">
-                  <span className="w-5 shrink-0 text-right text-faint">{i + 1}</span>
+                <li key={i} className="flex items-start gap-3 px-4 py-2.5">
+                  <span className="w-5 shrink-0 text-right text-muted-foreground">{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     {describeStep(s)}
-                    {res?.error && <span className="mt-1 block text-[13px] text-bad">{res.error}</span>}
+                    {res?.error && <span className="mt-1 block text-xs text-bad">{res.error}</span>}
                   </span>
-                  <span className={cx("shrink-0 text-[13px]", res?.status === "fail" ? "text-bad" : "text-muted")}>
+                  <span className={cx("shrink-0 text-xs", res?.status === "fail" ? "text-bad" : "text-muted-foreground")}>
                     {res ? (res.status === "pass" ? `${(res.durationMs / 1000).toFixed(1)} s` : res.status === "fail" ? "Failed" : "Skipped") : "—"}
                   </span>
                 </li>
@@ -298,9 +304,11 @@ async function RunPanel({ run, ctx }: { run: RunRow; ctx: ViewCtx }) {
       <ConsoleLog entries={r.console} />
       <RpcLog entries={r.rpc} />
       {!ctx.readOnly && (
-        <div className="flex flex-wrap items-center gap-3 border-t border-divide pt-5">
+        <div className="flex flex-wrap items-center gap-3 border-t pt-5">
           <RerunButton ctx={ctx} flowId={flowRow?.id} edgeCase={run.edgeCase} label="Re-run" />
-          <span className="hint">{RUN_STATUS_LABEL[run.status]} · run {run.id}</span>
+          <span className="text-xs text-muted-foreground">
+            {RUN_STATUS_LABEL[run.status]} · run {run.id}
+          </span>
         </div>
       )}
     </SidePanel>
@@ -323,7 +331,7 @@ async function ReviewPanel({ row, ctx }: { row: ReviewRow; ctx: ViewCtx }) {
         <>
           <span>Signing review</span>
           {!ctx.readOnly && (
-            <Link href={`/apps/${ctx.appId}/signing/${row.id}`} className="btn-link">
+            <Link href={`/apps/${ctx.appId}/signing/${row.id}`} className="text-foreground underline-offset-4 hover:underline">
               Open full page
             </Link>
           )}

@@ -4,9 +4,14 @@ import { describeStep, type Flow, type Locator, type ParamDef, type Step, type S
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveFlowAction, type ActionResult } from "@/actions/flows";
-import { cx } from "@/components/ui";
+import { cx } from "@/components/common";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Feedback } from "./forms";
-import { WithParams } from "./steps-preview";
+import { WalletBadge, WithParams } from "./steps-preview";
 
 const NEW_STEP: Record<StepKind, Step> = {
   goto: { kind: "goto", url: "/" },
@@ -71,81 +76,81 @@ export function StepsEditor({ flow: initial, readOnly }: { flow: Flow; readOnly?
 
   return (
     <div className="flex flex-col gap-6">
-      <ol className="m-0 list-none rounded-xl border border-line bg-card p-0" aria-label="Steps">
+      <ol className="divide-y rounded-xl border bg-card shadow-xs" aria-label="Steps">
         {flow.steps.map((s, i) => (
-          <li key={i} className={cx("border-b border-divide last:border-b-0", editing === i && "bg-sub")}>
-            <div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3.5">
-              <span className="pt-0.5 font-mono text-[13px] text-faint">{String(i + 1).padStart(2, "0")}</span>
+          <li key={i} className={cx(editing === i && "bg-muted/40")}>
+            <div className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3">
+              <span className="font-mono text-xs leading-5 text-muted-foreground">{i + 1}</span>
               <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-[15px]">
+                <span>
                   <WithParams text={describeStep(s)} />
-                  {s.optional && <span className="text-[13px] text-muted"> (optional)</span>}
+                  {s.optional && <span className="text-muted-foreground"> (optional)</span>}
                 </span>
                 {s.kind === "wallet" && <ExpectSummary step={s} />}
               </div>
-              <div className="flex items-center gap-1.5">
-                {s.kind === "wallet" && <span className="rounded-md bg-hair px-2 py-0.5 text-xs font-medium text-ink-2">Wallet</span>}
+              <div className="flex items-center gap-2">
+                {s.kind === "wallet" && <WalletBadge />}
                 {!readOnly && (
-                  <button type="button" className="btn btn-xs" onClick={() => setEditing(editing === i ? null : i)} aria-expanded={editing === i}>
+                  <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(editing === i ? null : i)} aria-expanded={editing === i}>
                     {editing === i ? "Done" : "Edit"}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
             {editing === i && (
-              <div className="grid gap-4 border-t border-divide px-4 py-4 sm:pl-[60px]">
+              <div className="grid gap-4 border-t px-4 py-4 sm:pl-[56px]">
                 <StepFields step={s} params={flow.params} onChange={(n) => setStep(i, n)} />
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn btn-xs" disabled={i === 0} onClick={() => (move(i, -1), setEditing(i - 1))}>
+                  <Button type="button" variant="outline" size="xs" disabled={i === 0} onClick={() => (move(i, -1), setEditing(i - 1))}>
                     Move up
-                  </button>
-                  <button type="button" className="btn btn-xs" disabled={i === flow.steps.length - 1} onClick={() => (move(i, 1), setEditing(i + 1))}>
+                  </Button>
+                  <Button type="button" variant="outline" size="xs" disabled={i === flow.steps.length - 1} onClick={() => (move(i, 1), setEditing(i + 1))}>
                     Move down
-                  </button>
-                  <button type="button" className="btn btn-xs text-bad" onClick={() => remove(i)}>
+                  </Button>
+                  <Button type="button" variant="outline" size="xs" className="text-destructive" onClick={() => remove(i)}>
                     Delete step
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
           </li>
         ))}
-        {flow.steps.length === 0 && <li className="px-4 py-4 text-sm text-muted">No steps yet.</li>}
+        {flow.steps.length === 0 && <li className="px-4 py-4 text-muted-foreground">No steps yet.</li>}
       </ol>
 
       {!readOnly && (
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="add-step" className="sr-only">
+        <div>
+          <Label htmlFor="add-step" className="sr-only">
             Add a step
-          </label>
-          <select id="add-step" className="field h-9 w-auto py-0 text-sm" value={adding} onChange={(e) => add(e.target.value as StepKind)}>
-            <option value="" disabled>
+          </Label>
+          <NativeSelect id="add-step" size="sm" value={adding} onChange={(e) => add(e.target.value as StepKind)}>
+            <NativeSelectOption value="" disabled>
               Add a step…
-            </option>
+            </NativeSelectOption>
             {(Object.keys(KIND_LABEL) as StepKind[]).map((k) => (
-              <option key={k} value={k}>
+              <NativeSelectOption key={k} value={k}>
                 {KIND_LABEL[k]}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       )}
 
       <Params params={flow.params} readOnly={readOnly} onChange={(params) => setFlow((f) => ({ ...f, params }))} />
 
       {!readOnly && (dirty || state) && (
-        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 shadow-md">
-          {dirty ? <span className="text-sm text-ink-2">Unsaved changes</span> : <Feedback state={state} />}
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-md">
+          {dirty ? <span>Unsaved changes</span> : <Feedback state={state} />}
           {dirty && state?.error && <Feedback state={state} />}
           <span className="flex-1" />
           {dirty && (
             <>
-              <button type="button" className="btn btn-sm" onClick={() => (setFlow(initial), setEditing(null), setState(undefined))}>
+              <Button type="button" variant="outline" size="sm" onClick={() => (setFlow(initial), setEditing(null), setState(undefined))}>
                 Discard
-              </button>
-              <button type="button" className="btn btn-sm btn-primary" onClick={save} disabled={pending}>
+              </Button>
+              <Button type="button" size="sm" onClick={save} disabled={pending}>
                 {pending ? "Saving…" : "Save flow"}
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -156,7 +161,7 @@ export function StepsEditor({ flow: initial, readOnly }: { flow: Flow; readOnly?
 
 function ExpectSummary({ step }: { step: Extract<Step, { kind: "wallet" }> }) {
   const e = step.expect;
-  if (!e) return <span className="text-[13px] text-muted">No checks on this request yet.</span>;
+  if (!e) return <span className="text-muted-foreground">No checks on this request yet.</span>;
   const parts = [
     e.functionName && `calls ${e.functionName}`,
     e.spenderMustBe && `spender must be ${e.spenderMustBe}`,
@@ -165,7 +170,7 @@ function ExpectSummary({ step }: { step: Extract<Step, { kind: "wallet" }> }) {
     e.alsoAcceptPermit2 && "Permit2 also accepted",
   ].filter(Boolean) as string[];
   return (
-    <span className="text-[13px] text-muted">
+    <span className="text-muted-foreground">
       <WithParams text={parts.length ? `Expect: ${parts.join(", ")}` : "No checks on this request yet."} />
     </span>
   );
@@ -173,17 +178,17 @@ function ExpectSummary({ step }: { step: Extract<Step, { kind: "wallet" }> }) {
 
 function Text({ label, value, onChange, mono, placeholder }: { label: string; value?: string; onChange: (v: string) => void; mono?: boolean; placeholder?: string }) {
   return (
-    <label className="flex min-w-0 flex-[1_1_200px] flex-col gap-1.5">
-      <span className="label">{label}</span>
-      <input className={cx("field h-10", mono && "font-mono text-sm")} value={value ?? ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+    <label className="flex min-w-0 flex-[1_1_200px] flex-col gap-2">
+      <span className="text-sm font-medium">{label}</span>
+      <Input className={cx("bg-background", mono && "font-mono")} value={value ?? ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
 }
 
 function Check({ label, checked, onChange }: { label: string; checked?: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <input type="checkbox" checked={Boolean(checked)} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-ink" />
+    <label className="flex h-9 items-center gap-2">
+      <Checkbox checked={Boolean(checked)} onCheckedChange={(v) => onChange(v === true)} />
       {label}
     </label>
   );
@@ -195,8 +200,8 @@ function LocatorFields({ value, onChange }: { value?: Locator; onChange: (l: Loc
   const l = value ?? {};
   const set = (k: keyof Locator, v: string) => onChange({ ...l, [k]: opt(v) });
   return (
-    <fieldset className="m-0 flex flex-wrap gap-3 border-0 p-0">
-      <legend className="mb-1.5 text-[13px] text-muted">Find the element by (first match wins: test id, role + name, label, text, CSS)</legend>
+    <fieldset className="flex flex-wrap gap-3">
+      <legend className="mb-2 text-muted-foreground">Find the element by (first match wins: test id, role + name, label, text, CSS)</legend>
       <Text label="Role" value={l.role} onChange={(v) => set("role", v)} placeholder="button" />
       <Text label="Name" value={l.name} onChange={(v) => set("name", v)} placeholder="Deposit" />
       <Text label="Label" value={l.label} onChange={(v) => set("label", v)} />
@@ -250,13 +255,13 @@ function StepFields({ step, params, onChange }: { step: Step; params: ParamDef[]
       return (
         <>
           <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="label">Wait for</span>
-              <select className="field h-10" value={step.until} onChange={(e) => onChange({ ...step, until: e.target.value as "text" | "ms" | "idle" })}>
-                <option value="text">Some text to appear</option>
-                <option value="ms">A fixed time</option>
-                <option value="idle">The page to settle</option>
-              </select>
+            <label className="flex flex-col gap-2">
+              <span className="text-sm font-medium">Wait for</span>
+              <NativeSelect className="bg-background" value={step.until} onChange={(e) => onChange({ ...step, until: e.target.value as "text" | "ms" | "idle" })}>
+                <NativeSelectOption value="text">Some text to appear</NativeSelectOption>
+                <NativeSelectOption value="ms">A fixed time</NativeSelectOption>
+                <NativeSelectOption value="idle">The page to settle</NativeSelectOption>
+              </NativeSelect>
             </label>
             {step.until === "text" && <Text label="Text" value={step.text} onChange={(text) => onChange({ ...step, text })} />}
             {step.until === "ms" && <Text label="Milliseconds" value={String(step.ms ?? "")} onChange={(v) => onChange({ ...step, ms: Number(v) || undefined })} />}
@@ -269,10 +274,10 @@ function StepFields({ step, params, onChange }: { step: Step; params: ParamDef[]
       return (
         <>
           <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="label">Check that</span>
-              <select
-                className="field h-10"
+            <label className="flex flex-col gap-2">
+              <span className="text-sm font-medium">Check that</span>
+              <NativeSelect
+                className="bg-background"
                 value={a.type}
                 onChange={(e) => {
                   const type = e.target.value as typeof a.type;
@@ -280,10 +285,10 @@ function StepFields({ step, params, onChange }: { step: Step; params: ParamDef[]
                   onChange({ ...step, assert: type === "url" ? { type, contains: text } : { type, text } });
                 }}
               >
-                <option value="visible">The page shows</option>
-                <option value="not-visible">The page doesn&apos;t show</option>
-                <option value="url">The URL contains</option>
-              </select>
+                <NativeSelectOption value="visible">The page shows</NativeSelectOption>
+                <NativeSelectOption value="not-visible">The page doesn&apos;t show</NativeSelectOption>
+                <NativeSelectOption value="url">The URL contains</NativeSelectOption>
+              </NativeSelect>
             </label>
             <Text
               label={a.type === "url" ? "Part of the URL" : "Text"}
@@ -316,21 +321,21 @@ function WalletFields({ step, params, onChange }: { step: Extract<Step, { kind: 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-3">
-        <label className="flex flex-col gap-1.5">
-          <span className="label">In the wallet</span>
-          <select className="field h-10" value={step.respond} onChange={(ev) => onChange({ ...step, respond: ev.target.value as "approve" | "reject" })}>
-            <option value="approve">Approve</option>
-            <option value="reject">Reject</option>
-          </select>
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium">In the wallet</span>
+          <NativeSelect className="bg-background" value={step.respond} onChange={(ev) => onChange({ ...step, respond: ev.target.value as "approve" | "reject" })}>
+            <NativeSelectOption value="approve">Approve</NativeSelectOption>
+            <NativeSelectOption value="reject">Reject</NativeSelectOption>
+          </NativeSelect>
         </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="label">Request type</span>
-          <select className="field h-10" value={e.kind ?? ""} onChange={(ev) => set({ kind: (ev.target.value || undefined) as WalletExpectation["kind"] })}>
-            <option value="">Any</option>
-            <option value="transaction">Transaction</option>
-            <option value="message">Message</option>
-            <option value="typedData">Typed data</option>
-          </select>
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium">Request type</span>
+          <NativeSelect className="bg-background" value={e.kind ?? ""} onChange={(ev) => set({ kind: (ev.target.value || undefined) as WalletExpectation["kind"] })}>
+            <NativeSelectOption value="">Any</NativeSelectOption>
+            <NativeSelectOption value="transaction">Transaction</NativeSelectOption>
+            <NativeSelectOption value="message">Message</NativeSelectOption>
+            <NativeSelectOption value="typedData">Typed data</NativeSelectOption>
+          </NativeSelect>
         </label>
         <Text label="Function" value={e.functionName} onChange={(v) => set({ functionName: opt(v) })} mono placeholder="approve" />
       </div>
@@ -339,24 +344,24 @@ function WalletFields({ step, params, onChange }: { step: Extract<Step, { kind: 
         <Text label="Spender must be" value={e.spenderMustBe} onChange={(v) => set({ spenderMustBe: opt(v) })} mono placeholder="0x…" />
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1.5">
-          <span className="label">Amount must equal</span>
-          <select
-            className="field h-10"
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium">Amount must equal</span>
+          <NativeSelect
+            className="bg-background"
             value={amountParam ? `param:${amountParam}` : e.amountMustEqual ? "fixed" : ""}
             onChange={(ev) => {
               const v = ev.target.value;
               set({ amountMustEqual: v === "" ? undefined : v.startsWith("param:") ? `{{${v.slice(6)}}}` : (amountParam ? "" : e.amountMustEqual) || "0" });
             }}
           >
-            <option value="">Don&apos;t check</option>
+            <NativeSelectOption value="">Don&apos;t check</NativeSelectOption>
             {params.map((p) => (
-              <option key={p.name} value={`param:${p.name}`}>
+              <NativeSelectOption key={p.name} value={`param:${p.name}`}>
                 Input “{p.name}”
-              </option>
+              </NativeSelectOption>
             ))}
-            <option value="fixed">A fixed amount</option>
-          </select>
+            <NativeSelectOption value="fixed">A fixed amount</NativeSelectOption>
+          </NativeSelect>
         </label>
         {e.amountMustEqual && !amountParam && <Text label="Amount (human units)" value={e.amountMustEqual} onChange={(v) => set({ amountMustEqual: v })} mono />}
       </div>
@@ -373,34 +378,34 @@ function Params({ params, readOnly, onChange }: { params: ParamDef[]; readOnly?:
   return (
     <section aria-labelledby="inputs" className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <h2 id="inputs" className="h2">
+        <h2 id="inputs" className="text-lg font-semibold">
           Inputs
         </h2>
         {!readOnly && (
-          <button type="button" className="btn-link" onClick={() => onChange([...params, { name: `input${params.length + 1}`, default: "" }])}>
+          <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => onChange([...params, { name: `input${params.length + 1}`, default: "" }])}>
             Add input
-          </button>
+          </Button>
         )}
       </div>
       {params.length === 0 ? (
-        <p className="hint m-0">No inputs. Use {"{{name}}"} in a step to make a value changeable per variation.</p>
+        <p className="text-muted-foreground">No inputs. Use {"{{name}}"} in a step to make a value changeable per variation.</p>
       ) : (
-        <ul className="card m-0 list-none divide-y divide-divide p-0">
+        <ul className="divide-y rounded-xl border bg-card shadow-xs">
           {params.map((p, i) => (
             <li key={i} className="flex flex-wrap items-center gap-3 px-4 py-3">
               {readOnly ? (
                 <>
-                  <span className="param">{p.name}</span>
-                  <span className="text-sm">{p.default}</span>
-                  {p.description && <span className="text-[13px] text-muted">{p.description}</span>}
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{p.name}</code>
+                  <span>{p.default}</span>
+                  {p.description && <span className="text-muted-foreground">{p.description}</span>}
                 </>
               ) : (
                 <>
-                  <input aria-label="Input name" className="field h-9 w-36 font-mono text-sm" value={p.name} onChange={(e) => set(i, { name: e.target.value.replace(/[^\w-]/g, "") })} />
-                  <input aria-label={`Default for ${p.name}`} className="field h-9 min-w-0 flex-1" value={p.default} placeholder="Default value" onChange={(e) => set(i, { default: e.target.value })} />
-                  <button type="button" className="btn btn-xs" onClick={() => onChange(params.filter((_, j) => j !== i))}>
+                  <Input aria-label="Input name" className="w-36 font-mono" value={p.name} onChange={(e) => set(i, { name: e.target.value.replace(/[^\w-]/g, "") })} />
+                  <Input aria-label={`Default for ${p.name}`} className="min-w-0 flex-1" value={p.default} placeholder="Default value" onChange={(e) => set(i, { default: e.target.value })} />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => onChange(params.filter((_, j) => j !== i))}>
                     Remove
-                  </button>
+                  </Button>
                 </>
               )}
             </li>
