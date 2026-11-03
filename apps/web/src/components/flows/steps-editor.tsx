@@ -93,7 +93,7 @@ export function StepsEditor({ flow: initial, readOnly }: { flow: Flow; readOnly?
               </div>
             </div>
             {editing === i && (
-              <div className="flex flex-col gap-4 border-t border-divide px-4 py-4 sm:pl-[60px]">
+              <div className="grid gap-4 border-t border-divide px-4 py-4 sm:pl-[60px]">
                 <StepFields step={s} params={flow.params} onChange={(n) => setStep(i, n)} />
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="btn btn-xs" disabled={i === 0} onClick={() => (move(i, -1), setEditing(i - 1))}>
