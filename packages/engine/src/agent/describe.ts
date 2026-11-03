@@ -5,7 +5,7 @@
  * the changes from there.
  */
 import { z } from "zod";
-import { newId, paramValues, type Flow } from "@dappdrill/core";
+import { newId, paramValues, type Flow, describeBlock } from "@dappdrill/core";
 import type { DrillSession, Inbox, Llm } from "../types.js";
 import { LlmError } from "./llm-common.js";
 import { createToolkit, inboxTool, listSteps, Recorder, settle } from "./tools.js";
@@ -47,7 +47,7 @@ export async function recordDescribedFlow(
   let failure: string | undefined;
   const log = (message: string, level: "info" | "warn" = "info") => session.emit({ type: "log", level, message, at: new Date().toISOString() });
 
-  const kit = createToolkit({ session, recorder, inbox: opts.inbox, onBlocked: (r) => { failure = `blocked: ${r}`; } });
+  const kit = createToolkit({ session, recorder, inbox: opts.inbox, onBlocked: (b) => { failure = `${describeBlock(b)}: ${b.reason}`; } });
   const tools = [
     ...kit.tools,
     ...(opts.inbox ? [inboxTool(opts.inbox)] : []),

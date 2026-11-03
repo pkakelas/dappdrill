@@ -1,9 +1,9 @@
 import { join, resolve } from "node:path";
 import { DrillTarget, DEFAULT_EDGE_CASES, type ChainConfig } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
-import { UsageError, parseChain, parseEdgeCases, parseToken, readInitScripts, saveFlows, writeJson, writeText } from "../files.js";
+import { UsageError, parseChain, parseEdgeCases, parseToken, parseHeaders, readInitScripts, saveFlows, writeJson, writeText } from "../files.js";
 import { consoleSink } from "../progress.js";
-import { healthLine, renderMarkdown } from "../report/index.js";
+import { blockedLine, healthLine, renderMarkdown } from "../report/index.js";
 import { interruptSignal } from "./util.js";
 
 export interface ScanFlags {
@@ -17,6 +17,7 @@ export interface ScanFlags {
   headed?: boolean;
   token: string[];
   initScript: string[];
+  header: string[];
 }
 
 export async function scanCommand(url: string, flags: ScanFlags): Promise<number> {
@@ -30,6 +31,7 @@ export async function scanCommand(url: string, flags: ScanFlags): Promise<number
     liveKey,
     tokens: flags.token.map(parseToken),
     initScripts: await readInitScripts(flags.initScript),
+    headers: parseHeaders(flags.header),
   });
 
   const out = resolve(flags.out);
@@ -54,6 +56,7 @@ export async function scanCommand(url: string, flags: ScanFlags): Promise<number
 
   console.log(`\n${healthLine(report)}`);
   if (report.stoppedEarly) console.log("Stopped early: results are partial.");
+  if (report.blocked) console.log(blockedLine(report.blocked));
   console.log(`Report: ${join(out, "report.md")}`);
   if (report.flows.length > 0) console.log(`Flows:  ${join(out, "flows")} (copy them to .dappdrill/flows to replay in CI)`);
   return 0;

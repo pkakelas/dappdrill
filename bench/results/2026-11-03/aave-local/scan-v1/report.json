@@ -1,0 +1,34 @@
+{
+  "url": "http://127.0.0.1:4101/",
+  "startedAt": "2026-11-03T15:23:03.158Z",
+  "finishedAt": "2026-11-03T15:24:50.737Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26335141"
+    }
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:4101/",
+      "title": "Aave - Open Source Liquidity Protocol"
+    },
+    {
+      "url": "http://127.0.0.1:4101/dashboard/",
+      "title": "User dashboard: supplies, borrows, net worth (needs a connected wallet)"
+    },
+    {
+      "url": "http://127.0.0.1:4101/markets/",
+      "title": "Markets list for the selected Aave market (Core V3)"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.7406281999999998,
+  "stoppedEarly": false
+}

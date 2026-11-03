@@ -4,7 +4,7 @@
  * amounts. Every completed flow is cut into a replayable core Flow.
  */
 import { z } from "zod";
-import { newId, type Flow } from "@dappdrill/core";
+import { newId, type Blocked, type Flow, describeBlock } from "@dappdrill/core";
 import type { DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, inboxTool, Recorder, settle } from "./tools.js";
@@ -28,7 +28,7 @@ export interface ExploreResult {
   pages: { url: string; title?: string }[];
   flows: Flow[];
   /** Set when a CAPTCHA / bot check stopped the exploration. */
-  blocked?: string;
+  blocked?: Blocked;
   summary: string;
 }
 
@@ -78,7 +78,7 @@ export async function explore(session: DrillSession, llm: Llm, opts: ExploreOpti
   const flows: Flow[] = [];
   const pages = new Map<string, { url: string; title?: string }>();
   const deadline = Date.now() + opts.maxMinutes * 60_000;
-  let blocked: string | undefined;
+  let blocked: Blocked | undefined;
   const log = (message: string, level: "info" | "warn" = "info") => session.emit({ type: "log", level, message, at: new Date().toISOString() });
 
   // Keyed by path: navigation and note_page see the same page with and without its query.
@@ -105,7 +105,7 @@ export async function explore(session: DrillSession, llm: Llm, opts: ExploreOpti
   };
 
   const tools = [
-    ...browserTools({ session, recorder, inbox: opts.inbox, budgetNote, onBlocked: (r) => { blocked = r; log(`Blocked: ${r}`, "warn"); } }),
+    ...browserTools({ session, recorder, inbox: opts.inbox, budgetNote, onBlocked: (b) => { blocked = b; log(`${describeBlock(b)}: ${b.reason}`, "warn"); } }),
     ...(opts.inbox ? [inboxTool(opts.inbox)] : []),
     {
       name: "note_page",

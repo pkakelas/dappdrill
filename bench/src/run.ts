@@ -32,6 +32,8 @@ interface Dapp {
   chains: number[];
   tokens: { chainId: number; address: string; amount: string }[];
   hints: string;
+  /** A frontend built from source and served on this machine; `serve` is the command that starts it. */
+  serve?: string;
 }
 
 interface Label {
@@ -63,6 +65,7 @@ async function main(): Promise<void> {
   const unknown = ids.filter((id) => !corpus.some((d) => d.id === id));
   if (unknown.length) throw new Error(`Not in dapps.json: ${unknown.join(", ")}`);
   const parallel = Number(opt("parallel", "2"));
+  if (command === "scan" || command === "replay") await checkServed(picked);
 
   if (command === "scan") {
     if (!process.env.ANTHROPIC_API_KEY) console.warn("ANTHROPIC_API_KEY is not set; the engine falls back to the local Claude Code login.");
@@ -77,6 +80,16 @@ async function main(): Promise<void> {
 }
 
 // ── running ──────────────────────────────────────────────────────────────────
+
+/** Local frontends must already be up; a scan of a dead port would only measure the error page. */
+async function checkServed(dapps: Dapp[]): Promise<void> {
+  const down = [];
+  for (const d of dapps.filter((x) => x.serve)) {
+    const up = await fetch(d.url, { signal: AbortSignal.timeout(5000) }).then((r) => r.ok, () => false);
+    if (!up) down.push(`${d.id}: ${d.serve}`);
+  }
+  if (down.length) throw new Error(`Local frontends not running at their URL. Start them with:\n  ${down.join("\n  ")}`);
+}
 
 function targetFlags(d: Dapp): string[] {
   return [...d.chains.flatMap((c) => ["--chain", String(c)]), ...d.tokens.flatMap((t) => ["--token", `${t.chainId}:${t.address}=${t.amount}`])];

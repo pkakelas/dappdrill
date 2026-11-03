@@ -16,8 +16,10 @@ import {
   type ScanReport,
   type ScanStage,
   type SigningReview,
+  blockedLine,
 } from "@dappdrill/core";
 import { explore, proposeRepair, recordDescribedFlow, type ReplayFn } from "./agent/index.js";
+import { detectBotCheck } from "./browser/access.js";
 import { openEnv, type Env } from "./pipeline/env.js";
 import { drillFlow, findSetup, pin, runSetup, tryFlow } from "./pipeline/flows.js";
 import { createSession, replayFlow, type EngineSession } from "./runtime.js";
@@ -51,6 +53,7 @@ export async function scan(
   const env = await openEnv(DrillTarget.parse(input), sink, { headless: opts.headless });
   const result: ReplayResult = { runs: [], issues: [], signingReviews: [] };
   let pages: ScanReport["pages"] = [];
+  let blocked: ScanReport["blocked"];
   const flows: Flow[] = [];
   try {
     // 1. Explore on pinned state, so what the model did doesn't leak into the tests.
@@ -68,17 +71,25 @@ export async function scan(
     try {
       await env.log(`Opening ${env.target.url}`);
       await session.page.goto(env.target.url, { waitUntil: "domcontentloaded", timeout: 45_000 });
-      const explored = await explore(session, env.llm(), {
-        maxFlows: opts.maxFlows,
-        maxMinutes: opts.maxMinutes * EXPLORE_SHARE,
-        hints: opts.hints,
-        knownFlows: opts.knownFlows,
-        signal,
-        inbox: env.inbox,
-      });
-      pages = explored.pages;
-      flows.push(...explored.flows);
-      if (explored.blocked) await env.log(`Stopped exploring: ${explored.blocked}`, "warn");
+      // A challenge on the first page stops the scan before it spends anything on the model.
+      blocked = await landingBotCheck(session);
+      if (!blocked) {
+        const explored = await explore(session, env.llm(), {
+          maxFlows: opts.maxFlows,
+          maxMinutes: opts.maxMinutes * EXPLORE_SHARE,
+          hints: opts.hints,
+          knownFlows: opts.knownFlows,
+          signal,
+          inbox: env.inbox,
+        });
+        pages = explored.pages;
+        flows.push(...explored.flows);
+        blocked = explored.blocked;
+      }
+      if (blocked) {
+        await env.log(blockedLine(blocked), "warn");
+        await env.sink({ type: "blocked", blocked });
+      }
     } finally {
       await session.close().catch(() => {});
       await restore();
@@ -144,7 +155,16 @@ export async function scan(
     ...result,
     costUsd: env.costUsd(),
     stoppedEarly: signal?.aborted ?? false,
+    blocked,
   };
+}
+
+/** Challenges often load a moment after the page; look twice before calling the page clean. */
+async function landingBotCheck(session: EngineSession): Promise<ScanReport["blocked"]> {
+  const first = await detectBotCheck(session.page);
+  if (first) return first;
+  await session.page.waitForTimeout(2_500);
+  return detectBotCheck(session.page);
 }
 
 /** Deterministic replay of saved flows under the given edge cases. No model calls unless a step breaks. */

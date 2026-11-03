@@ -14,6 +14,8 @@ Measures DappDrill on live dApp frontends, three ways:
 
 Mainnet dApps run on local Anvil forks, so nothing reaches a real chain. The corpus and its funding live in `dapps.json`.
 
+The `*-local` entries are open-source frontends (Aave, CoW Swap, GMX) built from source and served on this machine, because their live sites show a bot check to headless browsers. Their `serve` field is the command that starts each one (from `~/workspace/dappdrill-frontends`); `scan` and `replay` refuse to start until they answer. They still read market data, quotes and prices from the live backends, so those can disagree with the fork.
+
 Spend: `report` adds up `costUsd` from every `scan*` folder of a dApp, so scans that an engine fix made obsolete (kept as `scan-v1`, `scan-v2`) still count. Replays make no model calls.
 
 ## Running

@@ -64,6 +64,8 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
         return void (await update({ chains: event.chains }));
       case "cost":
         return void (await update({ costUsd: event.usd }));
+      case "blocked":
+        return void (await update({ blocked: event.blocked }));
       case "wallet-request":
         if (!event.request.from || walletSet) return;
         walletSet = true;

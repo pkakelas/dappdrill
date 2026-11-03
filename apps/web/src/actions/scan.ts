@@ -36,6 +36,9 @@ const NewScanInput = z.object({
   removeLiveKey: z.boolean().default(false),
   allowMainnetLive: z.boolean().default(false),
   hints: z.string().trim().max(2000).optional(),
+  accessHeaderName: z.union([z.literal(""), z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$/, "The header name can only use letters, digits and - (like x-dappdrill-token).")]).optional(),
+  accessHeaderValue: z.string().max(2000).optional(),
+  removeAccessHeaders: z.boolean().default(false),
 });
 
 function readForm(form: FormData) {
@@ -53,6 +56,9 @@ function readForm(form: FormData) {
     removeLiveKey: form.get("removeLiveKey") === "on",
     allowMainnetLive: form.get("allowMainnetLive") === "on",
     hints: form.get("hints") ?? undefined,
+    accessHeaderName: String(form.get("accessHeaderName") ?? "").trim(),
+    accessHeaderValue: String(form.get("accessHeaderValue") ?? "").trim(),
+    removeAccessHeaders: form.get("removeAccessHeaders") === "on",
   };
 }
 
@@ -110,6 +116,16 @@ export async function startScanAction(_prev: FormState, form: FormData): Promise
       ? { liveKeyEnc: null, liveKeyAddress: null }
       : {};
 
+  if (Boolean(input.accessHeaderName) !== Boolean(input.accessHeaderValue)) {
+    return { error: "The bot-protection header needs both a name and a secret value." };
+  }
+  // A new header replaces what's stored; values are never shown again.
+  const access = input.accessHeaderName
+    ? { accessHeadersEnc: encrypt(JSON.stringify({ [input.accessHeaderName.toLowerCase()]: input.accessHeaderValue })), accessHeaderNames: [input.accessHeaderName.toLowerCase()] }
+    : input.removeAccessHeaders
+      ? { accessHeadersEnc: null, accessHeaderNames: [] }
+      : {};
+
   if (app) {
     const allowance = await scanAllowance(app.id, team.plan);
     if (allowance.left <= 0) {
@@ -117,14 +133,14 @@ export async function startScanAction(_prev: FormState, form: FormData): Promise
     }
     [app] = await db()
       .update(apps)
-      .set({ url: input.url, host: hostOf(input.url), settings, ...liveKey })
+      .set({ url: input.url, host: hostOf(input.url), settings, ...liveKey, ...access })
       .where(eq(apps.id, app.id))
       .returning();
   } else {
     const host = hostOf(input.url);
     [app] = await db()
       .insert(apps)
-      .values({ id: newId("app"), teamId: team.id, name: nameFromHost(new URL(input.url).host), url: input.url, host, settings, ...liveKey })
+      .values({ id: newId("app"), teamId: team.id, name: nameFromHost(new URL(input.url).host), url: input.url, host, settings, ...liveKey, ...access })
       .returning();
   }
 

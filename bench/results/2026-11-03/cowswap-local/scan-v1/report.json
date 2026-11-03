@@ -1,0 +1,1113 @@
+{
+  "url": "http://127.0.0.1:4102/#/1/swap/USDC/WETH",
+  "startedAt": "2026-11-03T15:23:03.167Z",
+  "finishedAt": "2026-11-03T15:26:23.099Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26335141"
+    }
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:4102/",
+      "title": "Swap - CoW Swap | The smartest way to trade cryptocurrencies"
+    }
+  ],
+  "flows": [
+    {
+      "id": "flow_ia4f4izsmep4fv",
+      "name": "Wrap 0.05 ETH to WETH",
+      "origin": "discovered",
+      "startUrl": "http://127.0.0.1:4102/#/1/swap/USDC/WETH",
+      "params": [
+        {
+          "name": "amount",
+          "default": "0.05",
+          "description": "Amount typed into the form"
+        }
+      ],
+      "steps": [
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Swap now"
+          },
+          "note": "Dismiss announcement",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Connect wallet"
+          },
+          "note": "Open wallet picker",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "MetaMask installed"
+          },
+          "note": "Choose MetaMask",
+          "optional": true
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "placeholder": "0",
+            "nth": 0
+          },
+          "value": "100"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Selected token: USDC"
+          },
+          "note": "Check token balances"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "ETHEther100"
+          },
+          "note": "Wallet has 0 USDC; sell ETH instead"
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "placeholder": "0",
+            "nth": 0
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "testId": "trade-form-blank-button"
+          },
+          "note": "Wrap 0.05 ETH"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "functionName": "deposit",
+            "amountMustEqual": "{{amount}}"
+          },
+          "note": "Approve eth_sendTransaction to 0xc02a…6cc2"
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "99.95 ETH"
+          }
+        }
+      ],
+      "chainId": 1
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_btxxc5bzqm6vx9",
+      "flowId": "flow_ia4f4izsmep4fv",
+      "edgeCase": "happy",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 195
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 132
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 416
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 37
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 438
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 2175
+        },
+        {
+          "index": 6,
+          "status": "pass",
+          "durationMs": 24
+        },
+        {
+          "index": 7,
+          "status": "pass",
+          "durationMs": 497
+        },
+        {
+          "index": 8,
+          "status": "pass",
+          "durationMs": 12009,
+          "walletRequestId": "req_jqw3fluqz7kkut"
+        },
+        {
+          "index": 9,
+          "status": "pass",
+          "durationMs": 10318
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_ul16z2kmmo8qic",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:50.261Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_hl8hr8rg3izsul",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:50.507Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_61tx3krogmpssk",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T15:25:55.379Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_5cr4t2gk6w0lh5",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7"
+                  ]
+                }
+              ],
+              "date": 1793719555379
+            }
+          ]
+        },
+        {
+          "id": "req_k2y1tcst5a1113",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.385Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_jm4i30tismt360",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.385Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_x360ruvvoit7rj",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.387Z",
+          "outcome": "approved",
+          "result": [
+            "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7"
+          ]
+        },
+        {
+          "id": "req_m5xz273k29xsaw",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.389Z",
+          "outcome": "approved",
+          "result": [
+            "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7"
+          ]
+        },
+        {
+          "id": "req_6tlg6vdaboqffb",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.389Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_hsxwykhgdqzup7",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.408Z",
+          "outcome": "approved",
+          "result": [
+            "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7"
+          ]
+        },
+        {
+          "id": "req_sa82k4daljniqd",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.408Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_fko1j9nop2eefk",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.410Z",
+          "outcome": "approved",
+          "result": [
+            "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7"
+          ]
+        },
+        {
+          "id": "req_og3p9wmanr9zip",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.410Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_db6acy9zcsy5tu",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.495Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_rv23p09yof9mq0",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.496Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_3dbf8vbpubljpx",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+            [
+              "0x1"
+            ]
+          ],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.503Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_szx0o3a2z1o1gf",
+          "method": "web3_clientVersion",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.517Z",
+          "outcome": "approved",
+          "result": "anvil/v1.8.6"
+        },
+        {
+          "id": "req_f429925qpd1kc2",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:55.626Z",
+          "outcome": "approved",
+          "result": [
+            "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7"
+          ]
+        },
+        {
+          "id": "req_6nphzaa798ahhn",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:57.520Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_djzuusumg1k8u9",
+          "method": "web3_clientVersion",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:57.832Z",
+          "outcome": "approved",
+          "result": "anvil/v1.8.6"
+        },
+        {
+          "id": "req_rj8f0b8yaffhwf",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:57.906Z",
+          "outcome": "approved",
+          "result": [
+            "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7"
+          ]
+        },
+        {
+          "id": "req_ev2w9vrcanhci0",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:25:58.634Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_jqw3fluqz7kkut",
+          "method": "eth_sendTransaction",
+          "params": [
+            {
+              "data": "0xd0e30db0",
+              "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+              "gas": "0xd31d",
+              "to": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+              "value": "0xb1a2bc2ec50000"
+            }
+          ],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T15:25:58.640Z",
+          "outcome": "approved",
+          "result": "0xe6042790343b4a5b98814eea29d352a736cc292c684be5609e8cbde371b164ce"
+        },
+        {
+          "id": "req_h0ytnxf6gppnw8",
+          "method": "web3_clientVersion",
+          "params": [],
+          "chainId": 1,
+          "from": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T15:26:09.214Z",
+          "outcome": "approved",
+          "result": "anvil/v1.8.6"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_syrox91dcxduh2"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "[COW] New user, skipping storage wipe",
+          "at": "2026-11-03T15:25:49.296Z"
+        },
+        {
+          "level": "info",
+          "text": "%c[COW][AppMeta] font-weight: bold; color: #1c5dbf environment production",
+          "at": "2026-11-03T15:25:49.550Z"
+        },
+        {
+          "level": "info",
+          "text": "%c[COW][AppMeta] font-weight: bold; color: #1c5dbf prodApi true",
+          "at": "2026-11-03T15:25:49.550Z"
+        },
+        {
+          "level": "info",
+          "text": "%c[COW][AppMeta] font-weight: bold; color: #1c5dbf nodeEnv production",
+          "at": "2026-11-03T15:25:49.550Z"
+        },
+        {
+          "level": "info",
+          "text": "%c[COW][AppMeta] font-weight: bold; color: #1c5dbf release CowSwap@v3.33.2",
+          "at": "2026-11-03T15:25:49.554Z"
+        },
+        {
+          "level": "info",
+          "text": "%c[COW][AppMeta] font-weight: bold; color: #1c5dbf gitCommitHash 22a29f0",
+          "at": "2026-11-03T15:25:49.554Z"
+        },
+        {
+          "level": "info",
+          "text": "%c[COW][AppMeta] font-weight: bold; color: #1c5dbf gitCommitDate 2026-11-03T14:41:18+05:30",
+          "at": "2026-11-03T15:25:49.554Z"
+        },
+        {
+          "level": "warn",
+          "text": "[Redux-LocalStorage-Simple] Invalid load 'redux_localstorage_simple_user' provided. Check your 'states' in 'load()'. If this is your first time running this app you may see this message. To disable it in future use the 'disableWarnings' flag, see documentation.",
+          "at": "2026-11-03T15:25:49.590Z"
+        },
+        {
+          "level": "warn",
+          "text": "[Redux-LocalStorage-Simple] Invalid load 'redux_localstorage_simple_transactions' provided. Check your 'states' in 'load()'. If this is your first time running this app you may see this message. To disable it in future use the 'disableWarnings' flag, see documentation.",
+          "at": "2026-11-03T15:25:49.591Z"
+        },
+        {
+          "level": "warn",
+          "text": "[Redux-LocalStorage-Simple] Invalid load 'redux_localstorage_simple_orders' provided. Check your 'states' in 'load()'. If this is your first time running this app you may see this message. To disable it in future use the 'disableWarnings' flag, see documentation.",
+          "at": "2026-11-03T15:25:49.591Z"
+        },
+        {
+          "level": "warn",
+          "text": "[Redux-LocalStorage-Simple] Invalid load 'redux_localstorage_simple_gas' provided. Check your 'states' in 'load()'. If this is your first time running this app you may see this message. To disable it in future use the 'disableWarnings' flag, see documentation.",
+          "at": "2026-11-03T15:25:49.591Z"
+        },
+        {
+          "level": "warn",
+          "text": "[Redux-LocalStorage-Simple] Invalid load 'redux_localstorage_simple_swap' provided. Check your 'states' in 'load()'. If this is your first time running this app you may see this message. To disable it in future use the 'disableWarnings' flag, see documentation.",
+          "at": "2026-11-03T15:25:49.591Z"
+        },
+        {
+          "level": "warn",
+          "text": "The configured WalletConnect 'metadata.url':https://swap.cow.fi differs from the actual page url:http://127.0.0.1:4102. This is probably unintended and can lead to issues.",
+          "at": "2026-11-03T15:25:49.830Z"
+        },
+        {
+          "level": "error",
+          "text": "[LaunchDarkly] No environment/client-side ID was specified. Please see https://docs.launchdarkly.com/sdk/client-side/javascript#initializing-the-client for instructions on SDK initialization.",
+          "at": "2026-11-03T15:25:49.835Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:49.854Z"
+        },
+        {
+          "level": "log",
+          "text": "[TRADE STATE] Applying a new state from URL {chainId: 1, inputCurrencyId: USDC, outputCurrencyId: WETH, targetChainId: null}",
+          "at": "2026-11-03T15:25:49.855Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:50.048Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][UsdPrices] font-weight: bold; color: #6b7280 Fetching USD prices for USDC, WETH",
+          "at": "2026-11-03T15:25:50.066Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:50.077Z"
+        },
+        {
+          "level": "warn",
+          "text": "Skipped 2/23 correlated token lists with a missing or unsupported chainId",
+          "at": "2026-11-03T15:25:50.088Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:50.167Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to XMLHttpRequest at 'https://app.launchdarkly.com/sdk/goals/' from origin 'http://127.0.0.1:4102' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T15:25:50.403Z"
+        },
+        {
+          "level": "error",
+          "text": "[LaunchDarkly] network error (Error)",
+          "at": "2026-11-03T15:25:50.403Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T15:25:50.403Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:50.528Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:50.685Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+          "at": "2026-11-03T15:25:50.791Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://secure.adnxs.com/getuidp?callback=func' from origin 'http://127.0.0.1:4102' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T15:25:51.019Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T15:25:51.019Z"
+        },
+        {
+          "level": "log",
+          "text": "Content is cached for offline use.",
+          "at": "2026-11-03T15:25:51.342Z"
+        },
+        {
+          "level": "log",
+          "text": "This web app is being served cache-first by a service worker. To learn more, visit https://cra.link/PWA",
+          "at": "2026-11-03T15:25:51.342Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to XMLHttpRequest at 'https://events.launchdarkly.com/events/diagnostic/' from origin 'http://127.0.0.1:4102' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T15:25:51.593Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T15:25:51.593Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to XMLHttpRequest at 'https://events.launchdarkly.com/events/diagnostic/' from origin 'http://127.0.0.1:4102' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T15:25:51.723Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T15:25:51.723Z"
+        },
+        {
+          "level": "log",
+          "text": "Fetching slippage tolerance from API: https://bff.barn.cow.fi/1/markets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48-0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/slippageTolerance (timeout: 2000ms)",
+          "at": "2026-11-03T15:25:53.922Z"
+        },
+        {
+          "level": "log",
+          "text": "Retrieved slippage tolerance from API: 38 BPS",
+          "at": "2026-11-03T15:25:53.985Z"
+        },
+        {
+          "level": "error",
+          "text": "Error: <svg> attribute width: Unexpected end of attribute. Expected length, \"\".",
+          "at": "2026-11-03T15:25:55.380Z"
+        },
+        {
+          "level": "error",
+          "text": "Error: <svg> attribute height: Unexpected end of attribute. Expected length, \"\".",
+          "at": "2026-11-03T15:25:55.380Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][Wallet] font-weight: bold; color: #6b7280 Fetching wallet capabilities {account: 0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7, chainId: 1}",
+          "at": "2026-11-03T15:25:55.405Z"
+        },
+        {
+          "level": "info",
+          "text": "Discarding cache for address eip155:1:0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+          "at": "2026-11-03T15:25:55.407Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][Affiliate] font-weight: bold; color: #6b7280 0xAFBd...21B7 Calling cow api for each supported chain/env to check for executed trades",
+          "at": "2026-11-03T15:25:55.425Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][Wallet] font-weight: bold; color: #6b7280 Fetched wallet capabilities {account: 0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7, chainId: 1, capabilities: Object}",
+          "at": "2026-11-03T15:25:55.534Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:55.865Z"
+        },
+        {
+          "level": "log",
+          "text": "[QUOTE FETCHING] swap quote params has changes:  [Array(2), Array(2), Array(2)]",
+          "at": "2026-11-03T15:25:55.899Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:56.746Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #6b7280 Price impact timeout reset",
+          "at": "2026-11-03T15:25:57.832Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][UsdPrices] font-weight: bold; color: #6b7280 Fetching USD prices for WETH",
+          "at": "2026-11-03T15:25:57.844Z"
+        },
+        {
+          "level": "log",
+          "text": "[TRADE STATE] Applying a new state from URL {chainId: 1, inputCurrencyId: ETH, outputCurrencyId: WETH, targetChainId: null}",
+          "at": "2026-11-03T15:25:57.860Z"
+        },
+        {
+          "level": "log",
+          "text": "Fetching slippage tolerance from API: https://bff.barn.cow.fi/1/markets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48-0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/slippageTolerance (timeout: 2000ms)",
+          "at": "2026-11-03T15:25:58.205Z"
+        },
+        {
+          "level": "log",
+          "text": "Retrieved slippage tolerance from API: 38 BPS",
+          "at": "2026-11-03T15:25:58.269Z"
+        },
+        {
+          "level": "log",
+          "text": "[COW][HOOKS] Skipping hooks, reason: not an injected widget",
+          "at": "2026-11-03T15:25:58.382Z"
+        },
+        {
+          "level": "log",
+          "text": "%c[COW][Affiliate] font-weight: bold; color: #6b7280 0xAFBd...21B7 Called cow api, trader does not have past trades and ref code not found",
+          "at": "2026-11-03T15:25:59.391Z"
+        },
+        {
+          "level": "log",
+          "text": "BLOCK NUMBER undefined",
+          "at": "2026-11-03T15:26:02.166Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T15:26:07.340Z"
+        },
+        {
+          "level": "log",
+          "text": "[FinalizeTxUpdater] Transaction 0xe6042790343b4a5b98814eea29d352a736cc292c684be5609e8cbde371b164ce has been mined {type: eip1559, status: success, cumulativeGasUsed: 45038n, logs: Array(1), logsBloom: 0x000000000000000000000000000000000000000000000000…0000000000000000000000000000000400000000000000000} {hash: 0xe6042790343b4a5b98814eea29d352a736cc292c684be5609e8cbde371b164ce, transactionHash: 0xe6042790343b4a5b98814eea29d352a736cc292c684be5609e8cbde371b164ce, nonce: 1, hashType: ETHEREUM_TX, addedTime: 1793719569510}",
+          "at": "2026-11-03T15:26:10.126Z"
+        },
+        {
+          "level": "warn",
+          "text": "%c[COW][PriceImpact] font-weight: bold; color: #b45309 Price impact loading timed out after 15s",
+          "at": "2026-11-03T15:26:12.832Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T15:26:13.919Z"
+        },
+        {
+          "level": "log",
+          "text": "BLOCK NUMBER undefined",
+          "at": "2026-11-03T15:26:14.474Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T15:26:17.552Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T15:25:55.413Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 101,
+          "at": "2026-11-03T15:25:55.830Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1247,
+          "at": "2026-11-03T15:25:56.976Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1779,
+          "at": "2026-11-03T15:25:57.508Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 67,
+          "at": "2026-11-03T15:25:57.947Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 67,
+          "at": "2026-11-03T15:25:57.947Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T15:25:58.397Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 238,
+          "at": "2026-11-03T15:25:58.632Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 305,
+          "at": "2026-11-03T15:25:59.246Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T15:26:02.164Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 8,
+          "at": "2026-11-03T15:26:08.963Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_getTransactionCount",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T15:26:09.509Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_getTransactionCount",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T15:26:09.820Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T15:26:10.125Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T15:26:14.472Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://mainnet.infura.io/v3/2af29cd5ac554ae3b8d991afe1ba4b7d",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T15:26:20.404Z"
+        }
+      ],
+      "video": "videos/run_btxxc5bzqm6vx9.webm",
+      "trace": "traces/run_btxxc5bzqm6vx9.zip",
+      "finalScreenshot": "screenshots/run_btxxc5bzqm6vx9-run_btxxc5bzqm6vx9-final.png",
+      "forkBlocks": {
+        "1": "26335141"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T15:25:45.410Z",
+      "finishedAt": "2026-11-03T15:26:23.093Z"
+    }
+  ],
+  "issues": [],
+  "signingReviews": [
+    {
+      "id": "sgr_syrox91dcxduh2",
+      "requestId": "req_jqw3fluqz7kkut",
+      "flowId": "flow_ia4f4izsmep4fv",
+      "stepIndex": 8,
+      "chainId": 1,
+      "method": "eth_sendTransaction",
+      "verdict": "consistent",
+      "title": "Wrap 0.05 ETH on Wrapped Ether",
+      "summary": "The button says “Wrap”. The wallet is asked to call deposit() on 0xC02a…6Cc2 (Wrapped Ether, verified) with 0.05 ETH; on the fork −0.05 ETH leaves the wallet.",
+      "ui": {
+        "buttonLabel": "Wrap",
+        "pageUrl": "http://127.0.0.1:4102/#/1/swap/ETH/WETH",
+        "screenshot": "screenshots/run_btxxc5bzqm6vx9-run_btxxc5bzqm6vx9-step8-wallet.png"
+      },
+      "decoded": {
+        "kind": "transaction",
+        "to": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "contractName": "Wrapped Ether",
+        "functionName": "deposit",
+        "signature": "deposit()",
+        "args": [],
+        "value": "50000000000000000",
+        "calldata": "0xd0e30db0",
+        "abiSource": "sourcify"
+      },
+      "simulation": {
+        "status": "ok",
+        "balanceChanges": [
+          {
+            "owner": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+            "token": "native",
+            "symbol": "ETH",
+            "decimals": 18,
+            "delta": "-50000000000000000",
+            "display": "−0.05 ETH"
+          },
+          {
+            "owner": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+            "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "symbol": "WETH",
+            "decimals": 18,
+            "delta": "50000000000000000",
+            "display": "+0.05 WETH"
+          }
+        ],
+        "gasUsed": "45038"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "pass",
+          "detail": "“Wrap” and the call is deposit(). The 'Wrap' button and the 'Wrapping 0.05 ETH to WETH' text match the request: deposit() on the official WETH9 contract (0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2) on Ethereum mainnet, sending 0.05 ETH (5e16 wei). The simulated −0.05 ETH is the same amount. There is no approval, permit or other recipient, and the WETH comes back one-for-one.",
+          "evidence": {
+            "confidence": "high",
+            "via": "model",
+            "buttonLabel": "Wrap"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "pass",
+          "detail": "0xC02a…6Cc2 (Wrapped Ether) is verified on Sourcify."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "pass",
+          "detail": "0xC02a…6Cc2 (Wrapped Ether) is a long-standing, well-known contract."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "pass",
+          "detail": "Not a proxy."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "pass",
+          "detail": "The real WETH on Ethereum, verified."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation: deposit(), to 0xc02a…6cc2, amount {{amount}}.",
+          "evidence": {
+            "expectation": {
+              "kind": "transaction",
+              "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "functionName": "deposit",
+              "amountMustEqual": "{{amount}}"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "pass",
+          "detail": "Balance changes: −0.05 ETH, +0.05 WETH.",
+          "evidence": {
+            "gasUsed": "45038",
+            "balanceChanges": [
+              {
+                "owner": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+                "token": "native",
+                "symbol": "ETH",
+                "decimals": 18,
+                "delta": "-50000000000000000",
+                "display": "−0.05 ETH"
+              },
+              {
+                "owner": "0xAFBd2dDcD894c4990166F0F5aB16e81B81b521B7",
+                "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                "symbol": "WETH",
+                "decimals": 18,
+                "delta": "50000000000000000",
+                "display": "+0.05 WETH"
+              }
+            ],
+            "stake": true
+          }
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "pass",
+          "detail": "WETH describes this as “Wrap” (Amount).",
+          "evidence": {
+            "descriptor": "registry/weth/calldata-weth.json",
+            "intent": "Wrap"
+          }
+        }
+      ],
+      "explanation": "The request matches what the page says and every check we could run passed.",
+      "fingerprint": "66469285046d49fa",
+      "createdAt": "2026-11-03T15:26:09.189Z",
+      "runId": "run_btxxc5bzqm6vx9"
+    }
+  ],
+  "costUsd": 1.0865906,
+  "stoppedEarly": false
+}

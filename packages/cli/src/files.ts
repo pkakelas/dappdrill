@@ -84,6 +84,21 @@ export function parseToken(spec: string): DrillTarget["tokens"][number] {
   return { chainId: Number(m[1]), address: m[2]!, amount: m[3]! };
 }
 
+/**
+ * Headers for the app's own site: each --header "Name: value", plus one per line of
+ * $DAPPDRILL_HEADERS (so a CI secret stays out of the command line).
+ */
+export function parseHeaders(specs: string[], env = process.env.DAPPDRILL_HEADERS): Record<string, string> {
+  const lines = [...(env ?? "").split("\n").filter((l) => l.trim()), ...specs];
+  const headers: Record<string, string> = {};
+  for (const line of lines) {
+    const m = /^\s*([!#$%&'*+.^_`|~0-9A-Za-z-]+)\s*:\s*(.*?)\s*$/.exec(line);
+    if (!m || !m[2]) throw new UsageError(`Bad header "${line.split(":")[0]}…": expected "Name: value"`);
+    headers[m[1]!.toLowerCase()] = m[2];
+  }
+  return headers;
+}
+
 export async function readInitScripts(paths: string[]): Promise<string[]> {
   return Promise.all(
     paths.map((p) =>

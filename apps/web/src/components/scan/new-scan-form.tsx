@@ -21,6 +21,8 @@ export interface NewScanDefaults {
   hints: string;
   allowMainnetLive: boolean;
   liveKeyAddress: string | null;
+  /** Names of the stored allowlist headers; their values are never sent back. */
+  accessHeaderNames: string[];
 }
 
 function StartButton() {
@@ -87,7 +89,7 @@ export function NewScanForm({ defaults, usage }: { defaults: NewScanDefaults; us
         )}
       </div>
 
-      <details className="group/c" open={Boolean(defaults.appId && (defaults.chains.length || defaults.hints))}>
+      <details className="group/c" open={Boolean(defaults.appId && (defaults.chains.length || defaults.hints || defaults.accessHeaderNames.length))}>
         <summary className="btn-link w-fit text-sm">
           Customize
           <span className="text-muted">— chains, wallets, edge cases</span>
@@ -224,6 +226,47 @@ export function NewScanForm({ defaults, usage }: { defaults: NewScanDefaults; us
                 Transactions on a mainnet in live mode are real and can&apos;t be undone. Use a key that holds only what you&apos;re willing to lose.
               </p>
             )}
+          </fieldset>
+
+          <fieldset className="m-0 flex flex-col gap-3 border-0 p-0">
+            <legend className="label mb-2.5 p-0">Bot protection</legend>
+            <p className="hint m-0">
+              If your site shows a CAPTCHA or bot check, DappDrill stops there; it never solves one. Let it in with a secret header that your Cloudflare or Vercel
+              protection skips. We send it only to your app&apos;s own domain and store it encrypted.{" "}
+              <a href="/bot" target="_blank" className="underline">
+                How to set it up
+              </a>
+            </p>
+            {defaults.accessHeaderNames.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <span>
+                  Stored: <span className="font-mono">{defaults.accessHeaderNames.join(", ")}</span>
+                </span>
+                <label className="flex items-center gap-2 text-ink-2">
+                  <input type="checkbox" name="removeAccessHeaders" className="size-4 accent-ink" />
+                  Remove
+                </label>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2.5">
+              <input
+                name="accessHeaderName"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="x-dappdrill-token"
+                className="field flex-[1_1_200px] font-mono"
+                aria-label="Header name"
+              />
+              <input
+                name="accessHeaderValue"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={defaults.accessHeaderNames.length ? "Replace with a new secret" : "Secret value"}
+                className="field flex-[2_1_260px] font-mono"
+                aria-label="Header value"
+              />
+            </div>
           </fieldset>
 
           <div className="flex flex-col gap-2">

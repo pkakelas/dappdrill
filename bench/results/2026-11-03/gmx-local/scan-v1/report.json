@@ -1,0 +1,26 @@
+{
+  "url": "http://127.0.0.1:4103/#/trade",
+  "startedAt": "2026-11-03T15:23:03.163Z",
+  "finishedAt": "2026-11-03T15:23:36.935Z",
+  "chains": [
+    {
+      "id": 42161,
+      "name": "Arbitrum",
+      "rpcUrl": "https://arbitrum-one-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "520911689"
+    }
+  ],
+  "pages": [],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0,
+  "stoppedEarly": false,
+  "blocked": {
+    "provider": "hCaptcha",
+    "reason": "A hCaptcha challenge is on the page",
+    "url": "http://127.0.0.1:4103/trade"
+  }
+}

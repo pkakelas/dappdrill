@@ -2,6 +2,7 @@ import {
   HEALTH_LABEL,
   SEVERITY_ORDER,
   healthOfIssues,
+  type Blocked,
   type Flow,
   type FlowRun,
   type Health,
@@ -9,6 +10,7 @@ import {
   type Severity,
   type SigningReview,
 } from "@dappdrill/core";
+export { blockedLine } from "@dappdrill/core";
 
 /** What every report renderer needs. A ScanReport fits, and so does a replay's result. */
 export interface ReportInput {
@@ -21,6 +23,7 @@ export interface ReportInput {
   signingReviews: SigningReview[];
   costUsd?: number;
   stoppedEarly?: boolean;
+  blocked?: Blocked;
 }
 
 /** Issue health, plus Broken when a flow itself broke (or we couldn't run it). */

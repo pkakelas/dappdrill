@@ -23,8 +23,10 @@ import {
   type Variation,
   type WalletProfileId,
   type WalletRequest,
+  blockedLine,
 } from "@dappdrill/core";
 import type { ChainController, Hex, Inbox, Llm, RecoveryJudge, SigningReviewer, WalletPolicy } from "../types.js";
+import { detectBotCheck } from "../browser/access.js";
 import { createSession, type EngineSession } from "../browser/session.js";
 import type { Wallet } from "../wallet/controller.js";
 import { decodeBuiltin, spenderOf } from "./expectation.js";
@@ -249,9 +251,12 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
       log,
     });
     chains.setFaults({});
+    finalScreenshot = await session.screenshot(`${runId}-final`);
+    // A bot check isn't the flow breaking: say so instead of judging the page behind it.
+    const blocked = replay.completed ? undefined : await detectBotCheck(session.page);
+    if (blocked) throw new Error(blockedLine(blocked).replace(", so exploring stopped there", ""));
     if (edge === "happy") learnFromHappy(plan, replay);
 
-    finalScreenshot = await session.screenshot(`${runId}-final`);
     await setup.inspect?.(session, replay, drafts);
     commonChecks(edge, plan, session, replay, drafts);
     await blankCheck(edge, session, replay, drafts);

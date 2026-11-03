@@ -122,8 +122,8 @@ describe("explore with a scripted model", () => {
       { tool: "report_blocked", input: { reason: "Cloudflare challenge" } },
     ]);
     const result = await explore(s, llm, { maxFlows: 1, maxMinutes: 1 });
-    expect(llm.results[1]).toMatch(/WARNING: The page title looks like a bot check/);
-    expect(result.blocked).toBe("Cloudflare challenge");
+    expect(llm.results[1]).toMatch(/WARNING: Blocked by Cloudflare's bot check/);
+    expect(result.blocked).toMatchObject({ provider: "Cloudflare", reason: "Cloudflare challenge" });
     expect(result.flows).toEqual([]);
   });
 });

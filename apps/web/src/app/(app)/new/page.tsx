@@ -27,8 +27,9 @@ export default async function NewScanPage({ searchParams }: { searchParams: Prom
         hints: app.settings.hints ?? "",
         allowMainnetLive: Boolean(app.settings.allowMainnetLive),
         liveKeyAddress: app.liveKeyAddress,
+        accessHeaderNames: app.accessHeaderNames,
       }
-    : { url: "", chains: [], wallets: ["metamask", "rabby"], edgeCases: DEFAULT_EDGE_CASES, hints: "", allowMainnetLive: false, liveKeyAddress: null };
+    : { url: "", chains: [], wallets: ["metamask", "rabby"], edgeCases: DEFAULT_EDGE_CASES, hints: "", allowMainnetLive: false, liveKeyAddress: null, accessHeaderNames: [] };
 
   let usage: string | null = null;
   if (app) {

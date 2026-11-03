@@ -11,6 +11,7 @@ import type { ChainController, DrillSession, WalletPolicy } from "../types.js";
 import { Wallet } from "../wallet/controller.js";
 import { BINDING_NAME, walletInitScript, type BridgeRequest, type InjectConfig } from "../wallet/inject.js";
 import { toHex } from "../chain/rpc.js";
+import { installAccessHeaders, USER_AGENT } from "./access.js";
 import { RpcRouter } from "./rpc-route.js";
 
 export interface SessionOptions {
@@ -35,7 +36,6 @@ export interface SessionOptions {
   log?: (message: string) => void;
 }
 
-const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const VIEWPORT = { width: 1280, height: 800 };
 const FRAMES_KEPT = 6;
 const BUSY_WINDOW_MS = 6_000;
@@ -79,7 +79,7 @@ export async function createSession(target: DrillTarget, chains: ChainController
   const browser = await chromium.launch({ headless: opts.headless ?? true });
   const context = await browser.newContext({
     viewport: VIEWPORT,
-    userAgent: UA,
+    userAgent: USER_AGENT,
     locale: "en-US",
     recordVideo: opts.video === false ? undefined : { dir: dirs.videos, size: VIEWPORT },
     ignoreHTTPSErrors: true,
@@ -166,6 +166,8 @@ class Session implements EngineSession {
     await context.addInitScript({ content: walletInitScript(cfg) });
     for (const content of this.target.initScripts ?? []) await context.addInitScript({ content });
     await this.router.install(context);
+    // Registered after the RPC router, so it runs first and falls back to it.
+    await installAccessHeaders(context, this.target.url, this.target.headers ?? {});
 
     context.on("page", (p) => this.watchPage(p));
     this.page = await context.newPage();

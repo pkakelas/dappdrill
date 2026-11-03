@@ -5,14 +5,14 @@
  * without a model.
  */
 import { z } from "zod";
-import { applyParams, type Flow, type Step, type WalletRequest } from "@dappdrill/core";
+import { applyParams, type Blocked, type Flow, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
+import { detectBotCheck } from "../browser/access.js";
 import type { AgentTool, AgentToolResult, DrillSession, Inbox } from "../types.js";
 import { elementByRef, formatSnapshot, locatorFor, takeSnapshot } from "./snapshot.js";
 import { decodeWalletRequest, matchTypedAmount, short } from "./wallet-decode.js";
 
 const SETTLE_MS = 600;
 const ACTION_SNAPSHOT_CHARS = 9_000;
-const BLOCKED_PATTERNS = /captcha|turnstile|just a moment|verify you are human|checking your browser|attention required|access denied/i;
 
 export interface RecordedFlow {
   name: string;
@@ -110,7 +110,7 @@ export interface ToolContext {
   recorder: Recorder;
   inbox?: Inbox;
   /** Called when the agent reports a bot check; the tool loop should stop afterwards. */
-  onBlocked?: (reason: string) => void;
+  onBlocked?: (blocked: Blocked) => void;
   /** Returns a message when the time/flow budget is spent, shown with every tool result. */
   budgetNote?: () => string | undefined;
 }
@@ -133,8 +133,8 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
   const after = async (what: string): Promise<AgentToolResult> => {
     await settle(session);
     const lines = [what];
-    const blocked = await detectBlock(session);
-    if (blocked) lines.push(`WARNING: ${blocked}. Do not try to solve it; call report_blocked.`);
+    const blocked = await detectBotCheck(session.page);
+    if (blocked) lines.push(`WARNING: ${describeBlock(blocked)} (${blocked.reason}). Do not try to solve it; call report_blocked.`);
     const fresh = session.wallet.requests().filter((r) => !seenRequests.has(r.id));
     for (const r of fresh) {
       seenRequests.add(r.id);
@@ -319,7 +319,8 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
       description: "Report that a CAPTCHA, bot check or similar blocks progress. Never try to solve or bypass these.",
       schema: z.object({ reason: z.string() }),
       handler: async ({ reason }) => {
-        ctx.onBlocked?.(reason);
+        const seen = await detectBotCheck(session.page);
+        ctx.onBlocked?.({ provider: seen?.provider, reason, url: session.page.url() });
         return `Recorded: blocked (${reason}). Stop exploring this path.`;
       },
     },
@@ -350,17 +351,6 @@ export function describeRequest(r: WalletRequest): string {
 export async function settle(session: DrillSession): Promise<void> {
   await session.page.waitForTimeout(SETTLE_MS);
   await session.page.waitForLoadState("networkidle", { timeout: 2_500 }).catch(() => null);
-}
-
-async function detectBlock(session: DrillSession): Promise<string | undefined> {
-  const page = session.page;
-  const hasFrame = page.frames().some((f) => /captcha|turnstile|challenges\.cloudflare/i.test(f.url()));
-  if (hasFrame) return "A CAPTCHA / bot-check frame is on the page";
-  const title = await page.title().catch(() => "");
-  if (BLOCKED_PATTERNS.test(title)) return `The page title looks like a bot check ("${title}")`;
-  const text = await page.evaluate(() => document.body?.innerText.slice(0, 500) ?? "").catch(() => "");
-  if (BLOCKED_PATTERNS.test(text)) return "The page text looks like a CAPTCHA / bot check";
-  return undefined;
 }
 
 /** Render a flow's steps for the model, one per line with indices. */

@@ -1,0 +1,26 @@
+{
+  "url": "http://127.0.0.1:4102/#/1/swap/USDC/WETH",
+  "startedAt": "2026-11-03T15:29:27.442Z",
+  "finishedAt": "2026-11-03T15:32:56.490Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26335173"
+    }
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:4102/",
+      "title": "Swap - CoW Swap | The smartest way to trade cryptocurrencies"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.8032828,
+  "stoppedEarly": false
+}

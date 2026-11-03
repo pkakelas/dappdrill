@@ -5,7 +5,7 @@
  * model-free replay before it is returned.
  */
 import { z } from "zod";
-import { describeStep, paramValues, type Flow, type FlowRun } from "@dappdrill/core";
+import { describeStep, paramValues, type Flow, type FlowRun, describeBlock } from "@dappdrill/core";
 import type { DrillSession, Llm } from "../types.js";
 import type { ReplayFn } from "./describe.js";
 import { browserTools, listSteps, Recorder, settle } from "./tools.js";
@@ -54,7 +54,7 @@ export async function proposeRepair(
   let gaveUp: string | undefined;
 
   const tools = [
-    ...browserTools({ session, recorder, onBlocked: (r) => { gaveUp = `blocked: ${r}`; } }),
+    ...browserTools({ session, recorder, onBlocked: (b) => { gaveUp = `${describeBlock(b)}: ${b.reason}`; } }),
     {
       name: "finish_repair",
       description: "The flow is back on track. Your recorded actions replace the failing step; original steps from resumeFromStep onwards are kept.",

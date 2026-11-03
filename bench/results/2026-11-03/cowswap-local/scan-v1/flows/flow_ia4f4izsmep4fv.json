@@ -1,0 +1,98 @@
+{
+  "id": "flow_ia4f4izsmep4fv",
+  "name": "Wrap 0.05 ETH to WETH",
+  "origin": "discovered",
+  "startUrl": "http://127.0.0.1:4102/#/1/swap/USDC/WETH",
+  "params": [
+    {
+      "name": "amount",
+      "default": "0.05",
+      "description": "Amount typed into the form"
+    }
+  ],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Swap now"
+      },
+      "note": "Dismiss announcement",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Connect wallet"
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "MetaMask installed"
+      },
+      "note": "Choose MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "placeholder": "0",
+        "nth": 0
+      },
+      "value": "100"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Selected token: USDC"
+      },
+      "note": "Check token balances"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "ETHEther100"
+      },
+      "note": "Wallet has 0 USDC; sell ETH instead"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "placeholder": "0",
+        "nth": 0
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "trade-form-blank-button"
+      },
+      "note": "Wrap 0.05 ETH"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "functionName": "deposit",
+        "amountMustEqual": "{{amount}}"
+      },
+      "note": "Approve eth_sendTransaction to 0xc02a…6cc2"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "99.95 ETH"
+      }
+    }
+  ],
+  "chainId": 1
+}

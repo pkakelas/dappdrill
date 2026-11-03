@@ -1,3 +1,5 @@
+import type { Blocked } from "./run.js";
+
 /** 0x9f3a…c2e1 */
 export function shortAddress(addr: string | undefined, chars = 4): string {
   if (!addr) return "";
@@ -21,4 +23,17 @@ export function formatUnitsPlain(raw: bigint, decimals: number, maxFraction = 4)
   let frac = (v % base).toString().padStart(decimals, "0").slice(0, maxFraction).replace(/0+$/, "");
   const s = whole.toLocaleString("en-US") + (frac ? `.${frac}` : "");
   return neg ? `-${s}` : s;
+}
+
+/** Where an owner learns to let DappDrill past their bot protection. */
+export const BOT_GUIDE_URL = "https://dappdrill.com/bot";
+
+/** "Blocked by Cloudflare's bot check" */
+export function describeBlock(b: Blocked): string {
+  return `Blocked by ${b.provider ? `${b.provider}'s` : "a"} bot check`;
+}
+
+/** The full sentence reports show for a blocked scan. */
+export function blockedLine(b: Blocked): string {
+  return `${describeBlock(b)} at ${b.url}, so exploring stopped there. DappDrill doesn't solve CAPTCHAs; let it in with an allowlist header: ${BOT_GUIDE_URL}`;
 }

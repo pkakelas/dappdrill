@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ScanReport } from "@dappdrill/core";
-import { UsageError, loadReport, parseChain, parseEdgeCases, parseToken } from "../src/files.js";
+import { UsageError, loadReport, parseChain, parseEdgeCases, parseHeaders, parseToken } from "../src/files.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
@@ -47,6 +47,23 @@ describe("parseToken", () => {
   it("rejects anything else", () => {
     expect(() => parseToken("1:usdc=5")).toThrow(UsageError);
     expect(() => parseToken("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48=5")).toThrow(/expected <chain id>/);
+  });
+});
+
+describe("parseHeaders", () => {
+  it("reads --header flags and $DAPPDRILL_HEADERS lines, flags winning", () => {
+    expect(parseHeaders(["X-Vercel-Protection-Bypass: abc:def"], "x-dappdrill-token: one\nx-other: two\n")).toEqual({
+      "x-dappdrill-token": "one",
+      "x-other": "two",
+      "x-vercel-protection-bypass": "abc:def",
+    });
+    expect(parseHeaders(["x-dappdrill-token: flag"], "x-dappdrill-token: env")).toEqual({ "x-dappdrill-token": "flag" });
+    expect(parseHeaders([], undefined)).toEqual({});
+  });
+
+  it("rejects malformed headers without echoing the value", () => {
+    expect(() => parseHeaders(["no colon here"], undefined)).toThrow(UsageError);
+    expect(() => parseHeaders(["x-token:"], undefined)).toThrow(/expected "Name: value"/);
   });
 });
 

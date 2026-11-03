@@ -1,4 +1,5 @@
 import type {
+  Blocked,
   ChainConfig,
   DrillEvent,
   EdgeCaseId,
@@ -122,6 +123,10 @@ export const apps = pgTable(
     /** Funded testnet key for live mode (encrypted). */
     liveKeyEnc: text("live_key_enc"),
     liveKeyAddress: text("live_key_address"),
+    /** JSON of headers sent only to the app's own site, e.g. its bot-protection bypass (encrypted). */
+    accessHeadersEnc: text("access_headers_enc"),
+    /** Their names, shown in settings (values are never shown again). */
+    accessHeaderNames: jsonb("access_header_names").$type<string[]>().notNull().default([]),
     /** Daily replay schedule, "HH:MM" UTC; null = off. */
     scheduleTime: text("schedule_time"),
     /** Public read-only report links. */
@@ -183,6 +188,8 @@ export const scans = pgTable(
     liveFrame: text("live_frame"),
     pages: jsonb("pages").$type<{ url: string; title?: string }[]>().notNull().default([]),
     costUsd: real("cost_usd").notNull().default(0),
+    /** Set when a bot check stopped the exploration. */
+    blocked: jsonb("blocked").$type<Blocked>(),
     error: text("error"),
     stopRequested: boolean("stop_requested").notNull().default(false),
     startedAt: ts("started_at"),

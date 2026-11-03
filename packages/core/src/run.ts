@@ -24,8 +24,23 @@ export const DrillTarget = z.object({
   tokens: z.array(z.object({ chainId: z.number().int(), address: z.string(), amount: z.string() })).default([]),
   /** Scripts run in every page after the wallet is injected and before the dApp's own code. */
   initScripts: z.array(z.string()).default([]),
+  /**
+   * HTTP headers sent only to the app's own site (its domain and subdomains), never to RPCs or
+   * third parties. For the secret an owner's bot-protection rule lets through (a Cloudflare skip
+   * rule, Vercel's x-vercel-protection-bypass).
+   */
+  headers: z.record(z.string(), z.string()).default({}),
 });
 export type DrillTarget = z.infer<typeof DrillTarget>;
+
+/** A CAPTCHA or bot check that stopped DappDrill. */
+export const Blocked = z.object({
+  /** "Cloudflare", "hCaptcha"…; missing when we can't tell. */
+  provider: z.string().optional(),
+  reason: z.string(),
+  url: z.string(),
+});
+export type Blocked = z.infer<typeof Blocked>;
 
 export const ScanOptions = z.object({
   maxMinutes: z.number().default(15),
@@ -115,6 +130,8 @@ export const ScanReport = z.object({
   /** Model usage cost for this scan (USD, estimated). */
   costUsd: z.number().default(0),
   stoppedEarly: z.boolean().default(false),
+  /** Set when a bot check stopped the exploration. */
+  blocked: Blocked.optional(),
 });
 export type ScanReport = z.infer<typeof ScanReport>;
 
@@ -133,7 +150,8 @@ export type DrillEvent =
   | { type: "signing-review"; review: SigningReview }
   | { type: "issue"; issue: Issue }
   | { type: "run"; run: FlowRun }
-  | { type: "cost"; usd: number };
+  | { type: "cost"; usd: number }
+  | { type: "blocked"; blocked: Blocked };
 
 export type DrillEventSink = (event: DrillEvent) => void | Promise<void>;
 

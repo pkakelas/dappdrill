@@ -1,3 +1,4 @@
+import { describeBlock } from "@dappdrill/core";
 import { db, scanEvents, scans } from "@dappdrill/db";
 import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
@@ -90,6 +91,19 @@ export default async function ScanPage({ params, searchParams }: Props) {
         <p role="status" className={scan.status === "failed" ? "m-0 rounded-xl border border-bad-line bg-bad-soft px-5 py-4 text-sm text-bad-ink" : "m-0 rounded-xl border border-line bg-sub px-5 py-4 text-sm text-ink-2"}>
           {scan.status === "failed" ? `This scan failed${scan.error ? `: ${scan.error}` : "."} Results below are what it found before stopping.` : "This scan was stopped early. Results below are what it found until then."}
         </p>
+      )}
+
+      {scan.blocked && (
+        <div role="note" className="flex flex-col gap-1.5 rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn-ink">
+          <strong className="font-semibold">{describeBlock(scan.blocked)}, so exploring stopped there.</strong>
+          <span>
+            DappDrill doesn&apos;t solve CAPTCHAs. If this is your app, add an allowlist header in{" "}
+            <Link href={`/new?app=${app.id}`} className="underline">
+              scan settings
+            </Link>{" "}
+            and let it through your bot protection. <Link href="/bot" className="underline">How to set it up</Link>
+          </span>
+        </div>
       )}
 
       <ReportBody results={results} ctx={ctx} cat={cat} filterHref={(c) => makePanelHref(path, { cat: c === "all" ? undefined : c })(null)} />
