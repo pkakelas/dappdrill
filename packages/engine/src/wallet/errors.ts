@@ -12,7 +12,7 @@ export const WalletErrors = {
   invalidParams: (detail: string) => new JsonRpcError(-32602, `Invalid parameters: ${detail}`),
   methodNotFound: (method: string) => new JsonRpcError(-32601, `The method "${method}" does not exist / is not available.`),
   internal: (detail: string, data?: unknown) => new JsonRpcError(-32603, "Internal JSON-RPC error.", data ?? { message: detail }),
-  /** Live chain without a funded key: we can't sign anything there. */
+  /** Live chain without a funded key: the throwaway wallet can't pay for transactions. */
   needsLiveKey: (chainName: string) =>
-    new JsonRpcError(4100, `DappDrill has no funded test key for ${chainName}; signing is unavailable until a live key is added.`),
+    new JsonRpcError(4100, `DappDrill has no funded test key for ${chainName}; transactions are unavailable until a live key is added.`),
 };

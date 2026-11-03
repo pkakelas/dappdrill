@@ -335,7 +335,10 @@ export class Wallet implements WalletController {
       case "eth_signTypedData_v4":
       case "wallet_sendCalls": {
         if (!this.connected) throw WalletErrors.unauthorized();
-        if (this.chains.has(this.chain) && this.chains.mode(this.chain) === "live" && !this.liveKey) {
+        // Without a funded key the live-mode wallet is a throwaway: it signs messages
+        // (sign-in, typed data) but can't pay for transactions.
+        const sendsTx = method === "eth_sendTransaction" || method === "wallet_sendCalls";
+        if (sendsTx && this.chains.has(this.chain) && this.chains.mode(this.chain) === "live" && !this.liveKey) {
           this.needsLiveKey = true;
           throw WalletErrors.needsLiveKey(chainName(this.chain));
         }

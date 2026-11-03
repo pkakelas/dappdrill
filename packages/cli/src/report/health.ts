@@ -71,6 +71,7 @@ export function countBySeverity(issues: Issue[]): Record<Severity, number> {
 
 /** "Broken: 2 problems need fixing (1 critical, 1 high). 3 more to review." */
 export function healthLine(report: Pick<ReportInput, "issues" | "runs">): string {
+  if (report.runs.length === 0 && report.issues.length === 0) return "Nothing tested: no flows were found or run.";
   const health = reportHealth(report);
   const c = countBySeverity(report.issues);
   const broken = c.critical + c.high;

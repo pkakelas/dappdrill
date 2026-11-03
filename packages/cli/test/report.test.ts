@@ -63,6 +63,10 @@ describe("report health", () => {
     expect(healthLine({ runs: [run("pass")], issues: [] })).toBe("OK: No problems found.");
   });
 
+  it("doesn't call an empty scan OK", () => {
+    expect(healthLine({ runs: [], issues: [] })).toBe("Nothing tested: no flows were found or run.");
+  });
+
   it("doesn't double-count a failed run explained by a critical issue", () => {
     const line = healthLine({ runs: [run("fail", ["i-critical"])], issues: [issue("critical"), issue("low")] });
     expect(line).toBe("Broken: 1 problem to fix (1 critical). 1 more to review.");
