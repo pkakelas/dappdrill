@@ -1,7 +1,9 @@
-import { describeStep, edgeCaseInfo, type FlowRun } from "@dappdrill/core";
+import { applyParams, CATEGORY_LABEL, describeStep, edgeCaseInfo, paramValues, type Flow, type FlowRun } from "@dappdrill/core";
 import { db, flows, issues, runBatches, runs, signingReviews } from "@dappdrill/db";
 import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { Fragment, type ReactNode } from "react";
 import { setIssueStatusAction } from "@/actions/results";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Cell, cx, RUN_STATUS_LABEL, SeverityTag, VerdictTag } from "@/components/common";
@@ -15,15 +17,9 @@ import { cellKind, type PanelData, type ReviewRow } from "@/lib/report";
 import type { ViewCtx } from "./ctx";
 import { CopyButton } from "./copy-button";
 import { ConsoleLog, RpcLog, Screenshot, Video } from "./evidence";
-import { issueMeta, RerunButton, SaidVsAsked } from "./issues";
+import { Compare, RerunButton, SaidVsAsked, StatusBadge, type Side } from "./issues";
 import { PanelSection, SidePanel } from "./side-panel";
 import { SigningReviewView } from "./signing-review";
-
-async function flowName(flowId?: string | null): Promise<string | undefined> {
-  if (!flowId) return undefined;
-  const [f] = await db().select({ name: flows.name }).from(flows).where(eq(flows.id, flowId));
-  return f?.name;
-}
 
 async function reviewByCoreId(appId: string, id?: string): Promise<ReviewRow | undefined> {
   if (!id) return undefined;
@@ -122,11 +118,142 @@ export async function ResultPanel({ data, ctx }: { data: PanelData; ctx: ViewCtx
   return <ReviewPanel row={data.row} ctx={ctx} />;
 }
 
+/** "approve(0x…, 2^256-1)" reads as a call, so it gets mono. */
+const CALL = /^[a-zA-Z_]\w*\(.*\)$/s;
+
+/** Where the issue was found, one fact per row. */
+function Facts({ issue, flowName, ctx }: { issue: IssueRow; flowName?: string; ctx: ViewCtx }) {
+  const d = issue.data;
+  const edge = d.edgeCase ? edgeCaseInfo(d.edgeCase) : undefined;
+  const flow = flowName ?? d.flowName;
+  const rows: [string, ReactNode][] = [];
+  if (flow)
+    rows.push([
+      "Flow",
+      issue.flowId && !ctx.readOnly ? (
+        <Link href={`/apps/${ctx.appId}/flows/${issue.flowId}`} className="underline-offset-4 hover:underline">
+          {flow}
+        </Link>
+      ) : (
+        flow
+      ),
+    ]);
+  if (edge) rows.push(["Wallet case", edge.id === "happy" ? edge.label : <>{edge.label} <span className="text-muted-foreground">· {edge.description}</span></>]);
+  rows.push(["Kind", CATEGORY_LABEL[issue.category]]);
+  rows.push([
+    "Found",
+    <>
+      {timeAgo(issue.createdAt)} <span className="text-muted-foreground">· {issue.batchId ? "in a replay" : "in a scan"}</span>
+      {issue.runId && (
+        <>
+          {" "}
+          <span className="text-muted-foreground">·</span>{" "}
+          <Link href={ctx.panelHref(`run.${issue.runId}`)} scroll={false} className="underline-offset-4 hover:underline">
+            Open the run
+          </Link>
+        </>
+      )}
+    </>,
+  ]);
+  return (
+    <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 gap-y-1.5">
+      {rows.map(([k, v]) => (
+        <Fragment key={k}>
+          <dt className="text-muted-foreground">{k}</dt>
+          <dd className="min-w-0 break-words">{v}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+/** The summary, then the facts behind it: what the user saw against what the wallet was asked, and what should have happened against what did. */
+function WhatHappened({ issue, review, ctx }: { issue: IssueRow; review?: ReviewRow; ctx: ViewCtx }) {
+  const d = issue.data;
+  const said = d.evidence.buttonLabel;
+  const asked = d.evidence.walletAsked;
+  // Playwright errors carry a call log; the first line says what failed, the rest is for whoever debugs it.
+  const [actual, ...log] = (d.actual ?? "").split("\n");
+  // Red goes on whichever side is the problem: the request itself for signing issues, otherwise what the page did.
+  const badRequest = issue.category === "signing";
+  const outcome: Side[] = [];
+  if (d.expected) outcome.push({ label: "Expected", children: d.expected });
+  if (actual && actual !== asked) outcome.push({ label: "Actual", children: <span className={cx(CALL.test(actual) && "font-mono text-xs break-all")}>{actual}</span>, bad: !badRequest || !asked });
+  const details = log.some((l) => l.trim()) && (
+    <details className="group border-t">
+      <summary className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground hover:bg-muted/50">
+        Error details
+        <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
+      </summary>
+      <pre className="max-h-60 overflow-auto border-t bg-muted/40 px-4 py-3 font-mono text-xs whitespace-pre-wrap">{log.join("\n").trim()}</pre>
+    </details>
+  );
+  return (
+    <PanelSection title="What happened">
+      {/* Older issues embed the Playwright call log in the summary; the Actual row keeps it. */}
+      <p className="leading-relaxed">{d.summary.split("\nCall log:")[0]}</p>
+      <div className="mt-1 flex flex-col gap-3">
+        {(said || asked) && <SaidVsAsked said={said} asked={asked} bad={badRequest} />}
+        {outcome.length > 0 && <Compare sides={outcome} footer={details} />}
+        {review && (
+          <Link href={ctx.panelHref(`review.${review.id}`)} scroll={false} className="flex items-center gap-3 rounded-lg border px-4 py-3 hover:bg-muted/50">
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Signing review</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <VerdictTag verdict={review.verdict} />
+                {review.data.title !== asked && <span className="truncate">{review.data.title}</span>}
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          </Link>
+        )}
+      </div>
+    </PanelSection>
+  );
+}
+
+/** The flow's steps as written, with the one where it went wrong marked. Older issues only kept the text. */
+function Repro({ issue, flow, result, at }: { issue: IssueRow; flow?: Flow; result?: FlowRun; at?: number }) {
+  const lines = issue.data.stepsToReproduce;
+  const numbered = /^\d+\.\s*/;
+  // The engine writes "1. Connect", plus unnumbered setup lines such as the starting chain.
+  const setup = lines.some((l) => numbered.test(l)) ? lines.filter((l) => !numbered.test(l)) : [];
+  const values = flow ? paramValues(flow) : {};
+  const items = flow?.steps.length ? flow.steps.map((s) => applyParams(describeStep(s), values)) : lines.filter((l) => numbered.test(l)).map((l) => l.replace(numbered, ""));
+  if (!items.length) return null;
+  const results = new Map(result?.steps.map((s) => [s.index, s]));
+  const failed = result?.steps.find((s) => s.status === "fail")?.index;
+  const mark = at ?? failed;
+  return (
+    <PanelSection title="Steps to reproduce">
+      {setup.length > 0 && (
+        <p>
+          <span className="text-muted-foreground">Before you start: </span>
+          {setup.join(" ")}
+        </p>
+      )}
+      <ol className="flex flex-col">
+        {items.map((s, i) => {
+          const here = i === mark;
+          const skipped = results.get(i)?.status === "skipped" || (mark !== undefined && failed === mark && i > mark);
+          return (
+            <li key={i} className={cx("flex items-baseline gap-3 rounded-md px-3 py-1.5", here && "bg-bad-soft text-bad-ink", skipped && "text-muted-foreground")}>
+              <span className={cx("w-4 shrink-0 text-right text-xs tabular-nums", !here && "text-muted-foreground")}>{i + 1}</span>
+              <span className="min-w-0 flex-1 break-words">{s}</span>
+              {here && <span className="shrink-0 text-xs">{issue.category === "signing" ? "Signing request" : "Goes wrong here"}</span>}
+            </li>
+          );
+        })}
+      </ol>
+    </PanelSection>
+  );
+}
+
 async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
   const d = issue.data;
   const owner = artifactOwner(issue);
-  const [name, review, run, check] = await Promise.all([
-    flowName(issue.flowId),
+  const [flowRow, review, run, check] = await Promise.all([
+    issue.flowId ? db().select().from(flows).where(eq(flows.id, issue.flowId)).then((r) => r[0]) : Promise.resolve(undefined),
     reviewByCoreId(issue.appId, d.evidence.signingReviewId),
     issue.runId ? db().select().from(runs).where(eq(runs.id, issue.runId)).then((r) => r[0]) : Promise.resolve(undefined),
     recheck(issue),
@@ -142,52 +269,15 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
       eyebrow={
         <>
           <SeverityTag severity={issue.severity} />
-          <span>{issueMeta(issue, name)}</span>
           {d.unverified && <Badge variant="secondary">Unverified</Badge>}
+          <StatusBadge status={issue.status} />
         </>
       }
       title={issue.title}
     >
-      <RecheckNote issue={issue} ctx={ctx} check={check} />
-      <p className="leading-relaxed">{d.summary}</p>
-      <SaidVsAsked said={d.evidence.buttonLabel} asked={d.evidence.walletAsked} />
-      {(d.expected || d.actual) && (
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2">
-          {d.expected && (
-            <>
-              <dt className="text-muted-foreground">Expected</dt>
-              <dd>{d.expected}</dd>
-            </>
-          )}
-          {d.actual && (
-            <>
-              <dt className="text-muted-foreground">Actual</dt>
-              <dd>{d.actual}</dd>
-            </>
-          )}
-        </dl>
-      )}
-      {review && (
-        <Link href={ctx.panelHref(`review.${review.id}`)} scroll={false} className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 hover:bg-muted/50">
-          <span className="font-medium">Signing review: {review.data.title}</span>
-          <VerdictTag verdict={review.verdict} />
-        </Link>
-      )}
-      {d.stepsToReproduce.length > 0 && (
-        <PanelSection title="Steps to reproduce">
-          <ol className="flex list-decimal flex-col gap-1.5 pl-5">
-            {d.stepsToReproduce.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ol>
-        </PanelSection>
-      )}
-      <Video src={video} />
-      <Screenshot src={shot} alt={`Screenshot: ${issue.title}`} />
-      <ConsoleLog entries={d.evidence.console ?? result?.console} />
-      <RpcLog entries={d.evidence.rpc ?? result?.rpc} />
+      <Facts issue={issue} flowName={flowRow?.name} ctx={ctx} />
       {!ctx.readOnly && (
-        <div className="flex flex-wrap gap-2 border-t pt-5">
+        <div className="flex flex-wrap gap-2">
           {check?.kind !== "running" && (
             <RerunButton ctx={ctx} flowId={issue.flowId} edgeCase={d.edgeCase} label="Re-run" back={ctx.panelHref(`issue.${issue.id}`)} />
           )}
@@ -201,7 +291,7 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
             </form>
           )}
           {ctx.githubRepo ? (
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="ghost" size="sm">
               <a href={githubNewIssueUrl(ctx.githubRepo, issue.title, md)} target="_blank" rel="noreferrer">
                 Open GitHub issue
               </a>
@@ -209,6 +299,17 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
           ) : (
             <CopyButton text={md} label="Copy as Markdown" />
           )}
+        </div>
+      )}
+      <RecheckNote issue={issue} ctx={ctx} check={check} />
+      <WhatHappened issue={issue} review={review} ctx={ctx} />
+      <Repro issue={issue} flow={flowRow?.definition} result={result} at={d.stepIndex ?? review?.data.stepIndex} />
+      <Video src={video} />
+      <Screenshot src={shot} alt={`Screenshot: ${issue.title}`} compact={!!video} />
+      {(d.evidence.console ?? result?.console ?? d.evidence.rpc ?? result?.rpc) && (
+        <div className="flex flex-col gap-2">
+          <ConsoleLog entries={d.evidence.console ?? result?.console} />
+          <RpcLog entries={d.evidence.rpc ?? result?.rpc} />
         </div>
       )}
     </SidePanel>

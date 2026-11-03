@@ -27,7 +27,9 @@ export function issueMarkdown(i: Issue, link?: string): string {
   const lines = [`**${i.title}** (${i.severity})`, "", i.summary];
   if (i.stepsToReproduce.length) {
     lines.push("", "### Steps to reproduce");
-    i.stepsToReproduce.forEach((s, n) => lines.push(`${n + 1}. ${s}`));
+    // The engine numbers the flow's steps itself ("1. Connect") and leaves setup lines bare.
+    const numbered = i.stepsToReproduce.some((s) => /^\d+\.\s/.test(s));
+    i.stepsToReproduce.forEach((s, n) => lines.push(numbered ? s : `${n + 1}. ${s}`));
   }
   if (i.expected) lines.push("", `**Expected:** ${i.expected}`);
   if (i.actual) lines.push(`**Actual:** ${i.actual}`);

@@ -1,8 +1,9 @@
 import { CATEGORY_LABEL, edgeCaseInfo } from "@dappdrill/core";
 import { ChevronRight, Play } from "lucide-react";
 import Link from "next/link";
+import { Fragment, type ReactNode } from "react";
 import { rerunAction } from "@/actions/results";
-import { SeverityTag } from "@/components/common";
+import { cx, SeverityTag } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { IssueRow } from "@/lib/queries";
@@ -29,26 +30,94 @@ export function RerunButton({ ctx, flowId, edgeCase, label = "Re-run this flow",
   );
 }
 
-function StatusBadge({ status }: { status: IssueRow["status"] }) {
+export function StatusBadge({ status }: { status: IssueRow["status"] }) {
   if (status === "ignored") return <Badge variant="secondary">Marked expected</Badge>;
   if (status === "fixed") return <Badge variant="secondary">Fixed</Badge>;
   return null;
 }
 
-/** "The button said" vs "The wallet was asked for". */
-export function SaidVsAsked({ said, asked }: { said?: string; asked?: string }) {
+export type Side = { label: string; children: ReactNode; bad?: boolean };
+
+/** Facts side by side in one card, e.g. what should have happened and what did. Stacks on phones. */
+export function Compare({ sides, footer }: { sides: Side[]; footer?: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <div className={cx("grid divide-y", sides.length > 1 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0")}>
+        {sides.map((s) => (
+          <div key={s.label} className={cx("flex min-w-0 flex-col gap-1.5 px-4 py-3", s.bad && "bg-bad-soft/60")}>
+            <span className={cx("text-xs", s.bad ? "text-bad-ink" : "text-muted-foreground")}>{s.label}</span>
+            <div className="min-w-0 break-words">{s.children}</div>
+          </div>
+        ))}
+      </div>
+      {footer}
+    </div>
+  );
+}
+
+type Asked =
+  | { kind: "message"; message: string }
+  | { kind: "typed"; method: string; type: string; fields: [string, string][] }
+  | { kind: "call"; fn: string; args: string; to?: string; value?: string }
+  | { kind: "text"; text: string };
+
+/** The engine describes a wallet request in one line; split it back into its parts. */
+function parseAsked(s: string): Asked {
+  const msg = s.match(/^personal_sign of "([\s\S]*)"$/);
+  if (msg) return { kind: "message", message: msg[1]! };
+  const typed = s.match(/^(eth_signTypedData\w*)\s+(\w+)(?:\s*\{([\s\S]*)\})?$/);
+  if (typed) {
+    const fields = (typed[3] ?? "")
+      .split(/,\s*(?=\w+:)/)
+      .map((f) => f.trim())
+      .filter(Boolean)
+      .map((f): [string, string] => [f.slice(0, f.indexOf(":")), f.slice(f.indexOf(":") + 1).trim()]);
+    return { kind: "typed", method: typed[1]!, type: typed[2]!, fields };
+  }
+  const call = s.match(/^(\w+)\(([\s\S]*)\)(?: to (\S+))?(?: with (.+))?$/);
+  if (call) return { kind: "call", fn: call[1]!, args: call[2]!, to: call[3], value: call[4] };
+  return { kind: "text", text: s };
+}
+
+/** A wallet request as a heading (what kind of request) and its fields. */
+export function WalletAsked({ asked }: { asked: string }) {
+  const a = parseAsked(asked);
+  if (a.kind === "text") return <span className="font-medium">{a.text}</span>;
+  const head = a.kind === "message" ? "Sign a message" : a.kind === "typed" ? a.type : "Transaction";
+  const method = a.kind === "message" ? "personal_sign" : a.kind === "typed" ? a.method : "eth_sendTransaction";
+  const rows: [string, string][] =
+    a.kind === "typed" ? a.fields : a.kind === "call" ? ([["call", `${a.fn}(${a.args})`], ["to", a.to], ["value", a.value]].filter(([, v]) => v) as [string, string][]) : [];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="font-medium">{head}</span>
+        <code className="text-xs opacity-70">{method}</code>
+      </div>
+      {rows.length > 0 && (
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 font-mono text-xs">
+          {rows.map(([k, v]) => (
+            <Fragment key={k}>
+              <dt className="opacity-70">{k}</dt>
+              <dd className="break-all">{v}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+      {a.kind === "message" && <blockquote className="border-l-2 border-current/20 pl-3 text-sm whitespace-pre-wrap">{a.message}</blockquote>}
+    </div>
+  );
+}
+
+/** "The button said" vs "The wallet was asked for". Red only when the request is the problem. */
+export function SaidVsAsked({ said, asked, bad = true }: { said?: string; asked?: string; bad?: boolean }) {
   if (!said && !asked) return null;
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="flex flex-col gap-1 rounded-lg bg-muted px-4 py-3">
-        <span className="text-xs text-muted-foreground">The button said</span>
-        <span className="font-medium">{said ? `“${said}”` : "—"}</span>
-      </div>
-      <div className="flex flex-col gap-1 rounded-lg bg-bad-soft px-4 py-3">
-        <span className="text-xs text-bad-ink">The wallet was asked for</span>
-        <span className="font-mono font-medium break-words">{asked ?? "—"}</span>
-      </div>
-    </div>
+    <Compare
+      sides={[
+        { label: "The button said", children: <span className="font-medium">{said ? `“${said}”` : "—"}</span> },
+        { label: "The wallet was asked for", children: asked ? <WalletAsked asked={asked} /> : "—", bad },
+      ]}
+    />
   );
 }
 
