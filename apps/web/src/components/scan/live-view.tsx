@@ -133,7 +133,7 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
     <div className="flex flex-col gap-7">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="m-0 text-[26px] font-semibold tracking-[-0.02em] sm:text-[30px]">
+          <h1 className="h1">
             Scanning <span className="font-mono text-[23px] font-medium break-all sm:text-[27px]">{host}</span>
           </h1>
           <p className="m-0 flex flex-wrap items-center gap-2.5 text-sm text-ink-3">
@@ -175,16 +175,16 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
 
       <div className="flex flex-wrap items-start gap-6">
         <section aria-label="Live view" className="flex min-w-0 flex-[3_1_520px] flex-col gap-3">
-          <div className="overflow-hidden rounded-xl border border-line-strong bg-white">
+          <div className="overflow-hidden rounded-xl border border-line-strong bg-card">
             <div className="flex items-center gap-3 border-b border-divide bg-sub px-3.5 py-2.5">
               <div className="flex gap-1.5" aria-hidden="true">
                 <span className="size-2.5 rounded-full bg-line-strong" />
                 <span className="size-2.5 rounded-full bg-line-strong" />
                 <span className="size-2.5 rounded-full bg-line-strong" />
               </div>
-              <div className="flex h-7 min-w-0 flex-1 items-center truncate rounded-md border border-divide bg-white px-3 font-mono text-xs text-ink-3">{frameUrl}</div>
+              <div className="flex h-7 min-w-0 flex-1 items-center truncate rounded-md border border-divide bg-card px-3 font-mono text-xs text-ink-3">{frameUrl}</div>
             </div>
-            <div className="relative flex aspect-[16/10] items-center justify-center bg-[#f2f4f7]">
+            <div className="relative flex aspect-[16/10] items-center justify-center bg-sub">
               {frameSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={frameSrc} alt="What the scanner's browser shows right now" className="h-full w-full object-contain" />
@@ -192,7 +192,7 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
                 <span className="text-sm text-muted">{snap.status === "queued" ? "Waiting for the browser to start…" : "Loading the first frame…"}</span>
               )}
               {showSign && derived.lastSign && (
-                <div className="absolute top-4 right-4 flex w-[280px] max-w-[calc(100%-32px)] flex-col gap-2.5 rounded-xl border border-ink bg-white p-4 shadow-[0_8px_24px_rgba(23,24,28,0.12)]">
+                <div className="absolute top-4 right-4 flex w-[280px] max-w-[calc(100%-32px)] flex-col gap-2.5 rounded-xl border border-ink bg-card p-4 shadow-[0_8px_24px_rgba(23,24,28,0.12)]">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold tracking-[0.04em] text-ink-3 uppercase">Signature request</span>
                     <span className="pill bg-live-bg px-2 py-0.5 text-[11px] text-live-ink">{chainName(derived.lastSign.req.chainId)}</span>
@@ -213,7 +213,7 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
               { v: derived.signs, l: "sign requests" },
               { v: derived.issues, l: "issues so far", bad: derived.issues > 0 },
             ].map((s) => (
-              <div key={s.l} className="rounded-[10px] border border-line bg-white p-3.5">
+              <div key={s.l} className="rounded-[10px] border border-line bg-card p-3.5">
                 <div className={cx("text-2xl font-semibold", s.bad && "text-bad")}>{s.v}</div>
                 <div className="text-xs text-muted">{s.l}</div>
               </div>
@@ -221,13 +221,13 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
           </div>
 
           <section aria-labelledby="log" className="flex flex-col gap-2.5">
-            <h2 id="log" className="m-0 text-sm font-semibold">
+            <h2 id="log" className="eyebrow">
               What it&apos;s doing
             </h2>
             {derived.log.length === 0 ? (
               <p className="hint m-0">Nothing yet.</p>
             ) : (
-              <ol className="m-0 max-h-[360px] list-none overflow-y-auto rounded-[10px] border border-line bg-white p-0" aria-live="polite">
+              <ol className="m-0 max-h-[360px] list-none overflow-y-auto rounded-[10px] border border-line bg-card p-0" aria-live="polite">
                 {derived.log.map((l, i) => (
                   <li key={l.id + ":" + i} className={cx("grid grid-cols-[48px_minmax(0,1fr)] gap-3 border-b border-divide px-3.5 py-3 last:border-b-0", i === 0 && running && "bg-live-soft")}>
                     <span className={cx("font-mono text-xs", i === 0 && running ? "text-live-ink" : "text-muted")}>{startedAt ? clock(new Date(l.at).getTime() - startedAt) : "--:--"}</span>
@@ -239,7 +239,7 @@ export function LiveView({ scanId, host, initialEvents, initialSnapshot, frameBa
           </section>
 
           <section aria-labelledby="found" className="flex flex-col gap-2.5">
-            <h2 id="found" className="m-0 text-sm font-semibold">
+            <h2 id="found" className="eyebrow">
               Flows found
             </h2>
             {derived.flows.length === 0 ? (

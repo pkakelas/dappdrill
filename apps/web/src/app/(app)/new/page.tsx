@@ -49,7 +49,7 @@ export default async function NewScanPage({ searchParams }: { searchParams: Prom
   return (
     <div className="page flex flex-col gap-10">
       <header className="flex flex-col gap-3">
-        <h1 className="m-0 text-[30px] leading-[1.1] font-semibold tracking-[-0.025em] sm:text-[40px]">Paste a URL. We&apos;ll use it like a real user would.</h1>
+        <h1 className="h1 max-w-[20ch]">Paste a URL. We&apos;ll use it like a real user would.</h1>
         <p className="m-0 max-w-[640px] text-[17px] leading-relaxed text-ink-3">
           DappDrill opens your dApp with its own wallet on a fork of each chain, walks every flow it can find, and makes the wallet mistakes real users make. Nothing touches mainnet.
         </p>
@@ -59,7 +59,7 @@ export default async function NewScanPage({ searchParams }: { searchParams: Prom
 
       {recent.length > 0 && (
         <section aria-labelledby="recent" className="flex flex-col gap-3">
-          <h2 id="recent" className="m-0 text-[15px] font-semibold">
+          <h2 id="recent" className="eyebrow">
             Recent scans
           </h2>
           <ul className="card m-0 list-none divide-y divide-divide overflow-hidden p-0">

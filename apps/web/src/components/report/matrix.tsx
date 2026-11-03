@@ -24,7 +24,7 @@ export function MatrixTable({ matrix, ctx }: { matrix: Matrix; ctx: ViewCtx }) {
         <tbody>
           {matrix.rows.map((row) => (
             <tr key={row.flowId}>
-              <th scope="row" className="border-b border-hair text-left text-sm font-medium text-ink">
+              <th scope="row" className="border-b border-divide text-left text-[15px] font-medium text-ink">
                 {ctx.readOnly ? (
                   row.name
                 ) : (

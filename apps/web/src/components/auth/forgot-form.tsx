@@ -18,7 +18,7 @@ export function ForgotForm() {
 
   return (
     <div className="card flex flex-col gap-5 p-7">
-      <h1 className="m-0 text-2xl font-semibold tracking-[-0.02em]">Reset your password</h1>
+      <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">Reset your password</h1>
       {sent ? (
         <p className="m-0 text-sm text-ink-2">If that email has an account, a reset link is on its way.</p>
       ) : (

@@ -42,13 +42,13 @@ export default async function SharePage({ params, searchParams }: Props) {
 
   return (
     <>
-      <header className="border-b border-line bg-white">
+      <header className="border-b border-line">
         <div className="page flex items-center justify-between gap-3 py-3.5">
           <Link href="/" className="flex items-center gap-2.5 no-underline">
             <Logo />
-            <span className="text-[15px] font-semibold">DappDrill</span>
+            <span className="font-serif text-[20px] tracking-[-0.02em]">DappDrill</span>
           </Link>
-          <span className="text-[13px] text-muted">Shared report · read-only</span>
+          <span className="font-mono text-[11px] tracking-[0.08em] text-muted uppercase">Shared report · read-only</span>
         </div>
       </header>
       <main>{scan ? <Report app={app} scan={scan} path={path} token={token} panel={panel} cat={cat} host={host} /> : <NoReport name={app.name} />}</main>

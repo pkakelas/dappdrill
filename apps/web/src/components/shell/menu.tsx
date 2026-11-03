@@ -44,7 +44,7 @@ export function Menu({
           role="menu"
           onClick={(e) => (e.target as HTMLElement).closest("a,button") && setOpen(false)}
           className={cx(
-            "absolute top-[calc(100%+6px)] z-40 flex w-[280px] max-w-[calc(100vw-32px)] flex-col rounded-xl border border-line bg-white py-1.5 shadow-[0_8px_24px_rgba(23,24,28,0.10)]",
+            "absolute top-[calc(100%+6px)] z-40 flex w-[280px] max-w-[calc(100vw-32px)] flex-col rounded-xl border border-line-strong bg-card py-1.5 shadow-[0_24px_48px_-24px_rgba(20,18,15,0.35)]",
             align === "right" ? "right-0" : "left-0",
           )}
         >
@@ -59,4 +59,4 @@ export function MenuItem({ children, className }: { children: ReactNode; classNa
   return <div className={cx("px-1.5", className)}>{children}</div>;
 }
 
-export const menuLinkClass = "flex w-full cursor-pointer flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-sm text-ink no-underline hover:bg-sub";
+export const menuLinkClass = "flex w-full cursor-pointer flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[15px] text-ink no-underline hover:bg-sub";

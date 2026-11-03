@@ -3,8 +3,10 @@
 AI QA for web3 dApp frontends. Paste a URL. An agent with its own wallet explores
 the dApp against local Anvil forks (never mainnet), saves the flows it finds as
 deterministic tests, replays them under wallet edge cases, and reviews every
-signature request. Product context: `docs/product-context.md`. Visual reference:
+signature request. Product context: `docs/product-context.md`. Layout reference:
 `docs/designs/*.html`, where the v2 UX notes in the product context win where the two differ.
+The look (paper and ink, Newsreader for text, Plex Mono for controls, pill buttons) follows the
+marketing site in `../dappdrill-site`; tokens live in `apps/web/src/app/globals.css`.
 
 ## Layout
 

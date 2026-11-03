@@ -117,7 +117,7 @@ export default async function FlowsPage({ params, searchParams }: Props) {
       })}
 
       {flowRows.length === 0 ? (
-        <p className="m-0 rounded-xl border border-line bg-white px-5 py-4 text-sm text-muted">
+        <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">
           No saved flows yet. A scan saves every flow it finds, or describe one above.
         </p>
       ) : (

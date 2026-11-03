@@ -71,7 +71,7 @@ export function StepsEditor({ flow: initial, readOnly }: { flow: Flow; readOnly?
 
   return (
     <div className="flex flex-col gap-6">
-      <ol className="m-0 list-none rounded-xl border border-line bg-white p-0" aria-label="Steps">
+      <ol className="m-0 list-none rounded-xl border border-line bg-card p-0" aria-label="Steps">
         {flow.steps.map((s, i) => (
           <li key={i} className={cx("border-b border-divide last:border-b-0", editing === i && "bg-sub")}>
             <div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3.5">
@@ -134,7 +134,7 @@ export function StepsEditor({ flow: initial, readOnly }: { flow: Flow; readOnly?
       <Params params={flow.params} readOnly={readOnly} onChange={(params) => setFlow((f) => ({ ...f, params }))} />
 
       {!readOnly && (dirty || state) && (
-        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 shadow-md">
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 shadow-md">
           {dirty ? <span className="text-sm text-ink-2">Unsaved changes</span> : <Feedback state={state} />}
           {dirty && state?.error && <Feedback state={state} />}
           <span className="flex-1" />

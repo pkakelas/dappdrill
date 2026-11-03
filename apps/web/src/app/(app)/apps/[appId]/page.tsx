@@ -91,7 +91,7 @@ export default async function OverviewPage({ params, searchParams }: Props) {
           Open issues
         </h2>
         {issues.length === 0 ? (
-          <p className="m-0 rounded-xl border border-line bg-white px-5 py-4 text-sm text-muted">None. The latest scan and runs found nothing to fix.</p>
+          <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">None. The latest scan and runs found nothing to fix.</p>
         ) : (
           issues.map((i) =>
             i.severity === "critical" ? (

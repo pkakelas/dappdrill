@@ -12,7 +12,7 @@ export function SidePanel({ title, eyebrow, closeHref, children }: { title: Reac
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-line bg-paper px-5 py-4 sm:px-7">
           <div className="flex min-w-0 flex-col gap-1.5">
             {eyebrow && <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted">{eyebrow}</div>}
-            <h2 id="panel-title" className="m-0 text-lg leading-snug font-semibold">
+            <h2 id="panel-title" className="m-0 font-serif text-[24px] leading-snug font-[400] tracking-[-0.015em]">
               {title}
             </h2>
           </div>
@@ -32,7 +32,7 @@ export function PanelSection({ title, children, aside }: { title: string; childr
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="m-0 text-sm font-semibold">{title}</h3>
+        <h3 className="eyebrow">{title}</h3>
         {aside}
       </div>
       {children}

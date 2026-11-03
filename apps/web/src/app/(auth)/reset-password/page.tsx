@@ -9,7 +9,7 @@ export default async function ResetPage({ searchParams }: { searchParams: Promis
   if (!token || error) {
     return (
       <div className="card flex flex-col gap-3 p-7">
-        <h1 className="m-0 text-xl font-semibold">This reset link doesn't work</h1>
+        <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">This reset link doesn't work</h1>
         <p className="m-0 text-sm text-muted">It may have expired. Ask for a new one.</p>
         <Link href="/forgot-password" className="btn btn-primary self-start">
           Send a new link

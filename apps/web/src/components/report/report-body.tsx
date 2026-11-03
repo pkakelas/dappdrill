@@ -86,7 +86,7 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
               </article>
             );
           })}
-        {visible.length === 0 && s.brokenRuns.length === 0 && <p className="m-0 rounded-xl border border-line bg-white px-5 py-4 text-sm text-muted">{s.open.length ? "No issues in this category." : "No issues found."}</p>}
+        {visible.length === 0 && s.brokenRuns.length === 0 && <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">{s.open.length ? "No issues in this category." : "No issues found."}</p>}
         {main.map((i) =>
           i.severity === "critical" ? (
             <CriticalIssueCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} reviewHref={reviewHref(i.data.evidence.signingReviewId)} />

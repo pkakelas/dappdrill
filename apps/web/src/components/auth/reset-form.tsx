@@ -22,7 +22,7 @@ export function ResetForm({ token }: { token: string }) {
 
   return (
     <form onSubmit={onSubmit} className="card flex flex-col gap-4 p-7">
-      <h1 className="m-0 text-2xl font-semibold tracking-[-0.02em]">Choose a new password</h1>
+      <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">Choose a new password</h1>
       <label className="flex flex-col gap-1.5">
         <span className="label">New password</span>
         <input name="password" type="password" required minLength={8} className="field" autoComplete="new-password" />

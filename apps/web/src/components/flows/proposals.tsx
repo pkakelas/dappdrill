@@ -32,7 +32,7 @@ function Choice({ action, name, id, yes, no = "Discard" }: { action: (f: FormDat
 export function ChangeCard({ change, current }: { change: Change; current?: Flow }) {
   const busy = change.status === "queued" || change.status === "running";
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-line bg-white p-5" aria-label="Proposed change">
+    <section className="flex flex-col gap-3 rounded-xl border border-line bg-card p-5" aria-label="Proposed change">
       <div className="flex flex-col gap-1">
         <span className="text-xs font-semibold text-live-ink">{busy ? "Working on it" : change.status === "done" ? "Proposed change" : "Couldn't do this one"}</span>
         <p className="m-0 text-[15px]">“{change.prompt}”</p>

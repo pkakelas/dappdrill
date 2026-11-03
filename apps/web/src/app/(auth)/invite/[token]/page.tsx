@@ -19,7 +19,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   if (!row || row.invite.acceptedAt) {
     return (
       <div className="card flex flex-col gap-3 p-6">
-        <h1 className="m-0 text-xl font-semibold">This invite isn&apos;t valid</h1>
+        <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">This invite isn&apos;t valid</h1>
         <p className="m-0 text-sm text-muted">It was already used or cancelled. Ask whoever invited you for a new link.</p>
         <Link href="/" className="btn w-fit">
           Go to DappDrill
@@ -34,7 +34,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   return (
     <div className="card flex flex-col gap-4 p-6">
-      <h1 className="m-0 text-xl font-semibold">Join {row.teamName}</h1>
+      <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">Join {row.teamName}</h1>
       <p className="m-0 text-sm text-ink-2">
         {row.inviter ? `${row.inviter} invited ${row.invite.email}` : `This invite is for ${row.invite.email}`} to test dApps together on DappDrill.
       </p>

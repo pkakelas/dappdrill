@@ -18,7 +18,7 @@ export function ShareControl({ appId, shareToken, scanId }: { appId: string; sha
   return (
     <details className="relative">
       <summary className="btn btn-sm">Shared · link</summary>
-      <div className="absolute right-0 z-20 mt-2 flex w-[min(360px,calc(100vw-32px))] flex-col gap-3 rounded-xl border border-line bg-white p-4 shadow-[0_8px_24px_rgba(23,24,28,0.1)]">
+      <div className="absolute right-0 z-20 mt-2 flex w-[min(360px,calc(100vw-32px))] flex-col gap-3 rounded-xl border border-line bg-card p-4 shadow-[0_8px_24px_rgba(23,24,28,0.1)]">
         <p className="m-0 text-[13px] text-muted">Anyone with this link can read this app&apos;s reports. They can&apos;t change anything.</p>
         <input readOnly value={url} className="field font-mono text-xs" aria-label="Share link" />
         <div className="flex gap-2">

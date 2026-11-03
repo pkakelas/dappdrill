@@ -31,7 +31,7 @@ export function AuthForm({ mode, google, next, notice }: { mode: "login" | "sign
   return (
     <div className="card flex flex-col gap-6 p-7">
       <div className="flex flex-col gap-1.5">
-        <h1 className="m-0 text-2xl font-semibold tracking-[-0.02em]">{signup ? "Create your account" : "Log in"}</h1>
+        <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">{signup ? "Create your account" : "Log in"}</h1>
         <p className="m-0 text-sm text-muted">{signup ? "Your first scan is free." : "Welcome back."}</p>
       </div>
       {notice && <p className="m-0 rounded-lg bg-sub px-3 py-2.5 text-sm text-ink-2">{notice}</p>}

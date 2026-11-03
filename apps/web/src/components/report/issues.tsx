@@ -44,14 +44,14 @@ export function SaidVsAsked({ said, asked }: { said?: string; asked?: string }) 
 export function CriticalIssueCard({ issue, ctx, flowName, reviewHref }: { issue: IssueRow; ctx: ViewCtx; flowName?: string; reviewHref?: string | null }) {
   const d = issue.data;
   return (
-    <article className="overflow-hidden rounded-xl border border-line-strong bg-white">
+    <article className="overflow-hidden rounded-xl border border-line-strong bg-card">
       <div className="flex flex-col gap-3.5 px-5 py-5 sm:px-6">
         <div className="flex flex-wrap items-center gap-2.5">
           <SeverityTag severity={issue.severity} />
           <span className="text-[13px] text-muted">{issueMeta(issue, flowName)}</span>
           {issue.status === "ignored" && <span className="pill bg-hair text-muted">Marked expected</span>}
         </div>
-        <h3 className="m-0 text-[19px] leading-snug font-semibold">{issue.title}</h3>
+        <h3 className="m-0 font-serif text-[24px] leading-snug font-[400] tracking-[-0.015em]">{issue.title}</h3>
         <SaidVsAsked said={d.evidence.buttonLabel} asked={d.evidence.walletAsked} />
         <p className="m-0 text-sm leading-relaxed text-ink-2">{d.summary}</p>
         <div className="flex flex-wrap gap-2">

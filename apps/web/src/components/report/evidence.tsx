@@ -17,7 +17,7 @@ export function Screenshot({ src, alt, title = "Screenshot" }: { src: string | n
     <PanelSection title={title}>
       <a href={src} target="_blank" rel="noreferrer">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className="w-full rounded-xl border border-line bg-white" />
+        <img src={src} alt={alt} className="w-full rounded-xl border border-line bg-card" />
       </a>
     </PanelSection>
   );

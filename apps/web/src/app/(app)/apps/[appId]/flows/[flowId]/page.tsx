@@ -239,7 +239,7 @@ export default async function FlowPage({ params, searchParams }: Props) {
 
       {tab === "runs" &&
         (runRows.length === 0 ? (
-          <p className="m-0 rounded-xl border border-line bg-white px-5 py-4 text-sm text-muted">This flow hasn&apos;t run yet.</p>
+          <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">This flow hasn&apos;t run yet.</p>
         ) : (
           <div className="card overflow-x-auto">
             <table className="table min-w-[560px]">

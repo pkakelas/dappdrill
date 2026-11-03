@@ -5,11 +5,12 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
 }
 
-export function Logo({ size = 26 }: { size?: number }) {
+/** The site's mark: a circle, half filled. */
+export function Logo({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 26 26" aria-hidden="true">
-      <rect x="1" y="1" width="24" height="24" rx="6" fill="#17181C" />
-      <path d="M6 16c2.5-6 4-6 5 0s3 3 4-2 3-3 5 1" fill="none" stroke="#FBFBFA" strokeWidth="1.6" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M10 1.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" />
     </svg>
   );
 }
@@ -29,7 +30,7 @@ export function Addr({ value, chars = 4, className }: { value?: string | null; c
 }
 
 const HEALTH_CLASS: Record<Health, string> = {
-  broken: "bg-bad text-white",
+  broken: "bg-bad text-paper",
   review: "bg-warn-bg text-warn",
   ok: "bg-hair text-muted",
 };
@@ -41,7 +42,7 @@ export function HealthBadge({ health, className }: { health: Health; className?:
 export const HEALTH_TEXT: Record<Health, string> = { broken: "text-bad", review: "text-warn", ok: "text-muted" };
 
 const SEVERITY: Record<Severity, { label: string; cls: string }> = {
-  critical: { label: "Critical", cls: "bg-bad text-white" },
+  critical: { label: "Critical", cls: "bg-bad text-paper" },
   high: { label: "High", cls: "bg-bad-bg text-bad" },
   medium: { label: "Medium", cls: "bg-warn-bg text-warn" },
   low: { label: "Low", cls: "bg-hair text-muted" },
@@ -53,14 +54,14 @@ export function SeverityTag({ severity }: { severity: Severity }) {
 }
 
 const VERDICT_CLASS: Record<Verdict, string> = {
-  dangerous: "bg-bad text-white",
+  dangerous: "bg-bad text-paper",
   check: "bg-warn-bg text-warn",
   consistent: "bg-hair text-ink-2",
 };
 export const VERDICT_TEXT: Record<Verdict, string> = { dangerous: "text-bad", check: "text-warn", consistent: "text-muted" };
 
 export function VerdictTag({ verdict, large }: { verdict: Verdict; large?: boolean }) {
-  return <span className={cx("tag", VERDICT_CLASS[verdict], large && "px-3 py-1.5 text-[13px]")}>{VERDICT_LABEL[verdict]}</span>;
+  return <span className={cx("tag", VERDICT_CLASS[verdict], large && "px-3 py-1.5 text-[11.5px]")}>{VERDICT_LABEL[verdict]}</span>;
 }
 
 /** One matrix cell / run outcome. */
@@ -70,7 +71,7 @@ const CELL: Record<CellKind, { label: string; cls: string }> = {
   pass: { label: "Pass", cls: "bg-hair text-muted" },
   issue: { label: "Issue", cls: "bg-warn-bg text-warn" },
   "issue-high": { label: "Issue", cls: "bg-bad-bg text-bad" },
-  signing: { label: "Signing", cls: "bg-bad text-white" },
+  signing: { label: "Signing", cls: "bg-bad text-paper" },
   fail: { label: "Fail", cls: "bg-bad-bg text-bad" },
   error: { label: "Error", cls: "bg-hair text-ink-2" },
   skipped: { label: "—", cls: "text-faint" },
@@ -80,7 +81,7 @@ const CELL: Record<CellKind, { label: string; cls: string }> = {
 
 export function Cell({ kind }: { kind: CellKind }) {
   const c = CELL[kind];
-  return <span className={cx("inline-block min-w-[56px] rounded-md px-1.5 py-1 text-center text-[13px] font-medium", c.cls)}>{c.label}</span>;
+  return <span className={cx("inline-block min-w-[60px] rounded-[5px] px-1.5 py-1 text-center font-mono text-[10.5px] font-medium tracking-[0.06em] uppercase", c.cls)}>{c.label}</span>;
 }
 
 export const RUN_STATUS_LABEL: Record<RunStatus, string> = {
@@ -123,9 +124,9 @@ export function StatGrid({ stats }: { stats: { value: ReactNode; label: string; 
   return (
     <div className="card grid grid-cols-2 gap-px overflow-hidden bg-divide sm:grid-cols-4">
       {stats.map((s) => (
-        <div key={s.label} className="bg-white px-5 py-[18px]">
-          <div className={cx("text-[28px] font-semibold", s.tone === "bad" && "text-bad", s.tone === "warn" && "text-warn")}>{s.value}</div>
-          <div className="text-[13px] text-muted">{s.label}</div>
+        <div key={s.label} className="bg-card px-5 py-5">
+          <div className={cx("font-serif text-[34px] leading-none font-[360] tracking-[-0.02em]", s.tone === "bad" && "text-bad", s.tone === "warn" && "text-warn")}>{s.value}</div>
+          <div className="mt-2 font-mono text-[10.5px] tracking-[0.1em] text-muted uppercase">{s.label}</div>
         </div>
       ))}
     </div>
@@ -137,7 +138,7 @@ export function SettingsSection({ id, title, hint, children }: { id: string; tit
   return (
     <section aria-labelledby={id} className="flex flex-wrap gap-6 border-t border-line py-7">
       <div className="flex flex-[1_1_220px] flex-col gap-1.5">
-        <h2 id={id} className="m-0 text-[15px] font-semibold">
+        <h2 id={id} className="m-0 font-serif text-[19px] font-[420] tracking-[-0.01em]">
           {title}
         </h2>
         {hint && <p className="m-0 text-[13px] leading-normal text-muted">{hint}</p>}
@@ -154,7 +155,7 @@ export function List({ children, className }: { children: ReactNode; className?:
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="card flex flex-col gap-2 px-6 py-8 text-center">
-      <p className="m-0 text-[15px] font-medium">{title}</p>
+      <p className="m-0 font-serif text-[19px] font-[420]">{title}</p>
       {children && <div className="text-sm text-muted">{children}</div>}
     </div>
   );

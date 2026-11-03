@@ -51,21 +51,21 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
   const initial = (user.name || user.email).trim().charAt(0).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-panel/95 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[1080px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5 no-underline" aria-label="DappDrill home">
-          <Logo size={24} />
-          <span className="hidden text-base font-semibold tracking-[-0.01em] md:inline">DappDrill</span>
+          <Logo size={18} />
+          <span className="hidden font-serif text-[20px] tracking-[-0.02em] md:inline">DappDrill</span>
         </Link>
 
         <Menu
           label="Switch app"
-          buttonClassName="flex max-w-[220px] cursor-pointer items-center gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-left"
+          buttonClassName="flex max-w-[220px] cursor-pointer items-center gap-2.5 rounded-full border border-line-strong px-3.5 py-1 text-left hover:bg-sub"
           button={
             <>
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[13px] font-semibold">{app ? app.name : "No apps yet"}</span>
-                {app && <span className="truncate font-mono text-[11px] text-muted">{app.host}</span>}
+                <span className="truncate text-[14px] leading-tight font-medium">{app ? app.name : "No apps yet"}</span>
+                {app && <span className="truncate font-mono text-[10.5px] text-muted">{app.host}</span>}
               </span>
               <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
                 <path d="M3.5 5.5L7 9l3.5-3.5" />
@@ -96,8 +96,8 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
                 href={base + n.path}
                 aria-current={active(n.path) ? "page" : undefined}
                 className={cx(
-                  "-mb-px border-b-2 py-1.5 text-sm no-underline",
-                  active(n.path) ? "border-ink font-semibold text-ink" : "border-transparent text-ink-2 hover:text-ink",
+                  "-mb-px border-b py-1.5 font-mono text-[12.5px] no-underline",
+                  active(n.path) ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink",
                 )}
               >
                 {n.label}
@@ -108,7 +108,7 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
 
         <div className="ml-auto flex items-center gap-3">
           {app && (
-            <span className="hidden text-xs text-muted lg:inline" title={devQuota ? "Plan limits are lifted in dev mode" : undefined}>
+            <span className="hidden font-mono text-[11px] text-muted lg:inline" title={devQuota ? "Plan limits are lifted in dev mode" : undefined}>
               {app.scansUsed} of {app.scansLimit} discovery scans used · replays unlimited
             </span>
           )}
@@ -118,14 +118,14 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
           <Menu
             label="Account menu"
             align="right"
-            buttonClassName="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-ink text-sm font-semibold text-paper"
+            buttonClassName="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-ink font-serif text-[16px] text-paper"
             button={initial}
           >
             <div className="flex flex-col gap-0.5 border-b border-divide px-4 pt-2 pb-3">
-              <span className="text-sm font-medium">{user.name || user.email}</span>
-              <span className="text-xs text-muted">{user.email}</span>
+              <span className="text-[15px] font-medium">{user.name || user.email}</span>
+              <span className="font-mono text-[11px] text-muted">{user.email}</span>
               {app && (
-                <span className="mt-1.5 text-xs text-muted">
+                <span className="mt-1.5 font-mono text-[11px] text-muted">
                   {planName} · {app.scansUsed} of {app.scansLimit} discovery scans used
                 </span>
               )}

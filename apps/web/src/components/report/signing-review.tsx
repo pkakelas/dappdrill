@@ -14,7 +14,7 @@ const CHECK_ORDER: Record<SigningCheck["status"], number> = { fail: 0, warn: 1, 
 function CheckMark({ status }: { status: SigningCheck["status"] }) {
   if (status === "fail")
     return (
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-bad text-white" aria-label="Failed">
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-bad text-paper" aria-label="Failed">
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
           <path d="M2.5 2.5l5 5M7.5 2.5l-5 5" />
         </svg>
@@ -84,7 +84,7 @@ export function SigningReviewView({ row, ctx, siblings = [], compact }: { row: R
               What the user saw, and what they&apos;d sign
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-white p-4">
+              <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-card p-4">
                 <span className="text-xs text-muted">On the page</span>
                 {shot ? (
                   <a href={shot} target="_blank" rel="noreferrer">
@@ -99,7 +99,7 @@ export function SigningReviewView({ row, ctx, siblings = [], compact }: { row: R
                 </span>
                 {r.ui.context && <span className="text-[13px] text-muted">{r.ui.context}</span>}
               </div>
-              <div className={cx("flex flex-col gap-2.5 rounded-xl border p-4", r.verdict === "dangerous" ? "border-bad-line bg-bad-soft" : "border-line bg-white")}>
+              <div className={cx("flex flex-col gap-2.5 rounded-xl border p-4", r.verdict === "dangerous" ? "border-bad-line bg-bad-soft" : "border-line bg-card")}>
                 <span className={cx("text-xs", r.verdict === "dangerous" ? "text-bad-ink" : "text-muted")}>In the wallet request</span>
                 <div className="font-mono text-sm font-medium break-words">{r.decoded.signature ?? r.decoded.functionName ?? r.decoded.primaryType ?? r.method}</div>
                 <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[13px]">

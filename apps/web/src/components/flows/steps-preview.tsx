@@ -24,7 +24,7 @@ export function WithParams({ text }: { text: string }) {
 export function StepsPreview({ flow, before }: { flow: Flow; before?: Flow }) {
   const old = before?.steps.map((s) => describeStep(s)) ?? null;
   return (
-    <ol className="m-0 list-none rounded-xl border border-line bg-white p-0">
+    <ol className="m-0 list-none rounded-xl border border-line bg-card p-0">
       {flow.steps.map((s, i) => {
         const text = describeStep(s);
         const changed = old && old[i] !== text;
