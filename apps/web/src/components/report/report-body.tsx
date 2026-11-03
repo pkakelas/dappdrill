@@ -11,6 +11,7 @@ const FILTERS: ("all" | IssueCategory)[] = ["all", "signing", "wallet", "ui", "r
 export function headline(s: ReturnType<typeof summarize>): string {
   if (s.needCount) return `${s.needCount} ${s.needCount === 1 ? "thing needs" : "things need"} your attention`;
   if (s.worth.length) return `Nothing broken. ${s.worth.length} worth a look`;
+  if (!s.flowCount) return "Nothing tested: no flows were found";
   return "All clear";
 }
 

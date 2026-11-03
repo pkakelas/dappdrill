@@ -80,7 +80,7 @@ export default async function NewScanPage({ searchParams }: { searchParams: Prom
                     <span className="col-span-2 justify-self-start sm:col-span-1">
                       {scan.status === "done" ? (
                         <span className={cx("pill", health === "broken" ? "bg-bad-bg text-bad" : health === "review" ? "bg-warn-bg text-warn" : "bg-hair text-muted")}>
-                          {health === "broken" ? `${attention} need attention` : health === "review" ? `${toCheck} to check` : "All clear"}
+                          {health === "broken" ? `${attention} need attention` : health === "review" ? `${toCheck} to check` : flowCounts.get(scan.id) ? "All clear" : "Nothing tested"}
                         </span>
                       ) : scan.status === "running" || scan.status === "queued" ? (
                         <span className="pill bg-live-bg text-live-ink">{STATUS_TEXT[scan.status]}</span>
