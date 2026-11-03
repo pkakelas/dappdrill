@@ -81,7 +81,7 @@ describe("runEdgeCases", () => {
     expect(titles(stuck.issues)).toEqual(["high: Rejecting 'Deposit' leaves the button stuck on 'Confirming…'"]);
     expect(stuck.runs[0]!.status).toBe("issue");
     const issue = stuck.issues[0]!;
-    expect(issue.stepsToReproduce[0]).toBe("Reject the first request in the wallet (error 4001).");
+    expect(issue.stepsToReproduce[0]).toBe("Reject the flow's main request in the wallet (error 4001).");
     expect(issue.stepsToReproduce).toContain('4. Click "Deposit"');
     expect(issue.evidence?.walletAsked).toMatch(/^approve\(/);
     expect(issue.evidence?.screenshot).toMatch(/\.png$/);

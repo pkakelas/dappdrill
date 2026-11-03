@@ -113,7 +113,10 @@ export function matchByRules(label: string | undefined, req: RequestSummary, tok
   if (req.approvals.length > 0) {
     const a = req.approvals[0]!;
     const what = a.standard === "permit" || a.standard === "permit2" ? "a permit" : "an approval";
-    if (intent === "signin" || intent === "claim") {
+    // "Sign message" promises a harmless signature; a permit there hands over tokens.
+    // Vaguer words that share the intent ("Continue", "Confirm") stay inconclusive.
+    const saysSign = intent === "sign" && /\bsign\b/i.test(label);
+    if (intent === "signin" || intent === "claim" || saysSign) {
       return { status: "fail", detail: `The button says ${quoted}, but the wallet is asked for ${what}: ${human(a)} for ${a.spenderName ?? shortAddress(a.spender)}.`, via: "rules" };
     }
     if (said) {

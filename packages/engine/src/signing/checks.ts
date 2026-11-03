@@ -211,27 +211,40 @@ function expectation(facts: Facts): SigningCheck {
   if (exp.failIfUnlimited && facts.approvals.some((a) => a.unlimited)) problems.push("the approval is unlimited");
   if (exp.amountMustEqual) {
     const want = Number(applyParams(exp.amountMustEqual, flow.params).replace(/,/g, ""));
-    const got = expectedAmount(facts);
+    const got = expectedAmounts(facts);
+    const close = (n: number) => Math.abs(n - want) <= Math.max(1e-9, want * 1e-6);
     if (!Number.isFinite(want)) problems.push(`amountMustEqual "${exp.amountMustEqual}" isn't a number`);
-    else if (got === undefined) problems.push(`expected amount ${want}, but no amount could be read`);
-    else if (Math.abs(got - want) > Math.max(1e-9, want * 1e-6)) problems.push(`expected amount ${want}, got ${got}`);
+    else if (got.length === 0) problems.push(`expected amount ${want}, but no amount could be read`);
+    else if (!got.some(close)) problems.push(`expected amount ${want}, got ${got[0]}`);
   }
   if (problems.length) return { id: "expectation", label: "Flow expectation", status: "fail", detail: `Doesn't match the flow's expectation: ${problems.join("; ")}.`, evidence: { expectation: exp } };
   return { id: "expectation", label: "Flow expectation", status: "pass", detail: `Matches the flow's expectation${describeExpectation(exp)}.`, evidence: { expectation: exp } };
 }
 
-/** The amount the flow expectation refers to, in human units: the approval, else native value, else what leaves the wallet. */
-function expectedAmount(facts: Facts): number | undefined {
+/**
+ * The amounts the flow expectation can refer to, in human units: the approval
+ * if there is one, else the native value and every balance change. A withdraw
+ * of 5 assets burns 4.9 shares and pays out 5, so either side may be the typed amount.
+ */
+function expectedAmounts(facts: Facts): number[] {
+  const human = (v: bigint, decimals: number) => Number(formatUnitsPlain(v, decimals, 18).replace(/,/g, ""));
   const a = facts.approvals[0];
   if (a) {
+    if (a.unlimited) return [Number.POSITIVE_INFINITY];
     const t = facts.tokens.find((t) => same(t.address, a.token));
-    if (a.unlimited || t?.decimals === undefined) return a.unlimited ? Number.POSITIVE_INFINITY : undefined;
-    return Number(formatUnitsPlain(BigInt(a.amount), t.decimals, 18).replace(/,/g, ""));
+    return t?.decimals === undefined ? [] : [human(BigInt(a.amount), t.decimals)];
   }
+  const out: number[] = [];
   const value = nativeValue(facts);
-  if (value > 0n) return Number(formatUnitsPlain(value, 18, 18).replace(/,/g, ""));
-  const out = (facts.simulation?.balanceChanges ?? []).find((c) => same(c.owner, facts.from) && BigInt(c.delta) < 0n && c.decimals !== undefined);
-  return out ? Number(formatUnitsPlain(-BigInt(out.delta), out.decimals!, 18).replace(/,/g, "")) : undefined;
+  if (value > 0n) out.push(human(value, 18));
+  for (const c of facts.simulation?.balanceChanges ?? []) {
+    if (!same(c.owner, facts.from) || c.decimals === undefined) continue;
+    const d = BigInt(c.delta);
+    // Outflows first: what the user pays is what they usually typed.
+    if (d < 0n) out.unshift(human(-d, c.decimals));
+    else if (d > 0n) out.push(human(d, c.decimals));
+  }
+  return out;
 }
 
 function describeExpectation(exp: WalletExpectation): string {

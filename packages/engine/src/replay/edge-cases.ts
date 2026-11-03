@@ -29,7 +29,8 @@ import { createSession, type EngineSession } from "../browser/session.js";
 import type { Wallet } from "../wallet/controller.js";
 import { decodeBuiltin, spenderOf } from "./expectation.js";
 import { edgeLabel, inspectRecovery, makeIssue, pickConsole, pickRpc, type IssueContext, type IssueDraft } from "./issues.js";
-import { replayFlow, type ReplayFlowResult, type ReplayHooks } from "./replay.js";
+import { resolveLocator } from "./locators.js";
+import { replayFlow, sameRequest, type ReplayFlowResult, type ReplayHooks } from "./replay.js";
 
 export interface RunEdgeCasesOptions {
   target: DrillTarget;
@@ -141,7 +142,7 @@ function skipReason(edge: EdgeCaseId, plan: Plan, chains: ChainController): stri
   if ((edge === "existing-approval" || edge === "revoked-approval") && !plan.approval) {
     return plan.txSignIndexes ? "the flow doesn't approve a token" : "needs the happy path first to learn the flow's approval";
   }
-  if ((edge === "speed-up" || edge === "reload-mid-flow") && plan.txSignIndexes && plan.txSignIndexes.length === 0) return "the flow sends no transaction";
+  if ((edge === "speed-up" || edge === "reload-mid-flow" || edge === "low-gas") && plan.txSignIndexes && plan.txSignIndexes.length === 0) return "the flow sends no transaction";
   return undefined;
 }
 
@@ -340,6 +341,9 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
   const firstWalletStep = plan.walletSteps[0] ?? -1;
   /** Index of the step that triggers the first signing request (the one before the first wallet step). */
   const triggerStep = Math.max(0, firstWalletStep - 1);
+  /** The wallet step of the flow's main transaction, and the click that asks for it. */
+  const mainWalletStep = plan.walletSteps[lastTxSign] ?? firstWalletStep;
+  const mainClick = plan.flow.steps.findLastIndex((st, i) => i < mainWalletStep && st.kind === "click");
 
   switch (edge) {
     case "happy":
@@ -347,11 +351,12 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
 
     case "reject":
       return {
-        setup: ["Reject the first request in the wallet (error 4001)."],
+        // The main transaction (the deposit, not the approval before it) is where a rejection most often leaves the UI stuck.
+        setup: ["Reject the flow's main request in the wallet (error 4001)."],
         expected: "Show that the request was rejected and let the user try again.",
         hooks: {
-          respond: async (ctx) => (ctx.signIndex === 0 ? "reject" : "default"),
-          afterStep: async (ctx) => (ctx.step.kind === "wallet" && ctx.signIndex === 0 ? "stop" : undefined),
+          respond: async (ctx) => (ctx.signIndex === lastTxSign ? "reject" : "default"),
+          afterStep: async (ctx) => (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign ? "stop" : undefined),
         },
         inspect: (session, replay, drafts) => recoveryChecks("reject", session, replay, drafts, "rejecting"),
       };
@@ -481,10 +486,33 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
 
     case "slow-rpc":
       return {
-        setup: ["Every RPC call takes 2.5 seconds."],
+        setup: ["Every RPC call takes 2.5 seconds.", "Click the main button a second time while the app is busy, as an impatient user would."],
         faults: { latencyMs: 2_500 },
         stepTimeoutFactor: 4,
-        inspect: async (_s, replay, drafts) => {
+        hooks: {
+          afterStep: async (ctx) => {
+            if (ctx.index !== mainClick || ctx.step.kind !== "click") return;
+            // A button that is disabled while busy makes this click time out, which is the right behaviour.
+            const el = await resolveLocator(ctx.session.page, ctx.step.target, 500).catch(() => undefined);
+            await el?.click({ timeout: 800 }).catch(() => {});
+          },
+        },
+        inspect: async (session, replay, drafts) => {
+          const main = replay.walletSteps.find((w) => w.stepIndex === mainWalletStep);
+          const dupes = main ? session.wallet.requests().filter((r) => r.id !== main.request.id && r.kind === "sign" && sameRequest(r, main.request)) : [];
+          if (main && dupes.length > 0) {
+            drafts.push({
+              kind: "double-submission",
+              severity: "high",
+              category: "wallet",
+              title: `Clicking '${main.pending.buttonLabel ?? "the button"}' twice while the app is busy sends two requests`,
+              summary: `With a slow RPC the button stayed clickable, and a second click produced another ${main.request.method} (${main.asked}). A user who approves both pays twice.`,
+              expected: "Disable the button as soon as it is clicked, until the request is answered.",
+              actual: `${dupes.length + 1} identical requests from two clicks.`,
+              stepIndex: main.stepIndex,
+              evidence: { buttonLabel: main.pending.buttonLabel, walletAsked: main.asked },
+            });
+          }
           if (!replay.completed && !replay.stoppedByHook) {
             drafts.push({
               kind: "slow-rpc-breaks",

@@ -311,7 +311,8 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
   return req.id;
 }
 
-function sameRequest(a: WalletRequest, b: WalletRequest): boolean {
+/** Same method and payload (for transactions: to, data, value). */
+export function sameRequest(a: WalletRequest, b: WalletRequest): boolean {
   if (a.method !== b.method) return false;
   const strip = (r: WalletRequest) => {
     const p = Array.isArray(r.params) ? r.params : [];

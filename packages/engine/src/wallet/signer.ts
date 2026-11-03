@@ -125,8 +125,15 @@ export async function sendPrepared(chains: ChainController, account: PrivateKeyA
   }
 }
 
-/** MetaMask wraps node rejections as -32603 with the node's error in `data`. */
+/**
+ * MetaMask wraps node rejections as -32603 with the node's error in `data`.
+ * Insufficient funds keeps the node's -32000 and message, as most wallets
+ * pass it through, so apps (and viem) can tell the user to add ETH.
+ */
 export function nodeError(e: unknown): JsonRpcError {
+  const message = e instanceof Error ? e.message : String(e);
+  const nodeMessage = e instanceof JsonRpcError ? ((e.data as { message?: string } | undefined)?.message ?? message) : message;
+  if (/insufficient funds/i.test(nodeMessage)) return new JsonRpcError(-32000, nodeMessage);
   if (e instanceof JsonRpcError && e.code === -32603) return e;
   if (e instanceof JsonRpcError) return new JsonRpcError(-32603, "Internal JSON-RPC error.", { code: e.code, message: e.message, data: e.data });
   return new JsonRpcError(-32603, "Internal JSON-RPC error.", { message: e instanceof Error ? e.message : String(e) });
