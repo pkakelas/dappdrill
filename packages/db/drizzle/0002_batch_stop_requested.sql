@@ -1,0 +1,1 @@
+ALTER TABLE "run_batches" ADD COLUMN "stop_requested" boolean DEFAULT false NOT NULL;

@@ -256,6 +256,9 @@ export const flowChanges = pgTable("flow_changes", {
   proposed: jsonb("proposed").$type<Flow>(),
   explanation: text("explanation"),
   error: text("error"),
+  /** What the person did with the proposal; null while it waits for them. */
+  resolution: text("resolution").$type<"accepted" | "dismissed">(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });
 
@@ -275,6 +278,8 @@ export const runBatches = pgTable(
       .$type<{ flowIds: string[]; edgeCases: EdgeCaseId[]; variationId?: string; commit?: string; branch?: string }>()
       .notNull(),
     error: text("error"),
+    /** Set by the web "Stop" button; the worker polls it between runs. */
+    stopRequested: boolean("stop_requested").notNull().default(false),
     startedAt: ts("started_at"),
     finishedAt: ts("finished_at"),
     createdAt: createdAt(),

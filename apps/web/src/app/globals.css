@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+/* Tokens taken from docs/designs/*.html. Only problems get colour. */
+@theme {
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --color-ink: #17181c;
+  --color-ink-2: #3c3f46;
+  --color-ink-3: #4a4d55;
+  --color-muted: #5f6168;
+  --color-faint: #8b8e95;
+  --color-paper: #fbfbfa;
+  --color-panel: #f3f3f0;
+  --color-sub: #f7f7f4;
+  --color-hair: #f0efeb;
+  --color-divide: #ecebe6;
+  --color-line: #e5e4df;
+  --color-line-strong: #dcdbd5;
+  --color-field: #cfcec8;
+  --color-quiet: #b7b6af;
+
+  --color-bad: #a1290f;
+  --color-bad-bg: #fdece7;
+  --color-bad-soft: #fdf0eb;
+  --color-bad-line: #f2c6b6;
+  --color-bad-ink: #7a2410;
+  --color-bad-deep: #4a1407;
+
+  --color-warn: #8a4b0b;
+  --color-warn-bg: #fdf1de;
+  --color-warn-bar: #c77a2a;
+  --color-warn-soft: #fdf6ea;
+  --color-warn-line: #e9d3ae;
+  --color-warn-ink: #5c3208;
+  --color-warn-icon: #b45a0d;
+
+  --color-live: #1f4fd1;
+  --color-live-ink: #1f3f9e;
+  --color-live-bg: #eef2fb;
+  --color-live-soft: #f5f7fd;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  a:hover {
+    color: var(--color-ink-3);
+  }
+  ::selection {
+    background: #e6e5df;
+  }
+  summary {
+    cursor: pointer;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+@layer components {
+  /* One content width everywhere. */
+  .page {
+    @apply mx-auto w-full max-w-[1080px] px-4 pt-8 pb-16 sm:px-8 sm:pt-10;
+  }
+
+  .btn {
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-field bg-white px-4 text-sm font-medium whitespace-nowrap text-ink no-underline transition-colors;
+  }
+  .btn:hover {
+    @apply bg-sub text-ink;
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    @apply cursor-not-allowed opacity-50;
+  }
+  .btn-primary {
+    @apply border-ink bg-ink font-semibold text-white;
+  }
+  .btn-primary:hover {
+    @apply bg-ink-2 text-white;
+  }
+  .btn-sm {
+    @apply h-10 px-3.5 text-[13px];
+  }
+  .btn-xs {
+    @apply h-8 rounded-md px-2.5 text-xs;
+  }
+  .btn-icon {
+    @apply h-10 w-10 border-line px-0;
+  }
+  .btn-link {
+    @apply inline-flex cursor-pointer items-center gap-1 px-0.5 py-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline;
+  }
+
+  .card {
+    @apply rounded-xl border border-line bg-white;
+  }
+
+  .field {
+    @apply h-11 w-full min-w-0 rounded-lg border border-field bg-white px-3 text-sm text-ink outline-none;
+  }
+  .field:focus {
+    @apply border-ink;
+  }
+  textarea.field {
+    @apply h-auto py-2.5 leading-normal;
+  }
+  .label {
+    @apply text-[13px] font-semibold;
+  }
+  .hint {
+    @apply text-[13px] text-muted;
+  }
+
+  .chip {
+    @apply inline-flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-field bg-white px-3.5 text-sm text-ink-2 select-none;
+  }
+  .chip[aria-pressed="true"],
+  .chip:has(input:checked) {
+    @apply border-ink bg-ink text-white;
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap;
+  }
+  .tag {
+    @apply inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold whitespace-nowrap;
+  }
+
+  .seg {
+    @apply flex flex-wrap gap-1 rounded-[10px] bg-hair p-1;
+  }
+  .seg > a,
+  .seg > button {
+    @apply rounded-[7px] px-3 py-2 text-[13px] text-ink-2 no-underline;
+  }
+  .seg > [aria-current="true"],
+  .seg > [aria-pressed="true"] {
+    @apply bg-white font-medium text-ink shadow-[0_1px_2px_rgba(23,24,28,0.08)];
+  }
+
+  .param {
+    @apply rounded bg-live-bg px-1.5 py-0.5 font-mono text-[13px] text-live-ink;
+  }
+
+  .h1 {
+    @apply m-0 text-[28px] leading-tight font-semibold tracking-[-0.02em] sm:text-[34px];
+  }
+  .h2 {
+    @apply m-0 text-lg font-semibold;
+  }
+  .crumbs {
+    @apply text-[13px] text-muted;
+  }
+  .crumbs a {
+    @apply text-muted no-underline;
+  }
+
+  .table {
+    @apply w-full border-collapse text-sm;
+  }
+  .table th {
+    @apply border-b border-divide px-3 py-3.5 text-left text-[13px] font-medium text-muted;
+  }
+  .table td {
+    @apply border-b border-hair px-3 py-3.5 align-middle;
+  }
+  .table tr:last-child td,
+  .table tr:last-child th {
+    @apply border-b-0;
+  }
+  .table th:first-child,
+  .table td:first-child {
+    @apply pl-5;
+  }
+  .table th:last-child,
+  .table td:last-child {
+    @apply pr-5;
+  }
+
+  .codeblock {
+    @apply overflow-x-auto rounded-xl bg-ink px-5 py-4 font-mono text-[13px] leading-[1.8] text-[#e8e8e3];
+  }
+}

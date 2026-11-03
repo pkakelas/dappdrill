@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "allowJs": false,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "drizzle-orm": ["../../packages/db/node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["../../packages/db/node_modules/drizzle-orm/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "src", "scripts", "next.config.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
