@@ -38,7 +38,7 @@ since the last run. Self-serve, €100/month per app.
 
 ## UX direction for v2 (proposed, not yet built)
 
-1. Navigation: Overview · Flows · Runs. "Scan" is a header button; Account sits under the avatar.
+1. Navigation: Overview · Flows · Runs · Settings. "Scan" is a header button that rescans with the saved settings; Settings holds the per-app things (scan settings, domain, schedule, pull requests); Account (team-wide) sits under the avatar.
 2. Home answers "is my dApp OK?" with one status line, then what needs attention.
 3. One status vocabulary everywhere: Broken / Review / OK. Only problems get colour; OK is quiet grey.
 4. Scan setup is URL + Start. Detect chains and wallets from the site; put the rest behind "Customize".

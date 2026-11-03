@@ -1,47 +1,19 @@
 import { DEFAULT_EDGE_CASES } from "@dappdrill/core";
 import type { Metadata } from "next";
-import { NewScanForm, type NewScanDefaults } from "@/components/scan/new-scan-form";
-import { JobStatus, List, ListRow, Mono, Section } from "@/components/ui";
-import { plural, hostFromUrl, timeAgo } from "@/lib/format";
-import { PLANS, scanAllowance } from "@/lib/plan";
-import { flowCountsByScan, healthOfCounts, issueCounts, recentScans } from "@/lib/queries";
-import { currentTeam, requireApp } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { NewScanForm } from "@/components/scan/new-scan-form";
+import { plural } from "@/lib/format";
+import { PLANS } from "@/lib/plan";
+import { currentTeam } from "@/lib/session";
 
-export const metadata: Metadata = { title: "New scan" };
+export const metadata: Metadata = { title: "Add an app" };
 
-export default async function NewScanPage({ searchParams }: { searchParams: Promise<{ app?: string; add?: string }> }) {
-  const { app: appId, add } = await searchParams;
+/** Adding an app. Existing apps rescan from the header and change settings under Settings. */
+export default async function NewAppPage({ searchParams }: { searchParams: Promise<{ app?: string }> }) {
+  const { app } = await searchParams;
+  if (app) redirect(`/apps/${app}/settings`);
   const { team } = await currentTeam();
-  const app = appId && !add ? (await requireApp(appId)).app : undefined;
-
-  const defaults: NewScanDefaults = app
-    ? {
-        appId: app.id,
-        url: app.url,
-        chains: app.settings.chains,
-        wallets: app.settings.wallets,
-        edgeCases: app.settings.edgeCases,
-        hints: app.settings.hints ?? "",
-        allowMainnetLive: Boolean(app.settings.allowMainnetLive),
-        liveKeyAddress: app.liveKeyAddress,
-      }
-    : { url: "", chains: [], wallets: ["metamask", "rabby"], edgeCases: DEFAULT_EDGE_CASES, hints: "", allowMainnetLive: false, liveKeyAddress: null };
-
-  let usage: string | null = null;
-  if (app) {
-    const a = await scanAllowance(app.id, team.plan);
-    usage = a.unlimited
-      ? `Dev mode: scans aren't counted (${a.used} this month)`
-      : a.left > 0
-        ? `Uses 1 of your ${a.left} remaining scans for ${app.name}`
-        : `No discovery scans left this month (${PLANS[team.plan].name} plan)`;
-  } else {
-    usage = `${PLANS[team.plan].name}: ${plural(PLANS[team.plan].scansPerMonth, "discovery scan")} per app each month`;
-  }
-
-  const recent = await recentScans(team.id);
-  const ids = recent.map((r) => r.scan.id);
-  const [counts, flowCounts] = await Promise.all([issueCounts("scan", ids), flowCountsByScan(ids)]);
+  const plan = PLANS[team.plan];
 
   return (
     <div className="page gap-10">
@@ -52,32 +24,24 @@ export default async function NewScanPage({ searchParams }: { searchParams: Prom
         </p>
       </header>
 
-      <NewScanForm key={app?.id ?? "new"} defaults={defaults} usage={usage} />
+      <NewScanForm
+        defaults={{ url: "", chains: [], wallets: ["metamask", "rabby"], edgeCases: DEFAULT_EDGE_CASES, hints: "", allowMainnetLive: false, liveKeyAddress: null }}
+        usage={`${plan.name}: ${plural(plan.scansPerMonth, "discovery scan")} per app each month`}
+      />
 
-      {recent.length > 0 && (
-        <Section title="Recent scans">
-          <List>
-            {recent.map(({ scan, appUrl }) => {
-              const c = counts.get(scan.id);
-              const health = healthOfCounts(c);
-              const flowsFound = flowCounts.get(scan.id) ?? 0;
-              return (
-                <ListRow
-                  key={scan.id}
-                  href={`/apps/${scan.appId}/scans/${scan.id}`}
-                  title={<Mono className="block truncate text-sm">{hostFromUrl(appUrl)}</Mono>}
-                  meta={`${timeAgo(scan.createdAt)} · ${plural(flowsFound, "flow")}`}
-                  aside={
-                    <JobStatus status={scan.status} health={health}>
-                      {health === "broken" ? `${c!.critical + c!.high} need attention` : health === "review" ? `${c!.medium + c!.low} to check` : flowsFound ? "All clear" : "Nothing tested"}
-                    </JobStatus>
-                  }
-                />
-              );
-            })}
-          </List>
-        </Section>
-      )}
+      <ol className="m-0 grid list-none grid-cols-1 gap-6 p-0 sm:grid-cols-3">
+        {[
+          ["Scan", "The agent explores the app with a test wallet and saves every flow it finds."],
+          ["Review", "Each flow is replayed under wallet edge cases. You see what broke and every signature request."],
+          ["Keep it checked", "Run the saved flows daily or on every pull request. Replays are unlimited."],
+        ].map(([title, text], i) => (
+          <li key={title} className="flex flex-col gap-1.5 border-t border-line pt-4">
+            <span className="font-mono text-meta text-faint">{String(i + 1).padStart(2, "0")}</span>
+            <span className="title">{title}</span>
+            <p className="hint m-0">{text}</p>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

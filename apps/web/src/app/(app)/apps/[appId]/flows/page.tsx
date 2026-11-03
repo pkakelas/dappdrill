@@ -5,11 +5,9 @@ import Link from "next/link";
 import { runAllAction } from "@/actions/flows";
 import { rerunAction } from "@/actions/results";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { DescribeForm, ScheduleForm } from "@/components/flows/forms";
+import { DescribeForm } from "@/components/flows/forms";
 import { ChangeCard, RepairBanner } from "@/components/flows/proposals";
-import { ActionButton, Empty, Notice, PageHeader, PlayIcon, Popover, RunState, SparkLegend, Sparkbars } from "@/components/ui";
-import { isHostVerified } from "@/lib/domains";
-import { env } from "@/lib/env";
+import { ActionButton, Empty, Notice, PageHeader, PlayIcon, RunState, SparkLegend, Sparkbars } from "@/components/ui";
 import { plural, timeAgo } from "@/lib/format";
 import { lastRuns, recentStatuses, type FlowRow } from "@/lib/queries";
 import { requireApp } from "@/lib/session";
@@ -26,7 +24,7 @@ export default async function FlowsPage({ params, searchParams }: Props) {
   const flowRows = await db().select().from(flows).where(and(eq(flows.appId, app.id), eq(flows.archived, false))).orderBy(asc(flows.createdAt));
   const ids = flowRows.map((f) => f.id);
   const scanIds = [...new Set(flowRows.map((f) => f.scanId).filter((x): x is string => Boolean(x)))];
-  const [statuses, last, openRepairs, changes, scanRows, varCounts, tokens, verified] = await Promise.all([
+  const [statuses, last, openRepairs, changes, scanRows, varCounts, tokens] = await Promise.all([
     recentStatuses(ids),
     lastRuns(ids),
     ids.length ? db().select().from(repairs).where(and(inArray(repairs.flowId, ids), eq(repairs.status, "open"))).orderBy(desc(repairs.createdAt)) : [],
@@ -34,7 +32,6 @@ export default async function FlowsPage({ params, searchParams }: Props) {
     scanIds.length ? db().select({ id: scans.id, number: scans.number }).from(scans).where(inArray(scans.id, scanIds)) : [],
     ids.length ? db().select({ flowId: variations.flowId, n: count() }).from(variations).where(inArray(variations.flowId, ids)).groupBy(variations.flowId) : [],
     db().select({ lastUsedAt: apiTokens.lastUsedAt }).from(apiTokens).where(eq(apiTokens.appId, app.id)),
-    isHostVerified(app.teamId, app.host),
   ]);
   const scanNo = new Map(scanRows.map((s) => [s.id, s.number]));
   const varN = new Map(varCounts.map((v) => [v.flowId, v.n]));
@@ -64,19 +61,18 @@ export default async function FlowsPage({ params, searchParams }: Props) {
         title="Flows"
         sub={<>{plural(flowRows.length, "saved flow")}. Replays don&apos;t use your scan allowance, so run them as often as you like.</>}
         actions={
-          <>
-            <Popover label="Daily schedule" align="right" buttonClassName="btn" panelClassName="w-[320px]" button={app.scheduleTime ? `Daily at ${app.scheduleTime}` : "Schedule"}>
-              <ScheduleForm appId={app.id} time={app.scheduleTime} verified={verified} host={app.host} />
-            </Popover>
-            <ActionButton action={runAllAction} fields={{ appId: app.id }} className="btn-primary" pendingText="Queuing…" disabled={flowRows.length === 0}>
-              <PlayIcon /> Run all
-            </ActionButton>
-          </>
+          <ActionButton action={runAllAction} fields={{ appId: app.id }} className="btn-primary" pendingText="Queuing…" disabled={flowRows.length === 0}>
+            <PlayIcon /> Run all
+          </ActionButton>
         }
       >
         <p className="meta m-0 flex flex-wrap gap-x-5 gap-y-1">
-          <span>{app.scheduleTime ? `Every day at ${app.scheduleTime} UTC` : "No daily schedule"}</span>
-          <span>{ciUsed ? "On every pull request, via GitHub Action" : <Link href="/account#tokens-section" className="prose-link">Set up the GitHub Action</Link>}</span>
+          <Link href={`/apps/${app.id}/settings#schedule-section`} className="no-underline hover:underline">
+            {app.scheduleTime ? `Every day at ${app.scheduleTime} UTC` : "No daily schedule"}
+          </Link>
+          <Link href={`/apps/${app.id}/settings#ci-section`} className="no-underline hover:underline">
+            {ciUsed ? "On every pull request" : "Not on pull requests yet"}
+          </Link>
         </p>
       </PageHeader>
 
@@ -156,9 +152,9 @@ export default async function FlowsPage({ params, searchParams }: Props) {
           button="Add flow"
         />
         <p className="hint m-0">
-          Keeping flows in your repo? <code className="font-mono text-meta">dappdrill push-flows --report-to {env.appUrl}</code> uploads them; see{" "}
-          <Link href="/account#tokens-section" className="prose-link">
-            API tokens
+          Keeping flows in your repo?{" "}
+          <Link href={`/apps/${app.id}/settings#ci-section`} className="prose-link">
+            Push them with the CLI
           </Link>
           .
         </p>

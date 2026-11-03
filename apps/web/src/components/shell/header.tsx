@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { rescanAction } from "@/actions/scan";
 import { authClient } from "@/lib/auth-client";
-import { ChevronIcon, cx, Logo } from "@/components/ui";
+import { ActionButton, ChevronIcon, cx, Logo, Popover } from "@/components/ui";
 import { Menu, MenuItem, menuLinkClass } from "./menu";
 
 export interface ShellApp {
@@ -30,6 +31,7 @@ const NAV = [
   { label: "Overview", path: "" },
   { label: "Flows", path: "/flows" },
   { label: "Runs", path: "/runs" },
+  { label: "Settings", path: "/settings" },
 ];
 
 export function Header({ apps, lastAppId, user, team, teams, planName, devQuota, switchTeam }: ShellProps) {
@@ -45,7 +47,9 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
   const base = app ? `/apps/${app.id}` : null;
   const active = (path: string) => {
     if (!base) return false;
-    if (path === "") return pathname === base || pathname.startsWith(`${base}/scans`) || pathname.startsWith(`${base}/signing`);
+    if (path === "") return pathname === base;
+    // Scan reports and signing reviews are runs too.
+    if (path === "/runs") return ["/runs", "/scans", "/signing"].some((p) => pathname.startsWith(base + p));
     return pathname.startsWith(base + path);
   };
   const initial = (user.name || user.email).trim().charAt(0).toUpperCase();
@@ -80,7 +84,7 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
             </MenuItem>
           ))}
           <MenuItem className="mt-1 border-t border-divide pt-1">
-            <Link href="/new?add=1" className={menuLinkClass}>
+            <Link href="/new" className={menuLinkClass}>
               Add app
             </Link>
           </MenuItem>
@@ -105,9 +109,29 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
         )}
 
         <div className="ml-auto flex items-center gap-3">
-          <Link href={app ? `/new?app=${app.id}` : "/new"} className="btn btn-primary btn-sm h-9">
-            Scan
-          </Link>
+          {app ? (
+            <Popover label={`Scan ${app.host}`} align="right" buttonClassName="btn btn-primary btn-sm h-9" button="Scan">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-body font-medium">Scan {app.host} again</span>
+                  <span className="hint">Finds new flows and re-checks every edge case with your saved settings. Takes 10–15 minutes.</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <ActionButton action={rescanAction} fields={{ appId: app.id }} className="btn-primary btn-sm" pendingText="Starting…" disabled={!devQuota && app.scansUsed >= app.scansLimit}>
+                    Start scan
+                  </ActionButton>
+                  <Link href={`/apps/${app.id}/settings`} className="btn-link">
+                    Change settings
+                  </Link>
+                </div>
+                <span className="meta">{devQuota ? "Dev mode: scans aren't counted." : `${app.scansUsed} of ${app.scansLimit} scans used this month. Replays are unlimited.`}</span>
+              </div>
+            </Popover>
+          ) : (
+            <Link href="/new" className="btn btn-primary btn-sm h-9">
+              Scan
+            </Link>
+          )}
           <Menu
             label="Account menu"
             align="right"

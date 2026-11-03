@@ -1,25 +1,21 @@
-import { apiTokens, db, domains, integrations, invites, teamMembers, testWallets, user as users } from "@dappdrill/db";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { db, domains, integrations, invites, teamMembers, testWallets, user as users } from "@dappdrill/db";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   addDomainAction,
   cancelInviteAction,
   createInboxAction,
-  createTokenAction,
   inviteAction,
-  removeDomainAction,
   removeInboxAction,
   removeIntegrationAction,
   removeMemberAction,
-  revokeTokenAction,
   saveIntegrationAction,
   setIntegrationEnabledAction,
-  verifyDomainAction,
 } from "@/actions/account";
 import { ActionForm } from "@/components/action-form";
 import { CopyButton } from "@/components/report/copy-button";
-import { ActionButton, Addr, Blank, ChevronIcon, cx, Disclosure, Facts, Field, Hidden, List, ListRow, Meter, Mono, PageHeader, Pill, SettingsSection, SubmitButton } from "@/components/ui";
+import { DomainItem, InlineAdd } from "@/components/settings";
+import { ActionButton, Addr, ChevronIcon, cx, Field, Hidden, List, ListRow, Meter, Mono, PageHeader, Pill, SettingsSection, SubmitButton } from "@/components/ui";
 import { env } from "@/lib/env";
 import { plural, timeAgo } from "@/lib/format";
 import { PLANS, replaysThisMonth, scanAllowance } from "@/lib/plan";
@@ -33,13 +29,12 @@ export default async function AccountPage() {
   const { user, team, role } = await currentTeam();
   const apps = await teamApps(team.id);
   const appIds = apps.map((a) => a.id);
-  const [allowances, replays, [wallets], domainRows, integrationRows, tokenRows, members, pending] = await Promise.all([
+  const [allowances, replays, [wallets], domainRows, integrationRows, members, pending] = await Promise.all([
     Promise.all(apps.map((a) => scanAllowance(a.id, team.plan))),
     replaysThisMonth(appIds),
     db().select().from(testWallets).where(eq(testWallets.teamId, team.id)),
     db().select().from(domains).where(eq(domains.teamId, team.id)).orderBy(asc(domains.createdAt)),
     db().select().from(integrations).where(eq(integrations.teamId, team.id)),
-    appIds.length ? db().select().from(apiTokens).where(inArray(apiTokens.appId, appIds)).orderBy(asc(apiTokens.createdAt)) : [],
     db()
       .select({ id: users.id, name: users.name, email: users.email, role: teamMembers.role })
       .from(teamMembers)
@@ -55,8 +50,7 @@ export default async function AccountPage() {
     ["plan", "Plan"],
     ["wallets", "Test wallets"],
     ["domains", "Domains"],
-    ["integrations", "Integrations"],
-    ["tokens", "API tokens"],
+    ["integrations", "Alerts"],
     ["team", "Team"],
   ] as const;
 
@@ -140,70 +134,15 @@ export default async function AccountPage() {
                 )
               }
             />
-            {apps
-              .filter((a) => a.liveKeyAddress)
-              .map((a) => (
-                <ListRow
-                  key={a.id}
-                  title={`Funded account · ${a.name}`}
-                  meta={<Addr value={a.liveKeyAddress} chars={6} />}
-                  aside={
-                    <Link href={`/new?app=${a.id}`} className="btn-link">
-                      Change
-                    </Link>
-                  }
-                />
-              ))}
           </List>
-          {apps[0] && (
-            <p className="hint m-0">
-              Testing on a chain that can&apos;t be forked? Add a funded testnet key under <Link href={`/new?app=${apps[0].id}`}>New scan → Customize</Link>.
-            </p>
-          )}
+          <p className="hint m-0">Funded testnet keys, for chains that can&apos;t be forked, are set per app under Settings → Scanning.</p>
         </SettingsSection>
 
-        <SettingsSection id="domains" title="Domains" hint="Scheduled and CI runs need a verified domain, so DappDrill only drills sites you own.">
+        <SettingsSection id="domains" title="Domains" hint="Scheduled and pull-request runs need a verified domain, so DappDrill only drills sites you own. Shared by all your apps.">
           {domainRows.length > 0 && (
             <List>
               {domainRows.map((d) => (
-                <li key={d.id}>
-                  <div className="row">
-                    <span className="flex min-w-0 flex-[1_1_240px] items-center gap-3">
-                      <Mono className="text-body">{d.host}</Mono>
-                      {d.verifiedAt ? <Pill>Verified</Pill> : <Pill tone="warn">Not verified</Pill>}
-                    </span>
-                    <ActionButton action={removeDomainAction} fields={{ domainId: d.id }} className="btn-xs" confirm="Remove?" aria-label={`Remove ${d.host}`}>
-                      Remove
-                    </ActionButton>
-                  </div>
-                  {!d.verifiedAt && (
-                    <div className="flex flex-col gap-3 px-5 pb-4">
-                      <p className="meta m-0">Do one of these, then press Verify:</p>
-                      <Facts
-                        items={[
-                          [
-                            "File",
-                            <>
-                              Serve <Mono>https://{d.host}/.well-known/dappdrill.txt</Mono> containing <Mono>{d.token}</Mono>
-                            </>,
-                          ],
-                          [
-                            "DNS",
-                            <>
-                              A TXT record on <Mono>{d.host}</Mono>: <Mono>dappdrill-verify={d.token}</Mono>
-                            </>,
-                          ],
-                        ]}
-                      />
-                      <ActionForm action={verifyDomainAction}>
-                        <Hidden fields={{ domainId: d.id }} />
-                        <SubmitButton className="btn-sm w-fit" pendingText="Checking…">
-                          Verify
-                        </SubmitButton>
-                      </ActionForm>
-                    </div>
-                  )}
-                </li>
+                <DomainItem key={d.id} domain={d} />
               ))}
             </List>
           )}
@@ -215,7 +154,7 @@ export default async function AccountPage() {
           {env.dev && <p className="hint m-0">In dev mode, localhost counts as verified.</p>}
         </SettingsSection>
 
-        <SettingsSection id="integrations" title="Integrations" hint="Where alerts go when a run finds something new.">
+        <SettingsSection id="integrations" title="Alerts" hint="Where alerts go when a run finds something new, for every app.">
           <List>
             <IntegrationRow kind="github" title="GitHub" row={integ.get("github")} status={(r) => `Issues open in ${r.config.repo}`}>
               <TextField name="repo" label="Repository" placeholder="owner/name" defaultValue={integ.get("github")?.config.repo} mono />
@@ -232,52 +171,6 @@ export default async function AccountPage() {
               <TextField name="to" label="Send alerts to" placeholder="qa@example.com, dev@example.com" defaultValue={integ.get("email")?.config.to} />
             </IntegrationRow>
           </List>
-        </SettingsSection>
-
-        <SettingsSection id="tokens" title="API tokens" hint="For the CLI and the GitHub Action: pull this app's flows and report results. One token per app.">
-          {apps.length === 0 ? (
-            <Blank>Add an app first.</Blank>
-          ) : (
-            apps.map((a) => {
-              const tokens = tokenRows.filter((t) => t.appId === a.id);
-              return (
-                <div key={a.id} className="flex flex-col gap-3">
-                  {apps.length > 1 && <h3 className="h3">{a.name}</h3>}
-                  {tokens.length > 0 && (
-                    <List>
-                      {tokens.map((t) => (
-                        <ListRow
-                          key={t.id}
-                          title={t.name}
-                          meta={`Created ${timeAgo(t.createdAt)} · ${t.lastUsedAt ? `last used ${timeAgo(t.lastUsedAt)}` : "never used"}`}
-                          aside={
-                            <ActionButton action={revokeTokenAction} fields={{ tokenId: t.id }} className="btn-xs" confirm="Revoke it?">
-                              Revoke
-                            </ActionButton>
-                          }
-                        />
-                      ))}
-                    </List>
-                  )}
-                  <ActionForm action={createTokenAction} secretLabel="Add it to your repo as the DAPPDRILL_TOKEN secret. It won't be shown again.">
-                    <Hidden fields={{ appId: a.id }} />
-                    <InlineAdd id={`tok-${a.id}`} label="Token name" button="Create token">
-                      <input id={`tok-${a.id}`} name="name" required maxLength={60} className="field min-w-0 flex-1" placeholder="GitHub Action" defaultValue="GitHub Action" />
-                    </InlineAdd>
-                  </ActionForm>
-                </div>
-              );
-            })
-          )}
-          <Disclosure summary="GitHub Action setup">
-            <div className="flex flex-col gap-3 p-4">
-              <p className="meta m-0">
-                Save as <Mono>.github/workflows/dappdrill.yml</Mono>. It replays your saved flows on every pull request, comments the result, and reports back here.
-              </p>
-              <pre className="codeblock m-0 overflow-x-auto">{actionSnippet(apps[0]?.url)}</pre>
-              <CopyButton text={actionSnippet(apps[0]?.url)} label="Copy workflow" className="w-fit" />
-            </div>
-          </Disclosure>
         </SettingsSection>
 
         <SettingsSection id="team" title="Team" hint="Everyone can run flows and change settings. Owners invite and remove people.">
@@ -331,40 +224,6 @@ export default async function AccountPage() {
           </p>
         </SettingsSection>
       </div>
-    </div>
-  );
-}
-
-function actionSnippet(url?: string): string {
-  return `name: DappDrill
-on: pull_request
-
-jobs:
-  dappdrill:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dappdrill/dappdrill/.github/actions/dappdrill@main
-        with:
-          url: ${url ?? "https://your-preview-url"}
-          pull: "true"
-          report-to: ${env.appUrl}
-          token: \${{ secrets.DAPPDRILL_TOKEN }}
-`;
-}
-
-/** One input and its submit button on a line. The label is for screen readers. */
-function InlineAdd({ id, label, button, children }: { id: string; label: string; button: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-2">
-      <label htmlFor={id} className="sr-only">
-        {label}
-      </label>
-      {children}
-      <SubmitButton>{button}</SubmitButton>
     </div>
   );
 }

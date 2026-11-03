@@ -28,7 +28,7 @@ export function ScheduleForm({ appId, time, verified, host }: { appId: string; t
   return (
     <form action={action} className="flex flex-col gap-3">
       <Hidden fields={{ appId }} />
-      <Field label="Run every flow daily at (UTC)" hint={verified ? undefined : `Needs ${host} verified under Account → Domains.`}>
+      <Field label="Run every flow daily at (UTC)" hint={verified ? undefined : `Verify ${host} above first.`}>
         <span className="flex gap-2">
           <input name="time" type="time" defaultValue={time ?? "07:00"} className="field w-32 font-mono" />
           <SubmitButton className="btn-primary" pendingText="Saving…">

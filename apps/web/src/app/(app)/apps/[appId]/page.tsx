@@ -1,14 +1,14 @@
-import { db, flows, runBatches } from "@dappdrill/db";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { apiTokens, db, flows, runBatches } from "@dappdrill/db";
+import { and, count, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { makePanelHref } from "@/components/report/ctx";
 import { CriticalIssueCard, IssueRowCard } from "@/components/report/issues";
 import { ResultPanel } from "@/components/report/panels";
-import { Blank, cx, Empty, HEALTH_TEXT, HealthBadge, JobStatus, List, ListRow, Mono, Notice, PageHeader, Reveal, RunState, Section, Sparkbars } from "@/components/ui";
-import { hostFromUrl, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
-import { githubRepo, healthOfCounts, issueCounts, latestScan, openIssues, recentStatuses } from "@/lib/queries";
+import { Blank, CheckIcon, cx, Empty, HEALTH_TEXT, HealthBadge, JobStatus, Notice, PageHeader, Reveal, Section } from "@/components/ui";
+import { hostFromUrl, plural, timeAgo } from "@/lib/format";
+import { githubRepo, healthOfCounts, issueCounts, latestScan, openIssues } from "@/lib/queries";
 import { loadPanel } from "@/lib/report";
 import { healthOfIssues } from "@dappdrill/core";
 import { requireApp } from "@/lib/session";
@@ -26,16 +26,17 @@ export default async function OverviewPage({ params, searchParams }: Props) {
   const { app } = await requireApp(appId);
   const path = `/apps/${app.id}`;
 
-  const [current, finished, issues, batches, flowRows, repo, panelData] = await Promise.all([
+  const [current, finished, issues, batches, flowRows, [ci], repo, panelData] = await Promise.all([
     latestScan(app.id),
     latestScan(app.id, true),
     openIssues(app.id),
     db().select().from(runBatches).where(and(eq(runBatches.appId, app.id), isNull(runBatches.scanId))).orderBy(desc(runBatches.createdAt)).limit(5),
-    db().select().from(flows).where(and(eq(flows.appId, app.id), eq(flows.archived, false))).orderBy(asc(flows.createdAt)),
+    db().select({ id: flows.id, name: flows.name }).from(flows).where(and(eq(flows.appId, app.id), eq(flows.archived, false))),
+    db().select({ n: count() }).from(apiTokens).where(and(eq(apiTokens.appId, app.id), isNotNull(apiTokens.lastUsedAt))),
     githubRepo(app.teamId),
     loadPanel(app.id, panel),
   ]);
-  const [batchCounts, statuses] = await Promise.all([issueCounts("batch", batches.map((b) => b.id)), recentStatuses(flowRows.map((f) => f.id))]);
+  const batchCounts = await issueCounts("batch", batches.slice(0, 1).map((b) => b.id));
   const ctx = { appId: app.id, panelHref: makePanelHref(path, {}), readOnly: false, githubRepo: repo };
   const health = healthOfIssues(issues);
   const attention = issues.filter((i) => i.severity === "critical" || i.severity === "high");
@@ -44,6 +45,13 @@ export default async function OverviewPage({ params, searchParams }: Props) {
   const busy = running || batches.some((b) => b.status === "queued" || b.status === "running");
   const lastChecked = [finished?.finishedAt, ...batches.map((b) => b.finishedAt)].filter(Boolean).sort((a, b) => b!.getTime() - a!.getTime())[0];
   const names = new Map(flowRows.map((f) => [f.id, f.name]));
+  const lastBatch = batches[0];
+  const onPullRequests = (ci?.n ?? 0) > 0;
+  const checklist = [
+    { done: Boolean(finished), label: "Scan the app", hint: "The agent finds the flows and tries each one with wallet edge cases.", href: running ? `${path}/scans/${running.id}` : undefined },
+    { done: batches.length > 0, label: "Replay your saved flows", hint: "Check the steps look right, then run them. Replays are unlimited.", href: `${path}/flows` },
+    { done: Boolean(app.scheduleTime) || onPullRequests, label: "Keep it checked", hint: "Run the flows every day, or on every pull request.", href: `${path}/settings#schedule-section` },
+  ];
   const host = (
     <a href={app.url} target="_blank" rel="noreferrer" className="font-mono text-sm text-muted no-underline hover:underline">
       {hostFromUrl(app.url)}
@@ -57,8 +65,8 @@ export default async function OverviewPage({ params, searchParams }: Props) {
         <Empty
           title="No scans yet"
           action={
-            <Link href={`/new?app=${app.id}`} className="btn btn-primary">
-              Run the first scan
+            <Link href={`${path}/settings`} className="btn btn-primary">
+              Check settings and scan
             </Link>
           }
         >
@@ -109,6 +117,35 @@ export default async function OverviewPage({ params, searchParams }: Props) {
         </Notice>
       )}
 
+      {checklist.some((c) => !c.done) && (
+        <Section title="Getting started">
+          <ol className="list">
+            {checklist.map((c, i) => (
+              <li key={c.label}>
+                <Link href={c.href ?? path} className={cx("row no-underline transition-colors hover:bg-sub", c.done && "text-muted")}>
+                  <span className="flex min-w-0 flex-[1_1_240px] items-start gap-3">
+                    <span
+                      className={cx(
+                        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-2xs",
+                        c.done ? "border-ink bg-ink text-paper" : "border-line-strong text-muted",
+                      )}
+                      aria-hidden
+                    >
+                      {c.done ? <CheckIcon /> : i + 1}
+                    </span>
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-body font-medium">{c.label}</span>
+                      {!c.done && <span className="meta">{c.hint}</span>}
+                    </span>
+                  </span>
+                  <span className="sr-only">{c.done ? "Done" : "To do"}</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </Section>
+      )}
+
       <Section title="Open issues" hint={issues.length > 0 ? "From the latest scan and the runs since. Open one for the evidence." : undefined}>
         {issues.length === 0 ? (
           <Blank>None. The latest scan and runs found nothing to fix.</Blank>
@@ -122,82 +159,39 @@ export default async function OverviewPage({ params, searchParams }: Props) {
         )}
       </Section>
 
-      <div className="grid grid-cols-1 gap-x-8 gap-y-9 lg:grid-cols-2">
-        <div className="flex flex-col gap-9">
-          <Section
-            title="Latest scan"
-            action={
-              <Link href={`/new?app=${app.id}`} className="btn-link">
-                New scan
-              </Link>
-            }
-          >
-            {finished ? (
-              <List>
-                <ListRow
-                  href={`${path}/scans/${finished.id}`}
-                  title={`Scan #${finished.number}`}
-                  meta={`${timeAgo(finished.finishedAt ?? finished.createdAt)}${finished.status === "stopped" ? " · stopped early" : ""}`}
-                  aside={<span className="meta">Open report →</span>}
-                />
-              </List>
+      <Section title="How it's checked">
+        <div className="card grid grid-cols-2 gap-px overflow-hidden bg-divide sm:grid-cols-4">
+          <Fact href={`${path}/flows`} label="Flows">
+            {plural(flowRows.length, "saved flow")}
+          </Fact>
+          <Fact href={lastBatch ? `${path}/runs/${lastBatch.id}` : `${path}/runs`} label="Last replay">
+            {lastBatch ? (
+              <JobStatus status={lastBatch.status} health={healthOfCounts(batchCounts.get(lastBatch.id))}>
+                {timeAgo(lastBatch.createdAt)}
+              </JobStatus>
             ) : (
-              <Blank>No finished scan yet.</Blank>
+              <span className="text-muted">Not yet</span>
             )}
-          </Section>
-
-          <Section
-            title="Recent runs"
-            action={
-              <Link href={`${path}/runs`} className="btn-link">
-                All runs
-              </Link>
-            }
-          >
-            {batches.length === 0 ? (
-              <Blank>No replays yet. Run your flows from the Flows tab.</Blank>
-            ) : (
-              <List>
-                {batches.map((b) => (
-                  <ListRow
-                    key={b.id}
-                    href={`${path}/runs/${b.id}`}
-                    title={
-                      <>
-                        {plural(b.request.flowIds.length, "flow")} · {TRIGGER_LABEL[b.trigger]}
-                        {b.request.branch && <Mono className="text-meta text-muted"> {b.request.branch}</Mono>}
-                      </>
-                    }
-                    meta={timeAgo(b.createdAt)}
-                    aside={<JobStatus status={b.status} health={healthOfCounts(batchCounts.get(b.id))} />}
-                  />
-                ))}
-              </List>
-            )}
-          </Section>
+          </Fact>
+          <Fact href={`${path}/settings#schedule-section`} label="Schedule">
+            {app.scheduleTime ? `Daily, ${app.scheduleTime} UTC` : <span className="text-muted">Off</span>}
+          </Fact>
+          <Fact href={`${path}/settings#ci-section`} label="Pull requests">
+            {onPullRequests ? "On" : <span className="text-muted">Off</span>}
+          </Fact>
         </div>
+      </Section>
 
-        <Section
-          title="Flow health"
-          action={
-            <Link href={`${path}/flows`} className="btn-link">
-              All flows
-            </Link>
-          }
-        >
-          {flowRows.length === 0 ? (
-            <Blank>No saved flows yet. The scan saves the flows it finds.</Blank>
-          ) : (
-            <List>
-              {flowRows.map((f) => {
-                const st = statuses.get(f.id) ?? [];
-                return <ListRow key={f.id} href={`${path}/flows/${f.id}`} title={<span className="block truncate">{f.name}</span>} meta={<RunState status={st.at(-1)} />} aside={<Sparkbars statuses={st} />} />;
-              })}
-            </List>
-          )}
-        </Section>
-      </div>
       {panelData && <ResultPanel data={panelData} ctx={ctx} />}
     </div>
+  );
+}
+
+function Fact({ href, label, children }: { href: string; label: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="flex flex-col gap-1.5 bg-card px-4 py-3.5 no-underline transition-colors hover:bg-sub">
+      <span className="label">{label}</span>
+      <span className="text-body">{children}</span>
+    </Link>
   );
 }

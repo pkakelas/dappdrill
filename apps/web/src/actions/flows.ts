@@ -40,11 +40,11 @@ export async function setScheduleAction(_prev: ActionResult, form: FormData): Pr
   if (!off) {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) return { error: "Use 24-hour time, like 07:00." };
     if (!(await isHostVerified(app.teamId, app.host))) {
-      return { error: `Verify ${app.host} under Account → Domains first. Scheduled runs only go to domains you've proven you own.` };
+      return { error: `Verify ${app.host} under Settings → Domain first. Scheduled runs only go to domains you've proven you own.` };
     }
   }
   await db().update(apps).set({ scheduleTime: off ? null : raw }).where(eq(apps.id, app.id));
-  revalidatePath(`/apps/${app.id}/flows`);
+  revalidatePath(`/apps/${app.id}`, "layout");
   return { ok: off ? "Schedule turned off." : `Runs every day at ${raw} UTC.` };
 }
 

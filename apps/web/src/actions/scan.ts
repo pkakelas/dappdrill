@@ -110,11 +110,15 @@ export async function startScanAction(_prev: FormState, form: FormData): Promise
       ? { liveKeyEnc: null, liveKeyAddress: null }
       : {};
 
-  if (app) {
+  // From app settings: "Save" stores the settings without scanning.
+  const saveOnly = form.get("intent") === "save" && app;
+  if (app && !saveOnly) {
     const allowance = await scanAllowance(app.id, team.plan);
     if (allowance.left <= 0) {
       return { error: `You've used all ${allowance.limit} discovery scans for ${app.name} this month (${PLANS[team.plan].name} plan). Replays are still unlimited.` };
     }
+  }
+  if (app) {
     [app] = await db()
       .update(apps)
       .set({ url: input.url, host: hostOf(input.url), settings, ...liveKey })
@@ -128,9 +132,24 @@ export async function startScanAction(_prev: FormState, form: FormData): Promise
       .returning();
   }
 
-  const scanId = await startScan(app!, user.id);
   revalidatePath("/", "layout");
+  if (saveOnly) return { ok: "Saved. The next scan uses these settings." };
+  const scanId = await startScan(app!, user.id);
   redirect(`/apps/${app!.id}/scans/${scanId}`);
+}
+
+/** Scans an app again with its saved settings (the header's Scan button). */
+export async function rescanAction(form: FormData): Promise<void> {
+  const { app, user } = await requireApp(z.string().min(1).parse(form.get("appId")));
+  const { team } = await currentTeam();
+  const allowance = await scanAllowance(app.id, team.plan);
+  if (allowance.left <= 0) {
+    const error = `You've used all ${allowance.limit} discovery scans for ${app.name} this month. Replays are still unlimited.`;
+    redirect(`/apps/${app.id}/settings?error=${encodeURIComponent(error)}`);
+  }
+  const scanId = await startScan(app, user.id);
+  revalidatePath("/", "layout");
+  redirect(`/apps/${app.id}/scans/${scanId}`);
 }
 
 export async function stopScanAction(scanId: string): Promise<void> {

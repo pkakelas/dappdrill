@@ -14,7 +14,7 @@ import { currentTeam, requireApp } from "@/lib/session";
 
 const Id = z.string().min(1).max(100);
 const done = (ok: string): ActionResult => {
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
   return { ok };
 };
 
@@ -50,7 +50,7 @@ export async function createInboxAction(_prev?: ActionResult, _form?: FormData):
 export async function removeInboxAction(): Promise<void> {
   const { team } = await currentTeam();
   await db().update(testWallets).set({ inboxAddress: null, inboxPasswordEnc: null }).where(eq(testWallets.teamId, team.id));
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
 }
 
 // ---------------------------------------------------------------- domains
@@ -88,7 +88,7 @@ export async function verifyDomainAction(_prev: ActionResult, form: FormData): P
 export async function removeDomainAction(form: FormData): Promise<void> {
   const row = await teamDomain(String(form.get("domainId")));
   if (row) await db().delete(domains).where(eq(domains.id, row.id));
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
 }
 
 // ---------------------------------------------------------------- integrations
@@ -150,14 +150,14 @@ export async function setIntegrationEnabledAction(form: FormData): Promise<void>
     .update(integrations)
     .set({ enabled: form.get("enabled") === "1" })
     .where(and(eq(integrations.teamId, team.id), eq(integrations.kind, kind)));
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
 }
 
 export async function removeIntegrationAction(form: FormData): Promise<void> {
   const { team } = await currentTeam();
   const kind = Kind.parse(form.get("kind"));
   await db().delete(integrations).where(and(eq(integrations.teamId, team.id), eq(integrations.kind, kind)));
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
 }
 
 // ---------------------------------------------------------------- API tokens
@@ -168,7 +168,7 @@ export async function createTokenAction(_prev: ActionResult, form: FormData): Pr
   if (!name.success) return { error: name.error.issues[0]?.message };
   const token = `ddt_${randomBytes(24).toString("base64url")}`;
   await db().insert(apiTokens).values({ id: newId("tok"), appId: app.id, name: name.data, tokenHash: sha256(token) });
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
   return { ok: "Copy it now. You won't see it again.", secret: token };
 }
 
@@ -178,7 +178,7 @@ export async function revokeTokenAction(form: FormData): Promise<void> {
   if (!row) return;
   await requireApp(row.appId);
   await db().delete(apiTokens).where(eq(apiTokens.id, id));
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
 }
 
 // ---------------------------------------------------------------- team
@@ -196,7 +196,7 @@ export async function inviteAction(_prev: ActionResult, form: FormData): Promise
     subject: `${user.name || user.email} invited you to ${team.name} on DappDrill`,
     text: `${user.name || user.email} invited you to join ${team.name} on DappDrill.\n\nAccept the invite: ${link}\n`,
   });
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
   return { ok: `Invite sent to ${email.data}. You can also share this link:`, secret: link };
 }
 
@@ -204,7 +204,7 @@ export async function cancelInviteAction(form: FormData): Promise<void> {
   const { team, role } = await currentTeam();
   if (role !== "owner") return;
   await db().delete(invites).where(and(eq(invites.id, Id.parse(form.get("inviteId"))), eq(invites.teamId, team.id)));
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
 }
 
 export async function removeMemberAction(form: FormData): Promise<void> {
@@ -212,5 +212,5 @@ export async function removeMemberAction(form: FormData): Promise<void> {
   const userId = Id.parse(form.get("userId"));
   if (role !== "owner" || userId === user.id) return;
   await db().delete(teamMembers).where(and(eq(teamMembers.teamId, team.id), eq(teamMembers.userId, userId)));
-  revalidatePath("/account");
+  revalidatePath("/", "layout");
 }

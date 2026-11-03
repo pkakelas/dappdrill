@@ -11,7 +11,7 @@ export function json(body: unknown, status = 200): Response {
 /** Resolves the app for a `Authorization: Bearer <token>` request, or returns the error response. */
 export async function ciAuth(req: Request, opts: { needsVerifiedDomain?: boolean } = {}): Promise<{ app: App } | { error: Response }> {
   const header = req.headers.get("authorization");
-  if (!header) return { error: json({ error: "Missing bearer token. Create one under Account → API tokens." }, 401) };
+  if (!header) return { error: json({ error: "Missing bearer token. Create one under Settings → Pull requests." }, 401) };
   const m = header.match(/^Bearer\s+(\S{10,200})$/i);
   if (!m) return { error: json({ error: "Unknown or revoked token." }, 401) };
   const [row] = await db()
@@ -22,7 +22,7 @@ export async function ciAuth(req: Request, opts: { needsVerifiedDomain?: boolean
   if (!row) return { error: json({ error: "Unknown or revoked token." }, 401) };
   await db().update(apiTokens).set({ lastUsedAt: new Date() }).where(eq(apiTokens.id, row.tokenId));
   if (opts.needsVerifiedDomain && !(await isHostVerified(row.app.teamId, row.app.host))) {
-    return { error: json({ error: `CI runs need ${row.app.host} verified. Verify it under Account → Domains.` }, 403) };
+    return { error: json({ error: `CI runs need ${row.app.host} verified. Verify it under Settings → Domain.` }, 403) };
   }
   return { app: row.app };
 }
