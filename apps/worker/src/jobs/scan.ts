@@ -52,10 +52,13 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
         return void (await update({ stages: state.stages }));
       case "frame":
         return void (await update({ liveFrame: event.path }));
-      case "page":
-        if (state.pages.some((p) => p.url === event.url)) return;
-        state.pages.push({ url: event.url, title: event.title });
+      case "page": {
+        const i = state.pages.findIndex((p) => p.url === event.url);
+        const page = { url: event.url, title: event.title };
+        if (i >= 0) state.pages[i] = page;
+        else state.pages.push(page);
         return void (await update({ pages: state.pages }));
+      }
       case "chains":
         state.chains = event.chains;
         return void (await update({ chains: event.chains }));

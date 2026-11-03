@@ -77,11 +77,15 @@ export async function explore(session: DrillSession, llm: Llm, opts: ExploreOpti
   let blocked: string | undefined;
   const log = (message: string, level: "info" | "warn" = "info") => session.emit({ type: "log", level, message, at: new Date().toISOString() });
 
+  // Keyed by path: navigation and note_page see the same page with and without its query.
   const notePage = async (url: string, title?: string) => {
-    const key = new URL(url, session.target.url).href.replace(/#.*$/, "");
-    if (pages.has(key)) return;
-    pages.set(key, { url: key, title });
-    await session.emit({ type: "page", url: key, title });
+    const u = new URL(url, session.target.url);
+    const key = u.origin + u.pathname;
+    const known = pages.get(key);
+    if (known && (known.title || !title)) return;
+    const page = { url: known?.url ?? u.href.replace(/#.*$/, ""), title };
+    pages.set(key, page);
+    await session.emit({ type: "page", ...page });
   };
   session.page.on("framenavigated", (f) => {
     if (f === session.page.mainFrame()) void notePage(f.url());
