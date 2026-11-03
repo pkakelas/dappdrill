@@ -10,9 +10,11 @@
     "typecheck": "tsc -p .",
     "test": "vitest run --passWithNoTests",
     "dev": "tsx watch --env-file=../../.env src/main.ts",
-    "start": "tsx --env-file=../../.env src/main.ts"
+    "start": "tsx --env-file=../../.env src/main.ts",
+    "smoke": "tsx --env-file=../../.env scripts/smoke.ts"
   },
   "dependencies": {
+    "@dappdrill/cli": "workspace:*",
     "@dappdrill/core": "workspace:*",
     "@dappdrill/db": "workspace:*",
     "@dappdrill/engine": "workspace:*",

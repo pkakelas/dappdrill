@@ -1,0 +1,39 @@
+# Example: copy to .github/workflows/dappdrill.yml in your dApp's repo.
+#
+# Replays the flows saved in .dappdrill/flows (and, with `pull`, the ones in DappDrill) against
+# the PR's build on local forks, comments the results on the PR, and fails on Broken.
+# Saved flows come from `dappdrill scan <url>` or the web app ("Download flows").
+name: DappDrill
+
+on:
+  # In your repo, use `pull_request:` here. This copy only runs by hand so it doesn't fire on DappDrill's own PRs.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dappdrill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Serve the PR's build. Any URL works, e.g. a preview deployment instead.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && npm run build
+      - run: npx --yes serve -s dist -l 4173 &
+      - run: npx --yes wait-on http://localhost:4173
+
+      - uses: dappdrill/dappdrill/.github/actions/dappdrill@main
+        with:
+          url: http://localhost:4173
+          edge-cases: happy,reject,wrong-network
+          fail-on: broken
+          # Optional: report to DappDrill and also run the flows saved there.
+          report-to: ${{ vars.DAPPDRILL_URL }}
+          token: ${{ secrets.DAPPDRILL_TOKEN }}
+          pull: "true"
