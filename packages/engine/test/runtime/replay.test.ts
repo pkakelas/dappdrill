@@ -93,6 +93,28 @@ describe("replayFlow", () => {
     }
   }, 90_000);
 
+  it("skips an optional one-time prompt that doesn't show, and the signature it would ask for", async () => {
+    const session = await open();
+    const snap = await chains.snapshot(CHAIN_ID);
+    try {
+      const base = depositFlow(fx.pageUrl(), fx.token, fx.vault);
+      const terms = [
+        { kind: "click", target: { role: "button", name: "Accept terms" }, optional: true },
+        { kind: "wallet", respond: "approve", expect: { kind: "typedData" } },
+      ] as const;
+      const flow = { ...base, steps: [...base.steps.slice(0, 2), ...terms, ...base.steps.slice(2)] };
+      const t0 = Date.now();
+      const r = await replayFlow(session, flow);
+      expect(r.completed).toBe(true);
+      expect(r.steps.map((s) => s.status)).toEqual(["pass", "pass", "skipped", "skipped", "pass", "pass", "pass", "pass", "pass"]);
+      expect(r.walletSteps).toHaveLength(2);
+      expect(Date.now() - t0).toBeLessThan(40_000);
+    } finally {
+      await session.close();
+      await chains.revert(CHAIN_ID, snap);
+    }
+  }, 90_000);
+
   it("reports a missing element plainly", async () => {
     const session = await open();
     try {

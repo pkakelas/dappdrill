@@ -153,12 +153,19 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
     {
       name: "click",
       description: "Click an element by its ref (e.g. e12).",
-      schema: z.object({ ref: z.string(), why: z.string().optional().describe("Short note, e.g. 'Open wallet picker'") }),
-      handler: async ({ ref, why }) => {
+      schema: z.object({
+        ref: z.string(),
+        why: z.string().optional().describe("Short note, e.g. 'Open wallet picker'"),
+        optional: z
+          .boolean()
+          .optional()
+          .describe("True for a one-time prompt a returning user won't see again (terms, cookie banner, onboarding, one-time trading setup). Replays skip it, and the signature it asks for, when it doesn't show."),
+      }),
+      handler: async ({ ref, why, optional }) => {
         const { locator, el } = await target(ref);
         const label = (await el.textContent().catch(() => null))?.trim().slice(0, 60);
         await el.click({ timeout: 5_000 });
-        recorder.add({ kind: "click", target: locator, note: why ?? (label ? `Click "${label}"` : undefined) });
+        recorder.add({ kind: "click", target: locator, note: why ?? (label ? `Click "${label}"` : undefined), ...(optional ? { optional } : {}) });
         return after(`Clicked ${ref}.`);
       },
     },

@@ -33,6 +33,7 @@ export function StepsPreview({ flow, before }: { flow: Flow; before?: Flow }) {
             <span className={cx("font-mono text-[13px]", changed ? "text-live-ink" : "text-faint")}>{changed ? (old && i >= old.length ? "+" : "~") : ""}{String(i + 1).padStart(2, "0")}</span>
             <span className="text-sm">
               <WithParams text={text} />
+              {s.optional && <span className="text-[13px] text-muted"> (optional)</span>}
               {changed && old?.[i] && <span className="mt-0.5 block text-[13px] text-muted line-through">{old[i]}</span>}
             </span>
             {s.kind === "wallet" ? <span className="rounded-md bg-hair px-2 py-0.5 text-xs font-medium text-ink-2">Wallet</span> : <span />}

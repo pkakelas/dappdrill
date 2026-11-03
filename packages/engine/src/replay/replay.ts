@@ -10,6 +10,9 @@ import type { PendingSignRequest } from "../wallet/controller.js";
 import { resolveLocator } from "./locators.js";
 import { checkExpectation, decodeBuiltin, describeAsked } from "./expectation.js";
 
+/** How long to look for an optional step's element before deciding it didn't show. */
+const OPTIONAL_TIMEOUT_MS = 4_000;
+
 export interface StepContext {
   flow: Flow;
   index: number;
@@ -84,6 +87,8 @@ export async function replayFlow(session: EngineSession, flow: Flow, opts: Repla
   const result: ReplayFlowResult = { steps: [], signingReviews: [], walletRequests: [], walletSteps: [], completed: false, stoppedByHook: false };
   let signIndex = 0;
   let stopped = false;
+  // An optional one-time prompt (terms, cookie banner) that didn't show also asks for nothing.
+  let triggerSkipped = false;
 
   // A saved flow starts at its startUrl even when the first step isn't an explicit goto.
   if (flow.steps[0]?.kind !== "goto") {
@@ -112,12 +117,18 @@ export async function replayFlow(session: EngineSession, flow: Flow, opts: Repla
       continue;
     }
     if (before === "stop") stopped = true;
+    if (step.kind === "wallet" && triggerSkipped) {
+      result.steps.push({ index, status: "skipped", durationMs: 0, error: "the optional step that asks for it didn't show" });
+      log(`step ${index} skipped: its optional trigger didn't show`);
+      signIndex++;
+      continue;
+    }
 
     session.touch();
     log(`step ${index}: ${describeStep(step)}`);
     let stepResult: StepResult;
     try {
-      const walletRequestId = await runStep(ctx, { stepTimeout, signTimeout, opts, result, runId, startedAt });
+      const walletRequestId = await runStep(ctx, { stepTimeout: step.optional ? OPTIONAL_TIMEOUT_MS : stepTimeout, signTimeout, opts, result, runId, startedAt });
       stepResult = { index, status: "pass", durationMs: Date.now() - t0, walletRequestId };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -126,6 +137,7 @@ export async function replayFlow(session: EngineSession, flow: Flow, opts: Repla
       log(`step ${index} ${step.optional ? "skipped (optional)" : "failed"}: ${message}`);
     }
     if (step.kind === "wallet") signIndex++;
+    else triggerSkipped = stepResult.status === "skipped";
     result.steps.push(stepResult);
 
     const after = await opts.hooks?.afterStep?.(ctx, stepResult);
