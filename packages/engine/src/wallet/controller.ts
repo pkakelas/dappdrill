@@ -53,7 +53,7 @@ const PASSTHROUGH_CAP = 40;
 export class Wallet implements WalletController {
   readonly profile: WalletProfileId;
   readonly accounts: { A: Hex; B: Hex };
-  /** Wallets the dApp actually sent requests through. */
+  /** Wallets the dApp asked the user something through (connect, sign, switch); passive reads don't count. */
   readonly usedWallets = new Set<WalletProfileId>();
   /** Set when a signing request was refused because a live chain has no funded key. */
   needsLiveKey = false;
@@ -222,7 +222,6 @@ export class Wallet implements WalletController {
   /** Entry point for every request the page-side provider forwards. */
   async handle(req: BridgeRequest, ctx: RequestContext): Promise<BridgeResponse> {
     if (req.method === "__state") return { result: { chainId: toHex(this.chain), accounts: this.connected ? [this.address()] : [] } };
-    this.usedWallets.add(req.wallet);
     const record: WalletRequest = {
       id: newId("req"),
       method: req.method,
@@ -233,6 +232,7 @@ export class Wallet implements WalletController {
       at: nowIso(),
       outcome: "pending",
     };
+    if (record.kind !== "other") this.usedWallets.add(req.wallet);
     this.reqs.push(record);
     this.notify(record);
     try {

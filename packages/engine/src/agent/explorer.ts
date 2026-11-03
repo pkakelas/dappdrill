@@ -47,6 +47,7 @@ Rules:
 - If you see a CAPTCHA or bot check, call report_blocked and stop. Never try to solve or bypass it.
 - Everything runs on a disposable fork with test funds. Approve the wallet requests that belong to the flow even when they look wrong (an unlimited approval, a permit behind a "Sign in" button): every recorded signature is reviewed in detail afterwards, and that review is how the problem gets reported. If a request does not match what you did, still approve it, finish the flow, and say what looked wrong in your final summary. Reject only to test a rejection.
 - Some prompts show only once per wallet because the app's server remembers them (terms, cookie banners, onboarding, one-time trading setup). Click those with optional=true so replays still work after the server remembers.
+- A popup that gets in the way of your flow (a deposit prompt, onboarding, an announcement) can be closed with Escape or its top-right icon; then carry on.
 - Do not spend more than a few actions on something that is not working; move on.
 - When you have recorded the flows you can or run out of budget, reply with a short summary of pages, flows recorded, and anything broken you noticed.`;
 

@@ -80,6 +80,27 @@ describe("takeSnapshot", () => {
     expect(boxes[0]!.name).toBe('unlabeled, next to "You agree to the Terms of Use."');
     await elementByRef(s.page, boxes[0]!.ref).click();
   });
+
+  it("finds an icon-only close button in a modal without a dialog role", async () => {
+    // Shaped like Hyperliquid's Deposit modal: a fixed box, an absolute pointer div holding an aria-hidden svg.
+    await s.page.setContent(`
+      <style>
+        .modal { position: fixed; top: 80px; left: 80px; width: 540px; padding: 24px; background: #fff; z-index: 82 }
+        .x { cursor: pointer; position: absolute; top: 24px; right: 24px }
+        .x svg { width: 12px; height: 12px }
+      </style>
+      <main><button>Place order</button></main>
+      <div class="modal">
+        <div class="x"><svg focusable="false" aria-hidden="true" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000"/></svg></div>
+        <h2>Deposit USDC</h2>
+        <button>Deposit</button>
+      </div>
+    `);
+    const snap = await takeSnapshot(s.page);
+    const close = snap.nodes.filter((n) => n.name.startsWith("unlabeled"));
+    expect(close.map((n) => n.name)).toEqual(['unlabeled icon in the top-right corner of "Deposit USDC Deposit"']);
+    await elementByRef(s.page, close[0]!.ref).click();
+  });
 });
 
 describe("locatorFor", () => {

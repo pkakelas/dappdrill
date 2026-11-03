@@ -292,13 +292,23 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
   };
 
   /** Text of the closest ancestor that has some, to name an unlabeled icon control. */
-  const nearbyText = (el: Element): string => {
+  const nearbyText = (el: Element): { text: string; container: Element } | null => {
     let p = el.parentElement;
     for (let i = 0; p && i < 3; i++, p = p.parentElement) {
       const t = text(p.textContent);
-      if (t) return t;
+      if (t) return { text: t, container: p };
     }
-    return "";
+    return null;
+  };
+
+  /** An icon in the top-right corner of its container is, almost always, that container's close button. */
+  const unlabeledName = (el: Element): string => {
+    const near = nearbyText(el);
+    if (!near) return "";
+    const r = el.getBoundingClientRect();
+    const c = near.container.getBoundingClientRect();
+    const corner = c.width > 4 * r.width && c.right - r.right < 48 && r.top - c.top < 48;
+    return corner ? `unlabeled icon in the top-right corner of "${clip(near.text, 50)}"` : `unlabeled, next to "${clip(near.text, 60)}"`;
   };
 
   const refFor = (el: Element): string => {
@@ -340,8 +350,7 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
       }
 
       if (hasBox(el) && (isInteractive(el, role) || (LANDMARK_ROLES.has(role) && !isDialog))) {
-        const near = role ? "" : nearbyText(el);
-        const name = accessibleName(el, role) || (near && `unlabeled, next to "${clip(near, 60)}"`);
+        const name = accessibleName(el, role) || (role ? "" : unlabeledName(el));
         const node: SnapshotNode = { ref: refFor(el), role: role || "generic", name: clip(name, 90) };
         if (inDialog) node.inDialog = true;
         if (tag === "input" || tag === "textarea") {

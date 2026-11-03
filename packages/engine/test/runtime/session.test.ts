@@ -242,6 +242,17 @@ describe("session", () => {
     }
   }, 60_000);
 
+  it("two wallets: a passive read through window.ethereum doesn't count as using that wallet", async () => {
+    const session = await open([], { twoWallets: true });
+    try {
+      await session.page.evaluate(() => (window as any).ethereum.request({ method: "eth_chainId" }));
+      await connect(session, "MetaMask");
+      expect([...session.wallet.usedWallets]).toEqual(["metamask"]);
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
   it("captures console/page errors, frames, and saves a trace + video on close", async () => {
     const session = await createSession(target(fx.pageUrl(["crash"])), chains, { artifactsDir, sink: (e) => void events.push(e), frameIntervalMs: 300 });
     await session.page.goto(fx.pageUrl(["crash"]));
