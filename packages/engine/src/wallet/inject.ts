@@ -72,6 +72,8 @@ export function installDappDrillWallet(cfg: InjectConfig): void {
 
   function createProvider(info: InjectedWalletInfo) {
     const listeners = new Map<string, Set<Listener>>();
+    /** Our own listeners, out of reach of the dApp's removeAllListeners(). */
+    const internal = new Set<(event: string, args: any[]) => void>();
     const state = { chainId: cfg.chainId, accounts: cfg.accounts.slice(), connected: true };
 
     function emit(event: string, ...args: any[]) {
@@ -79,6 +81,7 @@ export function installDappDrillWallet(cfg: InjectConfig): void {
       if (event === "accountsChanged" && Array.isArray(args[0])) state.accounts = args[0].slice();
       if (event === "connect") state.connected = true;
       if (event === "disconnect") state.connected = false;
+      for (const fn of internal) fn(event, args);
       for (const fn of [...(listeners.get(event) ?? [])]) {
         try {
           fn(...args);
@@ -183,6 +186,7 @@ export function installDappDrillWallet(cfg: InjectConfig): void {
     Object.defineProperty(provider, "__dappdrillId", { value: info.id, enumerable: false });
     Object.defineProperty(provider, "__dappdrillEmit", { value: emit, enumerable: false });
     Object.defineProperty(provider, "__dappdrillState", { value: state, enumerable: false });
+    Object.defineProperty(provider, "__dappdrillOnEmit", { value: (fn: (event: string, args: any[]) => void) => internal.add(fn), enumerable: false });
     return provider;
   }
 
@@ -223,6 +227,64 @@ export function installDappDrillWallet(cfg: InjectConfig): void {
   window.addEventListener("eip6963:requestProvider", () => {
     for (const p of providers) announce(p);
   });
+
+  const metamask = providers.find((p) => p.info.id === "metamask");
+  if (metamask) serveMultichainApi(metamask.provider);
+
+  /**
+   * MetaMask's Multichain API (CAIP-25). Newer MetaMask connectors talk to the
+   * extension's content script over window.postMessage instead of using
+   * window.ethereum; without an answer their connect button spins forever.
+   * Every call is served by the same provider, so it still goes through node.
+   */
+  function serveMultichainApi(provider: any) {
+    const STREAM = "metamask-multichain-provider";
+    type Scope = { methods: string[]; notifications: string[] };
+    let scopes: Record<string, Scope> | null = null;
+    const post = (data: unknown) => window.postMessage({ target: "metamask-inpage", data: { name: STREAM, data } }, location.origin);
+    const sessionScopes = () =>
+      Object.fromEntries(
+        Object.entries(scopes ?? {}).map(([scope, s]) => [scope, { ...s, accounts: provider.__dappdrillState.accounts.map((a: string) => `${scope}:${a}`) }]),
+      );
+
+    async function handle(method: string, params: any): Promise<unknown> {
+      switch (method) {
+        case "wallet_getSession":
+          return { sessionScopes: sessionScopes() };
+        case "wallet_createSession": {
+          const requested = Object.entries({ ...params?.optionalScopes, ...params?.requiredScopes } as Record<string, Partial<Scope>>).filter(([s]) => /^eip155:\d+$/.test(s));
+          if (!requested.length) throw new ProviderRpcError(5100, "Requested chains are not supported");
+          await provider.request({ method: "eth_requestAccounts" });
+          scopes = Object.fromEntries(requested.map(([s, v]) => [s, { methods: v?.methods ?? [], notifications: v?.notifications ?? [] }]));
+          return { sessionScopes: sessionScopes() };
+        }
+        case "wallet_revokeSession":
+          scopes = null;
+          return true;
+        case "wallet_invokeMethod": {
+          if (!scopes?.[params?.scope]) throw new ProviderRpcError(4100, "The requested account and/or method has not been authorized by the user.");
+          // MetaMask sends to the scope's chain; our wallet is on one chain at a time, so move it there first.
+          const chainId = `0x${Number(String(params.scope).split(":")[1]).toString(16)}`;
+          if (provider.chainId !== chainId) await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
+          return provider.request(params.request);
+        }
+        default:
+          throw new ProviderRpcError(-32601, `The method "${method}" does not exist / is not available.`);
+      }
+    }
+
+    window.addEventListener("message", (ev) => {
+      const msg = ev.data?.target === "metamask-contentscript" && ev.data.data?.name === STREAM ? ev.data.data.data : undefined;
+      if (ev.source !== window || typeof msg?.method !== "string") return;
+      handle(msg.method, msg.params).then(
+        (result) => post({ jsonrpc: "2.0", id: msg.id, result }),
+        (e) => post({ jsonrpc: "2.0", id: msg.id, error: { code: e?.code ?? -32603, message: e?.message ?? String(e) } }),
+      );
+    });
+    provider.__dappdrillOnEmit((event: string) => {
+      if (scopes && event === "accountsChanged") post({ jsonrpc: "2.0", method: "wallet_sessionChanged", params: { sessionScopes: sessionScopes() } });
+    });
+  }
 
   // "The button said": remember the accessible label of whatever was clicked last.
   function labelOf(el: Element): string | undefined {

@@ -74,6 +74,45 @@ describe("session", () => {
     }
   }, 60_000);
 
+  it("answers MetaMask's Multichain API over postMessage, through the same wallet", async () => {
+    const session = await open();
+    try {
+      const probe = await session.page.evaluate(async () => {
+        // What @metamask/multichain-api-client's window transport sends and expects.
+        let id = 0;
+        const notes: any[] = [];
+        const call = (method: string, params?: unknown) =>
+          new Promise<any>((resolve) => {
+            const mine = ++id;
+            const onMessage = (ev: MessageEvent) => {
+              const msg = ev.data?.target === "metamask-inpage" && ev.data.data?.name === "metamask-multichain-provider" ? ev.data.data.data : undefined;
+              if (msg && msg.id === undefined) notes.push(msg);
+              if (msg?.id !== mine) return;
+              window.removeEventListener("message", onMessage);
+              resolve(msg);
+            };
+            window.addEventListener("message", onMessage);
+            window.postMessage({ target: "metamask-contentscript", data: { name: "metamask-multichain-provider", data: { jsonrpc: "2.0", id: mine, method, params } } }, location.origin);
+          });
+        const before = await call("wallet_getSession");
+        const denied = await call("wallet_invokeMethod", { scope: "eip155:31337", request: { method: "eth_accounts" } });
+        const created = await call("wallet_createSession", { optionalScopes: { "eip155:31337": { methods: ["personal_sign"], notifications: [] }, "solana:mainnet": {} } });
+        const accounts = await call("wallet_invokeMethod", { scope: "eip155:31337", request: { method: "eth_accounts" } });
+        return { before, denied, created, accounts, notes };
+      });
+      const A = session.wallet.accounts.A.toLowerCase();
+      expect(probe.before.result).toEqual({ sessionScopes: {} });
+      expect(probe.denied.error.code).toBe(4100);
+      expect(Object.keys(probe.created.result.sessionScopes)).toEqual(["eip155:31337"]);
+      expect(probe.created.result.sessionScopes["eip155:31337"].accounts.map((a: string) => a.toLowerCase())).toEqual([`eip155:31337:${A}`]);
+      expect(probe.accounts.result.map((a: string) => a.toLowerCase())).toEqual([A]);
+      // The connect went through the wallet like any other, so policies and recording apply.
+      expect(session.wallet.requests().map((r) => r.method)).toContain("eth_requestAccounts");
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
   it("routes the page's own JSON-RPC (single + batch) to the fork and logs it", async () => {
     const session = await open();
     try {
