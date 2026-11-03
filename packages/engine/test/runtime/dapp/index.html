@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Drill Vault (test dApp)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; color: #17181c; }
+  dialog { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; }
+  dialog button { display: block; margin: .5rem 0; }
+  .error { color: #a1290f; }
+  .banner { background: #fff3cd; padding: .5rem; margin: .5rem 0; }
+  button[disabled] { opacity: .5; }
+  .row { margin: .5rem 0; }
+</style>
+</head>
+<body>
+<h1>Drill Vault</h1>
+<p class="row">Chain: <span id="chain">–</span> · Block: <span id="block">–</span></p>
+<p class="row">Account: <span id="account">not connected</span></p>
+<p class="row">TUSD balance: <span id="balance">–</span> · Vault shares: <span id="shares">–</span></p>
+
+<div id="network-banner" class="banner" hidden>
+  Wrong network. <button id="switch-network">Switch network</button>
+</div>
+
+<button id="connect">Connect wallet</button>
+<dialog id="picker">
+  <p>Choose a wallet</p>
+  <div id="wallet-list"></div>
+  <button id="picker-close">Close</button>
+</dialog>
+
+<section class="row">
+  <label>Amount <input id="amount" data-testid="amount" type="text" value="" placeholder="0.0" /></label>
+  <button id="deposit">Deposit</button>
+  <button id="sign-message">Sign message</button>
+  <button id="sign-typed">Sign typed data</button>
+</section>
+<p id="status" class="row" aria-live="polite"></p>
+<p id="error" class="row error" aria-live="polite"></p>
+
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const cfg = {
+    rpc: q.get("rpc"),
+    token: q.get("token"),
+    vault: q.get("vault"),
+    chainId: Number(q.get("chain") || 31337),
+    bugs: new Set((q.get("bug") || "").split(",").filter(Boolean)),
+  };
+  const $ = (id) => document.getElementById(id);
+  const hex = (n) => "0x" + BigInt(n).toString(16);
+  const pad32 = (h) => h.replace(/^0x/, "").padStart(64, "0");
+  const SEL = { balanceOf: "0x70a08231", allowance: "0xdd62ed3e", approve: "0x095ea7b3", deposit: "0xb6b55f25", shares: "0xce7c2ac2" };
+  const MAX = (1n << 256n) - 1n;
+
+  // The page's own JSON-RPC reads (what the engine must route to the fork).
+  let rpcId = 1;
+  async function rpcRead(method, params) {
+    const res = await fetch(cfg.rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method, params }) });
+    const body = await res.json();
+    if (body.error) throw new Error(body.error.message);
+    return body.result;
+  }
+  async function rpcBatch(calls) {
+    const res = await fetch(cfg.rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(calls.map((c) => ({ jsonrpc: "2.0", id: rpcId++, ...c }))) });
+    return res.json();
+  }
+
+  const state = { provider: null, providerName: null, account: null, chainId: null, pendingHash: null };
+  const announced = [];
+  window.addEventListener("eip6963:announceProvider", (ev) => {
+    if (!announced.some((a) => a.info.uuid === ev.detail.info.uuid)) announced.push(ev.detail);
+  });
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+  function setError(msg) { $("error").textContent = msg; }
+  function setStatus(msg) { $("status").textContent = msg; }
+
+  async function refresh() {
+    try {
+      const [blk] = await rpcBatch([{ method: "eth_blockNumber", params: [] }, { method: "eth_chainId", params: [] }]);
+      $("block").textContent = parseInt(blk.result, 16);
+      if (state.account) {
+        const bal = await rpcRead("eth_call", [{ to: cfg.token, data: SEL.balanceOf + pad32(state.account) }, "latest"]);
+        $("balance").textContent = (Number(BigInt(bal)) / 1e6).toFixed(2);
+        const sh = await rpcRead("eth_call", [{ to: cfg.vault, data: SEL.shares + pad32(state.account) }, "latest"]);
+        $("shares").textContent = (Number(BigInt(sh)) / 1e6).toFixed(2);
+      }
+    } catch (e) {
+      console.warn("refresh failed", e.message);
+    }
+  }
+
+  function updateNetworkBanner() {
+    const wrong = state.chainId !== null && state.chainId !== cfg.chainId;
+    $("network-banner").hidden = cfg.bugs.has("noswitch") ? true : !wrong;
+  }
+
+  async function switchNetwork() {
+    try {
+      await state.provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex(cfg.chainId) }] });
+    } catch (e) {
+      if (e.code === 4902 && !cfg.bugs.has("noadd")) {
+        await state.provider.request({ method: "wallet_addEthereumChain", params: [{ chainId: hex(cfg.chainId), chainName: "Drill chain", rpcUrls: [cfg.rpc], nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 } }] });
+      } else {
+        setError("Could not switch network: " + e.message);
+      }
+    }
+  }
+
+  async function connectWith(detail) {
+    const provider = cfg.bugs.has("wrongprovider") ? window.ethereum : detail.provider;
+    state.provider = provider;
+    state.providerName = detail.info ? detail.info.name : "window.ethereum";
+    try {
+      const accounts = await provider.request({ method: "eth_requestAccounts" });
+      state.account = accounts[0];
+      state.chainId = parseInt(await provider.request({ method: "eth_chainId" }), 16);
+    } catch (e) {
+      setError("Connect failed: " + e.message);
+      return;
+    }
+    $("account").textContent = state.account + " via " + state.providerName;
+    $("chain").textContent = state.chainId;
+    $("connect").textContent = "Connected";
+    provider.on("accountsChanged", (accounts) => {
+      if (cfg.bugs.has("stale")) return; // seeded bug: keeps signing from the old account
+      state.account = accounts[0] || null;
+      $("account").textContent = state.account ? state.account + " via " + state.providerName : "not connected";
+      refresh();
+    });
+    provider.on("chainChanged", (c) => {
+      state.chainId = parseInt(c, 16);
+      $("chain").textContent = state.chainId;
+      updateNetworkBanner();
+      refresh();
+    });
+    updateNetworkBanner();
+    if (!cfg.bugs.has("reloadloss")) localStorage.setItem("connected", state.providerName);
+    if (state.chainId !== cfg.chainId && !cfg.bugs.has("noswitch")) await switchNetwork();
+    refresh();
+    resumePending();
+  }
+
+  // Reconnect after a reload so a pending transaction can be picked up again.
+  setTimeout(() => {
+    const name = localStorage.getItem("connected");
+    if (!name || state.account || cfg.bugs.has("reloadloss")) return;
+    const d = announced.find((a) => a.info.name === name);
+    if (d) connectWith(d);
+    else if (window.ethereum) connectWith({ provider: window.ethereum });
+  }, 200);
+
+  $("connect").addEventListener("click", () => {
+    const list = $("wallet-list");
+    list.innerHTML = "";
+    for (const d of announced) {
+      const b = document.createElement("button");
+      b.textContent = d.info.name;
+      b.addEventListener("click", () => { $("picker").close(); connectWith(d); });
+      list.appendChild(b);
+    }
+    if (window.ethereum) {
+      const b = document.createElement("button");
+      b.textContent = "Injected (window.ethereum)";
+      b.addEventListener("click", () => { $("picker").close(); connectWith({ provider: window.ethereum }); });
+      list.appendChild(b);
+    }
+    $("picker").showModal();
+  });
+  $("picker-close").addEventListener("click", () => $("picker").close());
+  $("switch-network").addEventListener("click", switchNetwork);
+
+  async function waitReceipt(hash, nonce) {
+    for (let i = 0; i < 600; i++) {
+      const r = await state.provider.request({ method: "eth_getTransactionReceipt", params: [hash] });
+      if (r) return r;
+      if (!cfg.bugs.has("noreplace") && nonce !== undefined) {
+        const count = parseInt(await state.provider.request({ method: "eth_getTransactionCount", params: [state.account, "latest"] }), 16);
+        if (count > nonce) return { replaced: true };
+      }
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    throw new Error("timed out waiting for the transaction");
+  }
+
+  async function sendTx(tx, doneText) {
+    const nonce = parseInt(await state.provider.request({ method: "eth_getTransactionCount", params: [state.account, "pending"] }), 16);
+    const hash = await state.provider.request({ method: "eth_sendTransaction", params: [{ from: state.account, ...tx }] });
+    if (!cfg.bugs.has("reloadloss")) localStorage.setItem("pending", JSON.stringify({ hash, nonce, account: state.account, doneText }));
+    const receipt = await waitReceipt(hash, nonce);
+    localStorage.removeItem("pending");
+    return receipt;
+  }
+
+  async function resumePending() {
+    const raw = localStorage.getItem("pending");
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (p.account !== state.account) return;
+    busy(true);
+    setStatus("Resuming pending transaction…");
+    try {
+      await waitReceipt(p.hash, p.nonce);
+      localStorage.removeItem("pending");
+      setStatus(p.doneText || "Transaction confirmed after reload");
+      refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      busy(false);
+    }
+  }
+
+  function busy(on) {
+    const b = $("deposit");
+    b.disabled = on;
+    b.textContent = on ? "Confirming…" : "Deposit";
+  }
+
+  $("deposit").addEventListener("click", async () => {
+    setError("");
+    setStatus("");
+    if (!state.account) return setError("Connect a wallet first");
+    const human = $("amount").value.trim();
+    const amount = BigInt(Math.round(Number(human) * 1e6));
+    if (!(amount > 0n)) return setError("Enter an amount");
+    busy(true);
+    try {
+      const allowanceHex = await rpcRead("eth_call", [{ to: cfg.token, data: SEL.allowance + pad32(state.account) + pad32(cfg.vault) }, "latest"]);
+      const allowance = BigInt(allowanceHex);
+      if (allowance < amount || cfg.bugs.has("alwaysapprove")) {
+        const approveAmount = cfg.bugs.has("unlimited") ? MAX : amount;
+        setStatus("Approving TUSD…");
+        await sendTx({ to: cfg.token, data: SEL.approve + pad32(cfg.vault) + pad32(hex(approveAmount)) }, `Approved ${human} TUSD`);
+      }
+      setStatus("Depositing…");
+      const depositTx = { to: cfg.vault, data: SEL.deposit + pad32(hex(amount)) };
+      const doneText = `Deposited ${human} TUSD`;
+      if (cfg.bugs.has("double")) sendTx(depositTx, doneText).catch(() => {}); // seeded bug: fires twice
+      const receipt = await sendTx(depositTx, doneText);
+      if (receipt.status === "0x0") throw new Error("deposit reverted");
+      setStatus(receipt.replaced ? `Deposited ${human} TUSD (transaction was replaced)` : `Deposited ${human} TUSD`);
+      busy(false);
+      refresh();
+    } catch (e) {
+      if (!cfg.bugs.has("silent")) setError(e.code === 4001 ? "You rejected the transaction. Try again when ready." : "Transaction failed: " + e.message);
+      if (!cfg.bugs.has("stuck")) busy(false);
+    }
+  });
+
+  $("sign-message").addEventListener("click", async () => {
+    setError("");
+    try {
+      const msg = "0x" + Array.from(new TextEncoder().encode("Drill Vault login")).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const sig = await state.provider.request({ method: "personal_sign", params: [msg, state.account] });
+      setStatus("Signed: " + sig.slice(0, 20) + "…");
+    } catch (e) {
+      setError("Sign failed: " + e.message);
+    }
+  });
+
+  $("sign-typed").addEventListener("click", async () => {
+    setError("");
+    try {
+      const typed = {
+        types: {
+          EIP712Domain: [{ name: "name", type: "string" }, { name: "version", type: "string" }, { name: "chainId", type: "uint256" }, { name: "verifyingContract", type: "address" }],
+          Permit: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }, { name: "value", type: "uint256" }, { name: "nonce", type: "uint256" }, { name: "deadline", type: "uint256" }],
+        },
+        primaryType: "Permit",
+        domain: { name: "Test USD", version: "1", chainId: cfg.chainId, verifyingContract: cfg.token },
+        message: { owner: state.account, spender: cfg.vault, value: "1000000", nonce: 0, deadline: "9999999999" },
+      };
+      const sig = await state.provider.request({ method: "eth_signTypedData_v4", params: [state.account, JSON.stringify(typed)] });
+      setStatus("Typed signature: " + sig.slice(0, 20) + "…");
+    } catch (e) {
+      setError("Sign failed: " + e.message);
+    }
+  });
+
+  window.addEventListener("error", (ev) => console.error("page error", ev.message));
+  refresh();
+  if (cfg.bugs.has("crash")) setTimeout(() => { throw new Error("seeded uncaught error"); }, 500);
+})();
+</script>
+</body>
+</html>
