@@ -67,11 +67,11 @@ function verifiedSource(facts: Facts): SigningCheck {
       statuses.push("pass");
     } else {
       parts.push(isLocalChain(facts.chainId) ? `${displayAddress(info.address, info.name)} is on a local dev chain: no source verification to check.` : `Couldn't check ${shortAddress(info.address)}: Sourcify didn't answer.`);
-      statuses.push("unverified");
+      statuses.push(isLocalChain(facts.chainId) ? "skip" : "unverified");
     }
   }
   const t = facts.target?.info;
-  if (facts.spenders.length && t && t.code !== "eoa" && !list.some((s) => same(s.info.address, t.address))) {
+  if (facts.spenders.length && t && t.code !== "eoa" && !isLocalChain(facts.chainId) && !list.some((s) => same(s.info.address, t.address))) {
     parts.push(`The target ${displayAddress(t.address, t.name)} is ${t.verified ? "verified" : t.verified === false ? "not verified" : "of unknown status"}.`);
   }
   return { id: "verified-source", label, status: worst(...statuses), detail: parts.join(" "), unverified: unverified || undefined };
@@ -143,8 +143,9 @@ function token(facts: Facts): SigningCheck {
       parts.push(`${name} has no verified source.`);
       statuses.push("warn");
     } else {
-      parts.push(`${name} read on the fork (${t.standard.toUpperCase()}${t.decimals !== undefined ? `, ${t.decimals} decimals` : ""}); source status unknown.`);
-      statuses.push("unverified");
+      const read = `${name} read on the fork (${t.standard.toUpperCase()}${t.decimals !== undefined ? `, ${t.decimals} decimals` : ""})`;
+      parts.push(isLocalChain(facts.chainId) ? `${read}; a local dev chain has no source to check.` : `${read}; source status unknown.`);
+      statuses.push(isLocalChain(facts.chainId) ? "skip" : "unverified");
     }
   }
   return { id: "token", label: "Token contract", status: worst(...statuses), detail: parts.join(" ") };
@@ -183,7 +184,7 @@ function approval(facts: Facts): SigningCheck {
     } else if (spender?.age && spender.age.days < NEW_CONTRACT_DAYS) {
       status = "fail";
       why = `The spender was deployed ${daysAgo(spender.age.days)}.`;
-    } else if (spender && spender.info.verified === undefined && !spender.info.known) {
+    } else if (spender && spender.info.verified === undefined && !spender.info.known && !isLocalChain(facts.chainId)) {
       status = worst(status, "unverified");
       why = `${why} Couldn't confirm the spender's source.`.trim();
     }

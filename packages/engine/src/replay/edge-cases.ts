@@ -117,6 +117,8 @@ export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCa
     }
     log(`${edgeCase}: running`);
     const outcome = await runOne(edgeCase, plan, opts);
+    // A run cut short by a stop is not a result.
+    if (opts.signal?.aborted && outcome.run.status !== "pass") break;
     result.runs.push(outcome.run);
     result.issues.push(...outcome.issues);
     result.signingReviews.push(...outcome.reviews);
@@ -126,7 +128,7 @@ export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCa
   }
 
   const happy = result.runs.find((r) => r.edgeCase === "happy");
-  const status = happy && (happy.status === "fail" || happy.status === "error") ? "failed" : result.issues.length > 0 ? "issue" : "tested";
+  const status = happy && (happy.status === "fail" || happy.status === "error") ? "failed" : result.issues.length > 0 ? "issue" : result.runs.length ? "tested" : "queued";
   await sink({ type: "flow-status", flowId: flow.id, status });
   return result;
 }

@@ -1,6 +1,7 @@
 import { CATEGORY_LABEL, EDGE_CASES, type IssueCategory } from "@dappdrill/core";
 import Link from "next/link";
 import { PlayIcon, StatGrid, VerdictTag } from "@/components/ui";
+import { plural } from "@/lib/format";
 import { buildMatrix, summarize, type Results } from "@/lib/report";
 import type { ViewCtx } from "./ctx";
 import { CriticalIssueCard, IssueRowCard } from "./issues";
@@ -12,6 +13,7 @@ export function headline(s: ReturnType<typeof summarize>): string {
   if (s.needCount) return `${s.needCount} ${s.needCount === 1 ? "thing needs" : "things need"} your attention`;
   if (s.worth.length) return `Nothing broken. ${s.worth.length} worth a look`;
   if (!s.flowCount) return "Nothing tested: no flows were found";
+  if (!s.runCount) return "Nothing tested: no flow was replayed";
   return "All clear";
 }
 
@@ -29,7 +31,7 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
     return r ? ctx.panelHref(`review.${r.id}`) : null;
   };
   const counts = (c: IssueCategory | "all") => (c === "all" ? s.open.length : s.open.filter((i) => i.category === c).length);
-  const reviews = [...results.reviews].sort((a, b) => ["dangerous", "check", "consistent"].indexOf(a.verdict) - ["dangerous", "check", "consistent"].indexOf(b.verdict));
+  const reviews = groupReviews(results.reviews, names).sort((a, b) => ["dangerous", "check", "consistent"].indexOf(a.verdict) - ["dangerous", "check", "consistent"].indexOf(b.verdict));
   const flagged = reviews.filter((r) => r.verdict !== "consistent");
   const consistent = reviews.filter((r) => r.verdict === "consistent");
 
@@ -121,16 +123,16 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
           </h2>
           <ul className="card m-0 list-none divide-y divide-divide p-0">
             {flagged.map((r) => (
-              <ReviewLine key={r.id} id={r.id} title={r.data.title} flow={r.flowId ? names.get(r.flowId) : undefined} verdict={r.verdict} ctx={ctx} />
+              <ReviewLine key={r.id} review={r} ctx={ctx} />
             ))}
             {flagged.length === 0 && <li className="px-5 py-3.5 text-sm text-muted">Every request matched what the page said.</li>}
           </ul>
           {consistent.length > 0 && (
             <details>
-              <summary className="btn-link w-fit text-sm text-muted">{consistent.length} looked consistent</summary>
+              <summary className="btn-link w-fit text-sm text-muted">{plural(consistent.reduce((n, r) => n + r.count, 0), "request")} looked consistent</summary>
               <ul className="card m-0 mt-3 list-none divide-y divide-divide p-0">
                 {consistent.map((r) => (
-                  <ReviewLine key={r.id} id={r.id} title={r.data.title} flow={r.flowId ? names.get(r.flowId) : undefined} verdict={r.verdict} ctx={ctx} />
+                  <ReviewLine key={r.id} review={r} ctx={ctx} />
                 ))}
               </ul>
             </details>
@@ -151,15 +153,42 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
   );
 }
 
-function ReviewLine({ id, title, flow, verdict, ctx }: { id: string; title: string; flow?: string; verdict: "dangerous" | "check" | "consistent"; ctx: ViewCtx }) {
+type Verdict = Results["reviews"][number]["verdict"];
+
+interface ReviewGroup {
+  id: string;
+  title: string;
+  verdict: Verdict;
+  count: number;
+  flows: string[];
+}
+
+/** Replays repeat the same request; show each distinct request (by fingerprint and verdict) once. */
+function groupReviews(rows: Results["reviews"], names: Map<string, string>): ReviewGroup[] {
+  const groups = new Map<string, ReviewGroup>();
+  for (const r of rows) {
+    const key = `${r.fingerprint}:${r.verdict}`;
+    const g = groups.get(key) ?? { id: r.id, title: r.data.title, verdict: r.verdict, count: 0, flows: [] };
+    const flow = r.flowId ? names.get(r.flowId) : undefined;
+    if (flow && !g.flows.includes(flow)) g.flows.push(flow);
+    g.count++;
+    groups.set(key, g);
+  }
+  return [...groups.values()];
+}
+
+function ReviewLine({ review: r, ctx }: { review: ReviewGroup; ctx: ViewCtx }) {
   return (
     <li>
-      <Link href={ctx.panelHref(`review.${id}`)} scroll={false} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 no-underline hover:bg-sub">
+      <Link href={ctx.panelHref(`review.${r.id}`)} scroll={false} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 no-underline hover:bg-sub">
         <span className="flex min-w-0 flex-col">
-          <span className="text-sm font-medium">{title}</span>
-          {flow && <span className="text-[13px] text-muted">{flow}</span>}
+          <span className="text-sm font-medium">
+            {r.title}
+            {r.count > 1 && <span className="font-normal text-muted"> · {r.count} times</span>}
+          </span>
+          {r.flows.length > 0 && <span className="text-[13px] text-muted">{r.flows.join(", ")}</span>}
         </span>
-        <VerdictTag verdict={verdict} />
+        <VerdictTag verdict={r.verdict} />
       </Link>
     </li>
   );

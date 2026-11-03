@@ -118,7 +118,8 @@ export async function drillFlow(env: Env, flow: Flow, opts: DrillFlowOptions): P
     if (flow.setup?.length) {
       const session = await quietSession(env, opts.artifactsDir);
       const error = await runSetup(session, flow, opts.signal).finally(() => session.close().catch(() => {}));
-      if (error) return await setupFailed(env, flow, error);
+      // A stop cancels the setup mid-way; that says nothing about the flow.
+      if (error) return opts.signal?.aborted ? { runs: [], issues: [], signingReviews: [] } : await setupFailed(env, flow, error);
     }
     const result = await runEdgeCases({
       target: env.target,

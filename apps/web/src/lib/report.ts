@@ -81,6 +81,7 @@ export function summarize(r: Results) {
     needCount: attention.length + brokenRuns.length,
     worth,
     flowCount: Math.max(flowIds.size, r.flows.length),
+    runCount: r.runs.length,
     cleanFlows: [...flowIds].filter((id) => !failing.has(id)).length,
     edgeCasesTried: r.runs.filter((x) => x.edgeCase !== "happy" && x.status !== "skipped").length,
     reviewCount: r.reviews.length || signRequests,

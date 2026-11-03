@@ -73,15 +73,15 @@ describe.skipIf(!ready)("harbor-vault seeded signing bugs", () => {
     expect(check(r, "simulation").status).toBe("pass");
   }, 60_000);
 
-  it("fixed: 'Approve 100 hUSDC' with exactly 100 → nothing fails; only the dev chain's missing verification is left", async () => {
+  it("fixed: 'Approve 100 hUSDC' with exactly 100 → consistent; a dev chain has no source to verify", async () => {
     const r = await reviewer.review(input(tx(contracts.hUSDC, F.approveData(contracts.HarborVault, F.usdc(100))), { buttonLabel: "Approve 100 hUSDC" }));
     log("fixed-approve", r);
     expect(r.checks.filter((c) => c.status === "fail" || c.status === "warn")).toEqual([]);
     expect(check(r, "ui-match").status).toBe("pass");
-    expect(check(r, "verified-source")).toMatchObject({ status: "unverified" });
+    expect(check(r, "verified-source")).toMatchObject({ status: "skip" });
     expect(check(r, "verified-source").detail).toMatch(/local dev chain/);
     expect(check(r, "simulation").status).toBe("pass");
-    expect(r.verdict).toBe("check");
+    expect(r.verdict).toBe("consistent");
   }, 60_000);
 
   it("bug 2: 'Claim rewards' asks to approve the Helper → dangerous", async () => {
