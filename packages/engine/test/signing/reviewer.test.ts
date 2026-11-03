@@ -214,6 +214,13 @@ describe("signing reviewer", () => {
     expect(check(r2, "ui-match")).toMatchObject({ status: "pass" });
     expect(r2.verdict).toBe("consistent");
 
+    // Edge cases replay the same request: one reviewer asks the model once per label and request.
+    const once = llm({ matches: true, confidence: "high", reason: "Fine." });
+    const shared = reviewer();
+    for (let i = 0; i < 3; i++) await shared.review(input(req, { buttonLabel: "Continue" }, { llm: once }));
+    await shared.review(input(req, { buttonLabel: "Next" }, { llm: once }));
+    expect(once.prompts).toHaveLength(2);
+
     // The rules already found an exact match: the model can only soften that to a warning.
     const contrary = llm({ matches: false, confidence: "high", reason: "Looks off." });
     const r3 = await reviewer().review(input(req, { buttonLabel: "Approve 100 USDC" }, { llm: contrary }));

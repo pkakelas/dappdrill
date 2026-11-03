@@ -73,6 +73,18 @@ describe.skipIf(!ready)("harbor-vault seeded signing bugs", () => {
     expect(check(r, "simulation").status).toBe("pass");
   }, 60_000);
 
+  it("a wallet drained of gas (the low-gas edge case) still simulates what the call does", async () => {
+    await chain.setBalance(CHAIN_ID, USER, 0n);
+    try {
+      const r = await reviewer.review(input(tx(contracts.hUSDC, F.approveData(contracts.HarborVault, F.usdc(100))), { buttonLabel: "Approve 100 hUSDC" }));
+      expect(check(r, "simulation").status).toBe("pass");
+      expect(r.simulation?.balanceChanges.filter((b) => b.token === "native")).toEqual([]);
+      expect(await chain.client().getBalance({ address: USER })).toBe(0n);
+    } finally {
+      await chain.setBalance(CHAIN_ID, USER, 10n ** 20n);
+    }
+  });
+
   it("fixed: 'Approve 100 hUSDC' with exactly 100 → consistent; a dev chain has no source to verify", async () => {
     const r = await reviewer.review(input(tx(contracts.hUSDC, F.approveData(contracts.HarborVault, F.usdc(100))), { buttonLabel: "Approve 100 hUSDC" }));
     log("fixed-approve", r);

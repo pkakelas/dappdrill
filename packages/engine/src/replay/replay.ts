@@ -4,7 +4,7 @@
  * answered or to act between steps (switch account, reload, …).
  */
 import { applyParams, describeStep, newId, paramValues, type Flow, type SigningReview, type Step, type StepResult, type WalletRequest } from "@dappdrill/core";
-import type { Inbox, SigningReviewer } from "../types.js";
+import type { Inbox, Llm, SigningReviewer } from "../types.js";
 import type { EngineSession } from "../browser/session.js";
 import type { PendingSignRequest } from "../wallet/controller.js";
 import { resolveLocator } from "./locators.js";
@@ -35,6 +35,8 @@ export interface ReplayHooks {
 export interface ReplayFlowOptions {
   params?: Record<string, string>;
   reviewer?: SigningReviewer;
+  /** Lets the reviewer compare vague button labels with the request. Scans only: CI replays stay model-free. */
+  reviewLlm?: Llm;
   baselines?: Record<string, SigningReview>;
   inbox?: Inbox;
   /** Per-step timeout for finding elements and waiting (default 15s). */
@@ -77,7 +79,9 @@ export interface ReplayFlowResult {
 }
 
 export async function replayFlow(session: EngineSession, flow: Flow, opts: ReplayFlowOptions = {}): Promise<ReplayFlowResult> {
-  const params = paramValues(flow, opts.params);
+  // {{account}} is whichever test account this replay runs with; head and tail make up its short form.
+  const account = session.wallet.address();
+  const params = { account, "account-head": account.slice(0, 6), "account-tail": account.slice(-4), ...paramValues(flow, opts.params) };
   const stepTimeout = opts.stepTimeoutMs ?? 15_000;
   const signTimeout = opts.signTimeoutMs ?? 30_000;
   const log = opts.log ?? (() => {});
@@ -273,6 +277,7 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
         flow: { id: flow.id, name: flow.name, stepIndex: index, expectation: step.expect, params },
         baselines: env.opts.baselines ?? {},
         artifactsDir: session.artifactsDir,
+        llm: env.opts.reviewLlm,
       });
       env.result.signingReviews.push(review);
       await session.emit({ type: "signing-review", review });

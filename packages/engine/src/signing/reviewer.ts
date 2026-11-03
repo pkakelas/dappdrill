@@ -37,6 +37,8 @@ export class Reviewer implements SigningReviewer {
   private readonly knownBad: KnownBad;
   private readonly etherscanApiKey?: string;
   private readonly timeout: number;
+  /** Edge cases replay the same request many times; the model sees each label and request once. */
+  private readonly byModel = new Map<string, Promise<UiMatchResult>>();
 
   constructor(opts: ReviewerOptions = {}) {
     this.http = new Http({ fetch: opts.fetch, cacheDir: opts.cacheDir });
@@ -186,7 +188,14 @@ export class Reviewer implements SigningReviewer {
     const decimals = (token: string) => facts.tokens.find((t) => t.address.toLowerCase() === token.toLowerCase())?.decimals;
     const byRules = matchByRules(ui.buttonLabel, summary, decimals);
     if (byRules?.status === "fail" || !llm) return byRules ?? { status: "unverified", detail: "The label doesn't say enough to compare with the request, and no model was available.", via: "none" };
-    const byModel = await withTimeout(matchByModel(llm, ui, summary, artifactsDir), 60_000, { status: "unverified" as const, detail: "The model check timed out.", via: "none" as const });
+    const key = `${ui.buttonLabel ?? ""}\n${ui.context ?? ""}\n${summary.description}`;
+    if (!this.byModel.has(key)) {
+      const asked = withTimeout(matchByModel(llm, ui, summary, artifactsDir), 60_000, { status: "unverified" as const, detail: "The model check timed out.", via: "none" as const });
+      this.byModel.set(key, asked);
+      // Only a real answer is worth reusing.
+      void asked.then((r) => r.status === "unverified" && this.byModel.delete(key), () => this.byModel.delete(key));
+    }
+    const byModel = await this.byModel.get(key)!;
     if (!byRules) return byModel;
     // The rules found concrete agreement; the model can only soften it to a warning.
     if (byModel.status === "fail" && byRules.status === "pass") return { ...byModel, status: "warn", detail: `${byRules.detail} The model disagrees: ${byModel.detail}` };

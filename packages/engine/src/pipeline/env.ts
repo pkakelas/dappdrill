@@ -23,6 +23,8 @@ export interface Env {
   /** Wraps the caller's sink: cost events carry the running total of every model used here. */
   readonly sink: DrillEventSink;
   llm(): Llm;
+  /** Low effort, for short yes/no checks. */
+  cheapLlm(): Llm;
   judge(): RecoveryJudge;
   costUsd(): number;
   /** True for a repeat of an app-wide issue another flow already reported. */
@@ -42,8 +44,13 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   const headless = opts.headless ?? true;
   const llms: Llm[] = [];
   let llm: Llm | undefined;
+  let cheap: Llm | undefined;
   let judge: RecoveryJudge | undefined;
   const costUsd = () => llms.reduce((sum, l) => sum + l.costUsd(), 0);
+  const cheapLlm = () => {
+    if (!cheap) llms.push((cheap = createLlm({ effort: "low" })));
+    return cheap;
+  };
 
   // Wallet-setup problems (wrong network, account switch, two wallets) are the
   // same bug in every flow: report them once for the app, and point later runs
@@ -106,12 +113,9 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
       if (!llm) llms.push((llm = createLlm()));
       return llm;
     },
+    cheapLlm,
     judge() {
-      if (!judge) {
-        const cheap = createLlm({ effort: "low" });
-        llms.push(cheap);
-        judge = createRecoveryJudge(cheap);
-      }
+      judge ??= createRecoveryJudge(cheapLlm());
       return judge;
     },
     costUsd,

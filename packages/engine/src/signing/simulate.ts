@@ -48,6 +48,8 @@ export interface SimulateInput {
   timeoutMs?: number;
 }
 
+const GAS_ALLOWANCE = 10n ** 18n;
+
 export async function simulate(input: SimulateInput): Promise<Simulation> {
   const unavailable = (why: string): Simulation => ({ status: "unavailable", balanceChanges: [], allowanceChanges: [], revertReason: why });
   if (!input.chains.has(input.chainId)) return unavailable(`Chain ${input.chainId} is not available in this session`);
@@ -78,6 +80,10 @@ async function onFork(input: SimulateInput): Promise<Simulation> {
   const snapshot = await chains.snapshot(chainId);
   try {
     await chains.impersonate(chainId, from);
+    // The review is about what the call does, not whether the wallet can pay for gas
+    // (the low-gas edge case drains it on purpose). A value above the real balance still reverts.
+    const balance = await client.getBalance({ address: from });
+    await chains.setBalance(chainId, from, balance + GAS_ALLOWANCE);
     const receipts: Receipt[] = [];
     let gasCost = 0n;
     for (const call of calls) {
@@ -118,7 +124,7 @@ async function onFork(input: SimulateInput): Promise<Simulation> {
     const before = await readState(client, from, tokens, erc20Approvals);
 
     const changes: BalanceChange[] = [];
-    const nativeDelta = after.native - before.native + gasCost;
+    const nativeDelta = after.native - before.native - GAS_ALLOWANCE + gasCost;
     if (nativeDelta !== 0n) changes.push({ owner: from, token: "native", symbol: input.nativeSymbol, decimals: 18, delta: nativeDelta.toString(), display: signed(nativeDelta, displayNative(abs(nativeDelta), input.nativeSymbol)) });
     for (const t of tokens) {
       const delta = (after.balances.get(t.address) ?? 0n) - (before.balances.get(t.address) ?? 0n);

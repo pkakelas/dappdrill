@@ -24,7 +24,7 @@ import {
   type WalletProfileId,
   type WalletRequest,
 } from "@dappdrill/core";
-import type { ChainController, Hex, Inbox, RecoveryJudge, SigningReviewer, WalletPolicy } from "../types.js";
+import type { ChainController, Hex, Inbox, Llm, RecoveryJudge, SigningReviewer, WalletPolicy } from "../types.js";
 import { createSession, type EngineSession } from "../browser/session.js";
 import type { Wallet } from "../wallet/controller.js";
 import { decodeBuiltin, spenderOf } from "./expectation.js";
@@ -39,6 +39,7 @@ export interface RunEdgeCasesOptions {
   edgeCases: EdgeCaseId[];
   variation?: Variation;
   reviewer?: SigningReviewer;
+  reviewLlm?: Llm;
   judge?: RecoveryJudge;
   inbox?: Inbox;
   sink: DrillEventSink;
@@ -236,6 +237,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
     replay = await replayFlow(session, flow, {
       params: plan.params,
       reviewer: opts.reviewer,
+      reviewLlm: opts.reviewLlm,
       baselines: opts.baselines,
       inbox: opts.inbox,
       stepTimeoutMs: (opts.stepTimeoutMs ?? 15_000) * (setup.stepTimeoutFactor ?? 1),

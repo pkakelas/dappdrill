@@ -20,8 +20,8 @@ export interface DrillFlowOptions {
   artifactsDir: string;
   baselines: Record<string, SigningReview>;
   video?: boolean;
-  /** Ask the model whether the app recovered (scans only; replays stay model-free). */
-  judge?: boolean;
+  /** Use a cheap model to judge recovery and check vague signing labels (scans only; replays stay model-free). */
+  model?: boolean;
   signal?: AbortSignal;
 }
 
@@ -128,7 +128,8 @@ export async function drillFlow(env: Env, flow: Flow, opts: DrillFlowOptions): P
       edgeCases: opts.edgeCases,
       variation: opts.variation,
       reviewer: env.reviewer,
-      judge: opts.judge ? env.judge() : undefined,
+      judge: opts.model ? env.judge() : undefined,
+      reviewLlm: opts.model ? env.cheapLlm() : undefined,
       inbox: env.inbox,
       sink: env.sink,
       artifactsDir: opts.artifactsDir,
