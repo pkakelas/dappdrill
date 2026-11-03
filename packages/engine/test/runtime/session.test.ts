@@ -2,7 +2,7 @@ import { mkdtemp, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DrillTarget, type DrillEvent } from "@dappdrill/core";
+import { DrillTarget, WalletRequest, type DrillEvent } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { startChains } from "../../src/chain/controller.js";
 import { createSession, type EngineSession } from "../../src/browser/session.js";
@@ -248,6 +248,8 @@ describe("session", () => {
       await session.page.evaluate(() => (window as any).ethereum.request({ method: "eth_chainId" }));
       await connect(session, "MetaMask");
       expect([...session.wallet.usedWallets]).toEqual(["metamask"]);
+      // A call without params still records as a valid request (reports are parsed on upload).
+      for (const r of session.wallet.requests()) expect(WalletRequest.safeParse(r).success).toBe(true);
     } finally {
       await session.close();
     }

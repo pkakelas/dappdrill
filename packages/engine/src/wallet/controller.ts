@@ -225,7 +225,7 @@ export class Wallet implements WalletController {
     const record: WalletRequest = {
       id: newId("req"),
       method: req.method,
-      params: req.params,
+      params: req.params ?? [],
       chainId: this.chain,
       from: this.connected ? this.address() : undefined,
       kind: kindOf(req.method),
