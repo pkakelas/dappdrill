@@ -64,6 +64,11 @@ async function freshVisit(session: DrillSession): Promise<void> {
   await settle(session);
 }
 
+function isLive(session: DrillSession): boolean {
+  const chain = session.wallet.chainId();
+  return session.chains.has(chain) && session.chains.mode(chain) === "live";
+}
+
 export async function explore(session: DrillSession, llm: Llm, opts: ExploreOptions): Promise<ExploreResult> {
   const recorder = new Recorder(session);
   const flows: Flow[] = [];
@@ -149,6 +154,9 @@ export async function explore(session: DrillSession, llm: Llm, opts: ExploreOpti
     `App under test: ${session.target.url}`,
     `Wallet: ${session.wallet.address()} on chain ${session.wallet.chainId()}.`,
     `Budget: up to ${opts.maxFlows} flows, about ${opts.maxMinutes} minutes.`,
+    isLive(session)
+      ? "This chain is a live testnet, not a fork: state persists between runs and replays, so the end_flow success text must not contain balances or amounts that change (prefer \"Order placed\" over \"$10,000.00\")."
+      : "",
     opts.hints ? `Hints from the user: ${opts.hints}` : "",
     "Start by calling look.",
   ].filter(Boolean).join("\n");

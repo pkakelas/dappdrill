@@ -50,7 +50,7 @@ export async function createStubSession(opts: { url?: string; headless?: boolean
     page,
     context,
     wallet,
-    chains: {} as ChainController,
+    chains: { has: () => false } as unknown as ChainController,
     target,
     artifactsDir,
     console: consoleLog,

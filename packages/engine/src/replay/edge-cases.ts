@@ -237,6 +237,8 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
       baselines: opts.baselines,
       inbox: opts.inbox,
       stepTimeoutMs: (opts.stepTimeoutMs ?? 15_000) * (setup.stepTimeoutFactor ?? 1),
+      // A slow RPC delays the wallet request too: the app reads state before it asks.
+      signTimeoutMs: 30_000 * (setup.stepTimeoutFactor ?? 1),
       hooks: setup.hooks,
       runId,
       signal: opts.signal,
@@ -277,7 +279,13 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
       rpc: session ? pickRpc(session.rpc) : undefined,
     },
   };
-  const issues = drafts.map((d) => makeIssue(ctx, d));
+  // Two checks can see the same problem (a second click and a repeated request): keep the first.
+  const seen = new Set<string>();
+  const unique = drafts.filter((d) => {
+    const key = `${d.kind}:${d.stepIndex ?? ""}`;
+    return !seen.has(key) && Boolean(seen.add(key));
+  });
+  const issues = unique.map((d) => makeIssue(ctx, d));
   const wallet = session?.wallet;
   const status = runStatus(edge, replay, issues, error, wallet);
 
@@ -312,6 +320,8 @@ function runStatus(edge: EdgeCaseId, replay: ReplayFlowResult | undefined, issue
   if (!replay) return { status: "error", reason: "no replay result" };
   if (issues.length > 0) return { status: "issue", reason: issues[0]!.title };
   if (replay.completed || replay.stoppedByHook) return { status: "pass" };
+  // Apps often make a new account sign in or set up again; not finishing as B isn't a bug by itself.
+  if (edge === "switch-account") return { status: "skipped", reason: `couldn't finish as the second account (${replay.error ?? "the flow stopped"}); no requests from the old account` };
   return { status: "fail", reason: replay.error ?? `the flow did not complete under ${edgeLabel(edge)}` };
 }
 
@@ -337,7 +347,9 @@ interface CaseState {
 
 function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, state: CaseState): CaseSetup {
   const { chains } = opts;
-  const lastTxSign = plan.txSignIndexes?.at(-1) ?? 0;
+  // The flow's main request: its last transaction, or its last signature when it sends none
+  // (an order on an off-chain book comes after the sign-in signature, not before).
+  const lastTxSign = plan.txSignIndexes?.at(-1) ?? Math.max(0, plan.walletSteps.length - 1);
   const firstWalletStep = plan.walletSteps[0] ?? -1;
   /** Index of the step that triggers the first signing request (the one before the first wallet step). */
   const triggerStep = Math.max(0, firstWalletStep - 1);
