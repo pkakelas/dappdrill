@@ -169,7 +169,7 @@ export interface Llm {
     maxTurns: number;
     signal?: AbortSignal;
     onText?: (text: string) => void;
-  }): Promise<{ text: string }>;
+  }): Promise<{ text: string; stopReason?: "end_turn" | "max_turns" }>;
   /** One call that returns JSON validated against `schema`. */
   structured<T>(opts: { system: string; prompt: string; images?: ImageInput[]; schema: ZodType<T>; name: string }): Promise<T>;
   /** Estimated spend so far, USD. */

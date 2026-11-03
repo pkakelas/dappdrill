@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Tiny Vault</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    nav a { margin-right: 1rem; }
+    [hidden] { display: none !important; }
+    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); }
+    .modal { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); background: #fff; padding: 1.5rem; border-radius: 8px; }
+    .modal button { display: block; margin: .5rem 0; }
+    .card { cursor: pointer; padding: .5rem; border: 1px solid #ccc; width: 12rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/vault.html">Vault</a>
+    <a href="https://docs.example.com/tiny-vault" target="_blank">Docs</a>
+  </nav>
+  <h1>Tiny Vault</h1>
+  <p>Earn yield on USDC. Connect your wallet to get started.</p>
+  <button id="connect">Connect wallet</button>
+  <span id="account" hidden></span>
+  <div class="card" id="learn">Learn more about vaults</div>
+
+  <div id="picker" hidden>
+    <div class="backdrop"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+      <h2 id="picker-title">Connect a wallet</h2>
+      <button data-wallet="metamask">MetaMask</button>
+      <button data-wallet="walletconnect">WalletConnect</button>
+      <button id="picker-close" aria-label="Close">×</button>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
