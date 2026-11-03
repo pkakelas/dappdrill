@@ -1,0 +1,15 @@
+node_modules
+.env
+.env.local
+.next
+dist
+data/
+*.log
+.DS_Store
+fixtures/harbor-vault/out
+fixtures/harbor-vault/cache
+fixtures/harbor-vault/broadcast
+test-results
+playwright-report
+coverage
+.pnpm.lock

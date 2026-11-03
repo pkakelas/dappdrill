@@ -1,0 +1,24 @@
+{
+  "name": "dappdrill",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @dappdrill/web --filter @dappdrill/worker dev",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @dappdrill/db generate",
+    "db:migrate": "pnpm --filter @dappdrill/db migrate",
+    "fixture": "pnpm --filter @dappdrill/harbor-vault start",
+    "cli": "pnpm --filter @dappdrill/cli exec tsx src/main.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

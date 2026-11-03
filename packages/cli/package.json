@@ -1,0 +1,23 @@
+{
+  "name": "@dappdrill/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests",
+    "start": "tsx src/main.ts"
+  },
+  "bin": {
+    "dappdrill": "./bin/dappdrill.js"
+  },
+  "dependencies": {
+    "@dappdrill/core": "workspace:*",
+    "@dappdrill/engine": "workspace:*",
+    "commander": "^15.0.0",
+    "zod": "^4.6.7"
+  }
+}
