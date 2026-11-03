@@ -251,7 +251,8 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
     await setup.inspect?.(session, replay, drafts);
     commonChecks(edge, plan, session, replay, drafts);
     await blankCheck(edge, session, replay, drafts);
-    if (setup.expected && opts.judge && drafts.length === 0 && replay.walletSteps.length > 0) {
+    // A flow that still completed was recovered from; the judge only looks at where it stopped.
+    if (setup.expected && opts.judge && drafts.length === 0 && !replay.completed && replay.walletSteps.length > 0) {
       await askJudge(opts.judge, session, edge, setup.expected, drafts, finalScreenshot, opts.artifactsDir);
     }
   } catch (e) {
