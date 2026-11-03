@@ -1,9 +1,10 @@
 import { db, flows, runBatches, scans } from "@dappdrill/db";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
-import { ArrowRight, ChevronRight, ExternalLink } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, ExternalLink, RotateCw } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { rerunAction, setIssueStatusAction } from "@/actions/results";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ActivityItem, buildActivity } from "@/components/activity";
 import { FlowList, flowTableData } from "@/components/flows/flow-list";
@@ -75,6 +76,10 @@ export default async function OverviewPage({ params, searchParams }: Props) {
   const busy = running || batches.some((b) => b.status === "queued" || b.status === "running");
   const lastChecked = [finished?.finishedAt, ...batches.map((b) => b.finishedAt)].filter(Boolean).sort((a, b) => b!.getTime() - a!.getTime())[0];
   const names = new Map(flowRows.map((f) => [f.id, f.name]));
+  // "flowId:edgeCase" pairs a replay is checking right now, so their issue rows say so instead of offering another re-run.
+  const rerunning = new Set(
+    batches.filter((b) => b.status === "queued" || b.status === "running").flatMap((b) => b.request.flowIds.flatMap((f) => b.request.edgeCases.map((e) => `${f}:${e}`))),
+  );
 
   // Flows whose last run had a problem first, then the rest in creation order.
   const problem = (id: string) => ["fail", "issue", "error"].includes(flowData.last.get(id)?.status ?? "");
@@ -173,7 +178,9 @@ export default async function OverviewPage({ params, searchParams }: Props) {
             <ItemList>
               {issues.map((i) => {
                 const flow = (i.flowId && names.get(i.flowId)) || i.data.flowName;
-                const edge = i.data.edgeCase && i.data.edgeCase !== "happy" ? edgeCaseInfo(i.data.edgeCase).label : null;
+                const edgeCase = i.data.edgeCase ?? "happy";
+                const edge = edgeCase !== "happy" ? edgeCaseInfo(edgeCase).label : null;
+                const checking = i.flowId && rerunning.has(`${i.flowId}:${edgeCase}`);
                 return (
                   <ListItem key={i.id}>
                     <ItemMedia className="w-16 justify-start">
@@ -186,9 +193,36 @@ export default async function OverviewPage({ params, searchParams }: Props) {
                         </RowLink>
                       </ItemTitle>
                     </ItemContent>
-                    <ItemActions className="pointer-events-none">
-                      <span className="hidden max-w-64 truncate text-xs text-muted-foreground md:block">{[flow, edge].filter(Boolean).join(" · ")}</span>
-                      <ChevronRight className="size-4 text-muted-foreground" />
+                    <ItemActions className="gap-1">
+                      <span className="pointer-events-none mr-2 hidden max-w-64 truncate text-xs text-muted-foreground md:block">{[flow, edge].filter(Boolean).join(" · ")}</span>
+                      {checking ? (
+                        <span className="pointer-events-none flex items-center gap-1.5 px-2 text-xs text-live-ink">
+                          <span className="size-1.5 animate-pulse rounded-full bg-live" />
+                          Re-running
+                        </span>
+                      ) : (
+                        <div className="hidden gap-1 sm:flex sm:opacity-0 sm:group-focus-within/item:opacity-100 sm:group-hover/item:opacity-100">
+                          {i.flowId && (
+                            <form action={rerunAction}>
+                              <input type="hidden" name="appId" value={app.id} />
+                              <input type="hidden" name="flowId" value={i.flowId} />
+                              <input type="hidden" name="edgeCase" value={edgeCase} />
+                              <input type="hidden" name="back" value={path} />
+                              <Button type="submit" variant="ghost" size="icon-sm" aria-label={`Re-run ${flow ?? "the flow"}`} title="Re-run to check if it's fixed">
+                                <RotateCw />
+                              </Button>
+                            </form>
+                          )}
+                          <form action={setIssueStatusAction}>
+                            <input type="hidden" name="issueId" value={i.id} />
+                            <input type="hidden" name="status" value="ignored" />
+                            <Button type="submit" variant="ghost" size="icon-sm" aria-label="This is expected" title="This is expected">
+                              <Check />
+                            </Button>
+                          </form>
+                        </div>
+                      )}
+                      <ChevronRight className="pointer-events-none size-4 text-muted-foreground" />
                     </ItemActions>
                   </ListItem>
                 );

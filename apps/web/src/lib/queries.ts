@@ -1,7 +1,7 @@
 import "server-only";
 import { healthOfIssues, SEVERITY_ORDER, type Health, type Severity } from "@dappdrill/core";
 import { apps, db, flows, integrations, issues, runBatches, runs, scans } from "@dappdrill/db";
-import { and, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
 
 export type ScanRow = typeof scans.$inferSelect;
 export type IssueRow = typeof issues.$inferSelect;
@@ -89,21 +89,28 @@ export async function fixedSince(appId: string, since: Date | undefined): Promis
 }
 
 /**
- * Open issues for the app right now: the latest finished scan plus any run batch
- * after it, newest first, one per fingerprint.
+ * Open issues for the app right now: the latest completed scan plus any scan or
+ * run batch after it, newest first, one per fingerprint. A stopped scan adds what
+ * it found but doesn't replace the last complete one, since it didn't try everything.
  */
 export async function openIssues(appId: string): Promise<IssueRow[]> {
-  const scan = await latestScan(appId, true);
+  const [scan] = await db()
+    .select()
+    .from(scans)
+    .where(and(eq(scans.appId, appId), eq(scans.status, "done")))
+    .orderBy(desc(scans.createdAt))
+    .limit(1);
   const since = scan?.createdAt ?? new Date(0);
   const rows = await db()
     .select({ issue: issues })
     .from(issues)
+    .leftJoin(scans, eq(scans.id, issues.scanId))
     .leftJoin(runBatches, eq(runBatches.id, issues.batchId))
     .where(
       and(
         eq(issues.appId, appId),
         eq(issues.status, "open"),
-        or(scan ? eq(issues.scanId, scan.id) : sql`false`, and(isNull(issues.scanId), gt(runBatches.createdAt, since))),
+        or(scan ? eq(issues.scanId, scan.id) : sql`false`, sql`coalesce(${scans.createdAt}, ${runBatches.createdAt}) > ${since.toISOString()}`),
       ),
     )
     .orderBy(desc(issues.createdAt));
