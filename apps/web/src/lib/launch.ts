@@ -60,6 +60,14 @@ export async function startBatch(app: App, req: BatchRequest = {}): Promise<stri
 }
 
 /** Plain-English change to a flow (or a new flow when flowId is null), processed by the worker. */
+/** Records a flow the scan planned but couldn't, with the person's hint (may be empty). */
+export async function startRetry(appId: string, scanId: string, planItem: string, hint: string, userId: string): Promise<string> {
+  const changeId = newId("chg");
+  await db().insert(flowChanges).values({ id: changeId, appId, kind: "retry", prompt: hint, scanId, planItem, status: "queued", createdBy: userId });
+  await enqueue("flow-change.run", { changeId });
+  return changeId;
+}
+
 export async function startFlowChange(appId: string, flowId: string | null, prompt: string, userId: string): Promise<string> {
   const changeId = newId("chg");
   await db().insert(flowChanges).values({ id: changeId, appId, flowId, kind: "describe", prompt, status: "queued", createdBy: userId });

@@ -44,7 +44,9 @@ screenshots, traces) are files under an `artifactsDir`; paths in results are rel
 - UI copy is plain: no "AI" badges or gradients, and "simulate" only means transaction simulation.
   Status vocabulary: Broken / Review / OK. Only problems get colour.
 - Keep it clean, but don't overengineer: small modules, few abstractions, comments only where they help.
-- Default model `claude-opus-5-5` (env `DAPPDRILL_MODEL`). With `ANTHROPIC_API_KEY` set we use
+- Two models: thinking `claude-opus-5-5` (env `DAPPDRILL_MODEL`) surveys, plans, reviews signatures
+  and repairs; acting `claude-sonnet-5-5` (env `DAPPDRILL_ACT_MODEL`) records planned flows and
+  judges recovery. With `ANTHROPIC_API_KEY` set we use
   the Anthropic SDK; otherwise the Claude Agent SDK and the local Claude Code login.
 
 ## Commands

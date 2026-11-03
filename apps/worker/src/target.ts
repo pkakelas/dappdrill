@@ -63,5 +63,18 @@ export async function replayChains(db: Db, app: AppRow): Promise<ChainConfig[]> 
   const scanned = latest?.chains ?? [];
   const configured = app.settings.chains ?? [];
   if (configured.length === 0) return scanned;
-  return configured.map((c) => ({ ...c, forkBlock: c.forkBlock ?? scanned.find((s) => s.id === c.id)?.forkBlock }));
+  // Chains the app asked the wallet for mid-scan run in replays too.
+  const added = scanned.filter((s) => s.fromApp && !configured.some((c) => c.id === s.id));
+  return [...configured.map((c) => ({ ...c, forkBlock: c.forkBlock ?? scanned.find((s) => s.id === c.id)?.forkBlock })), ...added];
+}
+
+/** Chains earlier scans saw the app ask for, so a scan that detects its chains starts with them too. */
+export async function learnedChains(db: Db, app: AppRow): Promise<ChainConfig[]> {
+  const [latest] = await db
+    .select({ chains: scans.chains })
+    .from(scans)
+    .where(and(eq(scans.appId, app.id), eq(scans.status, "done"), isNotNull(scans.finishedAt)))
+    .orderBy(desc(scans.finishedAt))
+    .limit(1);
+  return (latest?.chains ?? []).filter((c) => c.fromApp).map(({ forkBlock: _, ...c }) => c);
 }

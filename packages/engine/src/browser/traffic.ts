@@ -107,5 +107,5 @@ export function rpcFailures(log: RpcLogEntry[], chainIds: number[]): Stalled["rp
 export function diagnoseStall(traffic: Traffic, log: RpcLogEntry[], chainIds: number[]): Stalled | undefined {
   const rpc = rpcFailures(log, chainIds);
   const backends = traffic.backends();
-  return rpc.length || backends.length ? { backends, rpc } : undefined;
+  return rpc.length || backends.length ? { chains: [], backends, rpc } : undefined;
 }

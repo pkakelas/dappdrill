@@ -51,5 +51,10 @@ export const ChainConfig = z.object({
   mode: ChainMode.default("fork"),
   /** Pinned fork block (decimal string). Set by the engine at scan time and reused by replays. */
   forkBlock: z.string().optional(),
+  /**
+   * Added mid-run because the app asked the wallet for it (wallet_addEthereumChain).
+   * Loading the page doesn't show such chains (they sit behind a sign-in), so later scans start with them.
+   */
+  fromApp: z.boolean().optional(),
 });
 export type ChainConfig = z.infer<typeof ChainConfig>;

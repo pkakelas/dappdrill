@@ -4,7 +4,8 @@
  * The web app always writes the row first, then enqueues its id:
  *   "scan.run"        { scanId }   scans row: status "queued", number = next per app, settings snapshot.
  *   "batch.run"       { batchId }  run_batches row: request { flowIds, edgeCases, variationId? }.
- *   "flow-change.run" { changeId } flow_changes row: kind "describe", prompt, flowId (null = new flow).
+ *   "flow-change.run" { changeId } flow_changes row: kind "describe", prompt, flowId (null = new flow);
+ *                                  or kind "retry", prompt = hint, scanId and planItem (a planned flow's name).
  * Stopping a scan is not a job: the web sets scans.stop_requested and the worker polls it.
  *
  * Artifacts: a job writes into ARTIFACTS_DIR/<artifactDir(kind, id)>, and every artifact path stored in

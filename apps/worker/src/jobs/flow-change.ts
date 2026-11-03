@@ -4,7 +4,8 @@ import { flowChanges, flows, type Db } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
-import { buildTarget, loadApp } from "../target.js";
+import { buildTarget, loadApp, replayChains } from "../target.js";
+import { runRetry } from "./retry.js";
 import { logEvents } from "./sink.js";
 
 /** flow-change.run: turn a plain-English request into a proposed flow for a person to review. */
@@ -17,6 +18,10 @@ export async function runFlowChange(db: Db, engine: Engine, changeId: string, si
   await update({ status: "running" });
 
   try {
+    if (change.kind === "retry") {
+      const { error } = await runRetry(db, engine, change, log, signal);
+      return log.info(error ? `not recorded: ${error}` : "recorded");
+    }
     const app = await loadApp(db, change.appId);
     let existing: Flow | undefined;
     if (change.flowId) {
@@ -26,7 +31,7 @@ export async function runFlowChange(db: Db, engine: Engine, changeId: string, si
     }
     log.info(existing ? `changing "${existing.name}": ${change.prompt}` : `new flow: ${change.prompt}`);
     const work = engine.describeFlow(
-      await buildTarget(db, app, app.settings),
+      await buildTarget(db, app, app.settings, await replayChains(db, app)),
       change.prompt,
       { artifactsDir: artifactsDir("flow-changes", changeId), existing },
       logEvents(log),

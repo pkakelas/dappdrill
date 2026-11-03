@@ -43,6 +43,11 @@ export const FORK_GUIDE_URL = "https://dappdrill.com/fork";
 
 /** One sentence per thing the app was waiting on, most likely cause first. */
 export function stallReasons(s: Stalled): string[] {
+  // Rows saved before missing chains were reported have no `chains`.
+  const chains = (s.chains ?? []).map(
+    (c) =>
+      `The app needs ${c.name ? `${c.name} (chain ${c.chainId})` : `chain ${c.chainId}`}${c.rpcUrl ? `, RPC ${c.rpcUrl}` : ""}, but the test wallet couldn't add it: ${c.reason}.`,
+  );
   const reasons = s.rpc.map((r) => {
     const reads = `${r.errors} failed ${r.errors === 1 ? "read" : "reads"}`;
     if (r.cause === "rate-limited") return `The test chain ${r.chainId} was rate-limited by the RPC it forks from (${reads}). Fork from a dedicated RPC.`;
@@ -58,10 +63,16 @@ export function stallReasons(s: Stalled): string[] {
     });
     reasons.push(`The page was waiting on ${hosts.join(", ")}. Backends like these read the real chain, not the fork, unless the app points them elsewhere.`);
   }
-  return reasons;
+  return [...chains, ...reasons];
+}
+
+/** True when the scan stopped because the app needs a chain the wallet couldn't add. */
+export function missesChain(s: Stalled): boolean {
+  return (s.chains ?? []).length > 0;
 }
 
 /** The full sentence reports show when a scan found nothing because the data never loaded. */
 export function stalledLine(s: Stalled): string {
+  if (missesChain(s)) return `The app needs a chain the test wallet couldn't use, so exploring stopped there. ${stallReasons(s).join(" ")} Add it to the app's chains in scan settings with an RPC that answers for it.`;
   return `The app's data didn't load, so there was nothing to test. ${stallReasons(s).join(" ")} How to fix it: ${FORK_GUIDE_URL}`;
 }

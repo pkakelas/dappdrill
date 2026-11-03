@@ -11,6 +11,7 @@ export interface ScanFlags {
   edgeCases?: string;
   maxMinutes?: string;
   maxFlows?: string;
+  depth?: string;
   out: string;
   liveKeyEnv?: string;
   hints?: string;
@@ -38,6 +39,9 @@ export async function scanCommand(url: string, flags: ScanFlags): Promise<number
     responses: await parseResponses(flags.respond),
   });
 
+  const depth = flags.depth ? Number(flags.depth) : undefined;
+  if (depth !== undefined && depth !== 1 && depth !== 2 && depth !== 3) throw new UsageError("--depth must be 1, 2 or 3.");
+
   const out = resolve(flags.out);
   const engine = await loadEngine();
   console.log(`Scanning ${target.url}`);
@@ -47,6 +51,7 @@ export async function scanCommand(url: string, flags: ScanFlags): Promise<number
       artifactsDir: join(out, "artifacts"),
       maxMinutes: flags.maxMinutes ? Number(flags.maxMinutes) : undefined,
       maxFlows: flags.maxFlows ? Number(flags.maxFlows) : undefined,
+      depth,
       hints: flags.hints,
       headless: !flags.headed,
     },

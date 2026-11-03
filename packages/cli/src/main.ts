@@ -27,6 +27,7 @@ program
   .option("--edge-cases <list>", "comma-separated edge cases (default: the standard set)")
   .option("--max-minutes <n>", "time budget")
   .option("--max-flows <n>", "stop after this many flows")
+  .option("--depth <1-3>", "1 happy paths only, 2 also variants, 3 also unusual cases (default 2)")
   .option("--hints <text>", "plain-English hints for the explorer")
   .option("--out <dir>", "output directory", "dappdrill-out")
   .option("--live-key-env <VAR>", "env var holding a funded testnet key for chains that can't be forked")

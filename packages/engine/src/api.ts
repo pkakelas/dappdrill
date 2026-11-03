@@ -13,12 +13,15 @@ import {
   type Flow,
   type FlowRun,
   type Issue,
+  type PlanItem,
+  type ScanPlan,
   type ScanReport,
   type ScanStage,
   type SigningReview,
   blockedLine,
   stalledLine,
 } from "@dappdrill/core";
+import { generatePrivateKey } from "viem/accounts";
 import { explore, proposeRepair, recordDescribedFlow, type ReplayFn } from "./agent/index.js";
 import { detectBotCheck } from "./browser/access.js";
 import { diagnoseStall } from "./browser/traffic.js";
@@ -35,6 +38,8 @@ export interface ReplayResult {
 
 /** Share of the scan budget the explorer gets; the rest goes to replays and edge cases. */
 const EXPLORE_SHARE = 0.6;
+/** Planned flows recorded at once, each in its own browser. */
+const RECORD_LANES = 3;
 
 const debug = (m: string) => {
   if (process.env.DAPPDRILL_DEBUG) console.error(`[engine] ${m}`);
@@ -57,6 +62,7 @@ export async function scan(
   let pages: ScanReport["pages"] = [];
   let blocked: ScanReport["blocked"];
   let stalled: ScanReport["stalled"];
+  let plan: ScanPlan | undefined;
   const flows: Flow[] = [];
   try {
     // 1. Explore on pinned state, so what the model did doesn't leak into the tests.
@@ -77,24 +83,41 @@ export async function scan(
       // A challenge on the first page stops the scan before it spends anything on the model.
       blocked = await landingBotCheck(session);
       if (!blocked) {
-        const explored = await explore(session, env.llm(), {
+        const explored = await explore(session, { think: env.thinkLlm(), act: env.actLlm() }, {
           maxFlows: opts.maxFlows,
           maxMinutes: opts.maxMinutes * EXPLORE_SHARE,
+          depth: opts.depth,
           hints: opts.hints,
           knownFlows: opts.knownFlows,
+          skip: opts.skipFlows,
           signal,
           inbox: env.inbox,
+          lanes: RECORD_LANES,
+          // New accounts, funded on the forks as the session opens, so lanes don't share balances or nonces.
+          openLane: () =>
+            createSession(
+              { ...env.target, accounts: { A: generatePrivateKey(), B: generatePrivateKey() }, liveKey: undefined },
+              env.chains,
+              { artifactsDir: opts.artifactsDir, sink: exploreSink, headless: env.headless, video: false, trace: false, frameIntervalMs: 0, log: debug },
+            ),
         });
         pages = explored.pages;
+        if (explored.profile && explored.persona) {
+          plan = { profile: explored.profile, persona: explored.persona, items: explored.plan.filter((p) => p.level <= opts.depth) };
+        }
         flows.push(...explored.flows);
         blocked = explored.blocked;
+        if (!blocked) await env.log(explored.summary);
       }
+      const missing = env.chains.missing();
       if (blocked) {
         await env.log(blockedLine(blocked), "warn");
         await env.sink({ type: "blocked", blocked });
-      } else if (flows.length === 0 && !signal?.aborted) {
-        // Nothing to test usually means the app's data never loaded; say what it was waiting on.
-        stalled = diagnoseStall(session.traffic, session.rpc, env.chains.configs().map((c) => c.id));
+      } else if (missing.length || (flows.length === 0 && !signal?.aborted)) {
+        // A chain the wallet couldn't add stops exploring wherever it's needed. Otherwise nothing
+        // to test usually means the app's data never loaded; say what it was waiting on.
+        const waiting = diagnoseStall(session.traffic, session.rpc, env.chains.configs().map((c) => c.id));
+        stalled = missing.length ? { backends: [], rpc: [], ...waiting, chains: missing } : waiting;
         if (stalled) {
           await env.log(stalledLine(stalled), "warn");
           await env.sink({ type: "stalled", stalled });
@@ -159,7 +182,8 @@ export async function scan(
     url: env.target.url,
     startedAt,
     finishedAt: nowIso(),
-    chains: env.target.chains,
+    // Includes chains the app asked for mid-scan, so replays start with them.
+    chains: env.chains.configs(),
     pages,
     flows,
     ...result,
@@ -167,6 +191,7 @@ export async function scan(
     stoppedEarly: signal?.aborted ?? false,
     blocked,
     stalled,
+    plan,
   };
 }
 
@@ -221,7 +246,7 @@ export async function describeFlow(
 ): Promise<{ flow: Flow; explanation: string }> {
   const { existing } = options;
   return withAgentSession(target, options, sink, existing, async (env, session) => {
-    const res = await recordDescribedFlow(session, env.llm(), description, {
+    const res = await recordDescribedFlow(session, env.actLlm(), description, {
       existing,
       replay: replayFn(env, session, options.artifactsDir, existing),
       inbox: env.inbox,
@@ -229,6 +254,39 @@ export async function describeFlow(
     // An edited flow keeps its identity and setup.
     const flow = existing ? { ...res.flow, id: existing.id, origin: existing.origin, setup: existing.setup } : res.flow;
     return { flow, explanation: res.explanation };
+  });
+}
+
+/**
+ * Record one flow from a scan's plan again, with the user's hint. `setup` replays the
+ * recorded flows it depends on first. Saves nothing: returns the flow, or why it failed.
+ */
+export async function retryFlow(
+  target: DrillTarget,
+  plan: Pick<ScanPlan, "profile" | "persona">,
+  item: PlanItem,
+  options: { artifactsDir: string; hint?: string; setup?: Flow[]; knownFlows?: { id: string; name: string }[]; headless?: boolean },
+  sink: DrillEventSink,
+  signal?: AbortSignal,
+): Promise<{ flow?: Flow; item: PlanItem }> {
+  const how = [
+    item.how,
+    item.note ? `An earlier attempt couldn't do it: ${item.note}.` : "",
+    options.hint ? `Hint from the user: ${options.hint}` : "",
+  ].filter(Boolean).join(" ");
+  const setup = options.setup?.length ? { setup: options.setup } : undefined;
+  return withAgentSession(target, options, sink, setup, async (env, session) => {
+    const res = await explore(session, { think: env.thinkLlm(), act: env.actLlm() }, {
+      plan: { ...plan, flows: [{ name: item.name, level: item.level, why: item.why, startPath: item.startPath, how, dependsOn: [] }] },
+      maxFlows: 1,
+      maxMinutes: 15,
+      depth: 3,
+      knownFlows: options.knownFlows,
+      signal,
+      inbox: env.inbox,
+    });
+    const outcome = res.plan[0] ?? { ...item, outcome: "not reached" as const, note: res.blocked?.reason ?? "it couldn't start" };
+    return { flow: res.flows[0], item: { ...outcome, how: item.how, dependsOn: item.dependsOn } };
   });
 }
 
@@ -241,7 +299,7 @@ export async function repairFlow(
   sink: DrillEventSink,
 ): Promise<{ flow: Flow; explanation: string } | null> {
   return withAgentSession(target, options, sink, flow, async (env, session) => {
-    const res = await proposeRepair(session, env.llm(), flow, failed, { replay: replayFn(env, session, options.artifactsDir, flow) });
+    const res = await proposeRepair(session, env.thinkLlm(), flow, failed, { replay: replayFn(env, session, options.artifactsDir, flow) });
     return res && { flow: { ...res.flow, id: flow.id, setup: flow.setup }, explanation: res.explanation };
   });
 }
@@ -251,7 +309,7 @@ async function withAgentSession<T>(
   target: DrillTarget,
   options: { artifactsDir: string; headless?: boolean },
   sink: DrillEventSink,
-  flow: Flow | undefined,
+  flow: Pick<Flow, "setup"> | undefined,
   work: (env: Env, session: EngineSession) => Promise<T>,
 ): Promise<T> {
   const env = await openEnv(DrillTarget.parse(target), sink, { headless: options.headless });

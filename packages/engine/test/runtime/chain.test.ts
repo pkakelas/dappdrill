@@ -5,7 +5,7 @@ import type { ChainController } from "../../src/types.js";
 import { InjectedRpcFault, startChains } from "../../src/chain/controller.js";
 import { readBalance } from "../../src/chain/deal-erc20.js";
 import { rpcCall } from "../../src/chain/rpc.js";
-import { ACCOUNTS, CHAIN_ID, startFixture, type Fixture } from "./fixture.js";
+import { ACCOUNTS, CHAIN_ID, startBareChain, startFixture, type Fixture } from "./fixture.js";
 
 let fx: Fixture;
 let chains: ChainController;
@@ -104,6 +104,45 @@ describe("startChains (live)", () => {
     expect(await live.request(CHAIN_ID, "eth_chainId", [])).toBe("0x7a69");
     await expect(live.setBalance(CHAIN_ID, A, 1n)).rejects.toThrow(/needs a fork/);
     await live.close();
+  });
+});
+
+describe("addFromApp", () => {
+  const OTHER = 4242;
+
+  it("forks a chain the app offers a matching RPC for, once, and reports it", async () => {
+    const other = await startBareChain(OTHER);
+    const added: number[] = [];
+    const ctl = await startChains([], { onAdded: async (c) => void added.push(c.id) });
+    try {
+      const req = { id: OTHER, name: "Other", rpcUrls: ["wss://ignored.example", other.rpcUrl] };
+      const [a, b] = await Promise.all([ctl.addFromApp(req), ctl.addFromApp(req)]);
+      expect(a).toMatchObject({ id: OTHER, name: "Other", rpcUrl: other.rpcUrl, mode: "fork", fromApp: true });
+      expect(b.forkBlock).toBe(a.forkBlock);
+      expect(added).toEqual([OTHER]);
+      expect(ctl.has(OTHER)).toBe(true);
+      expect(await ctl.request(OTHER, "eth_chainId", [])).toBe("0x1092");
+      expect(ctl.configs().map((c) => c.id)).toEqual([OTHER]);
+      expect(ctl.missing()).toEqual([]);
+    } finally {
+      await ctl.close();
+      await other.close();
+    }
+  }, 60_000);
+
+  it("remembers a chain it can't start in missing()", async () => {
+    const ctl = await startChains([], {});
+    try {
+      await expect(ctl.addFromApp({ id: OTHER, name: "Other", rpcUrls: [fx.rpcUrl] })).rejects.toThrow(`didn't answer as chain ${OTHER}`);
+      await expect(ctl.addFromApp({ id: 4343, rpcUrls: [] })).rejects.toThrow(/no RPC URL/);
+      expect(ctl.missing()).toEqual([
+        { chainId: OTHER, name: "Other", rpcUrl: fx.rpcUrl, reason: `${fx.rpcUrl} didn't answer as chain ${OTHER}` },
+        { chainId: 4343, name: undefined, rpcUrl: undefined, reason: "the app gave no RPC URL for it" },
+      ]);
+      expect(ctl.has(OTHER)).toBe(false);
+    } finally {
+      await ctl.close();
+    }
   });
 });
 

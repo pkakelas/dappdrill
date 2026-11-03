@@ -10,7 +10,18 @@ export interface ScriptedLlm extends Llm {
   readonly results: string[];
 }
 
+/** Plays the whole script on every runAgent call. */
 export function scriptedLlm(script: ScriptStep[], finalText = "done"): ScriptedLlm {
+  return scripted(() => script, finalText);
+}
+
+/** Plays `runs[i]` on the i-th runAgent call, and nothing after the last. */
+export function scriptedRuns(runs: ScriptStep[][], finalText = "done"): ScriptedLlm {
+  let call = 0;
+  return scripted(() => runs[call++] ?? [], finalText);
+}
+
+function scripted(next: () => ScriptStep[], finalText: string): ScriptedLlm {
   const results: string[] = [];
   return {
     backend: "api",
@@ -18,7 +29,7 @@ export function scriptedLlm(script: ScriptStep[], finalText = "done"): ScriptedL
     costUsd: () => 0,
     async runAgent({ tools, maxTurns }) {
       let last = "";
-      for (const [i, entry] of script.entries()) {
+      for (const [i, entry] of next().entries()) {
         if (i >= maxTurns) return { text: "turns exhausted", stopReason: "max_turns" };
         // `page` is the latest tool result that contained a page snapshot.
         const page = [...results].reverse().find((r) => r.includes("\nURL: ") || r.startsWith("URL: ")) ?? "";
@@ -34,7 +45,7 @@ export function scriptedLlm(script: ScriptStep[], finalText = "done"): ScriptedL
       return { text: finalText, stopReason: "end_turn" };
     },
     async structured() {
-      throw new Error("scriptedLlm has no structured()");
+      throw new Error("scripted Llm has no structured()");
     },
   };
 }

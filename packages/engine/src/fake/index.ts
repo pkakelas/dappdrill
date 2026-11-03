@@ -35,6 +35,7 @@ export interface Engine {
   scan: typeof api.scan;
   replay: typeof api.replay;
   describeFlow: typeof api.describeFlow;
+  retryFlow: typeof api.retryFlow;
   repairFlow: typeof api.repairFlow;
 }
 
@@ -356,6 +357,27 @@ export const describeFlow: Engine["describeFlow"] = async (target, description, 
   return { flow, explanation: `Recorded ${flow.steps.length} steps by doing it on the site.` };
 };
 
+export const retryFlow: Engine["retryFlow"] = async (target, _plan, item, options, sink) => {
+  const p = new Pacer(options.artifactsDir, sink);
+  await p.log(`Recording “${item.name}” again${options.hint ? ` with the hint: ${options.hint}` : ""}`);
+  await p.beat(2);
+  await p.frame(target.url);
+  if (!options.hint) return { item: { ...item, outcome: "failed", cause: "unsure", note: "it still couldn't find where to start" } };
+  const flow: Flow = {
+    id: newId("flow"),
+    name: item.name,
+    origin: "discovered",
+    startUrl: new URL(item.startPath, target.url).toString(),
+    params: [],
+    steps: [
+      { kind: "click", target: { role: "button", name: "Connect wallet" }, optional: true },
+      { kind: "click", target: { role: "button", name: "MetaMask", withinDialog: true }, optional: true },
+      { kind: "expect", assert: { type: "visible", text: "Done" }, note: options.hint },
+    ],
+  };
+  return { flow, item: { ...item, outcome: "recorded", note: undefined, cause: undefined, flowId: flow.id } };
+};
+
 export const repairFlow: Engine["repairFlow"] = async (target, flow, failed, options, sink) => {
   const p = new Pacer(options.artifactsDir, sink);
   const index = missingStepIndex(flow);
@@ -369,6 +391,6 @@ export const repairFlow: Engine["repairFlow"] = async (target, flow, failed, opt
   };
 };
 
-export const fakeEngine: Engine = { scan, replay, describeFlow, repairFlow };
+export const fakeEngine: Engine = { scan, replay, describeFlow, retryFlow, repairFlow };
 
 export { loadEngine } from "./select.js";

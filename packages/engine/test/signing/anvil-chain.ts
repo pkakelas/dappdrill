@@ -108,6 +108,12 @@ export class AnvilChain implements ChainController {
   async revert(chainId: number, id: string) { await this.request(chainId, "evm_revert", [id]); }
   async impersonate(chainId: number, address: Address) { await this.request(chainId, "anvil_impersonateAccount", [address]); }
   setFaults(): void {}
+  async addFromApp(): Promise<never> {
+    throw new Error("this test chain can't add chains");
+  }
+  missing() {
+    return [];
+  }
 
   async close(): Promise<void> {
     if (this.proc.exitCode === null) {

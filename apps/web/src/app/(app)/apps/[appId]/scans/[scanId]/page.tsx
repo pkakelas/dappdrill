@@ -1,6 +1,6 @@
-import { describeBlock, stallReasons } from "@dappdrill/core";
-import { db, scanEvents, scans } from "@dappdrill/db";
-import { and, asc, eq } from "drizzle-orm";
+import { describeBlock, missesChain, stallReasons } from "@dappdrill/core";
+import { db, flowChanges, scanEvents, scans } from "@dappdrill/db";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,6 +8,8 @@ import { makePanelHref } from "@/components/report/ctx";
 import { ResultPanel } from "@/components/report/panels";
 import { headline, ReportBody } from "@/components/report/report-body";
 import { ShareControl } from "@/components/report/share-control";
+import { AutoRefresh } from "@/components/auto-refresh";
+import { Coverage } from "@/components/scan/coverage";
 import { LiveView } from "@/components/scan/live-view";
 import { shortDate, minutesBetween, hostFromUrl, plural } from "@/lib/format";
 import type { LiveEvent, ScanSnapshot } from "@/lib/live";
@@ -62,7 +64,16 @@ export default async function ScanPage({ params, searchParams }: Props) {
     );
   }
 
-  const [results, repo, panelData] = await Promise.all([loadResults({ scanId: scan.id }), githubRepo(app.teamId), loadPanel(app.id, panel)]);
+  const [results, repo, panelData, retries] = await Promise.all([
+    loadResults({ scanId: scan.id }),
+    githubRepo(app.teamId),
+    loadPanel(app.id, panel),
+    db()
+      .select({ planItem: flowChanges.planItem })
+      .from(flowChanges)
+      .where(and(eq(flowChanges.scanId, scan.id), inArray(flowChanges.status, ["queued", "running"]))),
+  ]);
+  const retrying = new Set(retries.flatMap((r) => (r.planItem ? [r.planItem] : [])));
   const ctx = { appId: app.id, panelHref: makePanelHref(path, { cat }), readOnly: false, githubRepo: repo };
   const s = summarize(results);
 
@@ -106,7 +117,25 @@ export default async function ScanPage({ params, searchParams }: Props) {
         </div>
       )}
 
-      {scan.stalled && (
+      {scan.stalled && missesChain(scan.stalled) && (
+        <div role="note" className="flex flex-col gap-1.5 rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn-ink">
+          <strong className="font-semibold">Your app needs a chain the test wallet couldn&apos;t use, so exploring stopped there.</strong>
+          <ul className="m-0 flex flex-col gap-1 pl-5">
+            {stallReasons(scan.stalled).map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+          <span>
+            Add the chain with an RPC that answers for it in{" "}
+            <Link href={`/new?app=${app.id}`} className="underline">
+              scan settings
+            </Link>
+            , then scan again.
+          </span>
+        </div>
+      )}
+
+      {scan.stalled && !missesChain(scan.stalled) && (
         <div role="note" className="flex flex-col gap-1.5 rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn-ink">
           <strong className="font-semibold">Your app&apos;s data didn&apos;t load on the test chain, so there was nothing to test.</strong>
           <ul className="m-0 flex flex-col gap-1 pl-5">
@@ -126,6 +155,9 @@ export default async function ScanPage({ params, searchParams }: Props) {
           </span>
         </div>
       )}
+
+      {scan.plan && <Coverage appId={app.id} scanId={scan.id} plan={scan.plan} retrying={retrying} skipped={new Set(app.settings.skipFlows ?? [])} />}
+      {retrying.size > 0 && <AutoRefresh every={5000} />}
 
       <ReportBody results={results} ctx={ctx} cat={cat} filterHref={(c) => makePanelHref(path, { cat: c === "all" ? undefined : c })(null)} />
       {panelData && <ResultPanel data={panelData} ctx={ctx} />}

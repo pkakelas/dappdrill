@@ -113,5 +113,11 @@ export class FakeChain implements ChainController {
   revert(): Promise<void> { return Promise.reject(new Error("live mode")); }
   impersonate(_chainId: number, _address: Address): Promise<void> { return Promise.reject(new Error("live mode")); }
   setFaults(): void {}
+  async addFromApp(): Promise<never> {
+    throw new Error("this test chain can't add chains");
+  }
+  missing() {
+    return [];
+  }
   async close(): Promise<void> {}
 }

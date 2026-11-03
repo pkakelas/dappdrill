@@ -4,7 +4,10 @@ import type { AgentTool, AgentToolResult } from "../types.js";
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
+/** Plans, reviews and repairs. */
 export const DEFAULT_MODEL = "claude-opus-5-5";
+/** Clicks through flows a plan already describes. */
+export const DEFAULT_ACT_MODEL = "claude-sonnet-5-5";
 
 export type LlmErrorCode = "refusal" | "max_tokens" | "max_turns" | "aborted" | "invalid_output" | "api";
 

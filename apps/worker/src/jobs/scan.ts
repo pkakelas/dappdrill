@@ -7,7 +7,7 @@ import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
 import { notifyAfter } from "../notify/index.js";
 import { Persister } from "../persist.js";
-import { buildTarget, loadApp, loadBaselines, loadKnownFlows } from "../target.js";
+import { buildTarget, learnedChains, loadApp, loadBaselines, loadKnownFlows } from "../target.js";
 import { serialSink } from "./sink.js";
 
 type ScanRow = typeof scans.$inferSelect;
@@ -68,6 +68,8 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
         return void (await update({ blocked: event.blocked }));
       case "stalled":
         return void (await update({ stalled: event.stalled }));
+      case "plan":
+        return void (await update({ plan: event.plan }));
       case "wallet-request":
         if (!event.request.from || walletSet) return;
         walletSet = true;
@@ -94,11 +96,13 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
   let report: ScanReport | undefined;
   try {
     report = await engine.scan(
-      await buildTarget(db, app, scan.settings),
+      { ...(await buildTarget(db, app, scan.settings)), learnedChains: await learnedChains(db, app) },
       {
         artifactsDir: artifactsDir("scans", scanId),
         maxFlows: scan.settings.maxFlows,
+        depth: scan.settings.depth,
         hints: scan.settings.hints,
+        skipFlows: scan.settings.skipFlows,
         baselines: await loadBaselines(db, app.id),
         knownFlows: await loadKnownFlows(db, app.id),
       },

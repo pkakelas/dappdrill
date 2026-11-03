@@ -19,12 +19,14 @@ afterAll(async () => {
 
 describe.skipIf(!process.env.DAPPDRILL_LIVE)("explore (live model)", () => {
   it("connects, deposits and records replayable flows", async () => {
-    const llm = createLlm();
-    const result = await explore(s, llm, { maxFlows: 2, maxMinutes: 6, maxTurns: 40 });
+    const think = createLlm();
+    const act = createLlm({ role: "act" });
+    const result = await explore(s, { think, act }, { maxFlows: 2, maxMinutes: 6, depth: 1 });
     console.log("summary:", result.summary);
+    console.log("persona:", result.persona);
     console.log("pages:", result.pages);
     console.log("flows:", JSON.stringify(result.flows, null, 2));
-    console.log("cost USD:", llm.costUsd().toFixed(3));
+    console.log("cost USD:", (think.costUsd() + act.costUsd()).toFixed(3));
 
     expect(result.blocked).toBeUndefined();
     expect(result.flows.length).toBeGreaterThanOrEqual(1);

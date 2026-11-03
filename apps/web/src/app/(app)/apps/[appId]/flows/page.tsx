@@ -1,5 +1,5 @@
 import { apiTokens, db, flowChanges, flows, repairs, scans, variations } from "@dappdrill/db";
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { runAllAction } from "@/actions/flows";
@@ -30,7 +30,7 @@ export default async function FlowsPage({ params, searchParams }: Props) {
     recentStatuses(ids),
     lastRuns(ids),
     ids.length ? db().select().from(repairs).where(and(inArray(repairs.flowId, ids), eq(repairs.status, "open"))).orderBy(desc(repairs.createdAt)) : [],
-    db().select().from(flowChanges).where(and(eq(flowChanges.appId, app.id), isNull(flowChanges.flowId), isNull(flowChanges.resolution))).orderBy(desc(flowChanges.createdAt)),
+    db().select().from(flowChanges).where(and(eq(flowChanges.appId, app.id), isNull(flowChanges.flowId), isNull(flowChanges.resolution), ne(flowChanges.kind, "retry"))).orderBy(desc(flowChanges.createdAt)),
     scanIds.length ? db().select({ id: scans.id, number: scans.number }).from(scans).where(inArray(scans.id, scanIds)) : [],
     ids.length ? db().select({ flowId: variations.flowId, n: count() }).from(variations).where(inArray(variations.flowId, ids)).groupBy(variations.flowId) : [],
     db().select({ lastUsedAt: apiTokens.lastUsedAt }).from(apiTokens).where(eq(apiTokens.appId, app.id)),

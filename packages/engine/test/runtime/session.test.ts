@@ -9,7 +9,7 @@ import { createSession, type EngineSession } from "../../src/browser/session.js"
 import { readBalance } from "../../src/chain/deal-erc20.js";
 import { rpcCall } from "../../src/chain/rpc.js";
 import { providerChain } from "../../src/browser/rpc-route.js";
-import { ACCOUNTS, CHAIN_ID, startFixture, type Fixture } from "./fixture.js";
+import { ACCOUNTS, CHAIN_ID, startBareChain, startFixture, type Fixture } from "./fixture.js";
 
 let fx: Fixture;
 let chains: ChainController;
@@ -308,6 +308,35 @@ describe("session", () => {
       expect(res.unauthorized).toBe(4100);
     } finally {
       await session.close();
+    }
+  }, 60_000);
+
+  it("adds a chain the app asks for when its RPC answers as that chain, and rejects one it can't start", async () => {
+    const other = await startBareChain(4242);
+    const own = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], {});
+    const url = fx.pageUrl();
+    const session = await createSession(target(url), own, { artifactsDir, sink: () => {}, video: false });
+    try {
+      await session.page.goto(url);
+      const res = await session.page.evaluate(async (rpc) => {
+        const eth = (window as any).ethereum;
+        const add = (chainId: string, rpcUrls: string[]) =>
+          eth.request({ method: "wallet_addEthereumChain", params: [{ chainId, chainName: "Other", rpcUrls, nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 } }] });
+        const out: any = { added: await add("0x1092", [rpc]), chainId: await eth.request({ method: "eth_chainId" }) };
+        try {
+          await add("0x10f7", [rpc]);
+        } catch (e: any) {
+          out.refused = e.code;
+        }
+        return out;
+      }, other.rpcUrl);
+      expect(res).toEqual({ added: null, chainId: "0x1092", refused: 4001 });
+      expect(own.has(4242)).toBe(true);
+      expect(own.missing().map((m) => m.chainId)).toEqual([4343]);
+    } finally {
+      await session.close();
+      await own.close();
+      await other.close();
     }
   }, 60_000);
 

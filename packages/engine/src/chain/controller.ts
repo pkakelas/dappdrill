@@ -1,9 +1,9 @@
 import { createPublicClient, http, type PublicClient } from "viem";
-import { MAINNET_CHAIN_IDS, chainName, type ChainConfig } from "@dappdrill/core";
-import type { ChainController, Hex } from "../types.js";
+import { MAINNET_CHAIN_IDS, chainInfo, chainName, type ChainConfig, type MissingChain } from "@dappdrill/core";
+import type { AddChainRequest, ChainController, Hex } from "../types.js";
 import { startAnvilFork, type AnvilFork } from "./anvil.js";
 import { dealErc20 as dealErc20Impl } from "./deal-erc20.js";
-import { JsonRpcError, rpcCall, sleep, toHex } from "./rpc.js";
+import { JsonRpcError, probeChainId, rpcCall, sleep, toHex } from "./rpc.js";
 
 export interface StartChainsOptions {
   /** Funded key for live-mode chains. Without it, live chains are read-only. */
@@ -17,6 +17,8 @@ export interface StartChainsOptions {
    */
   heartbeatMs?: number;
   log?: (message: string) => void;
+  /** Called once a chain the app asked for is running, before the wallet answers the app (fund it, report it). */
+  onAdded?: (config: ChainConfig) => Promise<void>;
 }
 
 interface Entry {
@@ -44,12 +46,31 @@ export async function startChains(configs: ChainConfig[], opts: StartChainsOptio
   for (const c of configs) {
     if (ids.has(c.id)) throw new Error(`chain ${c.id} is configured twice`);
     ids.add(c.id);
-    if (c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id) && !opts.allowMainnetLive) {
-      throw new Error(`${chainName(c.id)} (chain ${c.id}) holds real money; live mode on it needs allowMainnetLive`);
-    }
+    refuseMainnetLive(c, opts);
   }
   const entries = await Promise.all(configs.map((c) => startEntry(c, opts)));
   return new Controller(entries, opts);
+}
+
+function refuseMainnetLive(c: ChainConfig, opts: StartChainsOptions): void {
+  if (c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id) && !opts.allowMainnetLive) {
+    throw new Error(`${chainName(c.id)} (chain ${c.id}) holds real money; live mode on it needs allowMainnetLive`);
+  }
+}
+
+/**
+ * The config for a chain the app asked to add. A chain we know uses our RPC;
+ * otherwise the first RPC the app offered that answers as that chain.
+ */
+async function configForApp(req: AddChainRequest): Promise<ChainConfig> {
+  const info = chainInfo(req.id);
+  if (info) return { id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: info.forkable ? "fork" : "live", fromApp: true };
+  const offered = req.rpcUrls.filter((u) => /^https?:\/\//i.test(u));
+  if (offered.length === 0) throw new Error("the app gave no RPC URL for it");
+  for (const url of offered.slice(0, 3)) {
+    if ((await probeChainId(url)) === req.id) return { id: req.id, name: req.name, rpcUrl: url, mode: "fork", fromApp: true };
+  }
+  throw new Error(`${offered[0]} didn't answer as chain ${req.id}`);
 }
 
 async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promise<Entry> {
@@ -93,13 +114,61 @@ class Controller implements ChainController {
   private closed = false;
   private readonly automineOff = new Set<number>();
   private heartbeat?: NodeJS.Timeout;
+  private readonly adding = new Map<number, Promise<ChainConfig>>();
+  private readonly missingChains = new Map<number, MissingChain>();
 
   constructor(entries: Entry[], private readonly opts: StartChainsOptions) {
     for (const e of entries) this.entries.set(e.config.id, e);
-    if (opts.heartbeatMs && entries.some((e) => e.mode === "fork")) {
-      this.heartbeat = setInterval(() => void this.beat(), opts.heartbeatMs);
-      this.heartbeat.unref();
+    this.startHeartbeat();
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeat || !this.opts.heartbeatMs || ![...this.entries.values()].some((e) => e.mode === "fork")) return;
+    this.heartbeat = setInterval(() => void this.beat(), this.opts.heartbeatMs);
+    this.heartbeat.unref();
+  }
+
+  addFromApp(req: AddChainRequest): Promise<ChainConfig> {
+    const running = this.entries.get(req.id);
+    if (running) return Promise.resolve({ ...running.config });
+    // The app often asks twice in a row (switch fails, add, retry); start the chain once.
+    let p = this.adding.get(req.id);
+    if (!p) {
+      p = this.startFromApp(req).finally(() => this.adding.delete(req.id));
+      this.adding.set(req.id, p);
     }
+    return p;
+  }
+
+  private async startFromApp(req: AddChainRequest): Promise<ChainConfig> {
+    let entry: Entry;
+    try {
+      const config = await configForApp(req);
+      refuseMainnetLive(config, this.opts);
+      entry = await startEntry(config, this.opts);
+      if (this.closed) {
+        await entry.fork?.close();
+        throw new Error("the run had already ended");
+      }
+    } catch (err) {
+      const reason = (err as Error).message.split("\n")[0]!;
+      const rpcUrl = req.rpcUrls.find((u) => /^https?:\/\//i.test(u));
+      this.missingChains.set(req.id, { chainId: req.id, name: req.name ?? chainInfo(req.id)?.name, rpcUrl, reason });
+      throw err;
+    }
+    this.entries.set(req.id, entry);
+    this.missingChains.delete(req.id);
+    this.startHeartbeat();
+    try {
+      await this.opts.onAdded?.({ ...entry.config });
+    } catch (err) {
+      this.opts.log?.(`chain ${req.id}: setting up the added chain failed: ${(err as Error).message}`);
+    }
+    return { ...entry.config };
+  }
+
+  missing(): MissingChain[] {
+    return [...this.missingChains.values()];
   }
 
   /** One empty block per fork, stamped with the wall clock. Skipped while a test holds transactions pending. */

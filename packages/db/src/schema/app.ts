@@ -7,6 +7,7 @@ import type {
   EdgeCaseId,
   Flow,
   FlowRun,
+  ScanPlan,
   Issue,
   IssueCategory,
   RunStatus,
@@ -110,6 +111,10 @@ export interface AppSettings {
   hints?: string;
   allowMainnetLive?: boolean;
   maxFlows?: number;
+  /** 1 happy paths only, 2 also variants, 3 also unusual cases. */
+  depth?: 1 | 2 | 3;
+  /** Planned flows the user chose not to test, by name; the explorer leaves them out. */
+  skipFlows?: string[];
   /** localStorage set on the app's origin before it loads (a fork mode, a feature flag). */
   storage?: Record<string, string>;
   /** Requests answered with a fixed body (a version check, a backend that disagrees with the fork). */
@@ -198,6 +203,8 @@ export const scans = pgTable(
     blocked: jsonb("blocked").$type<Blocked>(),
     /** Why a scan with no flows had nothing to test: what the app's data was waiting on. */
     stalled: jsonb("stalled").$type<Stalled>(),
+    /** What the explorer planned to test and what became of each flow. */
+    plan: jsonb("plan").$type<ScanPlan>(),
     error: text("error"),
     stopRequested: boolean("stop_requested").notNull().default(false),
     startedAt: ts("started_at"),
@@ -265,8 +272,12 @@ export const flowChanges = pgTable("flow_changes", {
   appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
   /** Null when the change creates a new flow. */
   flowId: text("flow_id").references(() => flows.id, { onDelete: "cascade" }),
-  kind: text("kind").$type<"describe" | "record">().notNull(),
+  /** retry: record a flow a scan planned but couldn't, with the person's hint in `prompt`. */
+  kind: text("kind").$type<"describe" | "record" | "retry">().notNull(),
   prompt: text("prompt").notNull(),
+  /** For a retry: the scan and the name of its planned flow. */
+  scanId: text("scan_id").references(() => scans.id, { onDelete: "cascade" }),
+  planItem: text("plan_item"),
   status: text("status").$type<JobStatus>().notNull().default("queued"),
   proposed: jsonb("proposed").$type<Flow>(),
   explanation: text("explanation"),

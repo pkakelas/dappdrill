@@ -20,7 +20,7 @@ export interface DrillFlowOptions {
   artifactsDir: string;
   baselines: Record<string, SigningReview>;
   video?: boolean;
-  /** Use a cheap model to judge recovery and check vague signing labels (scans only; replays stay model-free). */
+  /** Use models to judge recovery (acting model) and check vague signing labels (thinking model); scans only, replays stay model-free. */
   model?: boolean;
   signal?: AbortSignal;
 }
@@ -29,12 +29,13 @@ const debug = (m: string) => {
   if (process.env.DAPPDRILL_DEBUG) console.error(`[engine] ${m}`);
 };
 
-/** Snapshot every fork; the returned function reverts to it. No-op on live chains. */
+/** Snapshot every fork; the returned function reverts to it (and resets forks the app added since). No-op on live chains. */
 export async function pin(env: Env): Promise<() => Promise<void>> {
   const snaps: [number, string][] = [];
   for (const c of env.chains.configs()) if (c.mode === "fork") snaps.push([c.id, await env.chains.snapshot(c.id)]);
   return async () => {
     for (const [id, snap] of snaps) await env.chains.revert(id, snap).catch(() => {});
+    await env.resetAddedChains(snaps.map(([id]) => id)).catch(() => {});
   };
 }
 
@@ -52,7 +53,7 @@ export function quietSession(env: Env, artifactsDir: string): Promise<EngineSess
 }
 
 /** Replays the flow's setup flows in `session`. Returns a plain error when one breaks. */
-export async function runSetup(session: EngineSession, flow: Flow, signal?: AbortSignal): Promise<string | undefined> {
+export async function runSetup(session: EngineSession, flow: Pick<Flow, "setup">, signal?: AbortSignal): Promise<string | undefined> {
   for (const s of flow.setup ?? []) {
     const r = await replayFlow(session, s, { signal, log: debug });
     if (!r.completed) return `Setup flow “${s.name}” didn't complete: ${r.error ?? "unknown error"}`;
@@ -129,7 +130,7 @@ export async function drillFlow(env: Env, flow: Flow, opts: DrillFlowOptions): P
       variation: opts.variation,
       reviewer: env.reviewer,
       judge: opts.model ? env.judge() : undefined,
-      reviewLlm: opts.model ? env.cheapLlm() : undefined,
+      reviewLlm: opts.model ? env.thinkLlm() : undefined,
       inbox: env.inbox,
       sink: env.sink,
       artifactsDir: opts.artifactsDir,

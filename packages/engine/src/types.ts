@@ -11,6 +11,7 @@ import type {
   ConsoleEntry,
   DrillEventSink,
   DrillTarget,
+  MissingChain,
   RpcLogEntry,
   SigningReview,
   WalletExpectation,
@@ -21,6 +22,13 @@ import type {
 export type Hex = `0x${string}`;
 
 // ---------------------------------------------------------------- chains
+
+/** What the app passed to wallet_addEthereumChain. */
+export interface AddChainRequest {
+  id: number;
+  name?: string;
+  rpcUrls: string[];
+}
 
 export interface ChainController {
   /** Chains in use, with pinned fork blocks filled in. */
@@ -45,6 +53,15 @@ export interface ChainController {
 
   /** Faults applied to every RPC call (page and wallet) until cleared. */
   setFaults(faults: { latencyMs?: number; failureRate?: number }): void;
+
+  /**
+   * Start a chain the app asked the wallet to add mid-run: forked when it can be,
+   * else live (never live on mainnet without allowMainnetLive). Throws with the
+   * reason when it can't, and remembers that chain in missing().
+   */
+  addFromApp(request: AddChainRequest): Promise<ChainConfig>;
+  /** Chains the app asked for that addFromApp couldn't start. */
+  missing(): MissingChain[];
 
   close(): Promise<void>;
 }

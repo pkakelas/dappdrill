@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 import { hostOf } from "@/lib/domains";
-import { startScan } from "@/lib/launch";
+import { startRetry, startScan } from "@/lib/launch";
 import { PLANS, scanAllowance } from "@/lib/plan";
 import { currentTeam, requireApp } from "@/lib/session";
 
@@ -184,4 +184,33 @@ export async function stopScanAction(scanId: string): Promise<void> {
   if (!scan) return;
   await requireApp(scan.appId);
   await db().update(scans).set({ stopRequested: true }).where(eq(scans.id, id));
+}
+
+const PlanRef = z.object({ scanId: z.string().min(1), name: z.string().min(1).max(200) });
+
+async function plannedFlow(form: FormData) {
+  const { scanId, name } = PlanRef.parse({ scanId: form.get("scanId"), name: form.get("name") });
+  const [scan] = await db().select({ appId: scans.appId, plan: scans.plan }).from(scans).where(eq(scans.id, scanId));
+  if (!scan?.plan?.items.some((i) => i.name === name)) throw new Error("Planned flow not found");
+  const { app, user } = await requireApp(scan.appId);
+  return { app, user, scanId, name };
+}
+
+/** Records a planned flow again; the hint is optional. */
+export async function retryPlannedAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const { app, user, scanId, name } = await plannedFlow(form);
+  const hint = String(form.get("hint") ?? "").trim().slice(0, 1000);
+  await startRetry(app.id, scanId, name, hint, user.id);
+  revalidatePath(`/apps/${app.id}/scans/${scanId}`);
+  return { ok: "Trying again." };
+}
+
+/** Leaves a planned flow out of future scans, or brings it back. */
+export async function skipPlannedAction(form: FormData): Promise<void> {
+  const { app, scanId, name } = await plannedFlow(form);
+  const skip = new Set(app.settings.skipFlows ?? []);
+  if (form.get("undo") === "1") skip.delete(name);
+  else skip.add(name);
+  await db().update(apps).set({ settings: { ...app.settings, skipFlows: [...skip] } }).where(eq(apps.id, app.id));
+  revalidatePath(`/apps/${app.id}/scans/${scanId}`);
 }

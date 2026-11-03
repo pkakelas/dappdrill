@@ -51,6 +51,17 @@ const DECIMALS_ABI = [{ type: "function", name: "decimals", stateMutability: "vi
 const DEFAULT_POLICY: WalletPolicy = { autoConnect: true, autoSwitch: true, unknownChainOnce: false, autoSign: false };
 const PASSTHROUGH_CAP = 40;
 
+/** 100 ETH and the requested ERC-20 balances for each address, on one fork. */
+export async function fundOnFork(chains: ChainController, chainId: number, addresses: Hex[], tokens: DrillTarget["tokens"] = []): Promise<void> {
+  for (const a of addresses) await chains.setBalance(chainId, a, 100n * 10n ** 18n);
+  for (const t of tokens.filter((t) => t.chainId === chainId)) {
+    const token = t.address as Hex;
+    const decimals = await chains.client(chainId).readContract({ address: token, abi: DECIMALS_ABI, functionName: "decimals" });
+    const amount = parseUnits(t.amount, decimals);
+    for (const a of addresses) await chains.dealErc20(chainId, token, a, amount);
+  }
+}
+
 export class Wallet implements WalletController {
   readonly profile: WalletProfileId;
   readonly accounts: { A: Hex; B: Hex };
@@ -95,16 +106,7 @@ export class Wallet implements WalletController {
   /** Give both accounts 100 ETH, and the requested ERC-20 balances, on every fork. */
   async fundOnForks(tokens: DrillTarget["tokens"] = []): Promise<void> {
     for (const c of this.chains.configs()) {
-      if (c.mode !== "fork") continue;
-      await this.chains.setBalance(c.id, this.accounts.A, 100n * 10n ** 18n);
-      await this.chains.setBalance(c.id, this.accounts.B, 100n * 10n ** 18n);
-      for (const t of tokens.filter((t) => t.chainId === c.id)) {
-        const token = t.address as Hex;
-        const decimals = await this.chains.client(c.id).readContract({ address: token, abi: DECIMALS_ABI, functionName: "decimals" });
-        const amount = parseUnits(t.amount, decimals);
-        await this.chains.dealErc20(c.id, token, this.accounts.A, amount);
-        await this.chains.dealErc20(c.id, token, this.accounts.B, amount);
-      }
+      if (c.mode === "fork") await fundOnFork(this.chains, c.id, [this.accounts.A, this.accounts.B], tokens);
     }
   }
 
@@ -312,7 +314,18 @@ export class Wallet implements WalletController {
       }
       case "wallet_addEthereumChain": {
         const target = chainIdParam(params[0]);
-        if (!this.chains.has(target)) throw WalletErrors.userRejected();
+        if (!this.chains.has(target)) {
+          // Approve it as a user would: the run starts the chain (often one detection
+          // couldn't see from the landing page) and later runs start with it.
+          const p = (params[0] ?? {}) as { chainName?: unknown; rpcUrls?: unknown };
+          const rpcUrls = Array.isArray(p.rpcUrls) ? p.rpcUrls.filter((u): u is string => typeof u === "string") : [];
+          try {
+            await this.chains.addFromApp({ id: target, name: typeof p.chainName === "string" ? p.chainName : undefined, rpcUrls });
+          } catch (e) {
+            this.log(`wallet: can't add chain ${target}: ${(e as Error).message}`);
+            throw WalletErrors.userRejected();
+          }
+        }
         if (target === this.chain) return { result: null };
         this.chain = target;
         return { result: null, emit: [{ event: "chainChanged", args: toHex(target) }] };

@@ -81,6 +81,15 @@ export async function startFixture(): Promise<Fixture> {
   };
 }
 
+/** An empty Anvil chain with its own chain id: a chain the app asks the wallet to add. */
+export async function startBareChain(chainId: number): Promise<{ rpcUrl: string; close(): Promise<void> }> {
+  const port = await freePort();
+  const rpcUrl = `http://127.0.0.1:${port}`;
+  const anvil = spawn("anvil", ["--port", String(port), "--chain-id", String(chainId), "--silent"], { stdio: "ignore" });
+  await waitFor(rpcUrl);
+  return { rpcUrl, close: () => stopProcess(anvil) };
+}
+
 async function waitFor(url: string): Promise<void> {
   for (let i = 0; i < 100; i++) {
     try {
