@@ -15,6 +15,8 @@ export interface ExploreOptions {
   maxMinutes: number;
   /** Free-text hints from the user ("the swap page is under /trade"). */
   hints?: string;
+  /** Flows saved by earlier scans; recording one again under its name keeps its id. */
+  knownFlows?: { id: string; name: string }[];
   signal?: AbortSignal;
   inbox?: Inbox;
   onFlow?: (flow: Flow) => void;
@@ -145,7 +147,9 @@ export async function explore(session: DrillSession, llm: Llm, opts: ExploreOpti
         }
         const rec = recorder.end()!;
         if (rec.steps.filter((s) => s.kind !== "expect").length === 0) return "The flow has no actions; discarded.";
-        const flow: Flow = { id: newId("flow"), name: name?.trim() || rec.name, origin: "discovered", startUrl: rec.startUrl, params: rec.params, steps: rec.steps, chainId: rec.chainId };
+        const flowName = name?.trim() || rec.name;
+        const known = opts.knownFlows?.find((k) => k.name.toLowerCase() === flowName.toLowerCase() && !flows.some((f) => f.id === k.id));
+        const flow: Flow = { id: known?.id ?? newId("flow"), name: flowName, origin: "discovered", startUrl: rec.startUrl, params: rec.params, steps: rec.steps, chainId: rec.chainId };
         flows.push(flow);
         opts.onFlow?.(flow);
         await session.emit({ type: "flow", flow });
@@ -164,6 +168,9 @@ export async function explore(session: DrillSession, llm: Llm, opts: ExploreOpti
       ? "This chain is a live testnet, not a fork: state persists between runs and replays, so the end_flow success text must not contain balances or amounts that change (prefer \"Order placed\" over \"$10,000.00\")."
       : "",
     opts.hints ? `Hints from the user: ${opts.hints}` : "",
+    opts.knownFlows?.length
+      ? `Flows saved by earlier scans: ${opts.knownFlows.map((f) => `"${f.name}"`).join(", ")}. Record each one again under exactly that name (the app may have changed), then look for new ones.`
+      : "",
     "Start by calling look.",
   ].filter(Boolean).join("\n");
 

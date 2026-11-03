@@ -87,6 +87,20 @@ describe("explore with a scripted model", () => {
     expect(events).toContain("cost");
   });
 
+  it("records the wallet's address as {{account}} and keeps the id of a flow an earlier scan saved", async () => {
+    await s.page.goto(`${s.baseUrl}/`);
+    const llm = scriptedLlm([
+      { tool: "start_flow", input: { name: "Connect wallet" } },
+      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "Connect wallet") } }),
+      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "MetaMask") } }),
+      () => ({ tool: "end_flow", input: { success: true, successText: `Connected: ${s.wallet.address().slice(0, 6)}…${s.wallet.address().slice(-4)}` } }),
+    ]);
+    const result = await explore(s, llm, { maxFlows: 1, maxMinutes: 1, knownFlows: [{ id: "flow_saved", name: "connect wallet" }] });
+    expect(llm.results.at(-1)).toMatch(/Saved "Connect wallet"/);
+    expect(result.flows[0]?.id).toBe("flow_saved");
+    expect(result.flows[0]?.steps.at(-1)).toEqual({ kind: "expect", assert: { type: "visible", text: "Connected: {{account-head}}…{{account-tail}}" } });
+  });
+
   it("stops at a bot check without touching it", async () => {
     await s.page.setContent(`<title>Just a moment...</title><h1>Checking your browser</h1><button>Verify you are human</button>`);
     const llm = scriptedLlm([

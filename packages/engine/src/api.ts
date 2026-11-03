@@ -72,6 +72,7 @@ export async function scan(
         maxFlows: opts.maxFlows,
         maxMinutes: opts.maxMinutes * EXPLORE_SHARE,
         hints: opts.hints,
+        knownFlows: opts.knownFlows,
         signal,
         inbox: env.inbox,
       });
@@ -119,7 +120,7 @@ export async function scan(
         edgeCases: replayable.has(flow.id) ? edgeCases : ["happy"],
         artifactsDir: opts.artifactsDir,
         baselines: opts.baselines,
-        judge: true,
+        model: true,
         signal,
       });
       merge(result, r, env);

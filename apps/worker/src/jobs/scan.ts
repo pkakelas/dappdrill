@@ -7,7 +7,7 @@ import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
 import { notifyAfter } from "../notify/index.js";
 import { Persister } from "../persist.js";
-import { buildTarget, loadApp, loadBaselines } from "../target.js";
+import { buildTarget, loadApp, loadBaselines, loadKnownFlows } from "../target.js";
 import { serialSink } from "./sink.js";
 
 type ScanRow = typeof scans.$inferSelect;
@@ -96,6 +96,7 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
         maxFlows: scan.settings.maxFlows,
         hints: scan.settings.hints,
         baselines: await loadBaselines(db, app.id),
+        knownFlows: await loadKnownFlows(db, app.id),
       },
       sink,
       abort,

@@ -28,6 +28,8 @@ export const ScanOptions = z.object({
   maxFlows: z.number().int().default(8),
   /** Extra plain-English hints for the explorer ("there's a referral flow at /invite"). */
   hints: z.string().optional(),
+  /** Flows saved by earlier scans: re-recording one under its name updates it instead of adding a copy. */
+  knownFlows: z.array(z.object({ id: z.string(), name: z.string() })).default([]),
   headless: z.boolean().default(true),
   /** Directory the engine writes videos, screenshots and traces into. */
   artifactsDir: z.string(),

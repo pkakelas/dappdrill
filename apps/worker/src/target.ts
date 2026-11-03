@@ -1,6 +1,6 @@
 import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { DrillTarget, type ChainConfig, type SigningReview } from "@dappdrill/core";
-import { decrypt, apps, scans, signingReviews, testWallets, type AppSettings, type Db } from "@dappdrill/db";
+import { decrypt, apps, flows, scans, signingReviews, testWallets, type AppSettings, type Db } from "@dappdrill/db";
 
 export type AppRow = typeof apps.$inferSelect;
 
@@ -35,6 +35,15 @@ export async function loadBaselines(db: Db, appId: string): Promise<Record<strin
     .from(signingReviews)
     .where(and(eq(signingReviews.appId, appId), eq(signingReviews.isBaseline, true)));
   return Object.fromEntries(rows.map((r) => [r.fingerprint, r.data]));
+}
+
+/** The app's flows that earlier scans discovered, so a rescan updates them rather than adding copies. */
+export async function loadKnownFlows(db: Db, appId: string): Promise<{ id: string; name: string }[]> {
+  return db
+    .select({ id: flows.id, name: flows.name })
+    .from(flows)
+    .where(and(eq(flows.appId, appId), eq(flows.archived, false), sql`${flows.definition}->>'origin' = 'discovered'`))
+    .orderBy(flows.createdAt);
 }
 
 /**

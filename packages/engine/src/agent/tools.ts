@@ -66,11 +66,27 @@ export class Recorder {
     return this.active?.steps ?? [];
   }
 
-  /** Close the flow: amounts the user typed that showed up in a transaction become {{amount}}. */
+  /**
+   * Close the flow: amounts the user typed that showed up in a transaction
+   * become {{amount}}, and the wallet's address becomes {{account}} so the
+   * flow replays with any test account.
+   */
   end(): RecordedFlow | undefined {
     const a = this.active;
     if (!a) return undefined;
     this.active = undefined;
+    const addr = this.session.wallet.address();
+    const full = new RegExp(addr, "gi");
+    const short = new RegExp(`${addr.slice(0, 6)}(…|\\.\\.\\.)${addr.slice(-4)}`, "gi");
+    const generic = (s: string) => s.replace(full, "{{account}}").replace(short, "{{account-head}}$1{{account-tail}}");
+    for (const s of a.steps) {
+      if (s.kind === "fill") s.value = generic(s.value);
+      if (s.kind === "goto") s.url = generic(s.url);
+      if (s.kind === "wait" && s.text) s.text = generic(s.text);
+      if (s.kind !== "expect") continue;
+      if (s.assert.type === "url") s.assert.contains = generic(s.assert.contains);
+      else s.assert.text = generic(s.assert.text);
+    }
     const params: Flow["params"] = [];
     const amountStep = a.steps.find((s) => s.kind === "wallet" && s.expect?.amountMustEqual && !s.expect.amountMustEqual.includes("{{"));
     if (amountStep?.kind === "wallet" && amountStep.expect?.amountMustEqual) {
