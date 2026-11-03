@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Flow: Deposit USDC into vault</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FBFBFA}
+a{color:#17181C}a:hover{color:#4A4D55}
+</style>
+</head>
+<body>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #17181C; background: #FBFBFA; min-height: 1500px; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="Main" style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; padding: 24px 16px; background: #F3F3F0; border-right: 1px solid #E5E4DF; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px">
+<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="6" fill="#17181C"></rect><path d="M6 16c2.5-6 4-6 5 0s3 3 4-2 3-3 5 1" fill="none" stroke="#FBFBFA" stroke-width="1.6" stroke-linecap="round"></path></svg>
+<span style="font-weight: 600; font-size: 17px; letter-spacing: -0.01em">countersign</span>
+</div>
+<button type="button" style="all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: #FFFFFF; border: 1px solid #E5E4DF; border-radius: 8px">
+<span style="font-size: 13px; font-weight: 600">Harbor Vault</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5F6168">app.harborvault.xyz</span>
+</button>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<a href="Main.html" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid transparent; text-decoration: none; font-size: 14px; color: #3C3F46"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg>New scan</a>
+<a href="Report.html" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid transparent; text-decoration: none; font-size: 14px; color: #3C3F46"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h6"></path></svg>Reports</a>
+<a href="Flows.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: #FFFFFF; border: 1px solid #E5E4DF; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="4" cy="4" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><path d="M5.5 4H9a2 2 0 0 1 2 2v4.5"></path></svg>Flows</a>
+<a href="Signing.html" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid transparent; text-decoration: none; font-size: 14px; color: #3C3F46"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 12c2-5 3-5 4 0s2 2 3-1 2-2 3 0"></path></svg>Signing review</a>
+<a href="Account.html" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid transparent; text-decoration: none; font-size: 14px; color: #3C3F46"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2"></path></svg>Account</a>
+</div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 40px 48px 64px">
+<div style="max-width: 1160px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+<header style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; color: #5F6168"><a href="Flows.html" style="color: #5F6168; text-decoration: none">Flows</a>  /  Deposit USDC into vault</span>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.02em">Deposit USDC into vault</h1>
+<a href="Signing.html" style="font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: #FDECE7; color: #A1290F; text-decoration: none">Failed 2 h ago · signing changed</a>
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" style="all: unset; cursor: pointer; height: 44px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid #CFCEC8; border-radius: 8px; background: #FFFFFF; font-size: 14px; font-weight: 500"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="4" cy="3.5" r="1.6"></circle><circle cx="12" cy="3.5" r="1.6"></circle><circle cx="8" cy="12.5" r="1.6"></circle><path d="M4 5.1v1.4c0 1.4 1 2.2 2.4 2.2h3.2c1.4 0 2.4-.8 2.4-2.2V5.1M8 8.7v2.2"></path></svg>Fork</button>
+<button type="button" style="all: unset; cursor: pointer; height: 44px; padding: 0 18px; display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; background: #17181C; color: #FFFFFF; font-size: 14px; font-weight: 600"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" fill="currentColor"><path d="M4 2.5v9l7-4.5z"></path></svg>Run</button>
+</div>
+</div>
+<p style="margin: 0; font-size: 14px; color: #5F6168">7 steps · 3 signatures · 4 forks · found by scan #24, edited by you yesterday</p>
+</header>
+
+<div role="tablist" aria-label="Flow sections" style="display: flex; gap: 24px; border-bottom: 1px solid #E5E4DF">
+<button type="button" role="tab" aria-selected="true" style="all: unset; cursor: pointer; padding: 10px 0 12px; font-size: 14px; font-weight: 600; border-bottom: 2px solid #17181C; margin-bottom: -1px">Steps</button>
+<button type="button" role="tab" aria-selected="false" style="all: unset; cursor: pointer; padding: 10px 0 12px; font-size: 14px; color: #5F6168">Runs</button>
+<button type="button" role="tab" aria-selected="false" style="all: unset; cursor: pointer; padding: 10px 0 12px; font-size: 14px; color: #5F6168">Code</button>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+
+<div style="flex: 3 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+
+<ol aria-label="Steps" style="list-style: none; margin: 0; padding: 0; border: 1px solid #E5E4DF; border-radius: 12px; background: #FFFFFF">
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 20px; border-bottom: 1px solid #ECEBE6">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8B8E95; padding-top: 1px">01</span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px">Open <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px">/vaults/usdc</span></span><span style="font-size: 13px; color: #5F6168">Expect the vault's APY to be visible</span></div>
+<span></span>
+</li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 20px; border-bottom: 1px solid #ECEBE6">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8B8E95; padding-top: 1px">02</span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px">Connect the wallet</span><span style="font-size: 13px; color: #5F6168">Expect the connected address in the header</span></div>
+<span style="font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 6px; background: #F0EFEB; color: #3C3F46">Wallet</span>
+</li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 20px; border-bottom: 1px solid #ECEBE6">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8B8E95; padding-top: 1px">03</span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px">Type <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 2px 6px; border-radius: 4px; background: #EEF2FB; color: #1F3F9E">amount</span> into “Amount”</span></div>
+<span></span>
+</li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 20px; border-bottom: 1px solid #ECEBE6">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8B8E95; padding-top: 1px">04</span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px">Click “Approve <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 2px 6px; border-radius: 4px; background: #EEF2FB; color: #1F3F9E">amount</span> USDC”</span></div>
+<span></span>
+</li>
+<li style="display: flex; flex-direction: column; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #ECEBE6; background: #FAFAF8; box-shadow: inset 0 0 0 1px #17181C">
+<div style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #17181C; padding-top: 1px">05</span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 600">Wallet asks to approve USDC</span><span style="font-size: 13px; color: #5F6168">Editing the checks for this request</span></div>
+<span style="font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 6px; background: #F0EFEB; color: #3C3F46">Wallet</span>
+</div>
+<div style="margin-left: 42px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="spender" style="font-size: 12px; font-weight: 600">Spender must be</label><select id="spender" style="height: 44px; padding: 0 10px; border: 1px solid #CFCEC8; border-radius: 8px; background: #FFFFFF; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px"><option>HarborVault Router · 0x2b7e…09f1</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="amt" style="font-size: 12px; font-weight: 600">Amount must equal</label><select id="amt" style="height: 44px; padding: 0 10px; border: 1px solid #CFCEC8; border-radius: 8px; background: #FFFFFF; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px"><option>amount (from step 3)</option></select></div>
+<label style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 14px"><input type="checkbox" checked style="width: 16px; height: 16px; accent-color: #17181C">Fail if the approval is unlimited</label>
+<label style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 14px"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #17181C">Also accept a Permit2 signature instead</label>
+</div>
+<div style="margin-left: 42px; display: flex; gap: 8px">
+<button type="button" style="all: unset; cursor: pointer; height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; background: #17181C; color: #FFFFFF; font-size: 13px; font-weight: 600">Save step</button>
+<button type="button" style="all: unset; cursor: pointer; height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #CFCEC8; border-radius: 8px; background: #FFFFFF; font-size: 13px; font-weight: 500">Cancel</button>
+</div>
+</li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 20px; border-bottom: 1px solid #ECEBE6">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8B8E95; padding-top: 1px">06</span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px">Click “Deposit”</span></div>
+<span></span>
+</li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 20px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8B8E95; padding-top: 1px">07</span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px">Wallet asks to deposit</span><span style="font-size: 13px; color: #5F6168">Expect vault shares to go up and USDC to go down by <span style="font-family: 'IBM Plex Mono', monospace">amount</span></span></div>
+<span style="font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 6px; background: #F0EFEB; color: #3C3F46">Wallet</span>
+</li>
+</ol>
+
+<section aria-labelledby="change" style="display: flex; flex-direction: column; gap: 14px; padding: 22px; border: 1px solid #E5E4DF; border-radius: 12px; background: #FFFFFF">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+<h2 id="change" style="margin: 0; font-size: 16px; font-weight: 600">Change this flow</h2>
+<div role="tablist" aria-label="How to change it" style="display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #F0EFEB">
+<button type="button" role="tab" aria-selected="true" style="all: unset; cursor: pointer; padding: 8px 12px; border-radius: 7px; background: #FFFFFF; font-size: 13px; font-weight: 500; box-shadow: 0 1px 2px rgba(23,24,28,0.08)">Describe it</button>
+<button type="button" role="tab" aria-selected="false" style="all: unset; cursor: pointer; padding: 8px 12px; border-radius: 7px; font-size: 13px; color: #3C3F46">Record it</button>
+<button type="button" role="tab" aria-selected="false" style="all: unset; cursor: pointer; padding: 8px 12px; border-radius: 7px; font-size: 13px; color: #3C3F46">From the code</button>
+</div>
+</div>
+<label for="describe" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Describe the change</label>
+<textarea id="describe" rows="2" style="width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid #CFCEC8; border-radius: 8px; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 15px; line-height: 1.5; color: #17181C; resize: vertical">After depositing, check the share price didn't move by more than 0.1%</textarea>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 10px; background: #F5F7FD">
+<span style="font-size: 12px; font-weight: 600; color: #1F3F9E">Proposed change</span>
+<div style="font-size: 14px; line-height: 1.5"><span style="font-family: 'IBM Plex Mono', monospace; color: #1F3F9E">+ 08</span>  Read the share price before step 6 and after step 7. Expect a difference of at most 0.1%.</div>
+<div style="display: flex; gap: 8px">
+<button type="button" style="all: unset; cursor: pointer; height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; background: #17181C; color: #FFFFFF; font-size: 13px; font-weight: 600">Add step</button>
+<button type="button" style="all: unset; cursor: pointer; height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #CFCEC8; border-radius: 8px; background: #FFFFFF; font-size: 13px; font-weight: 500">Discard</button>
+</div>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.55; color: #5F6168"><strong style="font-weight: 600; color: #3C3F46">Record it:</strong> click through the app yourself in our browser; every click and signature becomes a step. <strong style="font-weight: 600; color: #3C3F46">From the code:</strong> keep flows as files in your repo; the GitHub Action syncs them both ways.</p>
+</section>
+</div>
+
+<aside style="flex: 2 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+<section aria-labelledby="params" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #E5E4DF; border-radius: 12px; background: #FFFFFF">
+<h2 id="params" style="margin: 0; font-size: 14px; font-weight: 600">Inputs</h2>
+<dl style="margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px 16px; font-size: 14px">
+<dt style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1F3F9E">amount</dt><dd style="margin: 0">250 USDC</dd>
+<dt style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1F3F9E">chain</dt><dd style="margin: 0">Base fork</dd>
+<dt style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1F3F9E">wallet</dt><dd style="margin: 0">Browser wallet, MetaMask-style</dd>
+<dt style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1F3F9E">account</dt><dd style="margin: 0">Test account A · 10,000 USDC</dd>
+</dl>
+<span style="font-size: 13px; color: #5F6168">Change an input to try a case once. Fork to keep both.</span>
+</section>
+
+<section aria-labelledby="forks" style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 id="forks" style="margin: 0; font-size: 14px; font-weight: 600">Forks</h2>
+<button type="button" style="all: unset; cursor: pointer; padding: 6px 2px; font-size: 13px; font-weight: 500">New fork</button>
+</div>
+<ul style="list-style: none; margin: 0; padding: 0; border: 1px solid #E5E4DF; border-radius: 12px; background: #FFFFFF">
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #ECEBE6"><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">With a Privy email wallet</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5F6168">wallet = privy · email</span></span><span style="font-size: 12px; font-weight: 500; color: #1B6B44">Passed</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #ECEBE6"><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">Whole balance</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5F6168">amount = balance</span></span><span style="font-size: 12px; font-weight: 500; color: #1B6B44">Passed</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #ECEBE6"><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">Dust amount</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5F6168">amount = 0.000001</span></span><span style="font-size: 12px; font-weight: 500; color: #A1290F">Failed · 0 shares</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px"><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">On Arbitrum</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5F6168">chain = arbitrum</span></span><span style="font-size: 12px; color: #5F6168">Not run yet</span></li>
+</ul>
+<span style="font-size: 13px; line-height: 1.5; color: #5F6168">Forks share this flow's steps. Change a shared step here and every fork gets it.</span>
+</section>
+
+<section aria-labelledby="wallets" style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="wallets" style="margin: 0; font-size: 14px; font-weight: 600">Across wallets</h2>
+<ul style="list-style: none; margin: 0; padding: 0; border: 1px solid #E5E4DF; border-radius: 12px; background: #FFFFFF; font-size: 14px">
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #ECEBE6"><span>MetaMask-style</span><span style="font-size: 12px; font-weight: 500; color: #A1290F">Signing changed</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #ECEBE6"><span>Rabby</span><span style="font-size: 12px; font-weight: 500; color: #A1290F">Signing changed</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #ECEBE6"><span>Coinbase Wallet</span><span style="font-size: 12px; font-weight: 500; color: #A1290F">Signing changed</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #ECEBE6"><span style="display: flex; flex-direction: column; gap: 2px"><span>Privy · email login</span><span style="font-size: 12px; color: #5F6168">Batches approve and deposit in one call</span></span><span style="font-size: 12px; font-weight: 500; color: #1B6B44">Passed</span></li>
+<li style="display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px"><span>WalletConnect</span><button type="button" style="all: unset; cursor: pointer; font-size: 12px; font-weight: 500; text-decoration: underline">Add</button></li>
+</ul>
+</section>
+</aside>
+</div>
+</div>
+</main>
+</div>
+</body>
+</html>

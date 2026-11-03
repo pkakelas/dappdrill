@@ -175,3 +175,20 @@ export interface Llm {
   /** Estimated spend so far, USD. */
   costUsd(): number;
 }
+
+// ---------------------------------------------------------------- edge-case judging
+
+/**
+ * Optional model check used after an edge case: did the app recover and tell
+ * the user what happened? Deterministic checks run first; this only adds a
+ * plain-language verdict. Implemented in agent/, consumed by replay/.
+ */
+export interface RecoveryJudge {
+  judge(input: {
+    edgeCase: string;
+    /** What a good app would do, e.g. "Show that the request was rejected and let the user try again". */
+    expected: string;
+    screenshot: ImageInput;
+    pageText: string;
+  }): Promise<{ ok: boolean; explanation: string }>;
+}
