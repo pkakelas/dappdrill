@@ -192,3 +192,12 @@ export interface RecoveryJudge {
     pageText: string;
   }): Promise<{ ok: boolean; explanation: string }>;
 }
+
+// ---------------------------------------------------------------- test inbox
+
+/** Disposable inbox for email-code logins (embedded wallets). Implemented in inbox/. */
+export interface Inbox {
+  readonly address: string;
+  /** Waits for an email that arrived after `sinceMs` and returns the login code (or magic link) in it. */
+  latestCode(opts: { sinceMs: number; timeoutMs: number }): Promise<string>;
+}
