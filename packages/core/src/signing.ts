@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WalletProfileId } from "./flow.js";
 
 /** A request the dApp sent to the wallet. */
 export const WalletRequest = z.object({
@@ -7,6 +8,8 @@ export const WalletRequest = z.object({
   params: z.unknown(),
   chainId: z.number().int(),
   from: z.string().optional(),
+  /** The injected wallet the dApp sent it to (matters when two are installed). */
+  wallet: WalletProfileId.optional(),
   /** connect: eth_requestAccounts etc.; switch: chain changes; sign: anything that needs a signature. */
   kind: z.enum(["connect", "switch", "sign", "other"]),
   at: z.string(),

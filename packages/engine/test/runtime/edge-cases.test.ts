@@ -113,6 +113,7 @@ describe("runEdgeCases", () => {
   it("finds a dApp that talks to the wrong wallet when two are installed", async () => {
     const r = await matrix(["wrongprovider"], ["two-wallets"]);
     expect(titles(r.issues)).toEqual(["high: With two wallets installed, the dApp talks to Rabby instead of MetaMask"]);
+    expect(r.issues[0]?.actual).toMatch(/^Rabby got eth_requestAccounts/);
   }, 180_000);
 
   it("finds needless approvals, lost pending transactions and ignored speed-ups", async () => {

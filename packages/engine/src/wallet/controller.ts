@@ -228,6 +228,7 @@ export class Wallet implements WalletController {
       params: req.params ?? [],
       chainId: this.chain,
       from: this.connected ? this.address() : undefined,
+      wallet: req.wallet,
       kind: kindOf(req.method),
       at: nowIso(),
       outcome: "pending",

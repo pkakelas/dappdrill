@@ -489,6 +489,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
         inspect: async (session, _replay, drafts) => {
           const used = [...session.wallet.usedWallets];
           if (used.includes(other)) {
+            const strays = session.wallet.requests().filter((r) => r.wallet === other && r.kind !== "other");
             drafts.push({
               kind: "wrong-provider",
               severity: "high",
@@ -496,7 +497,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               title: `With two wallets installed, the dApp talks to ${walletName(other)} instead of ${walletName(plan.profile)}`,
               summary: `Both wallets announced themselves through EIP-6963 and the user picked ${walletName(plan.profile)}, but requests went to ${walletName(other)} (probably via window.ethereum). Users with two wallets end up signing with the wrong one.`,
               expected: `Use the provider from the EIP-6963 announcement the user selected.`,
-              actual: `Requests used: ${used.map(walletName).join(", ")}.`,
+              actual: `${walletName(other)} got ${strays.map((r) => r.method).join(", ")}.`,
             });
           }
         },
