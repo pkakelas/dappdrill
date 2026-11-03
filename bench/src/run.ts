@@ -34,6 +34,9 @@ interface Dapp {
   hints: string;
   /** A frontend built from source and served on this machine; `serve` is the command that starts it. */
   serve?: string;
+  /** Test setup: localStorage on the app's origin, and fixed responses as "<url> [status] <body>". */
+  storage?: Record<string, string>;
+  respond?: string[];
 }
 
 interface Label {
@@ -94,7 +97,12 @@ async function checkServed(dapps: Dapp[]): Promise<void> {
 /** BENCH_RPC_<chainId> picks the fork's upstream; the public default rate-limits and prunes state under a real dApp's load. */
 function targetFlags(d: Dapp): string[] {
   const chain = (c: number) => (process.env[`BENCH_RPC_${c}`] ? `${c}=${process.env[`BENCH_RPC_${c}`]}` : String(c));
-  return [...d.chains.flatMap((c) => ["--chain", chain(c)]), ...d.tokens.flatMap((t) => ["--token", `${t.chainId}:${t.address}=${t.amount}`])];
+  return [
+    ...d.chains.flatMap((c) => ["--chain", chain(c)]),
+    ...d.tokens.flatMap((t) => ["--token", `${t.chainId}:${t.address}=${t.amount}`]),
+    ...Object.entries(d.storage ?? {}).flatMap(([k, v]) => ["--storage", `${k}=${v}`]),
+    ...(d.respond ?? []).flatMap((r) => ["--respond", r]),
+  ];
 }
 
 async function scanDapp(d: Dapp): Promise<void> {

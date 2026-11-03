@@ -1,5 +1,7 @@
 import type {
   Blocked,
+  FixedResponse,
+  Stalled,
   ChainConfig,
   DrillEvent,
   EdgeCaseId,
@@ -108,6 +110,10 @@ export interface AppSettings {
   hints?: string;
   allowMainnetLive?: boolean;
   maxFlows?: number;
+  /** localStorage set on the app's origin before it loads (a fork mode, a feature flag). */
+  storage?: Record<string, string>;
+  /** Requests answered with a fixed body (a version check, a backend that disagrees with the fork). */
+  responses?: FixedResponse[];
 }
 
 export const apps = pgTable(
@@ -190,6 +196,8 @@ export const scans = pgTable(
     costUsd: real("cost_usd").notNull().default(0),
     /** Set when a bot check stopped the exploration. */
     blocked: jsonb("blocked").$type<Blocked>(),
+    /** Why a scan with no flows had nothing to test: what the app's data was waiting on. */
+    stalled: jsonb("stalled").$type<Stalled>(),
     error: text("error"),
     stopRequested: boolean("stop_requested").notNull().default(false),
     startedAt: ts("started_at"),

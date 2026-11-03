@@ -1,6 +1,6 @@
 "use server";
 
-import { chainInfo, ChainConfig, EdgeCaseId, MAINNET_CHAIN_IDS, WalletProfileId } from "@dappdrill/core";
+import { chainInfo, ChainConfig, EdgeCaseId, MAINNET_CHAIN_IDS, parseFixedResponse, parseStorageEntry, WalletProfileId } from "@dappdrill/core";
 import { apps, db, encrypt, scans, type AppSettings } from "@dappdrill/db";
 import { newId } from "@dappdrill/core";
 import { and, eq } from "drizzle-orm";
@@ -39,6 +39,8 @@ const NewScanInput = z.object({
   accessHeaderName: z.union([z.literal(""), z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$/, "The header name can only use letters, digits and - (like x-dappdrill-token).")]).optional(),
   accessHeaderValue: z.string().max(2000).optional(),
   removeAccessHeaders: z.boolean().default(false),
+  storage: z.string().max(4000).default(""),
+  responses: z.string().max(20000).default(""),
 });
 
 function readForm(form: FormData) {
@@ -59,7 +61,27 @@ function readForm(form: FormData) {
     accessHeaderName: String(form.get("accessHeaderName") ?? "").trim(),
     accessHeaderValue: String(form.get("accessHeaderValue") ?? "").trim(),
     removeAccessHeaders: form.get("removeAccessHeaders") === "on",
+    storage: form.get("storage") ?? undefined,
+    responses: form.get("responses") ?? undefined,
   };
+}
+
+/** The form's test-setup lines; the first line that doesn't parse is the error. */
+function parseSetup(storageText: string, responsesText: string): Pick<AppSettings, "storage" | "responses"> | { error: string } {
+  const lines = (text: string) => text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const storage: Record<string, string> = {};
+  for (const line of lines(storageText)) {
+    const entry = parseStorageEntry(line);
+    if (!entry) return { error: `Browser storage lines look like key=value; "${line.slice(0, 60)}" doesn't.` };
+    storage[entry[0]] = entry[1];
+  }
+  const responses = [];
+  for (const line of lines(responsesText)) {
+    const r = parseFixedResponse(line);
+    if (!r || !/^https?:\/\//i.test(r.url)) return { error: `Fixed responses look like "https://… [status] body"; "${line.slice(0, 60)}" doesn't.` };
+    responses.push(r);
+  }
+  return { storage: Object.keys(storage).length ? storage : undefined, responses: responses.length ? responses : undefined };
 }
 
 function nameFromHost(host: string): string {
@@ -81,6 +103,9 @@ export async function startScanAction(_prev: FormState, form: FormData): Promise
       if (info) chains.push({ id, name: info.name, rpcUrl: info.rpcUrl, mode: info.forkable ? "fork" : "live" });
     }
     if (input.customChainId && input.customRpc) {
+      // A known chain entered here gets this RPC instead of the default one.
+      const known = chains.findIndex((c) => c.id === input.customChainId);
+      if (known >= 0) chains.splice(known, 1);
       chains.push({ id: input.customChainId, rpcUrl: input.customRpc, mode: input.customLive ? "live" : "fork" });
     } else if (input.customChainId || input.customRpc) {
       return { error: "A custom chain needs both a chain ID and an RPC URL." };
@@ -103,12 +128,16 @@ export async function startScanAction(_prev: FormState, form: FormData): Promise
     return { error: "Chains in live mode need a funded test key." };
   }
 
+  const setup = parseSetup(input.storage, input.responses);
+  if ("error" in setup) return setup;
+
   const settings: AppSettings = {
     edgeCases: input.edgeCases,
     wallets: input.wallets,
     chains,
     hints: input.hints || undefined,
     allowMainnetLive: input.allowMainnetLive,
+    ...setup,
   };
   const liveKey = input.liveKey
     ? { liveKeyEnc: encrypt(input.liveKey), liveKeyAddress: privateKeyToAccount(input.liveKey as `0x${string}`).address }

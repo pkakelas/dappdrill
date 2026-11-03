@@ -1,4 +1,4 @@
-import { DEFAULT_EDGE_CASES } from "@dappdrill/core";
+import { DEFAULT_EDGE_CASES, formatFixedResponse } from "@dappdrill/core";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { NewScanForm, type NewScanDefaults } from "@/components/scan/new-scan-form";
@@ -28,8 +28,12 @@ export default async function NewScanPage({ searchParams }: { searchParams: Prom
         allowMainnetLive: Boolean(app.settings.allowMainnetLive),
         liveKeyAddress: app.liveKeyAddress,
         accessHeaderNames: app.accessHeaderNames,
+        storage: Object.entries(app.settings.storage ?? {})
+          .map(([k, v]) => `${k}=${v}`)
+          .join("\n"),
+        responses: (app.settings.responses ?? []).map(formatFixedResponse).join("\n"),
       }
-    : { url: "", chains: [], wallets: ["metamask", "rabby"], edgeCases: DEFAULT_EDGE_CASES, hints: "", allowMainnetLive: false, liveKeyAddress: null, accessHeaderNames: [] };
+    : { url: "", chains: [], wallets: ["metamask", "rabby"], edgeCases: DEFAULT_EDGE_CASES, hints: "", allowMainnetLive: false, liveKeyAddress: null, accessHeaderNames: [], storage: "", responses: "" };
 
   let usage: string | null = null;
   if (app) {

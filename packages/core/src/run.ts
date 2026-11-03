@@ -5,6 +5,19 @@ import { Flow, Variation, WalletProfileId } from "./flow.js";
 import { ConsoleEntry, Issue, RpcLogEntry } from "./issues.js";
 import { SigningReview, WalletRequest } from "./signing.js";
 
+/**
+ * A request answered without the network. `url` matches the full URL; `*` matches anything,
+ * and the query string is ignored unless the pattern has one.
+ */
+export const FixedResponse = z.object({
+  url: z.string().min(1),
+  status: z.number().int().min(100).max(599).default(200),
+  body: z.string(),
+  /** Defaults to JSON when the body parses as JSON, else plain text. */
+  contentType: z.string().optional(),
+});
+export type FixedResponse = z.infer<typeof FixedResponse>;
+
 /** Everything the engine needs to drill an app. No database involved. */
 export const DrillTarget = z.object({
   url: z.string().url(),
@@ -30,6 +43,10 @@ export const DrillTarget = z.object({
    * rule, Vercel's x-vercel-protection-bypass).
    */
   headers: z.record(z.string(), z.string()).default({}),
+  /** localStorage entries set on the app's own origin before its code runs: a fork mode or feature flag the app reads at startup. */
+  storage: z.record(z.string(), z.string()).default({}),
+  /** Requests answered with a fixed body instead of the network: a version check, a flags file, a backend that disagrees with the fork. */
+  responses: z.array(FixedResponse).default([]),
 });
 export type DrillTarget = z.infer<typeof DrillTarget>;
 
@@ -41,6 +58,17 @@ export const Blocked = z.object({
   url: z.string(),
 });
 export type Blocked = z.infer<typeof Blocked>;
+
+/** Why a scan that found nothing had nothing to test: the app's data never loaded. */
+export const Stalled = z.object({
+  /** Hosts other than RPCs whose requests from the page failed or never answered. */
+  backends: z
+    .array(z.object({ host: z.string(), failed: z.number().int(), hung: z.number().int(), statuses: z.array(z.number().int()).default([]) }))
+    .default([]),
+  /** The fork's failed reads per chain, with the cause when the upstream error says it. */
+  rpc: z.array(z.object({ chainId: z.number().int(), errors: z.number().int(), cause: z.enum(["rate-limited", "pruned", "timed-out"]).optional(), sample: z.string() })).default([]),
+});
+export type Stalled = z.infer<typeof Stalled>;
 
 export const ScanOptions = z.object({
   maxMinutes: z.number().default(15),
@@ -132,6 +160,8 @@ export const ScanReport = z.object({
   stoppedEarly: z.boolean().default(false),
   /** Set when a bot check stopped the exploration. */
   blocked: Blocked.optional(),
+  /** Set when no flows were found because the app's data never loaded. */
+  stalled: Stalled.optional(),
 });
 export type ScanReport = z.infer<typeof ScanReport>;
 
@@ -151,7 +181,8 @@ export type DrillEvent =
   | { type: "issue"; issue: Issue }
   | { type: "run"; run: FlowRun }
   | { type: "cost"; usd: number }
-  | { type: "blocked"; blocked: Blocked };
+  | { type: "blocked"; blocked: Blocked }
+  | { type: "stalled"; stalled: Stalled };
 
 export type DrillEventSink = (event: DrillEvent) => void | Promise<void>;
 

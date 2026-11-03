@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ScanReport } from "@dappdrill/core";
-import { UsageError, loadReport, parseChain, parseEdgeCases, parseHeaders, parseToken } from "../src/files.js";
+import { UsageError, loadReport, parseChain, parseEdgeCases, parseHeaders, parseResponses, parseStorage, parseToken } from "../src/files.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
@@ -64,6 +64,23 @@ describe("parseHeaders", () => {
   it("rejects malformed headers without echoing the value", () => {
     expect(() => parseHeaders(["no colon here"], undefined)).toThrow(UsageError);
     expect(() => parseHeaders(["x-token:"], undefined)).toThrow(/expected "Name: value"/);
+  });
+});
+
+describe("parseStorage", () => {
+  it("splits on the first =", () => {
+    expect(parseStorage(["forkEnabled=true", "forkRPCUrl=http://x/?a=b"])).toEqual({ forkEnabled: "true", forkRPCUrl: "http://x/?a=b" });
+    expect(() => parseStorage(["=nokey"])).toThrow(UsageError);
+  });
+});
+
+describe("parseResponses", () => {
+  it("reads url, optional status and body", async () => {
+    expect(await parseResponses(['https://app.gmx.io/config.json {"uiVersion": 2.0}', "https://api.x/*/flags 503 down"])).toEqual([
+      { url: "https://app.gmx.io/config.json", status: 200, body: '{"uiVersion": 2.0}' },
+      { url: "https://api.x/*/flags", status: 503, body: "down" },
+    ]);
+    await expect(parseResponses(["just-a-url"])).rejects.toThrow(UsageError);
   });
 });
 

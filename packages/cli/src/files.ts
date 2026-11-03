@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
-import { ChainConfig, EdgeCaseId, Flow, SigningReview, chainInfo, type DrillTarget, type ScanReport } from "@dappdrill/core";
+import { ChainConfig, EdgeCaseId, Flow, SigningReview, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget, type ScanReport } from "@dappdrill/core";
 
 export class UsageError extends Error {}
 
@@ -97,6 +97,36 @@ export function parseHeaders(specs: string[], env = process.env.DAPPDRILL_HEADER
     headers[m[1]!.toLowerCase()] = m[2];
   }
   return headers;
+}
+
+/** --storage forkEnabled=true sets that localStorage entry on the app's origin before it loads. */
+export function parseStorage(specs: string[]): Record<string, string> {
+  const storage: Record<string, string> = {};
+  for (const spec of specs) {
+    const entry = parseStorageEntry(spec);
+    if (!entry) throw new UsageError(`Bad --storage "${spec}": expected key=value`);
+    storage[entry[0]] = entry[1];
+  }
+  return storage;
+}
+
+/**
+ * --respond "<url> [status] <body|@file>" answers matching requests with that body
+ * (`*` wildcards in the URL; @file reads the body from a file).
+ */
+export async function parseResponses(specs: string[]): Promise<DrillTarget["responses"]> {
+  return Promise.all(
+    specs.map(async (spec) => {
+      const r = parseFixedResponse(spec);
+      if (!r) throw new UsageError(`Bad --respond "${spec}": expected "<url> [status] <body or @file>"`);
+      if (!r.body.startsWith("@")) return r;
+      const file = r.body.slice(1);
+      const body = await readFile(file, "utf8").catch((e: Error) => {
+        throw new UsageError(`Can't read ${file}: ${e.message}`);
+      });
+      return { ...r, body };
+    }),
+  );
 }
 
 export async function readInitScripts(paths: string[]): Promise<string[]> {

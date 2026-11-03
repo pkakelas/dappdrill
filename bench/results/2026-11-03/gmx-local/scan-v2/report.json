@@ -1,0 +1,30 @@
+{
+  "url": "http://127.0.0.1:4103/#/trade",
+  "startedAt": "2026-11-03T15:29:27.440Z",
+  "finishedAt": "2026-11-03T15:32:43.742Z",
+  "chains": [
+    {
+      "id": 42161,
+      "name": "Arbitrum",
+      "rpcUrl": "https://arbitrum-one-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "520913098"
+    }
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:4103/trade",
+      "title": "Trade | Decentralized perpetual exchange | GMX"
+    },
+    {
+      "url": "http://127.0.0.1:4103/pools",
+      "title": "GLV vaults and GM liquidity pools list (buy/sell GM); data stuck in loading skeletons"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.8412740000000001,
+  "stoppedEarly": false
+}

@@ -8,7 +8,7 @@ import {
   type Severity,
   type Verdict,
 } from "@dappdrill/core";
-import { blockedLine, healthLine, plural, runLabel, sortIssues, type ReportInput } from "./health.js";
+import { blockedLine, healthLine, stalledLine, plural, runLabel, sortIssues, type ReportInput } from "./health.js";
 
 const SEVERITY_HEADING: Record<Severity, string> = { critical: "Critical", high: "High", medium: "Medium", low: "Low" };
 const VERDICT_ORDER: Record<Verdict, number> = { dangerous: 0, check: 1, consistent: 2 };
@@ -38,6 +38,7 @@ export function renderMarkdown(report: ReportInput, options: MarkdownOptions = {
   out.push(meta.join(" · "));
   if (report.stoppedEarly) out.push("", "Stopped early: results are partial.");
   if (report.blocked) out.push("", `${blockedLine(report.blocked)}`);
+  if (report.stalled) out.push("", stalledLine(report.stalled));
   if (options.link) out.push("", `Full report: ${options.link}`);
 
   // Issues

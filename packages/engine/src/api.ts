@@ -17,9 +17,11 @@ import {
   type ScanStage,
   type SigningReview,
   blockedLine,
+  stalledLine,
 } from "@dappdrill/core";
 import { explore, proposeRepair, recordDescribedFlow, type ReplayFn } from "./agent/index.js";
 import { detectBotCheck } from "./browser/access.js";
+import { diagnoseStall } from "./browser/traffic.js";
 import { openEnv, type Env } from "./pipeline/env.js";
 import { drillFlow, findSetup, pin, runSetup, tryFlow } from "./pipeline/flows.js";
 import { createSession, replayFlow, type EngineSession } from "./runtime.js";
@@ -54,6 +56,7 @@ export async function scan(
   const result: ReplayResult = { runs: [], issues: [], signingReviews: [] };
   let pages: ScanReport["pages"] = [];
   let blocked: ScanReport["blocked"];
+  let stalled: ScanReport["stalled"];
   const flows: Flow[] = [];
   try {
     // 1. Explore on pinned state, so what the model did doesn't leak into the tests.
@@ -89,6 +92,13 @@ export async function scan(
       if (blocked) {
         await env.log(blockedLine(blocked), "warn");
         await env.sink({ type: "blocked", blocked });
+      } else if (flows.length === 0 && !signal?.aborted) {
+        // Nothing to test usually means the app's data never loaded; say what it was waiting on.
+        stalled = diagnoseStall(session.traffic, session.rpc, env.chains.configs().map((c) => c.id));
+        if (stalled) {
+          await env.log(stalledLine(stalled), "warn");
+          await env.sink({ type: "stalled", stalled });
+        }
       }
     } finally {
       await session.close().catch(() => {});
@@ -156,6 +166,7 @@ export async function scan(
     costUsd: env.costUsd(),
     stoppedEarly: signal?.aborted ?? false,
     blocked,
+    stalled,
   };
 }
 

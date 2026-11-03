@@ -1,4 +1,4 @@
-import { describeBlock } from "@dappdrill/core";
+import { describeBlock, stallReasons } from "@dappdrill/core";
 import { db, scanEvents, scans } from "@dappdrill/db";
 import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
@@ -102,6 +102,27 @@ export default async function ScanPage({ params, searchParams }: Props) {
               scan settings
             </Link>{" "}
             and let it through your bot protection. <Link href="/bot" className="underline">How to set it up</Link>
+          </span>
+        </div>
+      )}
+
+      {scan.stalled && (
+        <div role="note" className="flex flex-col gap-1.5 rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn-ink">
+          <strong className="font-semibold">Your app&apos;s data didn&apos;t load on the test chain, so there was nothing to test.</strong>
+          <ul className="m-0 flex flex-col gap-1 pl-5">
+            {stallReasons(scan.stalled).map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+          <span>
+            Point those reads at the fork, or use{" "}
+            <Link href={`/new?app=${app.id}`} className="underline">
+              Test setup
+            </Link>{" "}
+            in scan settings to turn on a fork mode or answer a request with a fixed body.{" "}
+            <Link href="/fork" className="underline">
+              What to change
+            </Link>
           </span>
         </div>
       )}

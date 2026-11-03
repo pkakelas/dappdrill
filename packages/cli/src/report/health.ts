@@ -9,8 +9,9 @@ import {
   type Issue,
   type Severity,
   type SigningReview,
+  type Stalled,
 } from "@dappdrill/core";
-export { blockedLine } from "@dappdrill/core";
+export { blockedLine, stalledLine } from "@dappdrill/core";
 
 /** What every report renderer needs. A ScanReport fits, and so does a replay's result. */
 export interface ReportInput {
@@ -24,6 +25,7 @@ export interface ReportInput {
   costUsd?: number;
   stoppedEarly?: boolean;
   blocked?: Blocked;
+  stalled?: Stalled;
 }
 
 /** Issue health, plus Broken when a flow itself broke (or we couldn't run it). */

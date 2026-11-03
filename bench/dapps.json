@@ -107,6 +107,7 @@
       "serve": "~/workspace/dappdrill-frontends/serve.sh gmx",
       "chains": [42161],
       "tokens": [{ "chainId": 42161, "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "amount": "5000" }],
+      "respond": ["https://app.gmx.io/config.json {\"uiVersion\":2.0}"],
       "hints": "On Arbitrum: open a small 2x ETH long with 20 USDC as collateral (needs an approval). Swap 10 USDC to ETH."
     }
   ]

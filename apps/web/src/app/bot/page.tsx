@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Logo } from "@/components/ui";
+import { Code, DocPage, Section } from "@/components/doc-page";
 
 export const metadata: Metadata = {
   title: "The DappDrill browser",
@@ -9,39 +8,12 @@ export const metadata: Metadata = {
 
 const UA_TOKEN = "DappDrill/1.0 (+https://dappdrill.com/bot)";
 
-function Code({ children }: { children: React.ReactNode }) {
-  return <code className="rounded bg-sub px-1.5 py-0.5 font-mono text-[13px]">{children}</code>;
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="h2">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
 export default function BotPage() {
   return (
-    <>
-      <header className="border-b border-line">
-        <div className="page flex items-center justify-between gap-3 py-3.5">
-          <Link href="/" className="flex items-center gap-2.5 no-underline">
-            <Logo />
-            <span className="font-serif text-[20px] tracking-[-0.02em]">DappDrill</span>
-          </Link>
-        </div>
-      </header>
-      <main className="page flex max-w-[720px] flex-col gap-9 py-10 text-[15px] leading-relaxed text-ink-2">
-        <header className="flex flex-col gap-3">
-          <h1 className="h1">The DappDrill browser</h1>
-          <p className="m-0 text-[17px] text-ink-3">
-            DappDrill tests web3 apps for the teams that build them. It opens the app in a real Chromium with a test wallet, on a local copy of the chain, and
-            clicks through it like a user would.
-          </p>
-        </header>
-
+    <DocPage
+      title="The DappDrill browser"
+      lead="DappDrill tests web3 apps for the teams that build them. It opens the app in a real Chromium with a test wallet, on a local copy of the chain, and clicks through it like a user would."
+    >
         <Section title="How to recognise it">
           <p className="m-0">
             Every request carries a normal Chrome user agent with <Code>{UA_TOKEN}</Code> appended. It browses at a person&apos;s pace and only visits the app
@@ -91,7 +63,6 @@ export default function BotPage() {
             altogether.
           </p>
         </Section>
-      </main>
-    </>
+    </DocPage>
   );
 }

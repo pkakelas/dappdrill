@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 import { nowIso, type ChainConfig, type EdgeCaseId, type Flow, type ScanReport, type WalletProfileId } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
 import { CiApi, ciContext } from "../ci-api.js";
-import { UsageError, loadBaselines, loadFlows, parseChain, parseEdgeCases, parseToken, parseHeaders, readInitScripts, writeJson, writeText } from "../files.js";
+import { UsageError, loadBaselines, loadFlows, parseChain, parseEdgeCases, parseToken, parseHeaders, parseResponses, parseStorage, readInitScripts, writeJson, writeText } from "../files.js";
 import { consoleSink } from "../progress.js";
 import { exitCodeFor, healthLine, renderJunit, renderMarkdown, reportHealth, type FailOn } from "../report/index.js";
 import { parseTarget } from "./scan.js";
@@ -25,6 +25,8 @@ export interface RunFlags {
   token: string[];
   initScript: string[];
   header: string[];
+  storage: string[];
+  respond: string[];
 }
 
 export async function runCommand(files: string[], flags: RunFlags): Promise<number> {
@@ -58,6 +60,8 @@ export async function runCommand(files: string[], flags: RunFlags): Promise<numb
     tokens: flags.token.map(parseToken),
     initScripts: await readInitScripts(flags.initScript),
     headers: parseHeaders(flags.header),
+    storage: parseStorage(flags.storage),
+    responses: await parseResponses(flags.respond),
   });
   const out = resolve(flags.out);
   const engine = await loadEngine();

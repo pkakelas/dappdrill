@@ -22,6 +22,8 @@ export async function buildTarget(db: Db, app: AppRow, settings: AppSettings, ch
     liveKey: app.liveKeyEnc ? decrypt(app.liveKeyEnc) : undefined,
     allowMainnetLive: settings.allowMainnetLive ?? false,
     headers: app.accessHeadersEnc ? JSON.parse(decrypt(app.accessHeadersEnc)) : undefined,
+    storage: settings.storage,
+    responses: settings.responses,
     inbox:
       wallets?.inboxAddress && wallets.inboxPasswordEnc
         ? { address: wallets.inboxAddress, password: decrypt(wallets.inboxPasswordEnc) }

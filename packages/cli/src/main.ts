@@ -33,6 +33,8 @@ program
   .option("--token <chain:address=amount>", "ERC-20 balance for the test accounts on a fork (repeatable)", collect, [])
   .option("--init-script <file>", "JavaScript to run in every page before the dApp (repeatable)", collect, [])
   .option("--header <name: value>", "header for the dApp's own site only, e.g. your bot-protection bypass (repeatable; also $DAPPDRILL_HEADERS)", collect, [])
+  .option("--storage <key=value>", "localStorage entry set on the dApp's origin before it loads, e.g. a fork-mode flag (repeatable)", collect, [])
+  .option("--respond <url [status] body|@file>", "answer requests to this URL (* wildcards) with a fixed body (repeatable)", collect, [])
   .option("--headed", "show the browser")
   .action(action((url: string, flags) => scanCommand(url, flags)));
 
@@ -55,6 +57,8 @@ program
   .option("--token <chain:address=amount>", "ERC-20 balance for the test accounts on a fork (repeatable)", collect, [])
   .option("--init-script <file>", "JavaScript to run in every page before the dApp (repeatable)", collect, [])
   .option("--header <name: value>", "header for the dApp's own site only, e.g. your bot-protection bypass (repeatable; also $DAPPDRILL_HEADERS)", collect, [])
+  .option("--storage <key=value>", "localStorage entry set on the dApp's origin before it loads, e.g. a fork-mode flag (repeatable)", collect, [])
+  .option("--respond <url [status] body|@file>", "answer requests to this URL (* wildcards) with a fixed body (repeatable)", collect, [])
   .option("--headed", "show the browser")
   .action(action((files: string[], flags) => runCommand(files, flags)));
 

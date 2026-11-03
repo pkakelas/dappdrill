@@ -23,6 +23,9 @@ export interface NewScanDefaults {
   liveKeyAddress: string | null;
   /** Names of the stored allowlist headers; their values are never sent back. */
   accessHeaderNames: string[];
+  /** Test setup as the form shows it: "key=value" lines and "<url> [status] <body>" lines. */
+  storage: string;
+  responses: string;
 }
 
 function StartButton() {
@@ -89,7 +92,7 @@ export function NewScanForm({ defaults, usage }: { defaults: NewScanDefaults; us
         )}
       </div>
 
-      <details className="group/c" open={Boolean(defaults.appId && (defaults.chains.length || defaults.hints || defaults.accessHeaderNames.length))}>
+      <details className="group/c" open={Boolean(defaults.appId && (defaults.chains.length || defaults.hints || defaults.accessHeaderNames.length || defaults.storage || defaults.responses))}>
         <summary className="btn-link w-fit text-sm">
           Customize
           <span className="text-muted">— chains, wallets, edge cases</span>
@@ -265,6 +268,38 @@ export function NewScanForm({ defaults, usage }: { defaults: NewScanDefaults; us
                 placeholder={defaults.accessHeaderNames.length ? "Replace with a new secret" : "Secret value"}
                 className="field flex-[2_1_260px] font-mono"
                 aria-label="Header value"
+              />
+            </div>
+          </fieldset>
+
+          <fieldset className="m-0 flex flex-col gap-3 border-0 p-0">
+            <legend className="label mb-2.5 p-0">Test setup</legend>
+            <p className="hint m-0">
+              For apps whose data doesn&apos;t load on a fork: turn on a fork mode or feature flag your app reads at startup, or answer a request with a fixed
+              body (a version check, a backend that reads the real chain).{" "}
+              <a href="/fork" target="_blank" className="underline">
+                When you need this
+              </a>
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="storage" className="hint">
+                Browser storage, one <span className="font-mono">key=value</span> per line. Set on your app&apos;s origin before it loads.
+              </label>
+              <textarea id="storage" name="storage" rows={2} maxLength={4000} spellCheck={false} defaultValue={defaults.storage} placeholder="forkEnabled=true" className="field font-mono text-[13px]" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="responses" className="hint">
+                Fixed responses, one <span className="font-mono">URL [status] body</span> per line. <span className="font-mono">*</span> matches anything.
+              </label>
+              <textarea
+                id="responses"
+                name="responses"
+                rows={2}
+                maxLength={20000}
+                spellCheck={false}
+                defaultValue={defaults.responses}
+                placeholder={'https://app.example.com/config.json {"uiVersion": 2}'}
+                className="field font-mono text-[13px]"
               />
             </div>
           </fieldset>

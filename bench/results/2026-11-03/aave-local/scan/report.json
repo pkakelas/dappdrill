@@ -1,14 +1,14 @@
 {
   "url": "http://127.0.0.1:4101/",
-  "startedAt": "2026-11-03T15:29:27.438Z",
-  "finishedAt": "2026-11-03T15:32:46.153Z",
+  "startedAt": "2026-11-03T16:24:24.378Z",
+  "finishedAt": "2026-11-03T16:27:07.049Z",
   "chains": [
     {
       "id": 1,
       "name": "Ethereum",
       "rpcUrl": "https://ethereum-rpc.publicnode.com",
       "mode": "fork",
-      "forkBlock": "26335173"
+      "forkBlock": "26335447"
     }
   ],
   "pages": [
@@ -18,17 +18,45 @@
     },
     {
       "url": "http://127.0.0.1:4101/dashboard/",
-      "title": "User positions: supplies, borrows, assets to supply/borrow for the selected market"
+      "title": "User dashboard: supplies, borrows, assets to supply/borrow"
     },
     {
-      "url": "http://127.0.0.1:4101/reserve-overview/?underlyingAsset=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&marketName=proto_mainnet_v3",
-      "title": "USDC reserve details (supply/borrow info, e-mode, charts) with the user's supply/borrow panel"
+      "url": "http://127.0.0.1:4101/markets/?marketName=proto_mainnet_v3"
+    },
+    {
+      "url": "http://127.0.0.1:4101/reserve-overview/?underlyingAsset=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&marketName=proto_mainnet_v3"
     }
   ],
   "flows": [],
   "runs": [],
   "issues": [],
   "signingReviews": [],
-  "costUsd": 0.9325773999999999,
-  "stoppedEarly": false
+  "costUsd": 0.9409666000000001,
+  "stoppedEarly": false,
+  "stalled": {
+    "backends": [
+      {
+        "host": "127.0.0.1:4101",
+        "failed": 15,
+        "hung": 0,
+        "statuses": [
+          500,
+          503
+        ]
+      },
+      {
+        "host": "api.merkl.xyz",
+        "failed": 8,
+        "hung": 0,
+        "statuses": []
+      }
+    ],
+    "rpc": [
+      {
+        "chainId": 1,
+        "errors": 35,
+        "sample": "23 The operation was aborted due to timeout"
+      }
+    ]
+  }
 }

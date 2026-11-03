@@ -1,14 +1,14 @@
 {
   "url": "http://127.0.0.1:4102/#/1/swap/USDC/WETH",
-  "startedAt": "2026-11-03T15:35:52.124Z",
-  "finishedAt": "2026-11-03T15:37:59.588Z",
+  "startedAt": "2026-11-03T16:24:24.380Z",
+  "finishedAt": "2026-11-03T16:26:30.488Z",
   "chains": [
     {
       "id": 1,
       "name": "Ethereum",
       "rpcUrl": "https://ethereum-rpc.publicnode.com",
       "mode": "fork",
-      "forkBlock": "26335205"
+      "forkBlock": "26335447"
     }
   ],
   "pages": [
@@ -21,6 +21,47 @@
   "runs": [],
   "issues": [],
   "signingReviews": [],
-  "costUsd": 0.8182766,
-  "stoppedEarly": false
+  "costUsd": 0.8182476000000001,
+  "stoppedEarly": false,
+  "stalled": {
+    "backends": [
+      {
+        "host": "events.launchdarkly.com",
+        "failed": 4,
+        "hung": 0,
+        "statuses": []
+      },
+      {
+        "host": "app.launchdarkly.com",
+        "failed": 2,
+        "hung": 0,
+        "statuses": []
+      },
+      {
+        "host": "secure.adnxs.com",
+        "failed": 2,
+        "hung": 0,
+        "statuses": []
+      },
+      {
+        "host": "127.0.0.1:9",
+        "failed": 2,
+        "hung": 0,
+        "statuses": []
+      },
+      {
+        "host": "region1.analytics.google.com",
+        "failed": 0,
+        "hung": 1,
+        "statuses": []
+      }
+    ],
+    "rpc": [
+      {
+        "chainId": 1,
+        "errors": 7,
+        "sample": "23 The operation was aborted due to timeout"
+      }
+    ]
+  }
 }

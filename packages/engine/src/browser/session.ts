@@ -13,6 +13,8 @@ import { BINDING_NAME, walletInitScript, type BridgeRequest, type InjectConfig }
 import { toHex } from "../chain/rpc.js";
 import { installAccessHeaders, USER_AGENT } from "./access.js";
 import { RpcRouter } from "./rpc-route.js";
+import { installResponses, installStorage } from "./setup.js";
+import { Traffic } from "./traffic.js";
 
 export interface SessionOptions {
   artifactsDir: string;
@@ -47,6 +49,8 @@ export interface EngineSession extends DrillSession {
   clickSeq(): number;
   /** Mark the session busy so live frames keep flowing (replay calls it per step). */
   touch(): void;
+  /** The page's non-RPC requests per host, for explaining a scan that found nothing. */
+  readonly traffic: Traffic;
 }
 
 export async function createSession(target: DrillTarget, chains: ChainController, opts: SessionOptions): Promise<EngineSession> {
@@ -94,6 +98,7 @@ export async function createSession(target: DrillTarget, chains: ChainController
 class Session implements EngineSession {
   readonly console: ConsoleEntry[] = [];
   readonly rpc: RpcLogEntry[] = [];
+  readonly traffic = new Traffic();
   readonly artifactsDir: string;
   readonly emit: DrillEventSink;
   page!: Page;
@@ -165,9 +170,12 @@ class Session implements EngineSession {
     };
     await context.addInitScript({ content: walletInitScript(cfg) });
     for (const content of this.target.initScripts ?? []) await context.addInitScript({ content });
+    await installStorage(context, this.target.url, this.target.storage ?? {});
     await this.router.install(context);
-    // Registered after the RPC router, so it runs first and falls back to it.
+    // Routes registered later run first: fixed responses, then access headers, then the RPC router.
     await installAccessHeaders(context, this.target.url, this.target.headers ?? {});
+    await installResponses(context, this.target.responses ?? []);
+    this.traffic.install(context);
 
     context.on("page", (p) => this.watchPage(p));
     this.page = await context.newPage();
