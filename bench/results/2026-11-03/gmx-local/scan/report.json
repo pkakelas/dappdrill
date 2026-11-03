@@ -1,14 +1,14 @@
 {
   "url": "http://127.0.0.1:4103/#/trade",
-  "startedAt": "2026-11-03T16:26:31.626Z",
-  "finishedAt": "2026-11-03T16:27:54.719Z",
+  "startedAt": "2026-11-03T16:46:50.877Z",
+  "finishedAt": "2026-11-03T16:48:01.749Z",
   "chains": [
     {
       "id": 42161,
       "name": "Arbitrum",
-      "rpcUrl": "https://arbitrum-one-rpc.publicnode.com",
+      "rpcUrl": "https://arbitrum-mainnet.core.chainstack.com/8b4baa1a91eca473d90ce12c1d2cecb2",
       "mode": "fork",
-      "forkBlock": "520925482"
+      "forkBlock": "520929774"
     }
   ],
   "pages": [
@@ -18,25 +18,19 @@
     },
     {
       "url": "http://127.0.0.1:4103/pools",
-      "title": "GLV vaults and GM liquidity pools (data stuck on loading placeholders)"
+      "title": "GLV vaults and GM liquidity pools list (data did not load)"
     }
   ],
   "flows": [],
   "runs": [],
   "issues": [],
   "signingReviews": [],
-  "costUsd": 0.8344196000000002,
+  "costUsd": 0.8130019999999998,
   "stoppedEarly": false,
   "stalled": {
     "backends": [
       {
-        "host": "secure.adnxs.com",
-        "failed": 2,
-        "hung": 0,
-        "statuses": []
-      },
-      {
-        "host": "gmx.squids.live",
+        "host": "arbitrum-api-fallback.gmxinfra2.io",
         "failed": 0,
         "hung": 1,
         "statuses": []
@@ -45,9 +39,9 @@
     "rpc": [
       {
         "chainId": 42161,
-        "errors": 300,
-        "cause": "rate-limited",
-        "sample": "-32603 failed to get storage for 0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8 at 81431485836543727822970822810801936439757577406279097016824403066337902617515: Ma"
+        "errors": 416,
+        "cause": "pruned",
+        "sample": "-32603 failed to get account for 0xe79118d6D92a4b23369ba356C90b9A7ABf1CB961: HTTP error 403 with body: {\"jsonrpc\":\"2.0\",\"id\":1609,\"error\":{\"code\":-32002,\"messag"
       }
     ]
   }

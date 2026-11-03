@@ -1,0 +1,54 @@
+{
+  "url": "http://127.0.0.1:4103/#/trade",
+  "startedAt": "2026-11-03T16:26:31.626Z",
+  "finishedAt": "2026-11-03T16:27:54.719Z",
+  "chains": [
+    {
+      "id": 42161,
+      "name": "Arbitrum",
+      "rpcUrl": "https://arbitrum-one-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "520925482"
+    }
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:4103/trade",
+      "title": "Trade | Decentralized perpetual exchange | GMX"
+    },
+    {
+      "url": "http://127.0.0.1:4103/pools",
+      "title": "GLV vaults and GM liquidity pools (data stuck on loading placeholders)"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.8344196000000002,
+  "stoppedEarly": false,
+  "stalled": {
+    "backends": [
+      {
+        "host": "secure.adnxs.com",
+        "failed": 2,
+        "hung": 0,
+        "statuses": []
+      },
+      {
+        "host": "gmx.squids.live",
+        "failed": 0,
+        "hung": 1,
+        "statuses": []
+      }
+    ],
+    "rpc": [
+      {
+        "chainId": 42161,
+        "errors": 300,
+        "cause": "rate-limited",
+        "sample": "-32603 failed to get storage for 0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8 at 81431485836543727822970822810801936439757577406279097016824403066337902617515: Ma"
+      }
+    ]
+  }
+}

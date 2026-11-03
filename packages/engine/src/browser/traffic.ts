@@ -13,7 +13,7 @@ const MAX_BACKENDS = 5;
 const NOISE = /sentry|google-analytics|analytics\.google|googletagmanager|doubleclick|adnxs|launchdarkly|segment\.(io|com)|mixpanel|amplitude|hotjar|posthog|datadoghq|intercom|cloudflareinsights|vercel-insights|walletconnect|web3modal|reown|privy|coinbase\.com\/.*metrics/i;
 const RATE_LIMITED = /\b429\b|rate.?limit|too many requests|exceeded .*(limit|quota)|capacity/i;
 const TIMED_OUT = /timed? ?out|timeout|ETIMEDOUT/i;
-const PRUNED = /missing trie node|pruned|header not found|historical state|state .*not available|unknown block|block not found/i;
+const PRUNED = /missing trie node|archive.*not available|pruned|header not found|historical state|state .*not available|unknown block|block not found/i;
 /** In order of precedence: the first cause any error shows names the chain's failure. */
 const CAUSES = [["rate-limited", RATE_LIMITED], ["pruned", PRUNED], ["timed-out", TIMED_OUT]] as const;
 
