@@ -37,6 +37,7 @@ export class FakeWallet implements WalletController {
   }
   async switchAccount(to: "A" | "B") { this.selected = to; }
   async switchChain(chainId: number) { this.chain = chainId; }
+  async disconnect() {}
 
   nextSign(timeoutMs: number): Promise<PendingSign> {
     const open = this.log.find((r) => r.kind === "sign" && r.outcome === "pending");

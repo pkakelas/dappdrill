@@ -90,8 +90,7 @@ export type ParamDef = z.infer<typeof ParamDef>;
 export const FlowOrigin = z.enum(["discovered", "described", "recorded", "code"]);
 export type FlowOrigin = z.infer<typeof FlowOrigin>;
 
-/** A deterministic, replayable script. Replays make no model calls. */
-export const Flow = z.object({
+const FlowBase = z.object({
   id: z.string(),
   name: z.string(),
   origin: FlowOrigin,
@@ -101,6 +100,16 @@ export const Flow = z.object({
   steps: z.array(Step),
   /** Chain the flow expects the wallet to be on. */
   chainId: z.number().int().optional(),
+});
+
+/** A deterministic, replayable script. Replays make no model calls. */
+export const Flow = FlowBase.extend({
+  /**
+   * Flows replayed first, with default params, to put the chain in the state
+   * this one needs (a deposit before a withdraw). Copies, so a flow file is
+   * self-contained. Edge cases apply only to the flow itself.
+   */
+  setup: z.array(FlowBase).optional(),
 });
 export type Flow = z.infer<typeof Flow>;
 

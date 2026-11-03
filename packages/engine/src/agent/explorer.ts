@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { newId, type Flow } from "@dappdrill/core";
 import type { DrillSession, Inbox, Llm } from "../types.js";
+import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, inboxTool, Recorder, settle } from "./tools.js";
 import { LlmError } from "./llm-common.js";
 
@@ -38,15 +39,30 @@ Strategy:
    - call start_flow with a short name BEFORE the first action that belongs to it (navigate to the page first, then start),
    - perform the steps (type amounts, click buttons, approve wallet requests with wallet_approve when they appear and look right),
    - wait for the app's success state, then call end_flow with a short text visible on the page that proves success (e.g. "Deposited 1 USDC" or "Rewards claimed"). If the flow failed, call end_flow with success=false.
-4. Keep flows independent: each starts from the page it needs and includes connecting if the app needs it on a fresh load. Do not record exploration clicks inside a flow.
+4. Keep flows independent: start_flow reloads the current page as a new visitor would see it (wallet disconnected, storage cleared), so connect the wallet inside the flow when it needs one. Chain state (balances, deposits) carries over between flows. Do not record exploration clicks inside a flow.
 
 Rules:
 - Only act through the tools. Every action returns the new page state, so you rarely need look.
 - Never leave the app's origin. External links (docs, social, explorers) are not worth visiting.
 - If you see a CAPTCHA or bot check, call report_blocked and stop. Never try to solve or bypass it.
-- Review each wallet request before approving: it should match the button you pressed and the amount you typed. Unlimited approvals are worth noting in the flow name.
+- Everything runs on a disposable fork with test funds. Approve the wallet requests that belong to the flow even when they look wrong (an unlimited approval, a permit behind a "Sign in" button): every recorded signature is reviewed in detail afterwards, and that review is how the problem gets reported. If a request does not match what you did, still approve it, finish the flow, and say what looked wrong in your final summary. Reject only to test a rejection.
 - Do not spend more than a few actions on something that is not working; move on.
 - When you have recorded the flows you can or run out of budget, reply with a short summary of pages, flows recorded, and anything broken you noticed.`;
+
+/**
+ * Replays start in a new browser with nothing connected, so each flow is
+ * recorded from the same state: storage cleared, wallet disconnected, page reloaded.
+ */
+async function freshVisit(session: DrillSession): Promise<void> {
+  await session.wallet.disconnect();
+  await session.context.clearCookies();
+  await session.page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  }).catch(() => {});
+  await session.page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+  await settle(session);
+}
 
 export async function explore(session: DrillSession, llm: Llm, opts: ExploreOptions): Promise<ExploreResult> {
   const recorder = new Recorder(session);
@@ -93,9 +109,10 @@ export async function explore(session: DrillSession, llm: Llm, opts: ExploreOpti
       schema: z.object({ name: z.string().describe("Short name like 'Deposit USDC' or 'Claim rewards'") }),
       handler: async ({ name }: { name: string }) => {
         if (recorder.recording()) recorder.discard();
+        await freshVisit(session);
         recorder.start(name);
         log(`Recording flow: ${name}`);
-        return `Recording "${name}" from ${session.page.url()}. Perform the steps, then call end_flow.`;
+        return `Recording "${name}" from ${session.page.url()}. The page was reloaded as a new visitor sees it, with the wallet disconnected. Perform the steps, then call end_flow.\n\n${formatSnapshot(await takeSnapshot(session.page))}`;
       },
     },
     {

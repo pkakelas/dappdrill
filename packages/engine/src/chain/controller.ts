@@ -51,11 +51,18 @@ async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promis
     opts.log?.(`chain ${config.id}: live mode via ${config.rpcUrl}${opts.liveKey ? "" : " (no live key: read-only)"}`);
     return { config, mode: "live", url: config.rpcUrl };
   }
-  const fork = await startAnvilFork({
+  let fork = await startAnvilFork({
     rpcUrl: config.rpcUrl,
     chainId: config.id,
     forkBlock: config.forkBlock ? BigInt(config.forkBlock) : undefined,
   });
+  // Public RPCs prune old state. A block pinned by an earlier scan may no longer
+  // be readable; fork near the tip instead of failing every call later.
+  if (config.forkBlock && !(await readable(fork.url))) {
+    opts.log?.(`chain ${config.id}: block ${config.forkBlock} is no longer available upstream; forking near the latest block`);
+    await fork.close();
+    fork = await startAnvilFork({ rpcUrl: config.rpcUrl, chainId: config.id });
+  }
   opts.log?.(`chain ${config.id}: forked ${config.rpcUrl} at block ${fork.forkBlock} on ${fork.url}`);
   return {
     config: { ...config, forkBlock: fork.forkBlock.toString() },
@@ -156,6 +163,16 @@ class Controller implements ChainController {
     const e = this.entries.get(chainId);
     if (!e) throw new Error(`chain ${chainId} is not part of this run (have ${[...this.entries.keys()].join(", ") || "none"})`);
     return e;
+  }
+}
+
+/** A fork whose upstream pruned the pinned block fails its first state read. */
+async function readable(url: string): Promise<boolean> {
+  try {
+    await rpcCall(url, "eth_getBalance", ["0x000000000000000000000000000000000000dEaD", "latest"], { timeoutMs: 20_000 });
+    return true;
+  } catch {
+    return false;
   }
 }
 

@@ -186,6 +186,13 @@ export class Wallet implements WalletController {
     await this.emitter("chainChanged", toHex(chainId));
   }
 
+  async disconnect(): Promise<void> {
+    if (!this.connected) return;
+    this.connected = false;
+    this.log("wallet: disconnected");
+    await this.emitter("accountsChanged", []);
+  }
+
   onRequest(cb: (req: WalletRequest) => void): () => void {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);

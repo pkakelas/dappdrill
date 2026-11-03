@@ -14,7 +14,7 @@ describe("decodeWalletRequest", () => {
     const data = `0x095ea7b3${pad(VAULT)}${pad(12_500_000n)}`;
     const d = decodeWalletRequest(req("eth_sendTransaction", [{ to: "0x2222222222222222222222222222222222222222", data }]));
     expect(d.kind).toBe("transaction");
-    expect(d.expectation).toEqual({ kind: "transaction", to: "0x2222222222222222222222222222222222222222", functionName: "approve", spenderMustBe: VAULT });
+    expect(d.expectation).toEqual({ kind: "transaction", to: "0x2222222222222222222222222222222222222222", functionName: "approve", spenderMustBe: VAULT, failIfUnlimited: true });
     expect(d.amounts).toEqual([12_500_000n]);
     expect(d.summary).toContain("approve(0x1111…1111, 12500000)");
   });
@@ -23,7 +23,8 @@ describe("decodeWalletRequest", () => {
     const data = `0x095ea7b3${pad(VAULT)}${pad(maxUint256)}`;
     const d = decodeWalletRequest(req("eth_sendTransaction", [{ to: "0x22", data }]));
     expect(d.unlimitedApproval).toBe(true);
-    expect(d.expectation.failIfUnlimited).toBe(true);
+    // Recorded as it is, so the flow still replays; the signing review reports it.
+    expect(d.expectation.failIfUnlimited).toBeUndefined();
     expect(d.summary).toContain("MAX_UINT256");
   });
 
@@ -50,6 +51,7 @@ describe("decodeWalletRequest", () => {
     expect(d.kind).toBe("typedData");
     expect(d.expectation.spenderMustBe).toBe(VAULT);
     expect(d.amounts).toContain(5_000_000n);
+    expect(d.expectation.failIfUnlimited).toBe(true);
   });
 });
 

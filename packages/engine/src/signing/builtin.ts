@@ -34,6 +34,8 @@ export const BUILTIN_ABI: Abi = parseAbi([
   // ERC-4626
   "function deposit(uint256 assets, address receiver) returns (uint256)",
   "function mint(uint256 shares, address receiver) returns (uint256)",
+  // Mintable test tokens and faucets
+  "function mint(address to, uint256 amount)",
   "function withdraw(uint256 assets, address receiver, address owner) returns (uint256)",
   "function redeem(uint256 shares, address receiver, address owner) returns (uint256)",
   "function asset() view returns (address)",

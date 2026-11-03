@@ -23,6 +23,7 @@ const BUILTIN_ABI = parseAbi([
   "function withdraw(uint256 amount)",
   "function withdraw(uint256 assets, address receiver, address owner)",
   "function mint(uint256 shares, address receiver)",
+  "function mint(address to, uint256 amount)",
   "function redeem(uint256 shares, address receiver, address owner)",
   "function stake(uint256 amount)",
   "function unstake(uint256 amount)",
@@ -102,7 +103,7 @@ export async function checkExpectation(
   if (!exp) return { ok: true, problems, warnings };
 
   if (exp.kind && exp.kind !== decoded.kind) problems.push(`expected a ${exp.kind} request, the dApp sent ${req.method}`);
-  if (exp.to && decoded.to && exp.to.toLowerCase() !== decoded.to) problems.push(`expected the transaction to go to ${exp.to}, it goes to ${decoded.to}`);
+  if (exp.to && decoded.to && exp.to.toLowerCase() !== decoded.to.toLowerCase()) problems.push(`expected the transaction to go to ${exp.to}, it goes to ${decoded.to}`);
   if (exp.to && decoded.kind === "transaction" && !decoded.to) problems.push(`expected the transaction to go to ${exp.to}, it has no recipient`);
 
   if (exp.functionName) {

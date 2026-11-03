@@ -86,7 +86,9 @@ function decodeTransaction(method: string, tx: { to?: string; data?: string; val
       if (functionName === "approve" || functionName === "setApprovalForAll") {
         expectation.spenderMustBe = String(argList[0]).toLowerCase();
         unlimitedApproval = functionName === "setApprovalForAll" || argList[1] === maxUint256;
-        if (unlimitedApproval) expectation.failIfUnlimited = true;
+        // A bounded approval that later turns unlimited is a regression. An unlimited one is
+        // recorded as it is; the signing review reports it.
+        if (!unlimitedApproval) expectation.failIfUnlimited = true;
       }
       call = `${functionName}(${argList.map(fmtArg).join(", ")})`;
     } catch {
@@ -116,7 +118,7 @@ function decodeTypedData(method: string, params: unknown[]): DecodedRequest {
     else if (typeof v === "string" && /^\d+$/.test(v) && v.length > 1) amounts.push(BigInt(v));
   }
   const unlimited = amounts.some((a) => a >= maxUint256 / 2n);
-  if (/permit/i.test(primary) && unlimited) expectation.failIfUnlimited = true;
+  if (/permit/i.test(primary) && !unlimited) expectation.failIfUnlimited = true;
   const domain = typed?.domain?.name ? ` (${typed.domain.name})` : "";
   return {
     kind: "typedData",

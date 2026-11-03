@@ -19,12 +19,13 @@ describe("explore with a scripted model", () => {
   it("records a deposit flow with locators, wallet expectations and an amount param", async () => {
     const llm = scriptedLlm([
       { tool: "look" },
-      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "Connect wallet") } }),
-      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "MetaMask"), why: "Choose MetaMask" } }),
       { tool: "goto", input: { url: "https://evil.example.com/" } },
       { tool: "note_page", input: { url: "/vault.html", purpose: "Deposit and withdraw USDC" } },
       { tool: "goto", input: { url: "/vault.html" } },
+      // start_flow reloads as a new visitor, so connecting is part of the flow.
       { tool: "start_flow", input: { name: "Deposit USDC" } },
+      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "Connect wallet") } }),
+      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "MetaMask"), why: "Choose MetaMask" } }),
       (_last, page) => ({ tool: "type", input: { ref: refOf(page, "textbox", "Amount"), text: "12.5" } }),
       (_last, page) => ({ tool: "click", input: { ref: refOf(page, "button", "Deposit") } }),
       { tool: "wallet_status" },
@@ -32,6 +33,8 @@ describe("explore with a scripted model", () => {
       { tool: "wallet_approve" },
       { tool: "end_flow", input: { success: true, successText: "Deposited 12.5 USDC" } },
       { tool: "start_flow", input: { name: "Sign in" } },
+      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "Connect wallet") } }),
+      (last) => ({ tool: "click", input: { ref: refOf(last, "button", "MetaMask") } }),
       (_last, page) => ({ tool: "click", input: { ref: refOf(page, "button", "Sign in") } }),
       { tool: "wallet_reject" },
       { tool: "end_flow", input: { success: false, reason: "rejected on purpose" } },
@@ -48,7 +51,7 @@ describe("explore with a scripted model", () => {
     expect(result.pages.find((p) => p.url.endsWith("/vault.html"))?.title).toBe("Deposit and withdraw USDC");
 
     // The cross-origin goto was refused and not recorded.
-    expect(llm.results[3]).toMatch(/Refused/);
+    expect(llm.results[1]).toMatch(/Refused/);
 
     const flow = Flow.parse(result.flows[0]);
     expect(flow.origin).toBe("discovered");
@@ -56,11 +59,13 @@ describe("explore with a scripted model", () => {
     expect(flow.chainId).toBe(31337);
     expect(flow.params).toEqual([{ name: "amount", default: "12.5", description: expect.any(String) }]);
     expect(flow.steps).toEqual([
+      { kind: "click", target: { role: "button", name: "Connect wallet" }, note: 'Click "Connect wallet"', optional: true },
+      { kind: "click", target: { role: "button", name: "MetaMask", withinDialog: true }, note: "Choose MetaMask", optional: true },
       { kind: "fill", target: { role: "textbox", name: "Amount" }, value: "{{amount}}" },
       { kind: "click", target: { role: "button", name: "Deposit" }, note: 'Click "Deposit"' },
       {
         kind: "wallet", respond: "approve", note: expect.stringContaining("Approve"),
-        expect: { kind: "transaction", to: "0x2222222222222222222222222222222222222222", functionName: "approve", spenderMustBe: "0x1111111111111111111111111111111111111111", amountMustEqual: "{{amount}}" },
+        expect: { kind: "transaction", to: "0x2222222222222222222222222222222222222222", functionName: "approve", spenderMustBe: "0x1111111111111111111111111111111111111111", amountMustEqual: "{{amount}}", failIfUnlimited: true },
       },
       {
         kind: "wallet", respond: "approve", note: expect.stringContaining("Approve"),
@@ -72,8 +77,8 @@ describe("explore with a scripted model", () => {
     // Tool results carry the wallet request and the fresh page state.
     expect(llm.results[8]).toMatch(/Wallet request req_\w+ is waiting: eth_sendTransaction to 0x2222…2222: approve/);
     expect(llm.results[10]).toMatch(/Approved req_\w+ .*The amount matches what you typed/);
-    expect(llm.results[12]).toMatch(/Saved "Deposit USDC" with 5 steps and params amount/);
-    expect(llm.results[15]).toMatch(/Rejected req_\w+ \(personal_sign: "Sign in to Tiny Vault/);
+    expect(llm.results[12]).toMatch(/Saved "Deposit USDC" with 7 steps and params amount/);
+    expect(llm.results[17]).toMatch(/Rejected req_\w+ \(personal_sign: "Sign in to Tiny Vault/);
     expect(s.wallet.requests().filter((r) => r.kind === "sign").map((r) => r.outcome)).toEqual(["approved", "approved", "rejected"]);
 
     const events = s.events.map((e) => e.type);

@@ -89,6 +89,8 @@ export interface WalletController {
   switchAccount(to: "A" | "B"): Promise<void>;
   /** Change network from the wallet side and emit chainChanged. */
   switchChain(chainId: number): Promise<void>;
+  /** Forget the dApp's connection, as a fresh visitor's wallet would. */
+  disconnect(): Promise<void>;
   /** Called for every request as it arrives. */
   onRequest(cb: (req: WalletRequest) => void): () => void;
 }
