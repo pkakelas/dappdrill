@@ -179,7 +179,7 @@ function WithdrawCard() {
       {!account ? (
         <ConnectButton />
       ) : (
-        <button className="btn secondary wide" onClick={withdraw} disabled={busy || !value || tooMuch}>
+        <button className="btn secondary wide" onClick={withdraw} disabled={busy || !value || !position || tooMuch}>
           {busy ? 'Withdrawing…' : tooMuch ? 'More than you deposited' : 'Withdraw'}
         </button>
       )}

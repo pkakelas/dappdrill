@@ -342,7 +342,9 @@ export class Wallet implements WalletController {
           this.needsLiveKey = true;
           throw WalletErrors.needsLiveKey(chainName(this.chain));
         }
-        if (!this.chains.has(this.chain)) throw WalletErrors.chainDisconnected(this.chain);
+        // Messages sign on any network, as in MetaMask; transactions need the chain.
+        const signsMessage = method === "personal_sign" || method === "eth_sign" || method.startsWith("eth_signTypedData");
+        if (!signsMessage && !this.chains.has(this.chain)) throw WalletErrors.chainDisconnected(this.chain);
         const run = () => this.sign(method, params).then((result) => ({ result }) as BridgeResponse, (e) => ({ error: toRpcError(e) }) as BridgeResponse);
         if (this.pol.autoSign) {
           const res = await run();
@@ -396,7 +398,7 @@ export class Wallet implements WalletController {
       case "eth_signTypedData_v3":
       case "eth_signTypedData_v4":
         addressParam(0);
-        return signTypedData(account, params);
+        return signTypedData(account, params, this.chain);
       case "eth_sendTransaction": {
         const tx = (params[0] ?? {}) as TxRequest;
         let prepared: PreparedTx;

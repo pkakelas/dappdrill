@@ -191,6 +191,36 @@ describe("session", () => {
     }
   }, 60_000);
 
+  it("on a chain we don't run, still signs messages but refuses typed data for another chain", async () => {
+    const session = await open([], { startChainId: 1, policy: { autoSign: true } });
+    try {
+      const res = await session.page.evaluate(async () => {
+        const eth = (window as any).ethereum;
+        const [from] = await eth.request({ method: "eth_requestAccounts" });
+        const typed = (chainId: number) =>
+          JSON.stringify({
+            types: { EIP712Domain: [{ name: "chainId", type: "uint256" }], Hello: [{ name: "a", type: "uint256" }] },
+            domain: { chainId },
+            primaryType: "Hello",
+            message: { a: 1 },
+          });
+        const out: any = { message: await eth.request({ method: "personal_sign", params: ["0x68656c6c6f", from] }) };
+        out.sameChain = await eth.request({ method: "eth_signTypedData_v4", params: [from, typed(1)] });
+        try {
+          await eth.request({ method: "eth_signTypedData_v4", params: [from, typed(31337)] });
+        } catch (e: any) {
+          out.otherChain = { code: e.code, message: e.message };
+        }
+        return out;
+      });
+      expect(res.message).toMatch(/^0x[0-9a-f]{130}$/);
+      expect(res.sameChain).toMatch(/^0x[0-9a-f]{130}$/);
+      expect(res.otherChain).toEqual({ code: -32602, message: 'Invalid parameters: Provided chainId "31337" must match the active chainId "1"' });
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
   it("two wallets: both announced, and we record which one the dApp used", async () => {
     const session = await open(["wrongprovider"], { twoWallets: true });
     try {

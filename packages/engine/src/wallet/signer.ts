@@ -59,7 +59,7 @@ export async function signEthSign(account: PrivateKeyAccount, params: unknown): 
   return account.sign({ hash: hash as ViemHex });
 }
 
-export async function signTypedData(account: PrivateKeyAccount, params: unknown): Promise<Hex> {
+export async function signTypedData(account: PrivateKeyAccount, params: unknown, activeChainId?: number): Promise<Hex> {
   const [, payload] = requireParams(params, 2, "eth_signTypedData expects [address, typedData]");
   let typed: any;
   try {
@@ -72,6 +72,10 @@ export async function signTypedData(account: PrivateKeyAccount, params: unknown)
   }
   const { EIP712Domain: _domain, ...types } = typed.types;
   const domain = typed.domain ?? {};
+  // MetaMask refuses typed data bound to another chain than the one it is on.
+  if (activeChainId !== undefined && domain.chainId !== undefined && Number(domain.chainId) !== activeChainId) {
+    throw WalletErrors.invalidParams(`Provided chainId "${Number(domain.chainId)}" must match the active chainId "${activeChainId}"`);
+  }
   try {
     return await account.signTypedData({ domain, types, primaryType: typed.primaryType, message: typed.message });
   } catch (err) {
