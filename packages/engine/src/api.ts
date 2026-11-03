@@ -122,7 +122,7 @@ export async function scan(
         judge: true,
         signal,
       });
-      merge(result, r);
+      merge(result, r, env);
       await stage("edge-cases", "running", (i + 1) / flows.length);
       await stage("signing", "running", (i + 1) / flows.length);
     }
@@ -171,6 +171,7 @@ export async function replay(
           video: opts.video,
           signal,
         }),
+        env,
       );
     }
   } finally {
@@ -255,9 +256,9 @@ function withHappy(edgeCases: EdgeCaseId[]): EdgeCaseId[] {
   return edgeCases.includes("happy") ? edgeCases : ["happy", ...edgeCases];
 }
 
-function merge(into: ReplayResult, from: ReplayResult): void {
-  into.runs.push(...from.runs);
-  into.issues.push(...from.issues);
+function merge(into: ReplayResult, from: ReplayResult, env: Env): void {
+  into.issues.push(...from.issues.filter((i) => !env.isDuplicate(i)));
+  into.runs.push(...from.runs.map(env.canonical));
   into.signingReviews.push(...from.signingReviews);
 }
 

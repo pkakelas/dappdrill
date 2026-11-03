@@ -6,7 +6,7 @@
 import os from "node:os";
 import path from "node:path";
 import { generatePrivateKey } from "viem/accounts";
-import { chainInfo, nowIso, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget } from "@dappdrill/core";
+import { chainInfo, nowIso, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type FlowRun, type Issue } from "@dappdrill/core";
 import { createLlm, createRecoveryJudge } from "../agent/index.js";
 import { openInbox } from "../inbox/index.js";
 import { detectChains, startChains } from "../runtime.js";
@@ -25,9 +25,15 @@ export interface Env {
   llm(): Llm;
   judge(): RecoveryJudge;
   costUsd(): number;
+  /** True for a repeat of an app-wide issue another flow already reported. */
+  isDuplicate(issue: Issue): boolean;
+  /** The run with repeated issues replaced by the one that was reported. */
+  canonical(run: FlowRun): FlowRun;
   log(message: string, level?: "info" | "warn" | "error"): Promise<void>;
   close(): Promise<void>;
 }
+
+const APP_WIDE = new Set<EdgeCaseId>(["wrong-network", "switch-account", "two-wallets"]);
 
 /** Used when the page makes no JSON-RPC calls we can see (apps behind their own backend). */
 const FALLBACK_CHAIN = 1;
@@ -39,8 +45,26 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   let judge: RecoveryJudge | undefined;
   const costUsd = () => llms.reduce((sum, l) => sum + l.costUsd(), 0);
 
-  const wrapped: DrillEventSink = (event: DrillEvent) =>
-    sink(event.type === "cost" ? { type: "cost", usd: Math.round(costUsd() * 1000) / 1000 } : event);
+  // Wallet-setup problems (wrong network, account switch, two wallets) are the
+  // same bug in every flow: report them once for the app, and point later runs
+  // at that issue.
+  const firstByKey = new Map<string, string>();
+  const alias = new Map<string, string>();
+  const isDuplicate = (issue: Issue) => {
+    if (!issue.edgeCase || !APP_WIDE.has(issue.edgeCase) || issue.category !== "wallet") return false;
+    const first = firstByKey.get(issue.edgeCase) ?? issue.id;
+    firstByKey.set(issue.edgeCase, first);
+    if (first !== issue.id) alias.set(issue.id, first);
+    return first !== issue.id;
+  };
+  const canonical = (run: FlowRun): FlowRun =>
+    run.issueIds.some((id) => alias.has(id)) ? { ...run, issueIds: [...new Set(run.issueIds.map((id) => alias.get(id) ?? id))] } : run;
+
+  const wrapped: DrillEventSink = (event: DrillEvent) => {
+    if (event.type === "issue" && isDuplicate(event.issue)) return;
+    if (event.type === "run") return sink({ ...event, run: canonical(event.run) });
+    return sink(event.type === "cost" ? { type: "cost", usd: Math.round(costUsd() * 1000) / 1000 } : event);
+  };
   const log = async (message: string, level: "info" | "warn" | "error" = "info") => {
     await wrapped({ type: "log", level, message, at: nowIso() });
   };
@@ -91,6 +115,8 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
       return judge;
     },
     costUsd,
+    isDuplicate,
+    canonical,
     log,
     close: () => chains.close(),
   };
