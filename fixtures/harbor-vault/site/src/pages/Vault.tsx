@@ -98,7 +98,7 @@ function DepositCard() {
         onChange={setAmount}
         available={fmt(position?.hUSDC)}
         availableLabel="Wallet"
-        onMax={() => position && setAmount(formatUnits(position.hUSDC, 6))}
+        onMax={position ? () => setAmount(formatUnits(position.hUSDC, 6)) : undefined}
         disabled={phase !== 'idle'}
       />
       {value !== null && !tooMuch && (
@@ -173,7 +173,7 @@ function WithdrawCard() {
         onChange={setAmount}
         available={fmt(position?.deposited)}
         availableLabel="Deposited"
-        onMax={() => position && setAmount(formatUnits(position.deposited, 6))}
+        onMax={position ? () => setAmount(formatUnits(position.deposited, 6)) : undefined}
         disabled={busy}
       />
       {!account ? (

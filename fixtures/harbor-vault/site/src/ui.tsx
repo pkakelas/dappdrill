@@ -81,7 +81,8 @@ export function AmountInput(props: {
   onChange: (value: string) => void
   available: string
   availableLabel: string
-  onMax: () => void
+  /** Undefined while the balance is still loading: Max has nothing to fill in yet. */
+  onMax?: () => void
   disabled?: boolean
 }) {
   return (
@@ -103,7 +104,7 @@ export function AmountInput(props: {
         <span>
           {props.availableLabel}: {props.available} hUSDC
         </span>
-        <button type="button" className="link-btn" onClick={props.onMax} disabled={props.disabled}>
+        <button type="button" className="link-btn" onClick={props.onMax} disabled={props.disabled || !props.onMax}>
           Max
         </button>
       </div>
