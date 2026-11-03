@@ -4,7 +4,7 @@
  * otherwise a built-in ABI of the functions dApps most often ask for.
  */
 import { decodeFunctionData, maxUint160, maxUint256, parseAbi, parseUnits, type Hex as ViemHex } from "viem";
-import { applyParams, formatUnitsPlain, type DecodedRequest, type WalletExpectation, type WalletRequest } from "@dappdrill/core";
+import { applyParams, formatUnitsPlain, matchesFunction, type DecodedRequest, type WalletExpectation, type WalletRequest } from "@dappdrill/core";
 import type { ChainController } from "../types.js";
 
 export const PERMIT2 = "0x000000000022d473030f116ddee9f6b43ac78ba3";
@@ -106,9 +106,9 @@ export async function checkExpectation(
   if (exp.to && decoded.to && exp.to.toLowerCase() !== decoded.to.toLowerCase()) problems.push(`expected the transaction to go to ${exp.to}, it goes to ${decoded.to}`);
   if (exp.to && decoded.kind === "transaction" && !decoded.to) problems.push(`expected the transaction to go to ${exp.to}, it has no recipient`);
 
-  if (exp.functionName) {
+  if (exp.functionName && !matchesFunction(exp.functionName, decoded)) {
     if (!decoded.functionName) warnings.push(`could not decode the called function (selector ${decoded.calldata?.slice(0, 10) ?? "none"}); expected ${exp.functionName}`);
-    else if (decoded.functionName !== exp.functionName) problems.push(`expected a call to ${exp.functionName}, the dApp calls ${decoded.functionName}`);
+    else problems.push(`expected a call to ${exp.functionName}, the dApp calls ${decoded.functionName}`);
   }
 
   const spender = spenderOf(decoded);

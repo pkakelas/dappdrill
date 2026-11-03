@@ -1,0 +1,136 @@
+{
+  "id": "flow_nrlxh03m69nyal",
+  "name": "Withdraw 40 USDC from Steakhouse USDC vault",
+  "origin": "discovered",
+  "startUrl": "https://app.morpho.org/ethereum/vault/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB/steakhouse-usdc",
+  "params": [],
+  "steps": [
+    {
+      "kind": "press",
+      "key": "Space",
+      "target": {
+        "css": "#_R_55bH2_",
+        "withinDialog": true
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "dialog > div:nth-of-type(2) > button",
+        "withinDialog": true
+      },
+      "note": "Continue past terms",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "Connect",
+        "nth": 0
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "MetaMask installed"
+      },
+      "note": "Connect with MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Proceed",
+        "withinDialog": true
+      },
+      "note": "Dismiss onboarding",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Withdraw"
+      },
+      "note": "Switch to Withdraw tab"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "asset-input"
+      },
+      "value": "40"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "finalize-button"
+      },
+      "note": "Review withdraw"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Withdraw",
+        "withinDialog": true
+      },
+      "note": "Confirm withdraw"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "typedData",
+        "spenderMustBe": "0x02912516d49de997db75b9d7858faae59209650b"
+      },
+      "note": "Approve eth_signTypedData_v4 Permit (Steakhouse USDC)"
+    },
+    {
+      "kind": "press",
+      "key": "Space",
+      "target": {
+        "css": "#accept-continue-without-simulation-checkbox",
+        "withinDialog": true
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Proceed anyway",
+        "withinDialog": true
+      },
+      "note": "Proceed without simulation (off-fork simulator)"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0x02912516d49de997db75b9d7858faae59209650b",
+        "functionName": "0x932084a8"
+      },
+      "note": "Approve eth_sendTransaction to 0x0291…650b"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "action-flow-dialog-close",
+        "withinDialog": true
+      },
+      "note": "Close review to check updated position"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "60 USDC"
+      }
+    }
+  ],
+  "chainId": 1
+}

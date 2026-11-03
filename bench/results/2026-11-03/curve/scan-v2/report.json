@@ -1,0 +1,30 @@
+{
+  "url": "https://www.curve.finance/dex/ethereum/swap/",
+  "startedAt": "2026-11-03T14:08:06.773Z",
+  "finishedAt": "2026-11-03T14:10:51.038Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334766"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://www.curve.finance/dex/ethereum/swap/",
+      "title": "Curve.finance"
+    },
+    {
+      "url": "https://www.curve.finance/dex/ethereum/swap",
+      "title": "Token swap via Curve router"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 1.0786714000000004,
+  "stoppedEarly": false
+}

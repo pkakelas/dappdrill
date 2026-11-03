@@ -1,0 +1,87 @@
+{
+  "id": "flow_semqwyre6yo5l1",
+  "name": "Wrap 0.02 stETH to wstETH",
+  "origin": "discovered",
+  "startUrl": "https://stake.lido.fi/wrap",
+  "params": [
+    {
+      "name": "amount",
+      "default": "0.02",
+      "description": "Amount typed into the form"
+    }
+  ],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "css": "div:nth-of-type(1) > header > div:nth-of-type(3) > button:nth-of-type(1)"
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "div > div > div:nth-of-type(2) > div > div:nth-of-type(1) > label > label > svg",
+        "withinDialog": true
+      },
+      "note": "Accept terms",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "MetaMask",
+        "withinDialog": true
+      },
+      "note": "Connect MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "wrapInput"
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "wrapBtn"
+      },
+      "note": "Approve and wrap"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+        "functionName": "approve",
+        "spenderMustBe": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "failIfUnlimited": true,
+        "amountMustEqual": "{{amount}}"
+      },
+      "note": "Approve eth_sendTransaction to 0xae7a…fe84"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "functionName": "0xea598cb0"
+      },
+      "note": "Approve eth_sendTransaction to 0x7f39…2ca0"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "Wrapping operation was successful"
+      }
+    }
+  ],
+  "chainId": 1
+}

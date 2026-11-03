@@ -1,0 +1,41 @@
+{
+  "466f8cf6bff65bcd": {
+    "label": "true",
+    "note": "After a 4001 rejection Lido shows 'Transaction Failed / Something went wrong' with Retry, so a deliberate cancel reads like a failure. Minor UX, but accurate."
+  },
+  "46eeb433883dd4f0": {
+    "label": "false",
+    "note": "Engine bug. Lido did switch to Ethereum; DappDrill then rejected the stake itself because the recorded selector 0xa1903eab didn't string-match the decoded name 'submit'. Fixed: matchesFunction.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "b8aa2cd8b72c8a0a": {
+    "label": "false",
+    "note": "Engine bug, same cause: Lido sent from the new account B and DappDrill rejected the request over the selector/name mismatch.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "c780c63cb5a0bdc4": {
+    "label": "false",
+    "note": "Lido shows 'Entered ETH amount exceeds your available balance' under the field; the feedback detector didn't know that phrasing. Fixed: feedbackMessage.",
+    "fixed": "The feedback detector now reads \"exceeds your available balance\" as a message."
+  },
+  "ba4e698fa5556426": {
+    "label": "false",
+    "note": "Engine bug: 'expected a call to 0xa1903eab, the dApp calls submit' is the same call. Not a slow-RPC failure.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "ee6ab83621d2b33a": {
+    "label": "false",
+    "note": "Engine bug: the signing review's expectation check compared the selector with the name. The stake is correct (ui-match passed with high confidence).",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "388f3006355350e5": {
+    "label": "false",
+    "note": "The replay account has no stETH (the scan staked first), so after the rejection the page shows \"Entered stETH amount exceeds your available balance of 0\" and disables the button for that reason. It isn't stuck.",
+    "fixed": "A disabled button next to a feedback message is no longer called stuck (inspectRecovery)."
+  },
+  "b8d36e9103ca5dc1": {
+    "label": "false",
+    "note": "Lido's backend began answering \"Sorry, access is currently unavailable\" (HTTP 429) after many replays, so Stake never sent a transaction and nothing was rejected. The page did show a message.",
+    "fixed": "The reject checks now run only after a request was actually rejected, and \"unavailable\" counts as feedback (replay/edge-cases.ts recoveryChecks, test in edge-cases.test.ts)."
+  }
+}

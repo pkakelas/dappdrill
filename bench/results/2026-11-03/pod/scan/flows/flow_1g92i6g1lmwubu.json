@@ -1,0 +1,42 @@
+{
+  "id": "flow_1g92i6g1lmwubu",
+  "name": "Sign in with wallet",
+  "origin": "discovered",
+  "startUrl": "https://staging-app.podtestnet.dev/trade",
+  "params": [],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Continue with a wallet"
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "MetaMask→"
+      },
+      "note": "Choose MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "message"
+      },
+      "note": "Approve personal_sign"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "Enable trading"
+      }
+    }
+  ],
+  "chainId": 129302
+}

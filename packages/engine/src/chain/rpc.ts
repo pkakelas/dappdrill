@@ -32,13 +32,24 @@ export function toRpcError(e: unknown): { code: number; message: string; data?: 
 
 let nextId = 1;
 
-export async function rpcCall(url: string, method: string, params: unknown[] = [], opts: { timeoutMs?: number } = {}): Promise<unknown> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: nextId++, method, params }),
-    signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
-  });
+/** Statuses a public RPC returns when it's busy; worth another try. */
+const RETRY_STATUSES = new Set([429, 502, 503, 504]);
+const RETRY_DELAYS_MS = [1_000, 2_500, 5_000];
+
+export async function rpcCall(url: string, method: string, params: unknown[] = [], opts: { timeoutMs?: number; retryDelaysMs?: number[] } = {}): Promise<unknown> {
+  const delays = opts.retryDelaysMs ?? RETRY_DELAYS_MS;
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: nextId++, method, params }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
+    });
+    if (!RETRY_STATUSES.has(res.status) || attempt >= delays.length) break;
+    const after = Number(res.headers.get("retry-after"));
+    await new Promise((r) => setTimeout(r, Number.isFinite(after) && after > 0 ? Math.min(after * 1000, 10_000) : delays[attempt]));
+  }
   if (!res.ok) throw new JsonRpcError(-32603, `RPC ${url} answered HTTP ${res.status}`);
   const body = (await res.json()) as { result?: unknown; error?: { code: number; message: string; data?: unknown } };
   if (body.error) throw new JsonRpcError(body.error.code, body.error.message, body.error.data);

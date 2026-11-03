@@ -138,4 +138,24 @@ describe("locatorFor", () => {
     const loc = await locatorFor(s.page, pick.ref);
     expect(loc.text).toBe("Pick me");
   });
+
+  it("keeps an on-screen side panel when a long table fills the budget", async () => {
+    // Morpho's vault page: market tables come first in the DOM, the deposit form is a fixed panel after them.
+    const rows = Array.from({ length: 400 }, (_, i) => `<tr><td><button>Market ${i} wstETH / USDC 86% LLTV</button></td></tr>`).join("");
+    await s.page.setContent(`
+      <table>${rows}</table>
+      <aside style="position:fixed;top:80px;right:20px;width:320px">
+        <h2>Deposit USDC</h2>
+        <input aria-label="Deposit amount" />
+        <button>Deposit</button>
+      </aside>
+    `);
+    const snap = await takeSnapshot(s.page, { maxChars: 4_000 });
+    const names = snap.nodes.map((n) => n.name);
+    expect(names).toContain("Deposit amount");
+    expect(names).toContain("Deposit");
+    expect(names).toContain("Market 0 wstETH / USDC 86% LLTV");
+    expect(names).not.toContain("Market 399 wstETH / USDC 86% LLTV");
+    expect(formatSnapshot(snap)).not.toContain("offscreen");
+  });
 });

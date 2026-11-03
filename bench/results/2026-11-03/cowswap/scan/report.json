@@ -1,0 +1,26 @@
+{
+  "url": "https://swap.cow.fi/#/1/swap/USDC/WETH",
+  "startedAt": "2026-11-03T14:07:03.551Z",
+  "finishedAt": "2026-11-03T14:08:05.881Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334761"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://swap.cow.fi/",
+      "title": "Swap - CoW Swap | The smartest way to trade cryptocurrencies"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.5856884000000001,
+  "stoppedEarly": false
+}

@@ -1,0 +1,87 @@
+{
+  "id": "flow_iy8y7nffjbm7tx",
+  "name": "Supply 100 USDC",
+  "origin": "discovered",
+  "startUrl": "https://app.compound.xyz/?market=usdc-mainnet",
+  "params": [],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "text": "Connect Wallet",
+        "nth": 0
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "div > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1)"
+      },
+      "note": "Choose MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Supply USDC"
+      },
+      "note": "Open Supply USDC modal"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "role": "textbox",
+        "name": "0"
+      },
+      "value": "100"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Approve & Add"
+      },
+      "note": "Approve USDC and supply"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "functionName": "approve",
+        "spenderMustBe": "0xc3d688b66703497daa19211eedff47f25384cdc3"
+      },
+      "note": "Approve eth_sendTransaction to 0xa0b8…eb48"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Submit Transaction"
+      },
+      "note": "Submit supply transaction"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "functionName": "0xf2b9fdb8"
+      },
+      "note": "Approve eth_sendTransaction to 0xc3d6…cdc3"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "Supplying @ 3.25% Net APR"
+      }
+    }
+  ],
+  "chainId": 1
+}

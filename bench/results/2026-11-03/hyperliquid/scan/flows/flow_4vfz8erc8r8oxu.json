@@ -1,0 +1,96 @@
+{
+  "id": "flow_4vfz8erc8r8oxu",
+  "name": "Connect wallet, accept terms and sign trading connection",
+  "origin": "discovered",
+  "startUrl": "https://app.hyperliquid-testnet.xyz/trade",
+  "params": [],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "text": "Connect",
+        "nth": 0
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "MetaMask"
+      },
+      "note": "Choose MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1)"
+      },
+      "note": "Tick terms acknowledgement",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)"
+      },
+      "note": "Tick cookie acknowledgement",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Accept"
+      },
+      "note": "Accept terms",
+      "optional": true
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "typedData"
+      },
+      "note": "Approve eth_signTypedData_v4 Hyperliquid"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Establish Connection"
+      },
+      "note": "Establish Connection (enable trading / agent approval)"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "typedData"
+      },
+      "note": "Approve eth_signTypedData_v4 HyperliquidTransaction"
+    },
+    {
+      "kind": "press",
+      "key": "Escape"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "div > div:nth-of-type(5) > div:nth-of-type(1)"
+      },
+      "note": "Close deposit popup",
+      "optional": true
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "{{account-head}}...{{account-tail}}"
+      }
+    }
+  ],
+  "chainId": 421614
+}

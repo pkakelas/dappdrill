@@ -1,0 +1,26 @@
+{
+  "url": "https://app.gmx.io/#/trade",
+  "startedAt": "2026-11-03T13:47:29.966Z",
+  "finishedAt": "2026-11-03T13:48:38.288Z",
+  "chains": [
+    {
+      "id": 42161,
+      "name": "Arbitrum",
+      "rpcUrl": "https://arbitrum-one-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "520890097"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.gmx.io/trade",
+      "title": "GMX | Perpetual DEX for Crypto, Metals, Stocks & Energy"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.3636676,
+  "stoppedEarly": false
+}

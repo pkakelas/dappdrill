@@ -1,0 +1,5527 @@
+{
+  "url": "https://stake.lido.fi/",
+  "startedAt": "2026-11-03T14:24:57.021Z",
+  "finishedAt": "2026-11-03T14:29:47.410Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork"
+    }
+  ],
+  "pages": [],
+  "flows": [
+    {
+      "id": "flow_semqwyre6yo5l1",
+      "name": "Wrap 0.02 stETH to wstETH",
+      "origin": "discovered",
+      "startUrl": "https://stake.lido.fi/wrap",
+      "params": [
+        {
+          "name": "amount",
+          "default": "0.02",
+          "description": "Amount typed into the form"
+        }
+      ],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div:nth-of-type(1) > header > div:nth-of-type(3) > button:nth-of-type(1)"
+          }
+        },
+        {
+          "note": "Accept terms",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div > div > div:nth-of-type(2) > div > div:nth-of-type(1) > label > label > svg",
+            "withinDialog": true
+          }
+        },
+        {
+          "note": "Connect MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "MetaMask",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "wrapInput"
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "note": "Approve and wrap",
+          "kind": "click",
+          "target": {
+            "testId": "wrapBtn"
+          }
+        },
+        {
+          "note": "Approve eth_sendTransaction to 0xae7a…fe84",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "functionName": "approve",
+            "spenderMustBe": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+            "amountMustEqual": "{{amount}}",
+            "failIfUnlimited": true
+          }
+        },
+        {
+          "note": "Approve eth_sendTransaction to 0x7f39…2ca0",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+            "functionName": "0xea598cb0"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "Wrapping operation was successful"
+          }
+        }
+      ],
+      "chainId": 1
+    },
+    {
+      "id": "flow_um55hy5ovms8w7",
+      "name": "Stake 0.05 ETH",
+      "origin": "discovered",
+      "startUrl": "https://stake.lido.fi/",
+      "params": [
+        {
+          "name": "amount",
+          "default": "0.05",
+          "description": "Amount typed into the form"
+        }
+      ],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div:nth-of-type(1) > header > div:nth-of-type(3) > button:nth-of-type(1)"
+          }
+        },
+        {
+          "note": "Accept terms",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div > div > div:nth-of-type(2) > div > div:nth-of-type(1) > label > label > svg",
+            "withinDialog": true
+          }
+        },
+        {
+          "note": "Connect MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "MetaMask",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "stakeInput"
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "note": "Submit stake",
+          "kind": "click",
+          "target": {
+            "testId": "stakeSubmitBtn"
+          }
+        },
+        {
+          "note": "Approve eth_sendTransaction to 0xae7a…fe84",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "functionName": "0xa1903eab",
+            "amountMustEqual": "{{amount}}"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "Staking operation was successful"
+          }
+        }
+      ],
+      "chainId": 1
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_yd8be5g8lopar0",
+      "flowId": "flow_semqwyre6yo5l1",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 1095
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 1159
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 728
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 222
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 698
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30093,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_yd8be5g8lopar0-run_yd8be5g8lopar0-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_8vszexwusanei1",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:25:06.637Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_5ad9ppdi3erd93",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:06.684Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_zrt9ahjl8udf09",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:06.751Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_n0wayn0605fjum",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:06.764Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_fa4hgv9fya37l8",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:06.887Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_srx1zwvjpqs3t2",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x4aa07e64",
+              "to": "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:07.572Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+        },
+        {
+          "id": "req_v615u2yepndelw",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x4aa07e64",
+              "to": "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:07.575Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+        },
+        {
+          "id": "req_9fxdsxi6x3h009",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xb0e3890000000000000000000000000000000000000000000000000000470de4df820000",
+              "to": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:07.699Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000038eb3bcc9fc79f"
+        },
+        {
+          "id": "req_fmcu5lxo99t0rv",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:18.748Z",
+          "outcome": "approved",
+          "result": "0x191d687"
+        },
+        {
+          "id": "req_y933j8571njn6p",
+          "method": "eth_getBalance",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:19.038Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        },
+        {
+          "id": "req_plmmbt303584xq",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:30.804Z",
+          "outcome": "approved",
+          "result": "0x191d68a"
+        },
+        {
+          "id": "req_81ds7l4svhbdqr",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "topics": [
+                "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+                "0x0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:30.823Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_v2x1obm9x0io47",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+                null
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:30.824Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_yg6to1xe9am9qb",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                null,
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a"
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:30.826Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_mtd49lky0pca99",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+                null
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:30.827Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_gksqi5wz0qay0g",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:31.061Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_wh0qckmqr2lylk",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:31.064Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_us55iiu5figw2z",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xdd62ed3e00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:31.075Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_b062lp4qqo4p3m",
+          "method": "eth_getBalance",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:31.076Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 79,
+          "at": "2026-11-03T14:24:59.871Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 259,
+          "at": "2026-11-03T14:25:00.051Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 261,
+          "at": "2026-11-03T14:25:00.053Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 262,
+          "at": "2026-11-03T14:25:00.054Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 262,
+          "at": "2026-11-03T14:25:00.054Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 261,
+          "at": "2026-11-03T14:25:00.054Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 262,
+          "at": "2026-11-03T14:25:00.055Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 263,
+          "at": "2026-11-03T14:25:00.055Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 263,
+          "at": "2026-11-03T14:25:00.055Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 263,
+          "at": "2026-11-03T14:25:00.055Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 262,
+          "at": "2026-11-03T14:25:00.055Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 262,
+          "at": "2026-11-03T14:25:00.055Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 434,
+          "at": "2026-11-03T14:25:00.226Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 2591,
+          "at": "2026-11-03T14:25:02.384Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:25:02.546Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:25:02.546Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 130,
+          "at": "2026-11-03T14:25:02.673Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 217,
+          "at": "2026-11-03T14:25:02.760Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 16,
+          "at": "2026-11-03T14:25:06.921Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:25:06.921Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 92,
+          "at": "2026-11-03T14:25:07.004Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 106,
+          "at": "2026-11-03T14:25:07.018Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 115,
+          "at": "2026-11-03T14:25:07.027Z"
+        }
+      ],
+      "trace": "traces/run_yd8be5g8lopar0.zip",
+      "finalScreenshot": "screenshots/run_yd8be5g8lopar0-run_yd8be5g8lopar0-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:24:58.081Z",
+      "finishedAt": "2026-11-03T14:25:40.638Z"
+    },
+    {
+      "id": "run_hdbgr7603pvow2",
+      "flowId": "flow_semqwyre6yo5l1",
+      "edgeCase": "reject",
+      "status": "issue",
+      "reason": "Rejecting 'Unlock tokens and wrap' leaves the button stuck on 'Unlock tokens and wrap'",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 218
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 262
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 317
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 90
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 611
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30120,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_hdbgr7603pvow2-run_hdbgr7603pvow2-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_1nr77dwz4d2mer",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:25:47.187Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_z9em936dublzij",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:47.199Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_8yl59gpddna938",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:47.252Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_u76qq16mxx9nzp",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:47.252Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_47ba0g5azco5hh",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:47.253Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_uup9t31ta4jjkl",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x4aa07e64",
+              "to": "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:48.001Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+        },
+        {
+          "id": "req_cj8igbv7edm60j",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x4aa07e64",
+              "to": "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:48.001Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+        },
+        {
+          "id": "req_o0laic55r8kr09",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xb0e3890000000000000000000000000000000000000000000000000000470de4df820000",
+              "to": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:48.039Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000038eb3bcc9fc79f"
+        },
+        {
+          "id": "req_j8rw0jk6u3hh7p",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:59.229Z",
+          "outcome": "approved",
+          "result": "0x191d687"
+        },
+        {
+          "id": "req_np5dojgh7nfe8n",
+          "method": "eth_getBalance",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:25:59.485Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        },
+        {
+          "id": "req_o9cw19zwixnj1l",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.240Z",
+          "outcome": "approved",
+          "result": "0x191d68a"
+        },
+        {
+          "id": "req_r0kald4q3gkb0b",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "topics": [
+                "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+                "0x0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.262Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_cxzot2sm7t4okm",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+                null
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.263Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_gubcrp2zoafb4c",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                null,
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a"
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.264Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_c1t3udax94i7kv",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+                null
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.265Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_26tfx9zbhcdsmn",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.490Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_tymjetpuvp4cxh",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.504Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_dkf004ua0132kq",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xdd62ed3e00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.504Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_2b0rnkiv4cg3fb",
+          "method": "eth_getBalance",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:11.504Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [
+        "iss_m66n7c9zet7ecr"
+      ],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 143,
+          "at": "2026-11-03T14:25:42.061Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 380,
+          "at": "2026-11-03T14:25:42.297Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 380,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 381,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 377,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 378,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 379,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 380,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 378,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 379,
+          "at": "2026-11-03T14:25:42.298Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 380,
+          "at": "2026-11-03T14:25:42.299Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 391,
+          "at": "2026-11-03T14:25:42.310Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 615,
+          "at": "2026-11-03T14:25:42.534Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 3133,
+          "at": "2026-11-03T14:25:45.054Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 85,
+          "at": "2026-11-03T14:25:45.315Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 85,
+          "at": "2026-11-03T14:25:45.315Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 231,
+          "at": "2026-11-03T14:25:45.461Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 311,
+          "at": "2026-11-03T14:25:45.541Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 12,
+          "at": "2026-11-03T14:25:47.389Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 15,
+          "at": "2026-11-03T14:25:47.393Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 81,
+          "at": "2026-11-03T14:25:47.459Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 94,
+          "at": "2026-11-03T14:25:47.473Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 95,
+          "at": "2026-11-03T14:25:47.473Z"
+        }
+      ],
+      "trace": "traces/run_hdbgr7603pvow2.zip",
+      "finalScreenshot": "screenshots/run_hdbgr7603pvow2-run_hdbgr7603pvow2-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:25:40.638Z",
+      "finishedAt": "2026-11-03T14:26:25.623Z"
+    },
+    {
+      "id": "run_b1bogwu4yg0hbb",
+      "flowId": "flow_semqwyre6yo5l1",
+      "edgeCase": "wrong-network",
+      "status": "fail",
+      "reason": "Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 353
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 798
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 259
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 63
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 801
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30122,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_b1bogwu4yg0hbb-run_b1bogwu4yg0hbb-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_1b37t7lw2432ji",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 11155111,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:26:32.343Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_fk1eldb60ygo65",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:32.357Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_k1rf9jr77ayvfs",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:32.478Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_11ar3rr23eagq3",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:32.478Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        },
+        {
+          "id": "req_n06hr0y3peq6yy",
+          "method": "wallet_switchEthereumChain",
+          "params": [
+            {
+              "chainId": "0x1"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "switch",
+          "at": "2026-11-03T14:26:32.484Z",
+          "outcome": "approved",
+          "result": null
+        },
+        {
+          "id": "req_dpgnhiw0drdyx2",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:26:32.531Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 149,
+          "at": "2026-11-03T14:26:27.612Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 362,
+          "at": "2026-11-03T14:26:27.845Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 434,
+          "at": "2026-11-03T14:26:27.893Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 407,
+          "at": "2026-11-03T14:26:27.893Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 408,
+          "at": "2026-11-03T14:26:27.893Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 432,
+          "at": "2026-11-03T14:26:27.893Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 406,
+          "at": "2026-11-03T14:26:27.893Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 406,
+          "at": "2026-11-03T14:26:27.893Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 395,
+          "at": "2026-11-03T14:26:27.894Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 437,
+          "at": "2026-11-03T14:26:27.894Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 434,
+          "at": "2026-11-03T14:26:27.894Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 408,
+          "at": "2026-11-03T14:26:27.894Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 580,
+          "at": "2026-11-03T14:26:28.053Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 1965,
+          "at": "2026-11-03T14:26:29.466Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T14:26:29.645Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14,
+          "at": "2026-11-03T14:26:29.648Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 310,
+          "at": "2026-11-03T14:26:29.944Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 421,
+          "at": "2026-11-03T14:26:30.055Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 40,
+          "at": "2026-11-03T14:26:32.594Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 29,
+          "at": "2026-11-03T14:26:32.595Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 99,
+          "at": "2026-11-03T14:26:32.665Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 100,
+          "at": "2026-11-03T14:26:32.667Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 107,
+          "at": "2026-11-03T14:26:32.673Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 25,
+          "at": "2026-11-03T14:26:33.368Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 45,
+          "at": "2026-11-03T14:26:33.397Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 10,
+          "at": "2026-11-03T14:26:33.565Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 21,
+          "at": "2026-11-03T14:26:44.573Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 10,
+          "at": "2026-11-03T14:26:44.849Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 93,
+          "at": "2026-11-03T14:26:56.859Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 146,
+          "at": "2026-11-03T14:26:56.914Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 175,
+          "at": "2026-11-03T14:26:56.944Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 237,
+          "at": "2026-11-03T14:26:57.003Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:26:57.104Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 13,
+          "at": "2026-11-03T14:26:57.221Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 18,
+          "at": "2026-11-03T14:26:57.223Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T14:26:57.223Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 12,
+          "at": "2026-11-03T14:26:57.224Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 120,
+          "at": "2026-11-03T14:27:09.417Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 132,
+          "at": "2026-11-03T14:27:09.430Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 19,
+          "at": "2026-11-03T14:27:09.612Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 18,
+          "at": "2026-11-03T14:27:09.612Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 19,
+          "at": "2026-11-03T14:27:09.613Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getLogs",
+          "via": "page",
+          "durationMs": 19,
+          "at": "2026-11-03T14:27:09.613Z"
+        }
+      ],
+      "trace": "traces/run_b1bogwu4yg0hbb.zip",
+      "finalScreenshot": "screenshots/run_b1bogwu4yg0hbb-run_b1bogwu4yg0hbb-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:26:25.624Z",
+      "finishedAt": "2026-11-03T14:27:14.510Z"
+    },
+    {
+      "id": "run_68o1syrelds8d2",
+      "flowId": "flow_semqwyre6yo5l1",
+      "edgeCase": "switch-account",
+      "status": "skipped",
+      "reason": "couldn't finish as the second account (Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s); no requests from the old account",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 840
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 650
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 519
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 315
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1647
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30082,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_68o1syrelds8d2-run_68o1syrelds8d2-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_8cc9p0y5dyg5dk",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:27:23.375Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_5wx1xo3u6j52b6",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.406Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_8fbp1mh7ozaz4h",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.655Z",
+          "outcome": "approved",
+          "result": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ]
+        },
+        {
+          "id": "req_1p60ylrz8kvm64",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.684Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_3wc6ns10feseyn",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.782Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_1qjmy3ei2qv8gi",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.857Z",
+          "outcome": "approved",
+          "result": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ]
+        },
+        {
+          "id": "req_6ltz47kg3n6vy9",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.857Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_ao2zrtunrtsofs",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.857Z",
+          "outcome": "approved",
+          "result": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ]
+        },
+        {
+          "id": "req_rrviay98v7gnie",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:23.858Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_bjh1cy8la9q152",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:35.810Z",
+          "outcome": "approved",
+          "result": "0x191d687"
+        },
+        {
+          "id": "req_59q1mlu0u6jqu1",
+          "method": "eth_getBalance",
+          "params": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:36.321Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        },
+        {
+          "id": "req_p5e0xbk2m4ey34",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:47.824Z",
+          "outcome": "approved",
+          "result": "0x191d68a"
+        },
+        {
+          "id": "req_ykb1xywc6oquxw",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "topics": [
+                "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+                "0x0000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+                "0x0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:47.830Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_f88uxy3rqmx93u",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x0000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+                null
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:47.833Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_7lft3sv5f6yqvz",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                null,
+                "0x0000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a"
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:47.833Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_a4k4r7j0fz23ok",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x0000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+                null
+              ],
+              "fromBlock": "0x191d688",
+              "toBlock": "0x191d68a"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:47.834Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_h2au26nfqbqlne",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a082310000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:48.201Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_unetx8cyi1c7ut",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a082310000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+              "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:48.204Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_z4d6ryobeiw1eh",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xdd62ed3e0000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a0000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:48.206Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_ybng5c00my8yqd",
+          "method": "eth_getBalance",
+          "params": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:27:48.380Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 223,
+          "at": "2026-11-03T14:27:16.880Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 458,
+          "at": "2026-11-03T14:27:17.115Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 458,
+          "at": "2026-11-03T14:27:17.116Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 459,
+          "at": "2026-11-03T14:27:17.117Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 460,
+          "at": "2026-11-03T14:27:17.117Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 462,
+          "at": "2026-11-03T14:27:17.118Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 465,
+          "at": "2026-11-03T14:27:17.123Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 466,
+          "at": "2026-11-03T14:27:17.124Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 466,
+          "at": "2026-11-03T14:27:17.124Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 468,
+          "at": "2026-11-03T14:27:17.124Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 466,
+          "at": "2026-11-03T14:27:17.124Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 478,
+          "at": "2026-11-03T14:27:17.136Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 674,
+          "at": "2026-11-03T14:27:17.331Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 3262,
+          "at": "2026-11-03T14:27:19.920Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 8,
+          "at": "2026-11-03T14:27:20.102Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T14:27:20.102Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 327,
+          "at": "2026-11-03T14:27:20.421Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 607,
+          "at": "2026-11-03T14:27:20.701Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 10,
+          "at": "2026-11-03T14:27:23.795Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 55,
+          "at": "2026-11-03T14:27:23.842Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 72,
+          "at": "2026-11-03T14:27:23.859Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 94,
+          "at": "2026-11-03T14:27:23.880Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 262,
+          "at": "2026-11-03T14:27:24.049Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 79,
+          "at": "2026-11-03T14:27:24.058Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 100,
+          "at": "2026-11-03T14:27:24.060Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 157,
+          "at": "2026-11-03T14:27:24.128Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 191,
+          "at": "2026-11-03T14:27:24.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 173,
+          "at": "2026-11-03T14:27:24.157Z"
+        }
+      ],
+      "trace": "traces/run_68o1syrelds8d2.zip",
+      "finalScreenshot": "screenshots/run_68o1syrelds8d2-run_68o1syrelds8d2-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:27:14.511Z",
+      "finishedAt": "2026-11-03T14:28:01.864Z"
+    },
+    {
+      "id": "run_u5wnj3xu9e6fx4",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "happy",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 491
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 273
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 320
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 82
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 920
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 11139,
+          "walletRequestId": "req_c8taow5te880ox"
+        },
+        {
+          "index": 6,
+          "status": "pass",
+          "durationMs": 13
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_loeri1q40qv6xc",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:28:08.691Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_snikmi5uy6wb73",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:08.697Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_zh7pnfksci37qs",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:08.717Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_un67gl0zu333u7",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:08.718Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_mu8t3v2gg7y596",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:08.862Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_pabqqf75inajnb",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x23509a2d",
+              "to": "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:09.828Z",
+          "outcome": "approved",
+          "result": "0x000000000000000000000000ae7ab96520de3a18e5e111b5eaab095312d7fe84"
+        },
+        {
+          "id": "req_td9d3bljgep12y",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:09.960Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_yj97hnjqhdjuid",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x665b4b0b",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:10.071Z",
+          "outcome": "approved",
+          "result": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000001fc3842bd1f071c00000000000000000000000000000000000000000000000001fc3842bd1f071c000000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000001fc33f0c6f77c7fcdae3000000000000000000000000000000000000000000000000000000000191d67b"
+        },
+        {
+          "id": "req_xc4wa448jiij82",
+          "method": "eth_getCode",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:10.199Z",
+          "outcome": "approved",
+          "result": "0x"
+        },
+        {
+          "id": "req_adw3onoptd0sjp",
+          "method": "eth_feeHistory",
+          "params": [
+            "0x5",
+            "pending",
+            [
+              25
+            ]
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:10.305Z",
+          "outcome": "approved",
+          "result": {
+            "baseFeePerGas": [
+              "0x112705ce",
+              "0x11b4fe7f",
+              "0x11b9d4cd",
+              "0x11904ef1",
+              "0xf5e4513",
+              "0xd727c71"
+            ],
+            "gasUsedRatio": [
+              0.6293288333333333,
+              0.5042683833333333,
+              0.4633984666666667,
+              0,
+              0
+            ],
+            "baseFeePerBlobGas": [
+              "0x10f32d5",
+              "0x1113bf8",
+              "0x1124200",
+              "0x11663fd",
+              "0x11663fd",
+              "0xedee5b"
+            ],
+            "blobGasUsedRatio": [
+              0.09523809523809523,
+              0.047619047619047616,
+              0.19047619047619047,
+              0,
+              0
+            ],
+            "oldestBlock": "0x191d680",
+            "reward": [
+              [
+                "0xf4240"
+              ],
+              [
+                "0x6d854"
+              ],
+              [
+                "0x4c4b41"
+              ],
+              [
+                "0x0"
+              ],
+              [
+                "0x0"
+              ]
+            ]
+          }
+        },
+        {
+          "id": "req_grq23536lwudgl",
+          "method": "eth_estimateGas",
+          "params": [
+            {
+              "data": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+              "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+              "maxFeePerGas": "0x2261b993",
+              "maxPriorityFeePerGas": "0x13adf7",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "value": "0xb1a2bc2ec50000"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:10.377Z",
+          "outcome": "approved",
+          "result": "0x195f6"
+        },
+        {
+          "id": "req_c8taow5te880ox",
+          "method": "eth_sendTransaction",
+          "params": [
+            {
+              "data": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+              "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+              "gas": "0x1adaf",
+              "maxFeePerGas": "0x2261b993",
+              "maxPriorityFeePerGas": "0x13adf7",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "value": "0xb1a2bc2ec50000"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:28:10.918Z",
+          "outcome": "approved",
+          "result": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091"
+        },
+        {
+          "id": "req_jnjr0p8xkb73rn",
+          "method": "eth_getTransactionReceipt",
+          "params": [
+            "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.211Z",
+          "outcome": "approved",
+          "result": null
+        },
+        {
+          "id": "req_t6faal7npkzo56",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.393Z",
+          "outcome": "approved",
+          "result": "0x191d686"
+        },
+        {
+          "id": "req_dkoc5il46viq7d",
+          "method": "eth_getTransactionByHash",
+          "params": [
+            "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.447Z",
+          "outcome": "approved",
+          "result": {
+            "type": "0x2",
+            "chainId": "0x1",
+            "nonce": "0x0",
+            "gas": "0x1adaf",
+            "maxFeePerGas": "0x2261b993",
+            "maxPriorityFeePerGas": "0x13adf7",
+            "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "value": "0xb1a2bc2ec50000",
+            "accessList": [],
+            "input": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+            "r": "0x3fcd3f2245aa057532d7c831114fb6fa9c1d81c580b79456b85208921239d761",
+            "s": "0x3146d074ada40d5ec701ce6e5a87cb816bd612dc52afa203ed62c182c2d339d9",
+            "yParity": "0x0",
+            "v": "0x0",
+            "hash": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091",
+            "blockHash": "0x12a1b062235233004c17d82ded491eae99d734e4fa9d0dfe3f68d1cf86dd1e58",
+            "blockNumber": "0x191d686",
+            "transactionIndex": "0x0",
+            "from": "0x60bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+            "gasPrice": "0xbd7dada",
+            "blockTimestamp": "0x6ae9ef3d"
+          }
+        },
+        {
+          "id": "req_f7xgy7uo2cbrz5",
+          "method": "eth_getTransactionReceipt",
+          "params": [
+            "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.480Z",
+          "outcome": "approved",
+          "result": {
+            "type": "0x2",
+            "status": "0x1",
+            "cumulativeGasUsed": "0x16f83",
+            "logs": [
+              {
+                "address": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "topics": [
+                  "0x96a25c8ce0baabc1fdefd93e9ed25d8e092a3332f3aa9a41722b5697231d1d1a",
+                  "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a"
+                ],
+                "data": "0x00000000000000000000000000000000000000000000000000b1a2bc2ec5000000000000000000000000000011d00000000000000000000000000000000011d0",
+                "blockHash": "0x12a1b062235233004c17d82ded491eae99d734e4fa9d0dfe3f68d1cf86dd1e58",
+                "blockNumber": "0x191d686",
+                "blockTimestamp": "0x6ae9ef3d",
+                "transactionHash": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091",
+                "transactionIndex": "0x0",
+                "logIndex": "0x0",
+                "removed": false
+              },
+              {
+                "address": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "topics": [
+                  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                  "0x0000000000000000000000000000000000000000000000000000000000000000",
+                  "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a"
+                ],
+                "data": "0x00000000000000000000000000000000000000000000000000b1a2bc2ec4ffff",
+                "blockHash": "0x12a1b062235233004c17d82ded491eae99d734e4fa9d0dfe3f68d1cf86dd1e58",
+                "blockNumber": "0x191d686",
+                "blockTimestamp": "0x6ae9ef3d",
+                "transactionHash": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091",
+                "transactionIndex": "0x0",
+                "logIndex": "0x1",
+                "removed": false
+              },
+              {
+                "address": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "topics": [
+                  "0x9d9c909296d9c674451c0c24f02cb64981eb3b727f99865939192f880a755dcb",
+                  "0x0000000000000000000000000000000000000000000000000000000000000000",
+                  "0x00000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a"
+                ],
+                "data": "0x000000000000000000000000000000000000000000000000008e4c157f8f730f",
+                "blockHash": "0x12a1b062235233004c17d82ded491eae99d734e4fa9d0dfe3f68d1cf86dd1e58",
+                "blockNumber": "0x191d686",
+                "blockTimestamp": "0x6ae9ef3d",
+                "transactionHash": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091",
+                "transactionIndex": "0x0",
+                "logIndex": "0x2",
+                "removed": false
+              }
+            ],
+            "logsBloom": "0x00000100000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000008000000000000000000000000000000000000002000000000020000000000008000240800000000000000000000000010000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000200000000000000000000000000000000000000000002000000000000100000000000000000000080000000000000000020000000000000000000000000000000000000000000020000000000000000000000",
+            "transactionHash": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091",
+            "transactionIndex": "0x0",
+            "blockHash": "0x12a1b062235233004c17d82ded491eae99d734e4fa9d0dfe3f68d1cf86dd1e58",
+            "blockNumber": "0x191d686",
+            "gasUsed": "0x16f83",
+            "effectiveGasPrice": "0xbd7dada",
+            "from": "0x60bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+            "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "contractAddress": null,
+            "blockTimestamp": 1793716029
+          }
+        },
+        {
+          "id": "req_fxgdfxcigu9k3r",
+          "method": "eth_getTransactionByHash",
+          "params": [
+            "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.773Z",
+          "outcome": "approved",
+          "result": {
+            "type": "0x2",
+            "chainId": "0x1",
+            "nonce": "0x0",
+            "gas": "0x1adaf",
+            "maxFeePerGas": "0x2261b993",
+            "maxPriorityFeePerGas": "0x13adf7",
+            "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "value": "0xb1a2bc2ec50000",
+            "accessList": [],
+            "input": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+            "r": "0x3fcd3f2245aa057532d7c831114fb6fa9c1d81c580b79456b85208921239d761",
+            "s": "0x3146d074ada40d5ec701ce6e5a87cb816bd612dc52afa203ed62c182c2d339d9",
+            "yParity": "0x0",
+            "v": "0x0",
+            "hash": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091",
+            "blockHash": "0x12a1b062235233004c17d82ded491eae99d734e4fa9d0dfe3f68d1cf86dd1e58",
+            "blockNumber": "0x191d686",
+            "transactionIndex": "0x0",
+            "from": "0x60bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+            "gasPrice": "0xbd7dada",
+            "blockTimestamp": "0x6ae9ef3d"
+          }
+        },
+        {
+          "id": "req_2rq7ir8cp60kbi",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.795Z",
+          "outcome": "approved",
+          "result": "0x00000000000000000000000000000000000000000000000000b1a2bc2ec4ffff"
+        },
+        {
+          "id": "req_tgh0yu4ni6e1xp",
+          "method": "eth_getBalance",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.803Z",
+          "outcome": "approved",
+          "result": "0x56b15aa70b2177c72"
+        },
+        {
+          "id": "req_ytb9nnjytzs2z5",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.812Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_ppubkx51pl7u2j",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x665b4b0b",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.837Z",
+          "outcome": "approved",
+          "result": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000001fc3837a2f3442fb0000000000000000000000000000000000000000000000001fc3842bd1f071c000000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000001fc3837a2f3442fb0000000000000000000000000000000000000000000000000000000000000191d686"
+        },
+        {
+          "id": "req_qoehdcitbnjmpa",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:19.867Z",
+          "outcome": "approved",
+          "result": "0x00000000000000000000000000000000000000000000000000b1a2bc2ec4ffff"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_mmjx17l0t2eyx2"
+      ],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 174,
+          "at": "2026-11-03T14:28:04.029Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 297,
+          "at": "2026-11-03T14:28:04.152Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 298,
+          "at": "2026-11-03T14:28:04.153Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 299,
+          "at": "2026-11-03T14:28:04.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 299,
+          "at": "2026-11-03T14:28:04.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 301,
+          "at": "2026-11-03T14:28:04.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 298,
+          "at": "2026-11-03T14:28:04.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 299,
+          "at": "2026-11-03T14:28:04.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 299,
+          "at": "2026-11-03T14:28:04.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 301,
+          "at": "2026-11-03T14:28:04.154Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 530,
+          "at": "2026-11-03T14:28:04.382Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 898,
+          "at": "2026-11-03T14:28:05.448Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1105,
+          "at": "2026-11-03T14:28:05.655Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 1128,
+          "at": "2026-11-03T14:28:05.678Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1521,
+          "at": "2026-11-03T14:28:06.070Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:28:06.241Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:28:06.242Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 7,
+          "at": "2026-11-03T14:28:06.243Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 132,
+          "at": "2026-11-03T14:28:06.538Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 132,
+          "at": "2026-11-03T14:28:06.538Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:28:06.709Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:28:08.895Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 7,
+          "at": "2026-11-03T14:28:08.896Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 104,
+          "at": "2026-11-03T14:28:08.993Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 128,
+          "at": "2026-11-03T14:28:09.018Z"
+        }
+      ],
+      "trace": "traces/run_u5wnj3xu9e6fx4.zip",
+      "finalScreenshot": "screenshots/run_u5wnj3xu9e6fx4-run_u5wnj3xu9e6fx4-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:28:01.865Z",
+      "finishedAt": "2026-11-03T14:28:23.198Z"
+    },
+    {
+      "id": "run_8nun62rk5vhcvg",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "reject",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 201
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 357
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 422
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 121
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 841
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 3664,
+          "walletRequestId": "req_bwd0s5rhtl09oj"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_zegpvxzbgnqfoa",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:28:28.751Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_l5awypsduy4198",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:28.756Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_st18i5w4tibzy9",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:28.784Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_ezcopripbc780t",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:28.788Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_h7n2rh65yfq3rw",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:28.953Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_ahinhjx3gw5zy1",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x23509a2d",
+              "to": "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:29.385Z",
+          "outcome": "approved",
+          "result": "0x000000000000000000000000ae7ab96520de3a18e5e111b5eaab095312d7fe84"
+        },
+        {
+          "id": "req_kp1u202zfy4hp1",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a0823100000000000000000000000060bc9ffd4f06beb76b5fbff2b4350c04bfa3507a",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:29.447Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_7f8lodl0nxj62i",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x665b4b0b",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:29.455Z",
+          "outcome": "approved",
+          "result": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000001fc3842bd1f071c00000000000000000000000000000000000000000000000001fc3842bd1f071c000000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000001fc33f0c6f77c7fcdae3000000000000000000000000000000000000000000000000000000000191d67b"
+        },
+        {
+          "id": "req_jbj15x7vbk4gmo",
+          "method": "eth_getCode",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:29.467Z",
+          "outcome": "approved",
+          "result": "0x"
+        },
+        {
+          "id": "req_yvehcrx70udje4",
+          "method": "eth_feeHistory",
+          "params": [
+            "0x5",
+            "pending",
+            [
+              25
+            ]
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:29.472Z",
+          "outcome": "approved",
+          "result": {
+            "baseFeePerGas": [
+              "0x12acc2a8",
+              "0x112705ce",
+              "0x11b4fe7f",
+              "0x11b9d4cd",
+              "0x11904ef1",
+              "0xf5e4513"
+            ],
+            "gasUsedRatio": [
+              0.17391153333333334,
+              0.6293288333333333,
+              0.5042683833333333,
+              0.4633984666666667,
+              0
+            ],
+            "baseFeePerBlobGas": [
+              "0x10734d0",
+              "0x10f32d5",
+              "0x1113bf8",
+              "0x1124200",
+              "0x11663fd",
+              "0x11663fd"
+            ],
+            "blobGasUsedRatio": [
+              0.38095238095238093,
+              0.09523809523809523,
+              0.047619047619047616,
+              0.19047619047619047,
+              0
+            ],
+            "oldestBlock": "0x191d67f",
+            "reward": [
+              [
+                "0x9c754"
+              ],
+              [
+                "0xf4240"
+              ],
+              [
+                "0x6d854"
+              ],
+              [
+                "0x4c4b41"
+              ],
+              [
+                "0x0"
+              ]
+            ]
+          }
+        },
+        {
+          "id": "req_s5h2hesogb0oy2",
+          "method": "eth_estimateGas",
+          "params": [
+            {
+              "data": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+              "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+              "maxFeePerGas": "0x256f27f1",
+              "maxPriorityFeePerGas": "0x15a2a1",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "value": "0xb1a2bc2ec50000"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:29.540Z",
+          "outcome": "approved",
+          "result": "0x195f6"
+        },
+        {
+          "id": "req_bwd0s5rhtl09oj",
+          "method": "eth_sendTransaction",
+          "params": [
+            {
+              "data": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+              "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+              "gas": "0x1adaf",
+              "maxFeePerGas": "0x256f27f1",
+              "maxPriorityFeePerGas": "0x15a2a1",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "value": "0xb1a2bc2ec50000"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:28:29.836Z",
+          "outcome": "rejected",
+          "error": "4001 User rejected the request."
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_gkjhphiagk4hpa"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "warn",
+          "text": "a: User rejected the request.\n\nRequest Arguments:\n  chain:                 Ethereum (id: 1)\n  from:                  0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a\n  to:                    0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84\n  value:                 0.05 ETH\n  data:                  0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0\n  gas:                   109999\n  maxFeePerGas:          0.628041713 gwei\n  maxPriorityFeePerGas:  0.001417889 gwei\n \nContract Call:\n  address:   0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84\n  function:  submit(address _referral)\n  args:            (0x11d00000000000000000000000000000000011d0)\n  sender:    0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a\n\nDocs: https://viem.sh/docs/contract/writeContract\nDetails: User rejected the request.\nVersion: viem@2.57.7\n    at f (https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:3558:660769)\n    at e.internal (https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:3558:352292)\n    at async s (https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:3558:38673)\n    at async e.performTransaction (https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:3558:73823)\n    at async Object.sendStep (https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:1:2083013)\n    at async https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:1:2510762\n    at async https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:1:2508859\n    at async https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:1:2082431\n    at async https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:934:554105\n    at async https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:3558:22403",
+          "at": "2026-11-03T14:28:31.854Z"
+        },
+        {
+          "level": "error",
+          "text": "TX_ERROR: {error: a: User rejected the request.\n\nRequest Arguments:\n  chain:                 Ethereum (id: 1)\n  from:…, cause_chain: Array(4), error_string: {\"code\":\"TRANSACTION_ERROR\",\"errorMessage\":\"User r…on\":\"2.57.7\",\"name\":\"TransactionExecutionError\"}}}",
+          "at": "2026-11-03T14:28:31.854Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 101,
+          "at": "2026-11-03T14:28:24.680Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 191,
+          "at": "2026-11-03T14:28:24.770Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.936Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.937Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.937Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.937Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.937Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.937Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.937Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 358,
+          "at": "2026-11-03T14:28:24.937Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 453,
+          "at": "2026-11-03T14:28:25.030Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 557,
+          "at": "2026-11-03T14:28:25.746Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 757,
+          "at": "2026-11-03T14:28:25.946Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 1129,
+          "at": "2026-11-03T14:28:26.318Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1215,
+          "at": "2026-11-03T14:28:26.404Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:28:26.578Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 8,
+          "at": "2026-11-03T14:28:26.578Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:28:26.579Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 24,
+          "at": "2026-11-03T14:28:26.763Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 34,
+          "at": "2026-11-03T14:28:26.773Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:28:26.934Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:28:28.962Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:28:28.963Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 81,
+          "at": "2026-11-03T14:28:29.039Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 237,
+          "at": "2026-11-03T14:28:29.196Z"
+        }
+      ],
+      "trace": "traces/run_8nun62rk5vhcvg.zip",
+      "finalScreenshot": "screenshots/run_8nun62rk5vhcvg-run_8nun62rk5vhcvg-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:28:23.199Z",
+      "finishedAt": "2026-11-03T14:28:42.073Z"
+    },
+    {
+      "id": "run_0rpu9l5fephuri",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "wrong-network",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 237
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 619
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 528
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 151
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 665
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 5590,
+          "walletRequestId": "req_45cjg4s3curcmz"
+        },
+        {
+          "index": 6,
+          "status": "pass",
+          "durationMs": 9
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_7kxn7yyw26ctcz",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 11155111,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:28:50.030Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_g8832pp1gg2i9a",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:50.083Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_a6z8uqay0e2m2o",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:50.107Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_jtngz7jyzutald",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:50.107Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        },
+        {
+          "id": "req_hcktjv70erd488",
+          "method": "wallet_switchEthereumChain",
+          "params": [
+            {
+              "chainId": "0x1"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "switch",
+          "at": "2026-11-03T14:28:50.154Z",
+          "outcome": "approved",
+          "result": null
+        },
+        {
+          "id": "req_tczmopgtr55te7",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:28:50.159Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_45cjg4s3curcmz",
+          "method": "eth_sendTransaction",
+          "params": [
+            {
+              "data": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+              "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+              "gas": "0x1adaf",
+              "maxFeePerGas": "0x2261b993",
+              "maxPriorityFeePerGas": "0x13adf7",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "value": "0xb1a2bc2ec50000"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:28:52.419Z",
+          "outcome": "approved",
+          "result": "0x706bdb0e090ee18ec610252689e1ca38416b1dfbb967686d5c2fce1265f0d091"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_c7wch0deqmvdta"
+      ],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 137,
+          "at": "2026-11-03T14:28:44.564Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 588,
+          "at": "2026-11-03T14:28:45.016Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 772,
+          "at": "2026-11-03T14:28:45.201Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 773,
+          "at": "2026-11-03T14:28:45.201Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 774,
+          "at": "2026-11-03T14:28:45.202Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 775,
+          "at": "2026-11-03T14:28:45.202Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 777,
+          "at": "2026-11-03T14:28:45.203Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 775,
+          "at": "2026-11-03T14:28:45.203Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 776,
+          "at": "2026-11-03T14:28:45.204Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 778,
+          "at": "2026-11-03T14:28:45.204Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 842,
+          "at": "2026-11-03T14:28:45.265Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 854,
+          "at": "2026-11-03T14:28:46.283Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1150,
+          "at": "2026-11-03T14:28:46.579Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 1523,
+          "at": "2026-11-03T14:28:46.953Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1671,
+          "at": "2026-11-03T14:28:47.100Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 33,
+          "at": "2026-11-03T14:28:47.396Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 35,
+          "at": "2026-11-03T14:28:47.396Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 54,
+          "at": "2026-11-03T14:28:47.416Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 13,
+          "at": "2026-11-03T14:28:47.587Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 21,
+          "at": "2026-11-03T14:28:47.596Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 13,
+          "at": "2026-11-03T14:28:47.765Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:28:50.407Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:28:50.408Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 69,
+          "at": "2026-11-03T14:28:50.473Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 165,
+          "at": "2026-11-03T14:28:50.569Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 96,
+          "at": "2026-11-03T14:28:51.166Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14,
+          "at": "2026-11-03T14:28:51.340Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 15,
+          "at": "2026-11-03T14:28:51.512Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:28:51.679Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 93,
+          "at": "2026-11-03T14:28:51.946Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 289,
+          "at": "2026-11-03T14:28:52.406Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 82,
+          "at": "2026-11-03T14:28:55.086Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:28:55.243Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getTransactionByHash",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:28:55.405Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T14:28:55.561Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getTransactionByHash",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:28:55.721Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:28:55.895Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T14:28:55.897Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T14:28:55.897Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T14:28:55.897Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12,
+          "at": "2026-11-03T14:28:55.898Z"
+        }
+      ],
+      "trace": "traces/run_0rpu9l5fephuri.zip",
+      "finalScreenshot": "screenshots/run_0rpu9l5fephuri-run_0rpu9l5fephuri-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:28:42.073Z",
+      "finishedAt": "2026-11-03T14:28:57.752Z"
+    },
+    {
+      "id": "run_45lp1un9x49g0v",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "switch-account",
+      "status": "skipped",
+      "reason": "couldn't finish as the second account (Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s); no requests from the old account",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 762
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 704
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 376
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 476
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1680
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30096,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_45lp1un9x49g0v-run_45lp1un9x49g0v-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_89f0hxifioeja1",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:29:06.104Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_zux3e5aneextnp",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.173Z",
+          "outcome": "approved",
+          "result": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ]
+        },
+        {
+          "id": "req_ug6nd88lyivwgv",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.317Z",
+          "outcome": "approved",
+          "result": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ]
+        },
+        {
+          "id": "req_cdq42rtcgbde9v",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.318Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_q32pd3dzb5q3uz",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.345Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_cztbdcbtqu68yh",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.527Z",
+          "outcome": "approved",
+          "result": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ]
+        },
+        {
+          "id": "req_gwuclkokkhp0t5",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.527Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_di0feqadi9vyz5",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.528Z",
+          "outcome": "approved",
+          "result": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ]
+        },
+        {
+          "id": "req_6cnbkg8p0q717x",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:06.528Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_0d90ujgfaqrff5",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:18.745Z",
+          "outcome": "approved",
+          "result": "0x191d688"
+        },
+        {
+          "id": "req_nikvelj5dmzgxf",
+          "method": "eth_getBalance",
+          "params": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:18.928Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        },
+        {
+          "id": "req_nx9hw1w0dspg9t",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:30.761Z",
+          "outcome": "approved",
+          "result": "0x191d68b"
+        },
+        {
+          "id": "req_yckthdm06mbjyn",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                null,
+                "0x0000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a"
+              ],
+              "fromBlock": "0x191d689",
+              "toBlock": "0x191d68b"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:30.775Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_elq6vnq8jadfja",
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              ],
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x0000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+                null
+              ],
+              "fromBlock": "0x191d689",
+              "toBlock": "0x191d68b"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:30.775Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_t2ayx35kum76dg",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a082310000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:30.927Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_umxod10wkc0cec",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x70a082310000000000000000000000007ca613f54b5b1d8e3e660ad5a49f6fa93d18cf6a",
+              "to": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:30.928Z",
+          "outcome": "approved",
+          "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "id": "req_nuuf241mejip06",
+          "method": "eth_getBalance",
+          "params": [
+            "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0x7cA613F54B5b1D8e3e660AD5A49f6Fa93d18Cf6A",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:29:30.966Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 94,
+          "at": "2026-11-03T14:28:59.269Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 277,
+          "at": "2026-11-03T14:28:59.452Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 326,
+          "at": "2026-11-03T14:28:59.501Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 326,
+          "at": "2026-11-03T14:28:59.501Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 325,
+          "at": "2026-11-03T14:28:59.501Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 326,
+          "at": "2026-11-03T14:28:59.501Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 326,
+          "at": "2026-11-03T14:28:59.501Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 326,
+          "at": "2026-11-03T14:28:59.502Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 327,
+          "at": "2026-11-03T14:28:59.502Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 327,
+          "at": "2026-11-03T14:28:59.502Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 518,
+          "at": "2026-11-03T14:28:59.690Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1215,
+          "at": "2026-11-03T14:29:01.082Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1991,
+          "at": "2026-11-03T14:29:01.858Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 2292,
+          "at": "2026-11-03T14:29:02.159Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2429,
+          "at": "2026-11-03T14:29:02.296Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 58,
+          "at": "2026-11-03T14:29:02.536Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 56,
+          "at": "2026-11-03T14:29:02.536Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 128,
+          "at": "2026-11-03T14:29:02.608Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 88,
+          "at": "2026-11-03T14:29:02.939Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 119,
+          "at": "2026-11-03T14:29:02.973Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 126,
+          "at": "2026-11-03T14:29:03.330Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 85,
+          "at": "2026-11-03T14:29:06.586Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 130,
+          "at": "2026-11-03T14:29:06.632Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 267,
+          "at": "2026-11-03T14:29:06.768Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 266,
+          "at": "2026-11-03T14:29:06.768Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 20,
+          "at": "2026-11-03T14:29:06.796Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 37,
+          "at": "2026-11-03T14:29:06.817Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 126,
+          "at": "2026-11-03T14:29:06.906Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 126,
+          "at": "2026-11-03T14:29:06.906Z"
+        }
+      ],
+      "trace": "traces/run_45lp1un9x49g0v.zip",
+      "finalScreenshot": "screenshots/run_45lp1un9x49g0v-run_45lp1un9x49g0v-final.png",
+      "forkBlocks": {
+        "1": "26334850"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:28:57.753Z",
+      "finishedAt": "2026-11-03T14:29:47.376Z"
+    }
+  ],
+  "issues": [
+    {
+      "id": "iss_m66n7c9zet7ecr",
+      "fingerprint": "388f3006355350e5",
+      "severity": "high",
+      "category": "wallet",
+      "title": "Rejecting 'Unlock tokens and wrap' leaves the button stuck on 'Unlock tokens and wrap'",
+      "summary": "After rejecting the wallet request the page kept a disabled 'Unlock tokens and wrap' button, so the user can't try again without reloading.",
+      "flowId": "flow_semqwyre6yo5l1",
+      "flowName": "Wrap 0.02 stETH to wstETH",
+      "edgeCase": "reject",
+      "runId": "run_hdbgr7603pvow2",
+      "stepsToReproduce": [
+        "Reject the flow's main request in the wallet (error 4001).",
+        "1. Open wallet picker",
+        "2. Accept terms",
+        "3. Connect MetaMask",
+        "4. Type \"{{amount}}\" into \"wrapInput\"",
+        "5. Approve and wrap",
+        "6. Approve eth_sendTransaction to 0xae7a…fe84",
+        "7. Approve eth_sendTransaction to 0x7f39…2ca0",
+        "8. See \"Wrapping operation was successful\""
+      ],
+      "expected": "Re-enable the button and show what happened.",
+      "actual": "The 'Unlock tokens and wrap' button is still disabled 2s later.",
+      "evidence": {
+        "screenshot": "screenshots/run_hdbgr7603pvow2-run_hdbgr7603pvow2-final.png",
+        "trace": "traces/run_hdbgr7603pvow2.zip",
+        "console": [],
+        "rpc": [
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_feeHistory",
+            "via": "page",
+            "durationMs": 143,
+            "at": "2026-11-03T14:25:42.061Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 380,
+            "at": "2026-11-03T14:25:42.297Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 380,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 381,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 377,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 378,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 379,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 380,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 378,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 379,
+            "at": "2026-11-03T14:25:42.298Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 380,
+            "at": "2026-11-03T14:25:42.299Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 391,
+            "at": "2026-11-03T14:25:42.310Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 615,
+            "at": "2026-11-03T14:25:42.534Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_estimateGas",
+            "via": "page",
+            "durationMs": 3133,
+            "at": "2026-11-03T14:25:45.054Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 85,
+            "at": "2026-11-03T14:25:45.315Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 85,
+            "at": "2026-11-03T14:25:45.315Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_estimateGas",
+            "via": "page",
+            "durationMs": 231,
+            "at": "2026-11-03T14:25:45.461Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_estimateGas",
+            "via": "page",
+            "durationMs": 311,
+            "at": "2026-11-03T14:25:45.541Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_getBalance",
+            "via": "page",
+            "durationMs": 12,
+            "at": "2026-11-03T14:25:47.389Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_getCode",
+            "via": "page",
+            "durationMs": 15,
+            "at": "2026-11-03T14:25:47.393Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 81,
+            "at": "2026-11-03T14:25:47.459Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 94,
+            "at": "2026-11-03T14:25:47.473Z"
+          },
+          {
+            "chainId": 1,
+            "url": "https://stake.lido.fi/api/rpc?chainId=1",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 95,
+            "at": "2026-11-03T14:25:47.473Z"
+          }
+        ],
+        "buttonLabel": "Unlock tokens and wrap"
+      },
+      "createdAt": "2026-11-03T14:26:25.623Z"
+    }
+  ],
+  "signingReviews": [
+    {
+      "id": "sgr_mmjx17l0t2eyx2",
+      "requestId": "req_c8taow5te880ox",
+      "flowId": "flow_um55hy5ovms8w7",
+      "stepIndex": 5,
+      "chainId": 1,
+      "method": "eth_sendTransaction",
+      "verdict": "check",
+      "title": "Stake ETH 0.05 ETH on AppProxyUpgradeable",
+      "summary": "The button says “Stake”. The wallet is asked to call submit(0x11d0…11d0 (wallet address)) on 0xae7a…fE84 (AppProxyUpgradeable, verified) with 0.05 ETH; on the fork −0.05 ETH leaves the wallet.",
+      "ui": {
+        "buttonLabel": "Stake",
+        "pageUrl": "https://stake.lido.fi/",
+        "screenshot": "screenshots/run_u5wnj3xu9e6fx4-run_u5wnj3xu9e6fx4-step5-wallet.png"
+      },
+      "decoded": {
+        "kind": "transaction",
+        "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+        "contractName": "AppProxyUpgradeable",
+        "functionName": "submit",
+        "signature": "submit(address)",
+        "args": [
+          {
+            "name": "arg0",
+            "type": "address",
+            "value": "0x11d00000000000000000000000000000000011d0",
+            "display": "0x11d0…11d0 (wallet address)"
+          }
+        ],
+        "value": "50000000000000000",
+        "calldata": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+        "abiSource": "signature-db"
+      },
+      "simulation": {
+        "status": "ok",
+        "balanceChanges": [
+          {
+            "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "token": "native",
+            "symbol": "ETH",
+            "decimals": 18,
+            "delta": "-50000000000000000",
+            "display": "−0.05 ETH"
+          },
+          {
+            "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "token": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+            "symbol": "stETH",
+            "decimals": 18,
+            "delta": "49999999999999999",
+            "display": "+0.0499 stETH"
+          },
+          {
+            "owner": "0x0000000000000000000000000000000000000000",
+            "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "symbol": "stETH",
+            "decimals": 18,
+            "delta": "-49999999999999999",
+            "display": "−0.0499 stETH"
+          }
+        ],
+        "gasUsed": "94083"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Stake"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "pass",
+          "detail": "0xae7a…fE84 (AppProxyUpgradeable) is verified on Sourcify."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "unverified",
+          "detail": "Couldn't find out when 0xae7a…fE84 (AppProxyUpgradeable) was deployed."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "pass",
+          "detail": "Not a proxy."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "pass",
+          "detail": "stETH (Liquid staked Ether 2.0, 18 decimals) has verified source."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation: 0xa1903eab(), to 0xae7a…fe84, amount {{amount}}.",
+          "evidence": {
+            "expectation": {
+              "kind": "transaction",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+              "functionName": "0xa1903eab",
+              "amountMustEqual": "{{amount}}"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "pass",
+          "detail": "Balance changes: −0.05 ETH, +0.0499 stETH.",
+          "evidence": {
+            "gasUsed": "94083",
+            "balanceChanges": [
+              {
+                "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+                "token": "native",
+                "symbol": "ETH",
+                "decimals": 18,
+                "delta": "-50000000000000000",
+                "display": "−0.05 ETH"
+              },
+              {
+                "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+                "token": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+                "symbol": "stETH",
+                "decimals": 18,
+                "delta": "49999999999999999",
+                "display": "+0.0499 stETH"
+              },
+              {
+                "owner": "0x0000000000000000000000000000000000000000",
+                "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "symbol": "stETH",
+                "decimals": 18,
+                "delta": "-49999999999999999",
+                "display": "−0.0499 stETH"
+              }
+            ],
+            "stake": true
+          }
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "pass",
+          "detail": "Lido DAO describes this as “Stake ETH” (Amount, Referral).",
+          "evidence": {
+            "descriptor": "registry/lido/calldata-stETH.json",
+            "intent": "Stake ETH"
+          }
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button. Deployment date unknown.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "01ca279380467f38",
+      "createdAt": "2026-11-03T14:28:18.294Z"
+    },
+    {
+      "id": "sgr_gkjhphiagk4hpa",
+      "requestId": "req_bwd0s5rhtl09oj",
+      "flowId": "flow_um55hy5ovms8w7",
+      "stepIndex": 5,
+      "chainId": 1,
+      "method": "eth_sendTransaction",
+      "verdict": "check",
+      "title": "Stake ETH 0.05 ETH on AppProxyUpgradeable",
+      "summary": "The button says “Stake”. The wallet is asked to call submit(0x11d0…11d0 (wallet address)) on 0xae7a…fE84 (AppProxyUpgradeable, verified) with 0.05 ETH; on the fork −0.05 ETH leaves the wallet.",
+      "ui": {
+        "buttonLabel": "Stake",
+        "pageUrl": "https://stake.lido.fi/",
+        "screenshot": "screenshots/run_8nun62rk5vhcvg-run_8nun62rk5vhcvg-step5-wallet.png"
+      },
+      "decoded": {
+        "kind": "transaction",
+        "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+        "contractName": "AppProxyUpgradeable",
+        "functionName": "submit",
+        "signature": "submit(address)",
+        "args": [
+          {
+            "name": "arg0",
+            "type": "address",
+            "value": "0x11d00000000000000000000000000000000011d0",
+            "display": "0x11d0…11d0 (wallet address)"
+          }
+        ],
+        "value": "50000000000000000",
+        "calldata": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+        "abiSource": "signature-db"
+      },
+      "simulation": {
+        "status": "ok",
+        "balanceChanges": [
+          {
+            "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "token": "native",
+            "symbol": "ETH",
+            "decimals": 18,
+            "delta": "-50000000000000000",
+            "display": "−0.05 ETH"
+          },
+          {
+            "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "token": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+            "symbol": "stETH",
+            "decimals": 18,
+            "delta": "49999999999999999",
+            "display": "+0.0499 stETH"
+          },
+          {
+            "owner": "0x0000000000000000000000000000000000000000",
+            "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "symbol": "stETH",
+            "decimals": 18,
+            "delta": "-49999999999999999",
+            "display": "−0.0499 stETH"
+          }
+        ],
+        "gasUsed": "94083"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Stake"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "pass",
+          "detail": "0xae7a…fE84 (AppProxyUpgradeable) is verified on Sourcify."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "unverified",
+          "detail": "Couldn't find out when 0xae7a…fE84 (AppProxyUpgradeable) was deployed."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "pass",
+          "detail": "Not a proxy."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "pass",
+          "detail": "stETH (Liquid staked Ether 2.0, 18 decimals) has verified source."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation: 0xa1903eab(), to 0xae7a…fe84, amount {{amount}}.",
+          "evidence": {
+            "expectation": {
+              "kind": "transaction",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+              "functionName": "0xa1903eab",
+              "amountMustEqual": "{{amount}}"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "pass",
+          "detail": "Balance changes: −0.05 ETH, +0.0499 stETH.",
+          "evidence": {
+            "gasUsed": "94083",
+            "balanceChanges": [
+              {
+                "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+                "token": "native",
+                "symbol": "ETH",
+                "decimals": 18,
+                "delta": "-50000000000000000",
+                "display": "−0.05 ETH"
+              },
+              {
+                "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+                "token": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+                "symbol": "stETH",
+                "decimals": 18,
+                "delta": "49999999999999999",
+                "display": "+0.0499 stETH"
+              },
+              {
+                "owner": "0x0000000000000000000000000000000000000000",
+                "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "symbol": "stETH",
+                "decimals": 18,
+                "delta": "-49999999999999999",
+                "display": "−0.0499 stETH"
+              }
+            ],
+            "stake": true
+          }
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "pass",
+          "detail": "Lido DAO describes this as “Stake ETH” (Amount, Referral).",
+          "evidence": {
+            "descriptor": "registry/lido/calldata-stETH.json",
+            "intent": "Stake ETH"
+          }
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button. Deployment date unknown.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "01ca279380467f38",
+      "createdAt": "2026-11-03T14:28:31.837Z"
+    },
+    {
+      "id": "sgr_c7wch0deqmvdta",
+      "requestId": "req_45cjg4s3curcmz",
+      "flowId": "flow_um55hy5ovms8w7",
+      "stepIndex": 5,
+      "chainId": 1,
+      "method": "eth_sendTransaction",
+      "verdict": "check",
+      "title": "Stake ETH 0.05 ETH on AppProxyUpgradeable",
+      "summary": "The button says “Stake”. The wallet is asked to call submit(0x11d0…11d0 (wallet address)) on 0xae7a…fE84 (AppProxyUpgradeable, verified) with 0.05 ETH; on the fork −0.05 ETH leaves the wallet.",
+      "ui": {
+        "buttonLabel": "Stake",
+        "pageUrl": "https://stake.lido.fi/",
+        "screenshot": "screenshots/run_0rpu9l5fephuri-run_0rpu9l5fephuri-step5-wallet.png"
+      },
+      "decoded": {
+        "kind": "transaction",
+        "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+        "contractName": "AppProxyUpgradeable",
+        "functionName": "submit",
+        "signature": "submit(address)",
+        "args": [
+          {
+            "name": "arg0",
+            "type": "address",
+            "value": "0x11d00000000000000000000000000000000011d0",
+            "display": "0x11d0…11d0 (wallet address)"
+          }
+        ],
+        "value": "50000000000000000",
+        "calldata": "0xa1903eab00000000000000000000000011d00000000000000000000000000000000011d0",
+        "abiSource": "signature-db"
+      },
+      "simulation": {
+        "status": "ok",
+        "balanceChanges": [
+          {
+            "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "token": "native",
+            "symbol": "ETH",
+            "decimals": 18,
+            "delta": "-50000000000000000",
+            "display": "−0.05 ETH"
+          },
+          {
+            "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+            "token": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+            "symbol": "stETH",
+            "decimals": 18,
+            "delta": "49999999999999999",
+            "display": "+0.0499 stETH"
+          },
+          {
+            "owner": "0x0000000000000000000000000000000000000000",
+            "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "symbol": "stETH",
+            "decimals": 18,
+            "delta": "-49999999999999999",
+            "display": "−0.0499 stETH"
+          }
+        ],
+        "gasUsed": "94083"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Stake"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "pass",
+          "detail": "0xae7a…fE84 (AppProxyUpgradeable) is verified on Sourcify."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "unverified",
+          "detail": "Couldn't find out when 0xae7a…fE84 (AppProxyUpgradeable) was deployed."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "pass",
+          "detail": "Not a proxy."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "pass",
+          "detail": "stETH (Liquid staked Ether 2.0, 18 decimals) has verified source."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation: 0xa1903eab(), to 0xae7a…fe84, amount {{amount}}.",
+          "evidence": {
+            "expectation": {
+              "kind": "transaction",
+              "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+              "functionName": "0xa1903eab",
+              "amountMustEqual": "{{amount}}"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "pass",
+          "detail": "Balance changes: −0.05 ETH, +0.0499 stETH.",
+          "evidence": {
+            "gasUsed": "94083",
+            "balanceChanges": [
+              {
+                "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+                "token": "native",
+                "symbol": "ETH",
+                "decimals": 18,
+                "delta": "-50000000000000000",
+                "display": "−0.05 ETH"
+              },
+              {
+                "owner": "0x60BC9FFD4f06bEB76b5fBff2b4350C04BFA3507a",
+                "token": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+                "symbol": "stETH",
+                "decimals": 18,
+                "delta": "49999999999999999",
+                "display": "+0.0499 stETH"
+              },
+              {
+                "owner": "0x0000000000000000000000000000000000000000",
+                "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+                "symbol": "stETH",
+                "decimals": 18,
+                "delta": "-49999999999999999",
+                "display": "−0.0499 stETH"
+              }
+            ],
+            "stake": true
+          }
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "pass",
+          "detail": "Lido DAO describes this as “Stake ETH” (Amount, Referral).",
+          "evidence": {
+            "descriptor": "registry/lido/calldata-stETH.json",
+            "intent": "Stake ETH"
+          }
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button. Deployment date unknown.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "01ca279380467f38",
+      "createdAt": "2026-11-03T14:28:54.817Z"
+    }
+  ],
+  "costUsd": 0,
+  "stoppedEarly": false
+}

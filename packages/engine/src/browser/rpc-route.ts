@@ -47,10 +47,10 @@ export class RpcRouter {
     }
   }
 
-  /** Chain id an endpoint serves: known from config, else probed once with eth_chainId. */
+  /** Chain id an endpoint serves: known from config or the provider's hostname, else probed once with eth_chainId. */
   async chainFor(url: string): Promise<number | undefined> {
     const key = normalise(url);
-    const known = this.byUrl.get(key);
+    const known = this.byUrl.get(key) ?? providerChain(url);
     if (known !== undefined) return known;
     if (!/^https?:/.test(url)) return this.byHost.get(safeHost(url));
     const probed = await probeChainId(url);
@@ -69,7 +69,7 @@ export class RpcRouter {
     if (!body) return route.fallback();
     this.opts.onActivity?.();
 
-    const chainId = await this.chainFor(url);
+    const chainId = (await this.chainFor(url)) ?? (await this.learnFromPage(route, url, body.items));
     if (chainId === undefined || !this.opts.chains.has(chainId)) {
       // A chain we don't run: let the page talk to the real endpoint, but keep the log.
       for (const item of body.items) this.opts.onLog({ chainId, url, method: item.method, via: "page", durationMs: 0, at: nowIso() });
@@ -82,6 +82,28 @@ export class RpcRouter {
       headers: { "content-type": "application/json", ...corsHeaders(request) },
       body: JSON.stringify(body.batch ? answers : answers[0]),
     });
+  }
+
+  /**
+   * Endpoints that only answer the dApp's own origin (app-side RPC proxies)
+   * fail our probe. When the page itself asks such an endpoint for eth_chainId,
+   * send that request as-is and learn the chain from the answer, so the rest
+   * of its calls go to the fork. The probing request is answered by the fork too.
+   */
+  private async learnFromPage(route: Route, url: string, items: RpcItem[]): Promise<number | undefined> {
+    const ask = items.find((i) => i.method === "eth_chainId");
+    if (!ask) return undefined;
+    try {
+      const res = await route.fetch({ timeout: 10_000 });
+      const answers = [(await res.json()) as unknown].flat() as { id?: unknown; result?: unknown }[];
+      const result = answers.find((a) => a?.id === ask.id)?.result;
+      if (typeof result !== "string" || !/^0x[0-9a-f]+$/i.test(result)) return undefined;
+      const chainId = Number.parseInt(result, 16);
+      this.remember(url, chainId);
+      return chainId;
+    } catch {
+      return undefined;
+    }
   }
 
   private async answer(chainId: number, url: string, item: RpcItem): Promise<unknown> {
@@ -143,6 +165,43 @@ function corsHeaders(request: Request): Record<string, string> {
     "access-control-allow-methods": "POST, OPTIONS",
     "access-control-allow-headers": request.headers()["access-control-request-headers"] ?? "content-type",
   };
+}
+
+/**
+ * Hosted RPC providers name the network in the hostname (Alchemy, Infura) or
+ * the first path segment (dRPC). A dApp's own key is
+ * often locked to its origin, so our probe can't ask, and a page that never
+ * calls eth_chainId gives nothing to learn from.
+ */
+const PROVIDER_NETWORKS: Record<string, Record<string, number>> = {
+  "g.alchemy.com": {
+    "eth-mainnet": 1, "eth-sepolia": 11155111, "base-mainnet": 8453, "base-sepolia": 84532, "arb-mainnet": 42161,
+    "arb-sepolia": 421614, "opt-mainnet": 10, "opt-sepolia": 11155420, "polygon-mainnet": 137,
+  },
+  "infura.io": {
+    mainnet: 1, sepolia: 11155111, "base-mainnet": 8453, "base-sepolia": 84532, "arbitrum-mainnet": 42161,
+    "arbitrum-sepolia": 421614, "optimism-mainnet": 10, "optimism-sepolia": 11155420, "polygon-mainnet": 137,
+  },
+};
+const DRPC_HOSTS = new Set(["lb.drpc.org", "lb.drpc.live"]);
+const DRPC_NETWORKS: Record<string, number> = {
+  ethereum: 1, sepolia: 11155111, base: 8453, "base-sepolia": 84532, arbitrum: 42161, "arbitrum-sepolia": 421614, optimism: 10, polygon: 137,
+};
+
+export function providerChain(url: string): number | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (DRPC_HOSTS.has(host)) return DRPC_NETWORKS[parsed.pathname.split("/")[1]?.toLowerCase() ?? ""];
+  for (const [domain, networks] of Object.entries(PROVIDER_NETWORKS)) {
+    if (!host.endsWith(`.${domain}`)) continue;
+    return networks[host.slice(0, -domain.length - 1)];
+  }
+  return undefined;
 }
 
 function normalise(url: string): string {

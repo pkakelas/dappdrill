@@ -1,0 +1,34 @@
+{
+  "url": "https://aerodrome.finance/swap",
+  "startedAt": "2026-11-03T14:12:08.744Z",
+  "finishedAt": "2026-11-03T14:13:56.143Z",
+  "chains": [
+    {
+      "id": 8453,
+      "name": "Base",
+      "rpcUrl": "https://base-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "53462885"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://aerodrome.finance/swap?from=eth&to=0x940181a94a35a4569e4529a3cdfb74e38fd98631&chain0=8453&chain1=8453",
+      "title": "Aerodrome Finance"
+    },
+    {
+      "url": "https://aerodrome.finance/connect",
+      "title": "Wallet picker (Browser Wallet, WalletConnect, Coinbase, Binance) then ToS sign-in via personal_sign"
+    },
+    {
+      "url": "https://aerodrome.finance/dash",
+      "title": "User dashboard: liquidity rewards, locks, rewards; banner for Aero upgrade (Aerodrome+Velodrome merger)"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.9278790000000002,
+  "stoppedEarly": false
+}

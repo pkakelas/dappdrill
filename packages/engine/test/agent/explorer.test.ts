@@ -101,6 +101,19 @@ describe("explore with a scripted model", () => {
     expect(result.flows[0]?.steps.at(-1)).toEqual({ kind: "expect", assert: { type: "visible", text: "Connected: {{account-head}}…{{account-tail}}" } });
   });
 
+  it("keeps navigating on the domain the app redirected to", async () => {
+    // As if 127.0.0.1 redirected to localhost (app.spark.fi → app.spark.finance).
+    const landed = s.baseUrl.replace("127.0.0.1", "localhost");
+    await s.page.goto(`${landed}/`);
+    const llm = scriptedLlm([
+      { tool: "goto", input: { url: "/vault.html" } },
+      { tool: "goto", input: { url: "https://evil.example.com/" } },
+    ]);
+    await explore(s, llm, { maxFlows: 1, maxMinutes: 1 });
+    expect(llm.results[0]).toMatch(/^Opened http:\/\/localhost:\d+\/vault\.html/);
+    expect(llm.results[1]).toMatch(/Refused/);
+  });
+
   it("stops at a bot check without touching it", async () => {
     await s.page.setContent(`<title>Just a moment...</title><h1>Checking your browser</h1><button>Verify you are human</button>`);
     const llm = scriptedLlm([

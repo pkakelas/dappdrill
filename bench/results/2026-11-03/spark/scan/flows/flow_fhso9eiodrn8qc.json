@@ -1,0 +1,94 @@
+{
+  "id": "flow_fhso9eiodrn8qc",
+  "name": "Withdraw 40 USDC from Savings",
+  "origin": "discovered",
+  "startUrl": "https://app.spark.finance/savings/mainnet/spusdc",
+  "params": [
+    {
+      "name": "amount",
+      "default": "40",
+      "description": "Amount typed into the form"
+    }
+  ],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "css": "div > div > div:nth-of-type(4) > nav > div:nth-of-type(3) > div > button"
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "MetaMask installed"
+      },
+      "note": "Choose MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "press",
+      "key": "End",
+      "target": {
+        "role": "link",
+        "name": "Morpho's Disclaimer",
+        "withinDialog": true
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Agree and Continue",
+        "withinDialog": true
+      },
+      "note": "Accept terms (one-time)",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Withdraw"
+      },
+      "note": "Open withdraw dialog"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "component-AssetInput-input",
+        "withinDialog": true
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Withdraw",
+        "withinDialog": true
+      },
+      "note": "Withdraw USDC"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+        "functionName": "withdraw",
+        "amountMustEqual": "{{amount}}"
+      },
+      "note": "Approve eth_sendTransaction to 0x28b3…a43d"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "Withdrew"
+      }
+    }
+  ],
+  "chainId": 1
+}

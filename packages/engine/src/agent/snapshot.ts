@@ -22,6 +22,8 @@ export interface SnapshotNode {
   expanded?: boolean;
   options?: string[];
   inDialog?: boolean;
+  /** Entirely outside the viewport; dropped first when the snapshot is over budget. Not shown to the model. */
+  offscreen?: boolean;
 }
 
 export interface Snapshot {
@@ -88,19 +90,35 @@ function formatNode(n: SnapshotNode): string {
   return `[${n.ref}] ${n.role} "${n.name}"${flags.length ? " " + flags.join(" ") : ""}`;
 }
 
-/** Drop lower-value nodes until the formatted snapshot fits the budget. */
+const FORM_ROLES = new Set(["textbox", "searchbox", "spinbutton", "combobox", "listbox", "slider", "checkbox", "radio", "switch"]);
+
+/** How much a node is worth keeping: on-screen beats off-screen, then form controls > buttons > links > headings. */
+function keepScore(n: SnapshotNode): number {
+  const tier = FORM_ROLES.has(n.role) ? 3 : n.role === "heading" ? 0 : n.role === "link" ? 1 : 2;
+  return (n.offscreen ? 0 : 4) + tier;
+}
+
+/**
+ * Drop lower-value nodes until the formatted snapshot fits the budget. Dialog
+ * nodes stay; among the rest the lowest score goes first, from the end of the
+ * page. Ranking by position alone would drop an on-screen side panel that
+ * comes after a long table in the DOM.
+ */
 function trim(snap: Snapshot, maxChars: number): Snapshot {
   let out = snap;
   if (formatSnapshot(out).length <= maxChars) return out;
   out = { ...out, text: out.text.slice(0, 600) };
-  while (formatSnapshot(out).length > maxChars && out.nodes.length > 10) {
-    // Headings and non-dialog nodes go first, from the end of the page.
-    const idx = [...out.nodes].reverse().findIndex((n) => !n.inDialog && n.role === "heading");
-    const drop = idx >= 0 ? out.nodes.length - 1 - idx : out.nodes.findLastIndex((n) => !n.inDialog);
+  let nodes = out.nodes;
+  while (formatSnapshot({ ...out, nodes }).length > maxChars && nodes.length > 10) {
+    let drop = -1;
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      if (nodes[i]!.inDialog) continue;
+      if (drop < 0 || keepScore(nodes[i]!) < keepScore(nodes[drop]!)) drop = i;
+    }
     if (drop < 0) break;
-    out = { ...out, nodes: out.nodes.filter((_, i) => i !== drop) };
+    nodes = nodes.filter((_, i) => i !== drop);
   }
-  return out;
+  return { ...out, nodes };
 }
 
 /** Playwright locator for a ref from the latest snapshot. */
@@ -353,6 +371,8 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
         const name = accessibleName(el, role) || (role ? "" : unlabeledName(el));
         const node: SnapshotNode = { ref: refFor(el), role: role || "generic", name: clip(name, 90) };
         if (inDialog) node.inDialog = true;
+        const box = el.getBoundingClientRect();
+        if (box.bottom <= 0 || box.right <= 0 || box.top >= innerHeight || box.left >= innerWidth) node.offscreen = true;
         if (tag === "input" || tag === "textarea") {
           const input = el as HTMLInputElement;
           if (input.type !== "checkbox" && input.type !== "radio" && input.type !== "password") node.value = clip(input.value, 60);

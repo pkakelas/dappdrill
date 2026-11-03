@@ -10,6 +10,12 @@ export interface StartChainsOptions {
   liveKey?: string;
   /** Live mode refuses mainnet chain ids unless this is set. */
   allowMainnetLive?: boolean;
+  /**
+   * Mine an empty block this often on every fork (while automine is on). A fork
+   * otherwise sits on its pinned block, so dApps see a clock minutes behind and
+   * wait forever for confirmations.
+   */
+  heartbeatMs?: number;
   log?: (message: string) => void;
 }
 
@@ -85,9 +91,24 @@ class Controller implements ChainController {
   private faults = { latencyMs: 0, failureRate: 0 };
   private rng = seeded(0x5eed);
   private closed = false;
+  private readonly automineOff = new Set<number>();
+  private heartbeat?: NodeJS.Timeout;
 
   constructor(entries: Entry[], private readonly opts: StartChainsOptions) {
     for (const e of entries) this.entries.set(e.config.id, e);
+    if (opts.heartbeatMs && entries.some((e) => e.mode === "fork")) {
+      this.heartbeat = setInterval(() => void this.beat(), opts.heartbeatMs);
+      this.heartbeat.unref();
+    }
+  }
+
+  /** One empty block per fork, stamped with the wall clock. Skipped while a test holds transactions pending. */
+  private async beat(): Promise<void> {
+    await Promise.all(
+      [...this.entries.values()]
+        .filter((e) => e.mode === "fork" && !this.automineOff.has(e.config.id))
+        .map((e) => rpcCall(e.url, "evm_mine", [], { timeoutMs: 5_000, retryDelaysMs: [] }).catch(() => {})),
+    );
   }
 
   configs(): ChainConfig[] {
@@ -137,6 +158,8 @@ class Controller implements ChainController {
 
   async setAutomine(chainId: number, on: boolean): Promise<void> {
     await this.control(chainId, "evm_setAutomine", [on]);
+    if (on) this.automineOff.delete(chainId);
+    else this.automineOff.add(chainId);
   }
 
   async mine(chainId: number): Promise<void> {
@@ -164,6 +187,7 @@ class Controller implements ChainController {
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    if (this.heartbeat) clearInterval(this.heartbeat);
     await Promise.all([...this.entries.values()].map((e) => e.fork?.close()));
   }
 

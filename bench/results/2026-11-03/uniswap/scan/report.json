@@ -1,0 +1,26 @@
+{
+  "url": "https://app.uniswap.org/swap?chain=mainnet",
+  "startedAt": "2026-11-03T13:57:03.162Z",
+  "finishedAt": "2026-11-03T13:58:46.634Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334711"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.uniswap.org/swap?chain=mainnet",
+      "title": "Buy, sell & trade Ethereum and other top tokens on Uniswap"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.9545046000000003,
+  "stoppedEarly": false
+}

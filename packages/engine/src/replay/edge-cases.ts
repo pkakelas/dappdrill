@@ -726,6 +726,8 @@ function wrongChainGuard(plan: Plan, state: CaseState): ReplayHooks {
 
 /** After a rejection / failed send: is the UI stuck, and did it tell the user? */
 async function recoveryChecks(edge: EdgeCaseId, session: EngineSession, replay: ReplayFlowResult, drafts: IssueDraft[], verb: string): Promise<void> {
+  // The flow broke before its request (Lido: "access is currently unavailable"), so nothing was rejected to recover from.
+  if (edge === "reject" && !session.wallet.requests().some((r) => r.outcome === "rejected")) return;
   const ws = replay.walletSteps[0];
   const trigger = ws?.pending.buttonLabel ?? session.lastClickedLabel();
   await session.page.waitForTimeout(2_000);

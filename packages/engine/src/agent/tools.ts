@@ -125,6 +125,8 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
   const { session, recorder } = ctx;
   const page = () => session.page;
   const origin = new URL(session.target.url).origin;
+  // An app that redirects to another domain (app.spark.fi → app.spark.finance) lives on the one it landed on.
+  const landed = page().url().startsWith("http") ? new URL(page().url()).origin : origin;
   const seenRequests = new Set<string>(session.wallet.requests().map((r) => r.id));
 
   /** Wait for the page to settle, then describe the new state plus any new wallet request. */
@@ -233,7 +235,7 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
       schema: z.object({ url: z.string() }),
       handler: async ({ url }) => {
         const abs = new URL(url, page().url());
-        if (abs.origin !== origin) return `Refused: ${abs.origin} is outside the app (${origin}). Stay on the app's pages.`;
+        if (abs.origin !== origin && abs.origin !== landed) return `Refused: ${abs.origin} is outside the app (${origin}). Stay on the app's pages.`;
         await page().goto(abs.href, { waitUntil: "domcontentloaded", timeout: 20_000 });
         recorder.add({ kind: "goto", url: abs.pathname + abs.search });
         return after(`Opened ${abs.href}.`);

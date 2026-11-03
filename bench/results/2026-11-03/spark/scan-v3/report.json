@@ -1,0 +1,33 @@
+{
+  "url": "https://app.spark.fi/",
+  "startedAt": "2026-11-03T14:17:20.934Z",
+  "finishedAt": "2026-11-03T14:19:44.880Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334812"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.spark.finance/",
+      "title": "Spark: Earn on your stablecoins"
+    },
+    {
+      "url": "https://app.spark.fi/",
+      "title": "Savings landing page (USDC/USDS savings vaults), nav to Borrow, SPK, Swap"
+    },
+    {
+      "url": "https://app.spark.finance/swap"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.8755564,
+  "stoppedEarly": false
+}

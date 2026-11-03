@@ -1,0 +1,14 @@
+{
+  "name": "@dappdrill/bench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "bench": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "@dappdrill/core": "workspace:*",
+    "tsx": "^4.23.15"
+  }
+}

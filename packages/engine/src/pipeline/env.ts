@@ -13,6 +13,9 @@ import { detectChains, startChains } from "../runtime.js";
 import { createSigningReviewer } from "../signing/index.js";
 import type { ChainController, Inbox, Llm, RecoveryJudge, SigningReviewer } from "../types.js";
 
+/** Empty-block cadence on forks: keeps the chain clock current and gives dApps confirmations. */
+const FORK_HEARTBEAT_MS = 4_000;
+
 export interface Env {
   /** The input target with chains (pinned fork blocks) and accounts filled in. */
   readonly target: DrillTarget;
@@ -89,6 +92,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   const chains = await startChains(configs, {
     liveKey: input.liveKey,
     allowMainnetLive: input.allowMainnetLive,
+    heartbeatMs: FORK_HEARTBEAT_MS,
     log: (m) => void log(m),
   });
   const target: DrillTarget = {

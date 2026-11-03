@@ -1,0 +1,47 @@
+{
+  "a54264b1ec4e9a98": {
+    "label": "true",
+    "note": "The user picked MetaMask in the EIP-6963 list but Compound sent requests through window.ethereum, which the second wallet owns. Same as a real Rabby + MetaMask setup."
+  },
+  "4cb77d1d8ee089b1": {
+    "label": "true",
+    "note": "Two supply() sends arrived 6 ms apart, before any wallet answer: 'Submit Transaction' stays clickable while the dApp estimates gas over a slow RPC."
+  },
+  "82fea9ee4ab8093c": {
+    "label": "true",
+    "note": "Same double-submit on the withdraw flow (two withdraw() sends 2 ms apart)."
+  },
+  "e4163b1e0c19f448": {
+    "label": "true",
+    "note": "Accurate and correctly rated low: Compound asks for an unlimited USDC approval to Comet behind an 'Approve & Add' button."
+  },
+  "7962a9d01c533fed": {
+    "label": "true",
+    "note": "After a 4001 rejection the page returns to its pre-submit state with no message. Retrying works, so it's minor, but the report is accurate."
+  },
+  "f9b741a5df9c1393": {
+    "label": "false",
+    "note": "Engine bug: recorded selector 0xf2b9fdb8 compared to the decoded name 'supply'. Fixed by matchesFunction.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "3ac42ae698e3cf46": {
+    "label": "false",
+    "note": "Engine bug: recorded selector 0xf3fef3a3 compared to 'withdraw'.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "5160feb6db9b2a9d": {
+    "label": "false",
+    "note": "Engine bug: same selector/name comparison in the signing review's expectation check.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "504a6b0190274c92": {
+    "label": "false",
+    "note": "Engine bug: same selector/name comparison in the signing review's expectation check.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  },
+  "c77e57e10eaf64f8": {
+    "label": "false",
+    "note": "The dApp did send; DappDrill rejected it with 4001 over the selector bug, so the page never saw an out-of-gas error. Whatever Compound shows for real insufficient funds wasn't tested.",
+    "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+  }
+}

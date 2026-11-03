@@ -1,0 +1,646 @@
+{
+  "url": "https://app.morpho.org/ethereum/earn",
+  "startedAt": "2026-11-03T14:19:33.166Z",
+  "finishedAt": "2026-11-03T14:25:26.799Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334823"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.morpho.org/vaults",
+      "title": "Morpho Vaults"
+    },
+    {
+      "url": "https://app.morpho.org/ethereum/vault/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB/steakhouse-usdc",
+      "title": "Steakhouse USDC vault detail page with deposit/withdraw panel"
+    }
+  ],
+  "flows": [
+    {
+      "id": "flow_zomz1m6qiky1cu",
+      "name": "Deposit 100 USDC into Steakhouse USDC vault",
+      "origin": "discovered",
+      "startUrl": "https://app.morpho.org/ethereum/vault/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB/steakhouse-usdc",
+      "params": [
+        {
+          "name": "amount",
+          "default": "100",
+          "description": "Amount typed into the form"
+        }
+      ],
+      "steps": [
+        {
+          "kind": "press",
+          "key": "Space",
+          "target": {
+            "css": "#_R_55bH2_",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "click",
+          "target": {
+            "css": "dialog > div:nth-of-type(2) > button",
+            "withinDialog": true
+          },
+          "note": "Continue past terms",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "Connect",
+            "nth": 0
+          },
+          "note": "Open wallet picker",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "MetaMask installed"
+          },
+          "note": "Connect with MetaMask",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Proceed",
+            "withinDialog": true
+          },
+          "note": "Dismiss \"How Earn Works\" onboarding",
+          "optional": true
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "asset-input"
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "asset-input"
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "testId": "asset-input-max"
+          },
+          "note": "Retrigger onchain state loading (MAX), then set 100"
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "asset-input"
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "testId": "finalize-button"
+          },
+          "note": "Review deposit"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Deposit",
+            "withinDialog": true
+          },
+          "note": "Confirm deposit"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "typedData",
+            "spenderMustBe": "0x02912516d49de997db75b9d7858faae59209650b",
+            "failIfUnlimited": true,
+            "amountMustEqual": "{{amount}}"
+          },
+          "note": "Approve eth_signTypedData_v4 Permit (USD Coin)"
+        },
+        {
+          "kind": "press",
+          "key": "Space",
+          "target": {
+            "css": "#accept-continue-without-simulation-checkbox",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Proceed anyway",
+            "withinDialog": true
+          },
+          "note": "Proceed without simulation (simulation likely runs off-fork)"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0x02912516d49de997db75b9d7858faae59209650b",
+            "functionName": "0x6bbba4e0"
+          },
+          "note": "Approve eth_sendTransaction to 0x0291…650b"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "testId": "action-flow-dialog-close",
+            "withinDialog": true
+          },
+          "note": "Close review dialog to check position"
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "4900 USDC"
+          }
+        }
+      ],
+      "chainId": 1
+    },
+    {
+      "id": "flow_nrlxh03m69nyal",
+      "name": "Withdraw 40 USDC from Steakhouse USDC vault",
+      "origin": "discovered",
+      "startUrl": "https://app.morpho.org/ethereum/vault/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB/steakhouse-usdc",
+      "params": [],
+      "steps": [
+        {
+          "kind": "press",
+          "key": "Space",
+          "target": {
+            "css": "#_R_55bH2_",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "click",
+          "target": {
+            "css": "dialog > div:nth-of-type(2) > button",
+            "withinDialog": true
+          },
+          "note": "Continue past terms",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "Connect",
+            "nth": 0
+          },
+          "note": "Open wallet picker",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "MetaMask installed"
+          },
+          "note": "Connect with MetaMask",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Proceed",
+            "withinDialog": true
+          },
+          "note": "Dismiss onboarding",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Withdraw"
+          },
+          "note": "Switch to Withdraw tab"
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "asset-input"
+          },
+          "value": "40"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "testId": "finalize-button"
+          },
+          "note": "Review withdraw"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Withdraw",
+            "withinDialog": true
+          },
+          "note": "Confirm withdraw"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "typedData",
+            "spenderMustBe": "0x02912516d49de997db75b9d7858faae59209650b"
+          },
+          "note": "Approve eth_signTypedData_v4 Permit (Steakhouse USDC)"
+        },
+        {
+          "kind": "press",
+          "key": "Space",
+          "target": {
+            "css": "#accept-continue-without-simulation-checkbox",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Proceed anyway",
+            "withinDialog": true
+          },
+          "note": "Proceed without simulation (off-fork simulator)"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0x02912516d49de997db75b9d7858faae59209650b",
+            "functionName": "0x932084a8"
+          },
+          "note": "Approve eth_sendTransaction to 0x0291…650b"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "testId": "action-flow-dialog-close",
+            "withinDialog": true
+          },
+          "note": "Close review to check updated position"
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "60 USDC"
+          }
+        }
+      ],
+      "chainId": 1
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_0z59rcco9t8xcb",
+      "flowId": "flow_zomz1m6qiky1cu",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Step 8 (Retrigger onchain state loading (MAX), then set 100): locator.click: Timeout 15000ms exceeded.\nCall log:\n  - waiting for getByTestId('asset-input-max').visible().first()\n    - locator resolved to <button disabled data-slot=\"button\" data-testid=\"asset-input-max\" class=\"inline-flex items-center cursor-pointer disabled:cursor-not-allowed justify-center whitespace-nowrap rounded-lg border-[0.5px] transition-[color,background-color,border-color,opacity,box-shadow,filter,transform,scale] active:scale-98 disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:siz…>MAX</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    29 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 1210
+        },
+        {
+          "index": 1,
+          "status": "skipped",
+          "durationMs": 4214,
+          "error": "Could not find css=dialog > div:nth-of-type(2) > button in dialog (tried css dialog > div:nth-of-type(2) > button)",
+          "screenshot": "screenshots/run_0z59rcco9t8xcb-run_0z59rcco9t8xcb-step1-fail.png"
+        },
+        {
+          "index": 2,
+          "status": "skipped",
+          "durationMs": 4170,
+          "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n  - waiting for getByText('Connect', { exact: true }).visible().first()\n    - locator resolved to <button data-slot=\"button\" class=\"inline-flex items-center cursor-pointer disabled:cursor-not-allowed justify-center gap-1 whitespace-nowrap border-[0.5px] transition-[color,background-color,border-color,opacity,box-shadow,filter,transform,scale] active:scale-98 disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg[width='20'][height='20']:not([cla…>Connect</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <dialog open=\"\" role=\"alertdialog\" aria-labelledby=\"_R_55b_\" aria-describedby=\"_R_55bH1_\" data-slot=\"alert-dialog-content\" class=\"m-0 right-auto bottom-auto h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain text-inherit backdrop:bg-transparent bg-popover fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-[20px] border shadow-md outline-none gap-0 p-0 sm:max-w-[500px]\">…</dialog> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <dialog open=\"\" role=\"alertdialog\" aria-labelledby=\"_R_55b_\" aria-describedby=\"_R_55bH1_\" data-slot=\"alert-dialog-content\" class=\"m-0 right-auto bottom-auto h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain text-inherit backdrop:bg-transparent bg-popover fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-[20px] border shadow-md outline-none gap-0 p-0 sm:max-w-[500px]\">…</dialog> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    7 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <dialog open=\"\" role=\"alertdialog\" aria-labelledby=\"_R_55b_\" aria-describedby=\"_R_55bH1_\" data-slot=\"alert-dialog-content\" class=\"m-0 right-auto bottom-auto h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain text-inherit backdrop:bg-transparent bg-popover fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-[20px] border shadow-md outline-none gap-0 p-0 sm:max-w-[500px]\">…</dialog> intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n",
+          "screenshot": "screenshots/run_0z59rcco9t8xcb-run_0z59rcco9t8xcb-step2-fail.png"
+        },
+        {
+          "index": 3,
+          "status": "skipped",
+          "durationMs": 4377,
+          "error": "Could not find text=\"MetaMask installed\" (tried text \"MetaMask installed\", text ~\"MetaMask installed\")",
+          "screenshot": "screenshots/run_0z59rcco9t8xcb-run_0z59rcco9t8xcb-step3-fail.png"
+        },
+        {
+          "index": 4,
+          "status": "skipped",
+          "durationMs": 4346,
+          "error": "Could not find role=button name=\"Proceed\" in dialog (tried button \"Proceed\", button ~\"Proceed\")",
+          "screenshot": "screenshots/run_0z59rcco9t8xcb-run_0z59rcco9t8xcb-step4-fail.png"
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 34
+        },
+        {
+          "index": 6,
+          "status": "pass",
+          "durationMs": 26
+        },
+        {
+          "index": 7,
+          "status": "fail",
+          "durationMs": 15176,
+          "error": "locator.click: Timeout 15000ms exceeded.\nCall log:\n  - waiting for getByTestId('asset-input-max').visible().first()\n    - locator resolved to <button disabled data-slot=\"button\" data-testid=\"asset-input-max\" class=\"inline-flex items-center cursor-pointer disabled:cursor-not-allowed justify-center whitespace-nowrap rounded-lg border-[0.5px] transition-[color,background-color,border-color,opacity,box-shadow,filter,transform,scale] active:scale-98 disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:siz…>MAX</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    29 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+          "screenshot": "screenshots/run_0z59rcco9t8xcb-run_0z59rcco9t8xcb-step7-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_le88v9qsn4vyzc",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:01.723Z",
+          "outcome": "approved",
+          "result": []
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "Error",
+          "at": "2026-11-03T14:24:01.753Z"
+        },
+        {
+          "level": "log",
+          "text": "Error",
+          "at": "2026-11-03T14:24:01.762Z"
+        },
+        {
+          "level": "log",
+          "text": "Initializing context",
+          "at": "2026-11-03T14:24:02.083Z"
+        },
+        {
+          "level": "log",
+          "text": "dappConfigv2 {name: Ledger, liveAppId: ledger, domainUrl: https://ledger.com, referralUrl: https://shop.ledger.com/pages/hardware-wallets-comparison, blockchains: Array(2)}",
+          "at": "2026-11-03T14:24:02.429Z"
+        },
+        {
+          "level": "log",
+          "text": "Error",
+          "at": "2026-11-03T14:24:02.456Z"
+        },
+        {
+          "level": "log",
+          "text": "\u001b[31m[IndexedDB Service]: 2026-11-03T14:24:02.405Z\u001b[39m",
+          "at": "2026-11-03T14:24:02.456Z"
+        },
+        {
+          "level": "error",
+          "text": "\u001b[31mError getting key pair from indexDB\u001b[39m {event: Event}",
+          "at": "2026-11-03T14:24:02.456Z"
+        },
+        {
+          "level": "log",
+          "text": "console.groupEnd",
+          "at": "2026-11-03T14:24:02.456Z"
+        },
+        {
+          "level": "log",
+          "text": "\u001b[31m[IndexedDB Service]: 2026-11-03T14:24:02.406Z\u001b[39m",
+          "at": "2026-11-03T14:24:02.456Z"
+        },
+        {
+          "level": "error",
+          "text": "\u001b[31mError getting key pair from indexDB\u001b[39m {event: Event}",
+          "at": "2026-11-03T14:24:02.456Z"
+        },
+        {
+          "level": "log",
+          "text": "console.groupEnd",
+          "at": "2026-11-03T14:24:02.456Z"
+        },
+        {
+          "level": "log",
+          "text": "Initializing blockchain providers",
+          "at": "2026-11-03T14:24:02.457Z"
+        },
+        {
+          "level": "log",
+          "text": "evmConfig {blockchain: ethereum, appName: Ethereum, networks: Array(12), appDependencies: Object, rpcMethods: Object}",
+          "at": "2026-11-03T14:24:02.457Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://app.morpho.org/api/rpc/1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 509,
+          "at": "2026-11-03T14:24:02.297Z"
+        }
+      ],
+      "video": "videos/run_0z59rcco9t8xcb.webm",
+      "trace": "traces/run_0z59rcco9t8xcb.zip",
+      "finalScreenshot": "screenshots/run_0z59rcco9t8xcb-run_0z59rcco9t8xcb-final.png",
+      "forkBlocks": {
+        "1": "26334823"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:23:54.255Z",
+      "finishedAt": "2026-11-03T14:24:36.809Z"
+    },
+    {
+      "id": "run_doriyn8pqwonf5",
+      "flowId": "flow_nrlxh03m69nyal",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Step 6 (Switch to Withdraw tab): locator.click: Timeout 15000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Withdraw', exact: true }).visible().first()\n    - locator resolved to <button disabled data-slot=\"button\" aria-pressed=\"false\" class=\"inline-flex items-center cursor-pointer disabled:cursor-not-allowed justify-center gap-1 whitespace-nowrap rounded-lg border-[0.5px] active:scale-98 disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg[width='20'][height='20']:not([class*='size-'])]:size-5 shrink-0 [&_svg]:shrink-0 ou…>Withdraw</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    28 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 778
+        },
+        {
+          "index": 1,
+          "status": "skipped",
+          "durationMs": 4269,
+          "error": "Could not find css=dialog > div:nth-of-type(2) > button in dialog (tried css dialog > div:nth-of-type(2) > button)",
+          "screenshot": "screenshots/run_doriyn8pqwonf5-run_doriyn8pqwonf5-step1-fail.png"
+        },
+        {
+          "index": 2,
+          "status": "skipped",
+          "durationMs": 4313,
+          "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n  - waiting for getByText('Connect', { exact: true }).visible().first()\n    - locator resolved to <button data-slot=\"button\" class=\"inline-flex items-center cursor-pointer disabled:cursor-not-allowed justify-center gap-1 whitespace-nowrap border-[0.5px] transition-[color,background-color,border-color,opacity,box-shadow,filter,transform,scale] active:scale-98 disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg[width='20'][height='20']:not([cla…>Connect</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <dialog open=\"\" role=\"alertdialog\" aria-labelledby=\"_R_55b_\" aria-describedby=\"_R_55bH1_\" data-slot=\"alert-dialog-content\" class=\"m-0 right-auto bottom-auto h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain text-inherit backdrop:bg-transparent bg-popover fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-[20px] border shadow-md outline-none gap-0 p-0 sm:max-w-[500px]\">…</dialog> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <dialog open=\"\" role=\"alertdialog\" aria-labelledby=\"_R_55b_\" aria-describedby=\"_R_55bH1_\" data-slot=\"alert-dialog-content\" class=\"m-0 right-auto bottom-auto h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain text-inherit backdrop:bg-transparent bg-popover fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-[20px] border shadow-md outline-none gap-0 p-0 sm:max-w-[500px]\">…</dialog> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    8 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <dialog open=\"\" role=\"alertdialog\" aria-labelledby=\"_R_55b_\" aria-describedby=\"_R_55bH1_\" data-slot=\"alert-dialog-content\" class=\"m-0 right-auto bottom-auto h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain text-inherit backdrop:bg-transparent bg-popover fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-[20px] border shadow-md outline-none gap-0 p-0 sm:max-w-[500px]\">…</dialog> intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n",
+          "screenshot": "screenshots/run_doriyn8pqwonf5-run_doriyn8pqwonf5-step2-fail.png"
+        },
+        {
+          "index": 3,
+          "status": "skipped",
+          "durationMs": 4371,
+          "error": "Could not find text=\"MetaMask installed\" (tried text \"MetaMask installed\", text ~\"MetaMask installed\")",
+          "screenshot": "screenshots/run_doriyn8pqwonf5-run_doriyn8pqwonf5-step3-fail.png"
+        },
+        {
+          "index": 4,
+          "status": "skipped",
+          "durationMs": 4326,
+          "error": "Could not find role=button name=\"Proceed\" in dialog (tried button \"Proceed\", button ~\"Proceed\")",
+          "screenshot": "screenshots/run_doriyn8pqwonf5-run_doriyn8pqwonf5-step4-fail.png"
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 15383,
+          "error": "locator.click: Timeout 15000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Withdraw', exact: true }).visible().first()\n    - locator resolved to <button disabled data-slot=\"button\" aria-pressed=\"false\" class=\"inline-flex items-center cursor-pointer disabled:cursor-not-allowed justify-center gap-1 whitespace-nowrap rounded-lg border-[0.5px] active:scale-98 disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg[width='20'][height='20']:not([class*='size-'])]:size-5 shrink-0 [&_svg]:shrink-0 ou…>Withdraw</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    28 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+          "screenshot": "screenshots/run_doriyn8pqwonf5-run_doriyn8pqwonf5-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_372ty3nukmpnao",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:42.343Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_gqgtxggd1xm8gd",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:42.419Z",
+          "outcome": "approved",
+          "result": []
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "Error",
+          "at": "2026-11-03T14:24:42.441Z"
+        },
+        {
+          "level": "log",
+          "text": "Error",
+          "at": "2026-11-03T14:24:42.451Z"
+        },
+        {
+          "level": "log",
+          "text": "Initializing context",
+          "at": "2026-11-03T14:24:42.604Z"
+        },
+        {
+          "level": "log",
+          "text": "dappConfigv2 {name: Ledger, liveAppId: ledger, domainUrl: https://ledger.com, referralUrl: https://shop.ledger.com/pages/hardware-wallets-comparison, blockchains: Array(2)}",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "log",
+          "text": "\u001b[31m[IndexedDB Service]: 2026-11-03T14:24:42.765Z\u001b[39m",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "error",
+          "text": "\u001b[31mError getting key pair from indexDB\u001b[39m {event: Event}",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "log",
+          "text": "console.groupEnd",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "log",
+          "text": "\u001b[31m[IndexedDB Service]: 2026-11-03T14:24:42.766Z\u001b[39m",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "error",
+          "text": "\u001b[31mError getting key pair from indexDB\u001b[39m {event: Event}",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "log",
+          "text": "console.groupEnd",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "log",
+          "text": "Initializing blockchain providers",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "log",
+          "text": "evmConfig {blockchain: ethereum, appName: Ethereum, networks: Array(12), appDependencies: Object, rpcMethods: Object}",
+          "at": "2026-11-03T14:24:42.861Z"
+        },
+        {
+          "level": "log",
+          "text": "Error",
+          "at": "2026-11-03T14:24:43.573Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://app.morpho.org/api/rpc/1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 367,
+          "at": "2026-11-03T14:24:43.014Z"
+        }
+      ],
+      "video": "videos/run_doriyn8pqwonf5.webm",
+      "trace": "traces/run_doriyn8pqwonf5.zip",
+      "finalScreenshot": "screenshots/run_doriyn8pqwonf5-run_doriyn8pqwonf5-final.png",
+      "forkBlocks": {
+        "1": "26334823"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:24:36.810Z",
+      "finishedAt": "2026-11-03T14:25:26.792Z"
+    }
+  ],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 2.9438018000000006,
+  "stoppedEarly": false
+}

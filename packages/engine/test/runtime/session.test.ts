@@ -8,6 +8,7 @@ import { startChains } from "../../src/chain/controller.js";
 import { createSession, type EngineSession } from "../../src/browser/session.js";
 import { readBalance } from "../../src/chain/deal-erc20.js";
 import { rpcCall } from "../../src/chain/rpc.js";
+import { providerChain } from "../../src/browser/rpc-route.js";
 import { ACCOUNTS, CHAIN_ID, startFixture, type Fixture } from "./fixture.js";
 
 let fx: Fixture;
@@ -113,6 +114,47 @@ describe("session", () => {
     }
   }, 60_000);
 
+  it("answers MetaMask's content-script stream, which SDK connectors use after connecting", async () => {
+    const session = await open();
+    try {
+      const probe = await session.page.evaluate(async () => {
+        let id = 0;
+        const notes: any[] = [];
+        window.addEventListener("message", (ev) => {
+          const msg = ev.data?.target === "metamask-inpage" && ev.data.data?.name === "metamask-provider" ? ev.data.data.data : undefined;
+          if (msg && msg.id === undefined) notes.push(msg);
+        });
+        const call = (method: string, params?: unknown) =>
+          new Promise<any>((resolve) => {
+            const mine = String(++id);
+            const onMessage = (ev: MessageEvent) => {
+              const msg = ev.data?.target === "metamask-inpage" && ev.data.data?.name === "metamask-provider" ? ev.data.data.data : undefined;
+              if (msg?.id !== mine) return;
+              window.removeEventListener("message", onMessage);
+              resolve(msg);
+            };
+            window.addEventListener("message", onMessage);
+            window.postMessage({ target: "metamask-contentscript", data: { name: "metamask-provider", data: { jsonrpc: "2.0", id: mine, method, params } } }, location.origin);
+          });
+        const state = await call("metamask_getProviderState");
+        const before = await call("eth_accounts", []);
+        await (window as any).ethereum.request({ method: "eth_requestAccounts" });
+        const after = await call("eth_accounts", []);
+        const chain = await call("eth_chainId", []);
+        await new Promise((r) => setTimeout(r, 50));
+        return { state, before, after, chain, notes };
+      });
+      const A = session.wallet.accounts.A.toLowerCase();
+      expect(probe.state.result).toMatchObject({ accounts: [], chainId: "0x7a69", isUnlocked: true });
+      expect(probe.before.result).toEqual([]);
+      expect(probe.after.result.map((a: string) => a.toLowerCase())).toEqual([A]);
+      expect(probe.chain.result).toBe("0x7a69");
+      expect(probe.notes.some((n: any) => n.method === "metamask_accountsChanged" && n.params[0]?.toLowerCase() === A)).toBe(true);
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
   it("routes the page's own JSON-RPC (single + batch) to the fork and logs it", async () => {
     const session = await open();
     try {
@@ -128,6 +170,45 @@ describe("session", () => {
       expect(session.lastClickedLabel()).toBe("MetaMask");
     } finally {
       await session.close();
+    }
+  }, 60_000);
+
+  it("routes an app-only RPC proxy to the fork once the page asks it for eth_chainId", async () => {
+    // Like an app's own RPC proxy: it only answers requests from a page (with an Origin header).
+    const { createServer } = await import("node:http");
+    const proxy = createServer((req, res) => {
+      const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type" };
+      if (req.method === "OPTIONS") return void res.writeHead(204, cors).end();
+      if (!req.headers.origin) return void res.writeHead(403, cors).end("forbidden");
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", async () => {
+        const upstream = await fetch(fx.rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
+        res.writeHead(200, { ...cors, "content-type": "application/json" }).end(await upstream.text());
+      });
+    });
+    await new Promise<void>((r) => proxy.listen(0, "127.0.0.1", r));
+    const proxyUrl = `http://127.0.0.1:${(proxy.address() as { port: number }).port}/ethereum-mainnet`;
+    const session = await open();
+    try {
+      const A = session.wallet.accounts.A;
+      await chains.setBalance(CHAIN_ID, A, 4242n);
+      const read = await session.page.evaluate(
+        async ([url, account]) => {
+          const call = async (method: string, params: unknown[]) =>
+            (await (await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 7, method, params }) })).json()).result;
+          return { chainId: await call("eth_chainId", []), balance: await call("eth_getBalance", [account, "latest"]) };
+        },
+        [proxyUrl, A] as const,
+      );
+      expect(read.chainId).toBe("0x7a69");
+      // 4242 wei only exists on the fork.
+      expect(BigInt(read.balance)).toBe(4242n);
+      expect(BigInt((await rpcCall(fx.rpcUrl, "eth_getBalance", [A, "latest"])) as string)).not.toBe(4242n);
+      expect(session.rpc.filter((r) => r.url === proxyUrl && r.chainId === CHAIN_ID).map((r) => r.method)).toEqual(["eth_chainId", "eth_getBalance"]);
+    } finally {
+      await session.close();
+      await new Promise((r) => proxy.close(r));
     }
   }, 60_000);
 
@@ -329,4 +410,18 @@ describe("session", () => {
     expect(events.some((e) => e.type === "frame")).toBe(true);
     expect(events.some((e) => e.type === "wallet-request")).toBe(true);
   }, 60_000);
+});
+
+describe("providerChain", () => {
+  it("reads the network from hosted RPC providers' hostnames", () => {
+    expect(providerChain("https://eth-mainnet.g.alchemy.com/v2/someKey")).toBe(1);
+    expect(providerChain("https://base-mainnet.g.alchemy.com/v2/someKey")).toBe(8453);
+    expect(providerChain("https://arbitrum-mainnet.infura.io/v3/abc")).toBe(42161);
+    expect(providerChain("https://mainnet.infura.io/v3/abc")).toBe(1);
+    expect(providerChain("https://solana-mainnet.g.alchemy.com/v2/k")).toBeUndefined();
+    expect(providerChain("https://ethereum-rpc.publicnode.com")).toBeUndefined();
+    expect(providerChain("https://notinfura.io/v3/abc")).toBeUndefined();
+    expect(providerChain("https://lb.drpc.live/base/someKey")).toBe(8453);
+    expect(providerChain("https://lb.drpc.org/ogrpc?network=base")).toBeUndefined();
+  });
 });

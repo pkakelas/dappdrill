@@ -64,7 +64,7 @@ export function makeIssue(ctx: IssueContext, draft: IssueDraft): Issue {
 }
 
 const BUSY_TEXT = /confirm|pending|processing|loading|submitting|waiting|sending|signing|approving|depositing|withdrawing|swapping|in progress|\.{3}|…/i;
-const MESSAGE_TEXT = /reject|cancel|denied|declined|error|fail|unsuccessful|try again|insufficient|not enough|wrong network|switch (the )?network|unsupported (chain|network)|something went wrong/i;
+const MESSAGE_TEXT = /reject|cancel|denied|declined|error|fail|unsuccessful|try again|insufficient|not enough|exceeds? (your |the )?(available |wallet )?balance|balance (is )?too low|wrong network|switch (the )?network|unsupported (chain|network)|something went wrong|unavailable/i;
 
 export interface RecoveryState {
   pageText: string;
@@ -92,13 +92,19 @@ export async function inspectRecovery(page: Page, triggerLabel?: string): Promis
     .catch(() => ({ text: "", buttons: [] as { text: string; disabled: boolean }[], triggerDisabled: false, elements: 0 }));
 
   const busy = snapshot.buttons.find((b) => b.disabled && BUSY_TEXT.test(b.text) && b.text.length < 60);
-  const stuckButton = busy?.text ?? (snapshot.triggerDisabled ? triggerLabel : undefined);
-  const message = snapshot.text
+  const message = feedbackMessage(snapshot.text);
+  // A disabled button next to a reason (Lido: "amount exceeds your available balance") is the dApp blocking a bad input, not a hang.
+  const stuckButton = busy?.text ?? (snapshot.triggerDisabled && !message ? triggerLabel : undefined);
+  const blank = snapshot.text.trim().length < 20 && snapshot.elements < 15;
+  return { pageText: snapshot.text, stuckButton, message, blank };
+}
+
+/** First line of page text that reads like feedback to the user. */
+export function feedbackMessage(pageText: string): string | undefined {
+  return pageText
     .split("\n")
     .map((l) => l.trim())
     .find((l) => l.length > 3 && l.length < 300 && MESSAGE_TEXT.test(l));
-  const blank = snapshot.text.trim().length < 20 && snapshot.elements < 15;
-  return { pageText: snapshot.text, stuckButton, message, blank };
 }
 
 export function edgeLabel(id: EdgeCaseId): string {

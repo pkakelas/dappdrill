@@ -229,7 +229,44 @@ export function installDappDrillWallet(cfg: InjectConfig): void {
   });
 
   const metamask = providers.find((p) => p.info.id === "metamask");
-  if (metamask) serveMultichainApi(metamask.provider);
+  if (metamask) {
+    serveMultichainApi(metamask.provider);
+    serveProviderStream(metamask.provider);
+  }
+
+  /**
+   * MetaMask's original content-script stream. MetaMask's SDK connectors
+   * (Uniswap's, for one) send eth_requestAccounts through window.ethereum and
+   * then keep talking to the extension over this postMessage stream; with no
+   * answer they sit on "Complete connection in your wallet". Same provider, so
+   * every call still goes through node.
+   */
+  function serveProviderStream(provider: any) {
+    const STREAM = "metamask-provider";
+    const post = (data: unknown) => window.postMessage({ target: "metamask-inpage", data: { name: STREAM, data } }, location.origin);
+    const providerState = () => ({
+      accounts: provider.__dappdrillState.accounts.slice(),
+      chainId: provider.chainId,
+      networkVersion: provider.networkVersion,
+      isUnlocked: true,
+      isConnected: true,
+    });
+    const answer = (msg: any): Promise<unknown> =>
+      msg.method === "metamask_getProviderState" ? Promise.resolve(providerState()) : provider.request({ method: msg.method, params: msg.params });
+
+    window.addEventListener("message", (ev) => {
+      const msg = ev.data?.target === "metamask-contentscript" && ev.data.data?.name === STREAM ? ev.data.data.data : undefined;
+      if (ev.source !== window || typeof msg?.method !== "string" || msg.id === undefined) return;
+      answer(msg).then(
+        (result) => post({ jsonrpc: "2.0", id: msg.id, result }),
+        (e) => post({ jsonrpc: "2.0", id: msg.id, error: { code: e?.code ?? -32603, message: e?.message ?? String(e) } }),
+      );
+    });
+    provider.__dappdrillOnEmit((event: string, args: any[]) => {
+      if (event === "accountsChanged") post({ jsonrpc: "2.0", method: "metamask_accountsChanged", params: args[0] });
+      if (event === "chainChanged") post({ jsonrpc: "2.0", method: "metamask_chainChanged", params: { chainId: args[0], networkVersion: String(parseInt(args[0], 16)) } });
+    });
+  }
 
   /**
    * MetaMask's Multichain API (CAIP-25). Newer MetaMask connectors talk to the

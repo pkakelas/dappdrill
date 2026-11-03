@@ -1,0 +1,79 @@
+{
+  "id": "flow_tpr3dq1c0crf0m",
+  "name": "Stake 0.05 ETH",
+  "origin": "discovered",
+  "startUrl": "https://stake.lido.fi/",
+  "params": [
+    {
+      "name": "amount",
+      "default": "0.05",
+      "description": "Amount typed into the form"
+    }
+  ],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "css": "div:nth-of-type(1) > header > div:nth-of-type(3) > button:nth-of-type(1)"
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "div > div > div:nth-of-type(2) > div > div:nth-of-type(1) > label > label > svg",
+        "withinDialog": true
+      },
+      "note": "Accept terms checkbox",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Browser",
+        "withinDialog": true
+      },
+      "note": "Choose Browser (injected) wallet",
+      "optional": true
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "stakeInput"
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "stakeSubmitBtn"
+      },
+      "note": "Submit stake"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+        "functionName": "0xa1903eab",
+        "amountMustEqual": "{{amount}}"
+      },
+      "note": "Approve eth_sendTransaction to 0xae7a…fe84"
+    },
+    {
+      "kind": "press",
+      "key": "Escape"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "99.9499 ETH"
+      }
+    }
+  ],
+  "chainId": 1
+}

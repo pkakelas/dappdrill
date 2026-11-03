@@ -1,0 +1,129 @@
+{
+  "id": "flow_5l0ynnj9kzsxdy",
+  "name": "Deposit 100 USDC into Savings",
+  "origin": "discovered",
+  "startUrl": "https://app.spark.finance/",
+  "params": [
+    {
+      "name": "amount",
+      "default": "100",
+      "description": "Amount typed into the form"
+    }
+  ],
+  "steps": [
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Connect Wallet"
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "MetaMask installed"
+      },
+      "note": "Choose MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "press",
+      "key": "End",
+      "target": {
+        "role": "link",
+        "name": "Morpho's Disclaimer",
+        "withinDialog": true
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Agree and Continue",
+        "withinDialog": true
+      },
+      "note": "Accept terms (one-time)",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Accept"
+      },
+      "note": "Dismiss cookie banner",
+      "optional": true
+    },
+    {
+      "kind": "goto",
+      "url": "/savings"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "Deposit",
+        "nth": 0
+      },
+      "note": "Open USDC deposit dialog"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "component-AssetInput-input",
+        "withinDialog": true
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Approve",
+        "withinDialog": true
+      },
+      "note": "Approve USDC"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "functionName": "approve",
+        "spenderMustBe": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+        "failIfUnlimited": true,
+        "amountMustEqual": "{{amount}}"
+      },
+      "note": "Approve eth_sendTransaction to 0xa0b8…eb48"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Deposit",
+        "withinDialog": true
+      },
+      "note": "Deposit USDC"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+        "functionName": "0x9b8d6d38"
+      },
+      "note": "Approve eth_sendTransaction to 0x28b3…a43d"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "Congrats, all done!"
+      }
+    }
+  ],
+  "chainId": 1
+}

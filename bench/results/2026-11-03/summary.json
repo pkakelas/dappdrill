@@ -1,0 +1,1057 @@
+{
+  "date": "2026-11-03",
+  "totals": {
+    "dapps": 12,
+    "scanned": 12,
+    "withFlows": 6,
+    "costUsd": 16.86,
+    "spentUsd": 26.97,
+    "issues": 17,
+    "labeledTrue": 7,
+    "labeledFalse": 10,
+    "unlabeled": 0,
+    "precision": 0.41,
+    "falseFixed": 10,
+    "replayIssues": 7,
+    "replayTrue": 4,
+    "replayFalse": 3,
+    "replayUnlabeled": 0,
+    "replayPrecision": 0.57,
+    "stableCells": 17,
+    "stableIssueCells": 24,
+    "cells": 29,
+    "mutationCases": 10,
+    "diagnosed": 8,
+    "caught": 8
+  },
+  "byMutation": [
+    {
+      "id": "unlimited-approval",
+      "bug": "The approve button names an amount, but the dApp requests an unlimited approval.",
+      "edgeCases": [
+        "happy"
+      ],
+      "firstRun": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      },
+      "withBaseline": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      }
+    },
+    {
+      "id": "approval-to-stranger",
+      "bug": "The approval goes to an address that isn't the protocol's contract.",
+      "edgeCases": [
+        "happy"
+      ],
+      "firstRun": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      },
+      "withBaseline": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      }
+    },
+    {
+      "id": "inflated-value",
+      "bug": "The transaction sends ten times the ETH the user typed.",
+      "edgeCases": [
+        "happy"
+      ],
+      "firstRun": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      },
+      "withBaseline": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      }
+    },
+    {
+      "id": "signin-is-permit",
+      "bug": "A plain sign-in message is swapped for an unlimited token permit to a stranger.",
+      "edgeCases": [
+        "happy"
+      ],
+      "firstRun": {
+        "cases": 2,
+        "diagnosed": 2,
+        "noticed": 0,
+        "missed": 0
+      },
+      "withBaseline": {
+        "cases": 3,
+        "diagnosed": 3,
+        "noticed": 0,
+        "missed": 0
+      }
+    },
+    {
+      "id": "ignores-account-switch",
+      "bug": "The dApp never hears that the user switched accounts, so it keeps acting for the old one.",
+      "edgeCases": [
+        "switch-account"
+      ],
+      "firstRun": {
+        "cases": 1,
+        "diagnosed": 1,
+        "noticed": 0,
+        "missed": 0
+      },
+      "withBaseline": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      }
+    },
+    {
+      "id": "stuck-on-reject",
+      "bug": "When the user rejects in the wallet, the dApp's promise never settles, so it waits forever.",
+      "edgeCases": [
+        "reject"
+      ],
+      "firstRun": {
+        "cases": 4,
+        "diagnosed": 3,
+        "noticed": 0,
+        "missed": 1
+      },
+      "withBaseline": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      }
+    },
+    {
+      "id": "skips-chain-switch",
+      "bug": "The dApp's network switch silently does nothing, then it sends on the wrong chain.",
+      "edgeCases": [
+        "wrong-network"
+      ],
+      "firstRun": {
+        "cases": 3,
+        "diagnosed": 2,
+        "noticed": 0,
+        "missed": 1
+      },
+      "withBaseline": {
+        "cases": 0,
+        "diagnosed": 0,
+        "noticed": 0,
+        "missed": 0
+      }
+    }
+  ],
+  "dapps": [
+    {
+      "id": "uniswap",
+      "url": "https://app.uniswap.org/swap?chain=mainnet",
+      "scanned": true,
+      "scanMinutes": 1.7,
+      "replayMinutes": 0,
+      "costUsd": 0.95,
+      "spentUsd": 1.99,
+      "pages": 1,
+      "flows": [],
+      "runs": {},
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {}
+    },
+    {
+      "id": "aave",
+      "url": "https://app.aave.com/",
+      "scanned": true,
+      "scanMinutes": 1.6,
+      "replayMinutes": 0,
+      "costUsd": 0.9,
+      "spentUsd": 1.75,
+      "pages": 2,
+      "flows": [],
+      "runs": {},
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {}
+    },
+    {
+      "id": "lido",
+      "url": "https://stake.lido.fi/",
+      "scanned": true,
+      "scanMinutes": 10,
+      "replayMinutes": 18.7,
+      "costUsd": 2.14,
+      "spentUsd": 3.62,
+      "pages": 2,
+      "flows": [
+        {
+          "id": "flow_um55hy5ovms8w7",
+          "name": "Stake 0.05 ETH",
+          "steps": 7
+        },
+        {
+          "id": "flow_semqwyre6yo5l1",
+          "name": "Wrap 0.02 stETH to wstETH",
+          "steps": 8
+        }
+      ],
+      "runs": {
+        "fail": 3,
+        "issue": 5
+      },
+      "issues": [
+        {
+          "fingerprint": "466f8cf6bff65bcd",
+          "severity": "medium",
+          "category": "ui",
+          "edgeCase": "reject",
+          "title": "The page doesn't explain what happened after reject",
+          "label": "true",
+          "note": "After a 4001 rejection Lido shows 'Transaction Failed / Something went wrong' with Retry, so a deliberate cancel reads like a failure. Minor UX, but accurate."
+        },
+        {
+          "fingerprint": "46eeb433883dd4f0",
+          "severity": "medium",
+          "category": "ui",
+          "edgeCase": "wrong-network",
+          "title": "The page doesn't explain what happened after wrong network",
+          "label": "false",
+          "note": "Engine bug. Lido did switch to Ethereum; DappDrill then rejected the stake itself because the recorded selector 0xa1903eab didn't string-match the decoded name 'submit'. Fixed: matchesFunction.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        },
+        {
+          "fingerprint": "b8aa2cd8b72c8a0a",
+          "severity": "medium",
+          "category": "ui",
+          "edgeCase": "switch-account",
+          "title": "The page doesn't explain what happened after switch account",
+          "label": "false",
+          "note": "Engine bug, same cause: Lido sent from the new account B and DappDrill rejected the request over the selector/name mismatch.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        },
+        {
+          "fingerprint": "c780c63cb5a0bdc4",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "low-gas",
+          "title": "No message when there isn't enough ETH for gas",
+          "label": "false",
+          "note": "Lido shows 'Entered ETH amount exceeds your available balance' under the field; the feedback detector didn't know that phrasing. Fixed: feedbackMessage.",
+          "fixed": "The feedback detector now reads \"exceeds your available balance\" as a message."
+        },
+        {
+          "fingerprint": "ba4e698fa5556426",
+          "severity": "medium",
+          "category": "rpc",
+          "edgeCase": "slow-rpc",
+          "title": "Flow breaks when the RPC is slow",
+          "label": "false",
+          "note": "Engine bug: 'expected a call to 0xa1903eab, the dApp calls submit' is the same call. Not a slow-RPC failure.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        },
+        {
+          "fingerprint": "ee6ab83621d2b33a",
+          "severity": "medium",
+          "category": "signing",
+          "title": "Doesn't match the flow's expectation: Stake ETH 0.05 ETH on AppProxyUpgradeable",
+          "label": "false",
+          "note": "Engine bug: the signing review's expectation check compared the selector with the name. The stake is correct (ui-match passed with high confidence).",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        }
+      ],
+      "replayIssues": [
+        {
+          "fingerprint": "388f3006355350e5",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "reject",
+          "title": "Rejecting 'Unlock tokens and wrap' leaves the button stuck on 'Unlock tokens and wrap'",
+          "label": "false",
+          "note": "The replay account has no stETH (the scan staked first), so after the rejection the page shows \"Entered stETH amount exceeds your available balance of 0\" and disables the button for that reason. It isn't stuck.",
+          "fixed": "A disabled button next to a feedback message is no longer called stuck (inspectRecovery)."
+        },
+        {
+          "fingerprint": "b8d36e9103ca5dc1",
+          "severity": "medium",
+          "category": "wallet",
+          "edgeCase": "reject",
+          "title": "No message after rejecting 'Stake'",
+          "label": "false",
+          "note": "Lido's backend began answering \"Sorry, access is currently unavailable\" (HTTP 429) after many replays, so Stake never sent a transaction and nothing was rejected. The page did show a message.",
+          "fixed": "The reject checks now run only after a request was actually rejected, and \"unavailable\" counts as feedback (replay/edge-cases.ts recoveryChecks, test in edge-cases.test.ts)."
+        }
+      ],
+      "signingVerdicts": {
+        "check": 6
+      },
+      "stability": {
+        "cells": 8,
+        "sameStatus": 4,
+        "sameIssues": 6,
+        "flaky": [
+          {
+            "flowId": "flow_semqwyre6yo5l1",
+            "flowName": "Wrap 0.02 stETH to wstETH",
+            "edgeCase": "reject",
+            "statuses": [
+              "issue",
+              "issue",
+              "fail"
+            ],
+            "sameStatus": false,
+            "sameIssues": false
+          },
+          {
+            "flowId": "flow_um55hy5ovms8w7",
+            "flowName": "Stake 0.05 ETH",
+            "edgeCase": "happy",
+            "statuses": [
+              "pass",
+              "pass",
+              "fail"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          },
+          {
+            "flowId": "flow_um55hy5ovms8w7",
+            "flowName": "Stake 0.05 ETH",
+            "edgeCase": "reject",
+            "statuses": [
+              "pass",
+              "pass",
+              "issue"
+            ],
+            "sameStatus": false,
+            "sameIssues": false
+          },
+          {
+            "flowId": "flow_um55hy5ovms8w7",
+            "flowName": "Stake 0.05 ETH",
+            "edgeCase": "wrong-network",
+            "statuses": [
+              "pass",
+              "fail",
+              "fail"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "compound",
+      "url": "https://app.compound.finance/",
+      "scanned": true,
+      "scanMinutes": 12.9,
+      "replayMinutes": 10.6,
+      "costUsd": 2.35,
+      "spentUsd": 3.07,
+      "pages": 2,
+      "flows": [
+        {
+          "id": "flow_iy8y7nffjbm7tx",
+          "name": "Supply 100 USDC",
+          "steps": 9
+        },
+        {
+          "id": "flow_hf2r1fn1rt31id",
+          "name": "Withdraw 40 USDC",
+          "steps": 8,
+          "setup": [
+            "Supply 100 USDC"
+          ]
+        }
+      ],
+      "runs": {
+        "fail": 5,
+        "skipped": 3,
+        "issue": 6
+      },
+      "issues": [
+        {
+          "fingerprint": "a54264b1ec4e9a98",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "two-wallets",
+          "title": "With two wallets installed, the dApp talks to Rabby instead of MetaMask",
+          "label": "true",
+          "note": "The user picked MetaMask in the EIP-6963 list but Compound sent requests through window.ethereum, which the second wallet owns. Same as a real Rabby + MetaMask setup."
+        },
+        {
+          "fingerprint": "4cb77d1d8ee089b1",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "slow-rpc",
+          "title": "Clicking 'Submit Transaction' twice while the app is busy sends two requests",
+          "label": "true",
+          "note": "Two supply() sends arrived 6 ms apart, before any wallet answer: 'Submit Transaction' stays clickable while the dApp estimates gas over a slow RPC."
+        },
+        {
+          "fingerprint": "f9b741a5df9c1393",
+          "severity": "medium",
+          "category": "rpc",
+          "edgeCase": "slow-rpc",
+          "title": "Flow breaks when the RPC is slow",
+          "label": "false",
+          "note": "Engine bug: recorded selector 0xf2b9fdb8 compared to the decoded name 'supply'. Fixed by matchesFunction.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        },
+        {
+          "fingerprint": "e4163b1e0c19f448",
+          "severity": "low",
+          "category": "signing",
+          "title": "The button asks for an approval and the request is an approval of Unlimited: Approve USDC for TransparentUpgradeableProxy",
+          "label": "true",
+          "note": "Accurate and correctly rated low: Compound asks for an unlimited USDC approval to Comet behind an 'Approve & Add' button."
+        },
+        {
+          "fingerprint": "5160feb6db9b2a9d",
+          "severity": "medium",
+          "category": "signing",
+          "title": "Doesn't match the flow's expectation: Supply 100000000 on TransparentUpgradeableProxy",
+          "label": "false",
+          "note": "Engine bug: same selector/name comparison in the signing review's expectation check.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        },
+        {
+          "fingerprint": "7962a9d01c533fed",
+          "severity": "medium",
+          "category": "ui",
+          "edgeCase": "reject",
+          "title": "The page doesn't explain what happened after reject",
+          "label": "true",
+          "note": "After a 4001 rejection the page returns to its pre-submit state with no message. Retrying works, so it's minor, but the report is accurate."
+        },
+        {
+          "fingerprint": "c77e57e10eaf64f8",
+          "severity": "medium",
+          "category": "ui",
+          "edgeCase": "low-gas",
+          "title": "The page doesn't explain what happened after low gas",
+          "label": "false",
+          "note": "The dApp did send; DappDrill rejected it with 4001 over the selector bug, so the page never saw an out-of-gas error. Whatever Compound shows for real insufficient funds wasn't tested.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        },
+        {
+          "fingerprint": "82fea9ee4ab8093c",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "slow-rpc",
+          "title": "Clicking 'Submit Transaction' twice while the app is busy sends two requests",
+          "label": "true",
+          "note": "Same double-submit on the withdraw flow (two withdraw() sends 2 ms apart)."
+        },
+        {
+          "fingerprint": "3ac42ae698e3cf46",
+          "severity": "medium",
+          "category": "rpc",
+          "edgeCase": "slow-rpc",
+          "title": "Flow breaks when the RPC is slow",
+          "label": "false",
+          "note": "Engine bug: recorded selector 0xf3fef3a3 compared to 'withdraw'.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        },
+        {
+          "fingerprint": "504a6b0190274c92",
+          "severity": "medium",
+          "category": "signing",
+          "title": "Doesn't match the flow's expectation: Withdraw 40 cUSDCv3 on TransparentUpgradeableProxy",
+          "label": "false",
+          "note": "Engine bug: same selector/name comparison in the signing review's expectation check.",
+          "fixed": "Selector expectations: replay now matches a recorded 4-byte selector against the calldata (core matchesFunction)."
+        }
+      ],
+      "replayIssues": [
+        {
+          "fingerprint": "e4163b1e0c19f448",
+          "severity": "low",
+          "category": "signing",
+          "edgeCase": "happy",
+          "title": "Unlimited approval: Approve USDC for TransparentUpgradeableProxy",
+          "label": "true",
+          "note": "Accurate and correctly rated low: Compound asks for an unlimited USDC approval to Comet behind an 'Approve & Add' button."
+        }
+      ],
+      "signingVerdicts": {
+        "check": 7
+      },
+      "stability": {
+        "cells": 5,
+        "sameStatus": 4,
+        "sameIssues": 4,
+        "flaky": [
+          {
+            "flowId": "flow_iy8y7nffjbm7tx",
+            "flowName": "Supply 100 USDC",
+            "edgeCase": "happy",
+            "statuses": [
+              "fail",
+              "fail",
+              "fail"
+            ],
+            "sameStatus": true,
+            "sameIssues": false
+          },
+          {
+            "flowId": "flow_iy8y7nffjbm7tx",
+            "flowName": "Supply 100 USDC",
+            "edgeCase": "reject",
+            "statuses": [
+              "fail",
+              "pass",
+              "fail"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "cowswap",
+      "url": "https://swap.cow.fi/#/1/swap/USDC/WETH",
+      "scanned": true,
+      "scanMinutes": 1.1,
+      "replayMinutes": 0,
+      "costUsd": 0.59,
+      "spentUsd": 0.59,
+      "pages": 1,
+      "flows": [],
+      "runs": {},
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {}
+    },
+    {
+      "id": "curve",
+      "url": "https://www.curve.finance/dex/ethereum/swap/",
+      "scanned": true,
+      "scanMinutes": 2.2,
+      "replayMinutes": 0,
+      "costUsd": 1.19,
+      "spentUsd": 2.27,
+      "pages": 2,
+      "flows": [],
+      "runs": {},
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {}
+    },
+    {
+      "id": "spark",
+      "url": "https://app.spark.fi/",
+      "scanned": true,
+      "scanMinutes": 5.9,
+      "replayMinutes": 0,
+      "costUsd": 1.32,
+      "spentUsd": 3.2,
+      "pages": 5,
+      "flows": [
+        {
+          "id": "flow_5l0ynnj9kzsxdy",
+          "name": "Deposit 100 USDC into Savings",
+          "steps": 13
+        },
+        {
+          "id": "flow_fhso9eiodrn8qc",
+          "name": "Withdraw 40 USDC from Savings",
+          "steps": 9
+        }
+      ],
+      "runs": {
+        "pass": 1,
+        "fail": 1
+      },
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {
+        "check": 2
+      }
+    },
+    {
+      "id": "morpho",
+      "url": "https://app.morpho.org/ethereum/earn",
+      "scanned": true,
+      "scanMinutes": 5.9,
+      "replayMinutes": 0,
+      "costUsd": 2.94,
+      "spentUsd": 4.22,
+      "pages": 2,
+      "flows": [
+        {
+          "id": "flow_zomz1m6qiky1cu",
+          "name": "Deposit 100 USDC into Steakhouse USDC vault",
+          "steps": 17
+        },
+        {
+          "id": "flow_nrlxh03m69nyal",
+          "name": "Withdraw 40 USDC from Steakhouse USDC vault",
+          "steps": 15
+        }
+      ],
+      "runs": {
+        "fail": 2
+      },
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {}
+    },
+    {
+      "id": "aerodrome",
+      "url": "https://aerodrome.finance/swap",
+      "scanned": true,
+      "scanMinutes": 1.7,
+      "replayMinutes": 0,
+      "costUsd": 0.8,
+      "spentUsd": 2.58,
+      "pages": 2,
+      "flows": [],
+      "runs": {},
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {}
+    },
+    {
+      "id": "gmx",
+      "url": "https://app.gmx.io/#/trade",
+      "scanned": true,
+      "scanMinutes": 1.2,
+      "replayMinutes": 0,
+      "costUsd": 0.36,
+      "spentUsd": 0.36,
+      "pages": 1,
+      "flows": [],
+      "runs": {},
+      "issues": [],
+      "replayIssues": [],
+      "signingVerdicts": {}
+    },
+    {
+      "id": "hyperliquid",
+      "url": "https://app.hyperliquid-testnet.xyz/trade",
+      "scanned": true,
+      "scanMinutes": 2.7,
+      "replayMinutes": 7.9,
+      "costUsd": 1.23,
+      "spentUsd": 1.23,
+      "pages": 1,
+      "flows": [
+        {
+          "id": "flow_4vfz8erc8r8oxu",
+          "name": "Connect wallet, accept terms and sign trading connection",
+          "steps": 11
+        }
+      ],
+      "runs": {
+        "fail": 1
+      },
+      "issues": [],
+      "replayIssues": [
+        {
+          "fingerprint": "f765be87d061e820",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "wrong-network",
+          "title": "Doesn't handle the wallet being on Ethereum",
+          "label": "false",
+          "note": "Hyperliquid signs with whatever chain the wallet is on, so Ethereum is fine and asking to switch isn't needed. The flow broke on a missing \"Establish Connection\" button, which the wrong-network check blames on network handling."
+        }
+      ],
+      "signingVerdicts": {},
+      "stability": {
+        "cells": 4,
+        "sameStatus": 4,
+        "sameIssues": 4,
+        "flaky": []
+      }
+    },
+    {
+      "id": "pod",
+      "url": "https://staging-app.podtestnet.dev/trade",
+      "scanned": true,
+      "scanMinutes": 9.3,
+      "replayMinutes": 12.7,
+      "costUsd": 2.09,
+      "spentUsd": 2.09,
+      "pages": 1,
+      "flows": [
+        {
+          "id": "flow_1g92i6g1lmwubu",
+          "name": "Sign in with wallet",
+          "steps": 4
+        },
+        {
+          "id": "flow_h3pywkzicyv69v",
+          "name": "Enable trading",
+          "steps": 6
+        },
+        {
+          "id": "flow_saixxhzgu1ot41",
+          "name": "Mint test funds",
+          "steps": 6
+        }
+      ],
+      "runs": {
+        "pass": 9,
+        "issue": 1,
+        "skipped": 4,
+        "fail": 1
+      },
+      "issues": [
+        {
+          "fingerprint": "3bbd792673b52da8",
+          "severity": "medium",
+          "category": "wallet",
+          "edgeCase": "reject",
+          "title": "No message after rejecting 'MetaMask →'",
+          "label": "true",
+          "note": "Confirmed in the final screenshot: after rejecting the sign-in signature the page goes back to the login card with no message. The report is accurate. It is a minor UX gap, not a fund-safety bug."
+        }
+      ],
+      "replayIssues": [
+        {
+          "fingerprint": "3bbd792673b52da8",
+          "severity": "medium",
+          "category": "wallet",
+          "edgeCase": "reject",
+          "title": "No message after rejecting 'MetaMask →'",
+          "label": "true",
+          "note": "Confirmed in the final screenshot: after rejecting the sign-in signature the page goes back to the login card with no message. The report is accurate. It is a minor UX gap, not a fund-safety bug."
+        },
+        {
+          "fingerprint": "f7207dae576fe2c2",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "wrong-network",
+          "title": "Doesn't handle the wallet being on Ethereum",
+          "label": "true",
+          "note": "Mint signs typed data for chain 129302 while the wallet is on Ethereum; the wallet refuses and the faucet shows nothing and never asks to switch."
+        },
+        {
+          "fingerprint": "dcaa88e86b85d0b4",
+          "severity": "high",
+          "category": "wallet",
+          "edgeCase": "wrong-network",
+          "title": "Doesn't handle the wallet being on Ethereum",
+          "label": "true",
+          "note": "On Ethereum the sign-in stays on \"Connecting…\" after the signature, with no prompt to switch or wrong-network message."
+        }
+      ],
+      "signingVerdicts": {
+        "consistent": 17
+      },
+      "stability": {
+        "cells": 12,
+        "sameStatus": 5,
+        "sameIssues": 10,
+        "flaky": [
+          {
+            "flowId": "flow_1g92i6g1lmwubu",
+            "flowName": "Sign in with wallet",
+            "edgeCase": "switch-account",
+            "statuses": [
+              "pass",
+              "pass",
+              "skipped"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          },
+          {
+            "flowId": "flow_h3pywkzicyv69v",
+            "flowName": "Enable trading",
+            "edgeCase": "happy",
+            "statuses": [
+              "pass",
+              "pass",
+              "fail"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          },
+          {
+            "flowId": "flow_h3pywkzicyv69v",
+            "flowName": "Enable trading",
+            "edgeCase": "switch-account",
+            "statuses": [
+              "pass",
+              "skipped",
+              "pass"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          },
+          {
+            "flowId": "flow_h3pywkzicyv69v",
+            "flowName": "Enable trading",
+            "edgeCase": "wrong-network",
+            "statuses": [
+              "pass",
+              "issue",
+              "pass"
+            ],
+            "sameStatus": false,
+            "sameIssues": false
+          },
+          {
+            "flowId": "flow_saixxhzgu1ot41",
+            "flowName": "Mint test funds",
+            "edgeCase": "happy",
+            "statuses": [
+              "fail",
+              "pass",
+              "pass"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          },
+          {
+            "flowId": "flow_saixxhzgu1ot41",
+            "flowName": "Mint test funds",
+            "edgeCase": "switch-account",
+            "statuses": [
+              "pass",
+              "pass",
+              "skipped"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          },
+          {
+            "flowId": "flow_saixxhzgu1ot41",
+            "flowName": "Mint test funds",
+            "edgeCase": "reject",
+            "statuses": [
+              "fail",
+              "pass",
+              "pass"
+            ],
+            "sameStatus": false,
+            "sameIssues": true
+          },
+          {
+            "flowId": "flow_saixxhzgu1ot41",
+            "flowName": "Mint test funds",
+            "edgeCase": "wrong-network",
+            "statuses": [
+              "issue",
+              "issue",
+              "issue"
+            ],
+            "sameStatus": true,
+            "sameIssues": false
+          }
+        ]
+      }
+    }
+  ],
+  "mutationScores": [
+    {
+      "dapp": "lido",
+      "mutation": "inflated-value",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "happy",
+      "variant": "first-run",
+      "outcome": "not-fired",
+      "why": "run fail: Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s"
+    },
+    {
+      "dapp": "lido",
+      "mutation": "inflated-value",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "happy",
+      "variant": "with-baseline",
+      "outcome": "not-fired",
+      "why": "run fail: Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s"
+    },
+    {
+      "dapp": "lido",
+      "mutation": "ignores-account-switch",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "switch-account",
+      "variant": "first-run",
+      "outcome": "not-fired",
+      "why": "run skipped: couldn't finish as the second account (Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s); no requests from the old account"
+    },
+    {
+      "dapp": "lido",
+      "mutation": "stuck-on-reject",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "reject",
+      "variant": "first-run",
+      "outcome": "not-fired",
+      "why": "run issue: No message after rejecting 'Stake'"
+    },
+    {
+      "dapp": "lido",
+      "mutation": "skips-chain-switch",
+      "flowId": "flow_semqwyre6yo5l1",
+      "edgeCase": "wrong-network",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "high wallet: Doesn't handle the wallet being on Sepolia"
+    },
+    {
+      "dapp": "lido",
+      "mutation": "skips-chain-switch",
+      "flowId": "flow_um55hy5ovms8w7",
+      "edgeCase": "wrong-network",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "high wallet: Doesn't handle the wallet being on Sepolia"
+    },
+    {
+      "dapp": "hyperliquid",
+      "mutation": "ignores-account-switch",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "edgeCase": "switch-account",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "critical wallet: After switching accounts, the typed-data signature still comes from the old account"
+    },
+    {
+      "dapp": "hyperliquid",
+      "mutation": "stuck-on-reject",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "edgeCase": "reject",
+      "variant": "first-run",
+      "outcome": "missed",
+      "why": "run pass, nothing new vs control"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "signin-is-permit",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "happy",
+      "variant": "first-run",
+      "outcome": "not-fired",
+      "why": "run fail: Step 3 (Approve personal_sign): the dApp sent no signing request within 30s"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "signin-is-permit",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "happy",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "signin-is-permit",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "happy",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "signin-is-permit",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "happy",
+      "variant": "with-baseline",
+      "outcome": "diagnosed",
+      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "signin-is-permit",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "happy",
+      "variant": "with-baseline",
+      "outcome": "diagnosed",
+      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "signin-is-permit",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "happy",
+      "variant": "with-baseline",
+      "outcome": "diagnosed",
+      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "ignores-account-switch",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "switch-account",
+      "variant": "first-run",
+      "outcome": "not-fired",
+      "why": "run pass:"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "ignores-account-switch",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "switch-account",
+      "variant": "first-run",
+      "outcome": "not-fired",
+      "why": "run pass:"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "ignores-account-switch",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "switch-account",
+      "variant": "first-run",
+      "outcome": "not-fired",
+      "why": "run pass:"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "stuck-on-reject",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "reject",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "high wallet: Rejecting 'MetaMask →' leaves the button stuck on 'Connecting…'"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "stuck-on-reject",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "reject",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "high wallet: Rejecting 'MetaMask →' leaves the button stuck on 'Enabling trading…'"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "stuck-on-reject",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "reject",
+      "variant": "first-run",
+      "outcome": "diagnosed",
+      "why": "medium wallet: No message after rejecting 'MetaMask →'"
+    },
+    {
+      "dapp": "pod",
+      "mutation": "skips-chain-switch",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "wrong-network",
+      "variant": "first-run",
+      "outcome": "missed",
+      "why": "run issue, nothing new vs control"
+    }
+  ]
+}

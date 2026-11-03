@@ -1,0 +1,157 @@
+{
+  "id": "flow_zomz1m6qiky1cu",
+  "name": "Deposit 100 USDC into Steakhouse USDC vault",
+  "origin": "discovered",
+  "startUrl": "https://app.morpho.org/ethereum/vault/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB/steakhouse-usdc",
+  "params": [
+    {
+      "name": "amount",
+      "default": "100",
+      "description": "Amount typed into the form"
+    }
+  ],
+  "steps": [
+    {
+      "kind": "press",
+      "key": "Space",
+      "target": {
+        "css": "#_R_55bH2_",
+        "withinDialog": true
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "dialog > div:nth-of-type(2) > button",
+        "withinDialog": true
+      },
+      "note": "Continue past terms",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "Connect",
+        "nth": 0
+      },
+      "note": "Open wallet picker",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "MetaMask installed"
+      },
+      "note": "Connect with MetaMask",
+      "optional": true
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Proceed",
+        "withinDialog": true
+      },
+      "note": "Dismiss \"How Earn Works\" onboarding",
+      "optional": true
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "asset-input"
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "asset-input"
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "asset-input-max"
+      },
+      "note": "Retrigger onchain state loading (MAX), then set 100"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "testId": "asset-input"
+      },
+      "value": "{{amount}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "finalize-button"
+      },
+      "note": "Review deposit"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Deposit",
+        "withinDialog": true
+      },
+      "note": "Confirm deposit"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "typedData",
+        "spenderMustBe": "0x02912516d49de997db75b9d7858faae59209650b",
+        "failIfUnlimited": true,
+        "amountMustEqual": "{{amount}}"
+      },
+      "note": "Approve eth_signTypedData_v4 Permit (USD Coin)"
+    },
+    {
+      "kind": "press",
+      "key": "Space",
+      "target": {
+        "css": "#accept-continue-without-simulation-checkbox",
+        "withinDialog": true
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "name": "Proceed anyway",
+        "withinDialog": true
+      },
+      "note": "Proceed without simulation (simulation likely runs off-fork)"
+    },
+    {
+      "kind": "wallet",
+      "respond": "approve",
+      "expect": {
+        "kind": "transaction",
+        "to": "0x02912516d49de997db75b9d7858faae59209650b",
+        "functionName": "0x6bbba4e0"
+      },
+      "note": "Approve eth_sendTransaction to 0x0291…650b"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "testId": "action-flow-dialog-close",
+        "withinDialog": true
+      },
+      "note": "Close review dialog to check position"
+    },
+    {
+      "kind": "expect",
+      "assert": {
+        "type": "visible",
+        "text": "4900 USDC"
+      }
+    }
+  ],
+  "chainId": 1
+}

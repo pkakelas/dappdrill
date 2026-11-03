@@ -1,0 +1,2190 @@
+{
+  "url": "https://app.spark.fi/",
+  "startedAt": "2026-11-03T14:34:42.158Z",
+  "finishedAt": "2026-11-03T14:40:33.277Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334899"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.spark.finance/",
+      "title": "Spark: Earn on your stablecoins"
+    },
+    {
+      "url": "https://app.spark.fi/",
+      "title": "Savings landing: deposit stablecoins into Spark Savings (3.8% rate)"
+    },
+    {
+      "url": "https://app.spark.finance/savings"
+    },
+    {
+      "url": "https://app.spark.finance/savings/mainnet/spusdc"
+    },
+    {
+      "url": "https://app.spark.fi/savings/mainnet/spusdc",
+      "title": "USDC Savings account: balance, deposit, send and withdraw spUSDC"
+    }
+  ],
+  "flows": [
+    {
+      "id": "flow_5l0ynnj9kzsxdy",
+      "name": "Deposit 100 USDC into Savings",
+      "origin": "discovered",
+      "startUrl": "https://app.spark.finance/",
+      "params": [
+        {
+          "name": "amount",
+          "default": "100",
+          "description": "Amount typed into the form"
+        }
+      ],
+      "steps": [
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Connect Wallet"
+          },
+          "note": "Open wallet picker",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "MetaMask installed"
+          },
+          "note": "Choose MetaMask",
+          "optional": true
+        },
+        {
+          "kind": "press",
+          "key": "End",
+          "target": {
+            "role": "link",
+            "name": "Morpho's Disclaimer",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Agree and Continue",
+            "withinDialog": true
+          },
+          "note": "Accept terms (one-time)",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Accept"
+          },
+          "note": "Dismiss cookie banner",
+          "optional": true
+        },
+        {
+          "kind": "goto",
+          "url": "/savings"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "Deposit",
+            "nth": 0
+          },
+          "note": "Open USDC deposit dialog"
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "component-AssetInput-input",
+            "withinDialog": true
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Approve",
+            "withinDialog": true
+          },
+          "note": "Approve USDC"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "functionName": "approve",
+            "spenderMustBe": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+            "failIfUnlimited": true,
+            "amountMustEqual": "{{amount}}"
+          },
+          "note": "Approve eth_sendTransaction to 0xa0b8…eb48"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Deposit",
+            "withinDialog": true
+          },
+          "note": "Deposit USDC"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+            "functionName": "0x9b8d6d38"
+          },
+          "note": "Approve eth_sendTransaction to 0x28b3…a43d"
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "Congrats, all done!"
+          }
+        }
+      ],
+      "chainId": 1
+    },
+    {
+      "id": "flow_fhso9eiodrn8qc",
+      "name": "Withdraw 40 USDC from Savings",
+      "origin": "discovered",
+      "startUrl": "https://app.spark.finance/savings/mainnet/spusdc",
+      "params": [
+        {
+          "name": "amount",
+          "default": "40",
+          "description": "Amount typed into the form"
+        }
+      ],
+      "steps": [
+        {
+          "kind": "click",
+          "target": {
+            "css": "div > div > div:nth-of-type(4) > nav > div:nth-of-type(3) > div > button"
+          },
+          "note": "Open wallet picker",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "text": "MetaMask installed"
+          },
+          "note": "Choose MetaMask",
+          "optional": true
+        },
+        {
+          "kind": "press",
+          "key": "End",
+          "target": {
+            "role": "link",
+            "name": "Morpho's Disclaimer",
+            "withinDialog": true
+          }
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Agree and Continue",
+            "withinDialog": true
+          },
+          "note": "Accept terms (one-time)",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Withdraw"
+          },
+          "note": "Open withdraw dialog"
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "component-AssetInput-input",
+            "withinDialog": true
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Withdraw",
+            "withinDialog": true
+          },
+          "note": "Withdraw USDC"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+            "functionName": "withdraw",
+            "amountMustEqual": "{{amount}}"
+          },
+          "note": "Approve eth_sendTransaction to 0x28b3…a43d"
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "Withdrew"
+          }
+        }
+      ],
+      "chainId": 1
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_sl0f5pc65lhsrk",
+      "flowId": "flow_5l0ynnj9kzsxdy",
+      "edgeCase": "happy",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 109
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 431
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 238
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 202
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 68
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 1875
+        },
+        {
+          "index": 6,
+          "status": "pass",
+          "durationMs": 118
+        },
+        {
+          "index": 7,
+          "status": "pass",
+          "durationMs": 42
+        },
+        {
+          "index": 8,
+          "status": "pass",
+          "durationMs": 444
+        },
+        {
+          "index": 9,
+          "status": "pass",
+          "durationMs": 14384,
+          "walletRequestId": "req_qd7h95pu28doml"
+        },
+        {
+          "index": 10,
+          "status": "pass",
+          "durationMs": 3787
+        },
+        {
+          "index": 11,
+          "status": "pass",
+          "durationMs": 22555,
+          "walletRequestId": "req_9w1jf4uf4b0e8a"
+        },
+        {
+          "index": 12,
+          "status": "pass",
+          "durationMs": 3203
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_nngz0sw74if39o",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:09.873Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_p2cm454dfhy9bf",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:39:12.062Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_844fmji280438h",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+                  ]
+                }
+              ],
+              "date": 1793716752062
+            }
+          ]
+        },
+        {
+          "id": "req_a98gj0ee24udzy",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.065Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_54z6jqna9nadob",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.065Z",
+          "outcome": "approved",
+          "result": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ]
+        },
+        {
+          "id": "req_fjc14egl41d47k",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.066Z",
+          "outcome": "approved",
+          "result": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ]
+        },
+        {
+          "id": "req_7kcmxlz8xu1c52",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.067Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_4pcdx89wpon6kk",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.090Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_rohn8vu4jhtrs1",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.103Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_4v1fn8f7z4v2e9",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.833Z",
+          "outcome": "approved",
+          "result": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ]
+        },
+        {
+          "id": "req_r195ac9p3y42w9",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.841Z",
+          "outcome": "approved",
+          "result": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ]
+        },
+        {
+          "id": "req_fjbqk5ad0c6ccr",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:12.846Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_b4yt8012s5m5ux",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:13.118Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_fd22qh4h3vmkd4",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:13.120Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_8in6bvot4q5rg1",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:14.886Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_mf7b26a9bnjql6",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:14.889Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_qd7h95pu28doml",
+          "method": "eth_sendTransaction",
+          "params": [
+            {
+              "data": "0x095ea7b300000000000000000000000028b3a8fb53b741a8fd78c0fb9a6b2393d896a43d0000000000000000000000000000000000000000000000000000000005f5e100",
+              "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+              "to": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:39:14.891Z",
+          "outcome": "approved",
+          "result": "0x14d5b6cda82106c33a34f6aeff706595aac0ed349f573488533472ebb9bf6315"
+        },
+        {
+          "id": "req_cyoq9oef1cmp24",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:33.056Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_7f30r1cji08mpk",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:33.060Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_9w1jf4uf4b0e8a",
+          "method": "eth_sendTransaction",
+          "params": [
+            {
+              "data": "0x9b8d6d380000000000000000000000000000000000000000000000000000000005f5e1000000000000000000000000004c6cde020221f88042a72eb27dd07491731c8bdc0000000000000000000000000000000000000000000000000000000000000080",
+              "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+              "gas": "0x40a15",
+              "to": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d"
+            }
+          ],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:39:33.061Z",
+          "outcome": "approved",
+          "result": "0x3634299ff52ae82159ba7cd1e9c660ee5f830daa36c43a3a5b19e128289ba351"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_5r07k05nyoglwd",
+        "sgr_hyx1jljeor6pwp"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "Sentry integration enabled {env: production}",
+          "at": "2026-11-03T14:39:09.651Z"
+        },
+        {
+          "level": "error",
+          "text": "Error: <svg> attribute width: Unexpected end of attribute. Expected length, \"\".",
+          "at": "2026-11-03T14:39:12.063Z"
+        },
+        {
+          "level": "error",
+          "text": "Error: <svg> attribute height: Unexpected end of attribute. Expected length, \"\".",
+          "at": "2026-11-03T14:39:12.063Z"
+        },
+        {
+          "level": "info",
+          "text": "Discarding cache for address eip155:1:0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "at": "2026-11-03T14:39:12.089Z"
+        },
+        {
+          "level": "log",
+          "text": "Sentry integration enabled {env: production}",
+          "at": "2026-11-03T14:39:12.671Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:39:17.831Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:39:21.107Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:39:26.255Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:39:31.365Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:39:36.049Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:39:57.581Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:40:01.648Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 27,
+          "at": "2026-11-03T14:39:09.917Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 31,
+          "at": "2026-11-03T14:39:09.920Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 37,
+          "at": "2026-11-03T14:39:09.926Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 46,
+          "at": "2026-11-03T14:39:09.936Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 107,
+          "at": "2026-11-03T14:39:10.000Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 22,
+          "at": "2026-11-03T14:39:10.043Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 22,
+          "at": "2026-11-03T14:39:10.044Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 20,
+          "at": "2026-11-03T14:39:10.044Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 24,
+          "at": "2026-11-03T14:39:10.045Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 23,
+          "at": "2026-11-03T14:39:10.046Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 26,
+          "at": "2026-11-03T14:39:10.049Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 28,
+          "at": "2026-11-03T14:39:10.050Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 27,
+          "at": "2026-11-03T14:39:10.050Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 32,
+          "at": "2026-11-03T14:39:10.050Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 41,
+          "at": "2026-11-03T14:39:10.057Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 233,
+          "at": "2026-11-03T14:39:10.123Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 465,
+          "at": "2026-11-03T14:39:10.676Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:39:10.689Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 172,
+          "at": "2026-11-03T14:39:10.860Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 13,
+          "at": "2026-11-03T14:39:12.104Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12,
+          "at": "2026-11-03T14:39:12.104Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 13,
+          "at": "2026-11-03T14:39:12.105Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 7,
+          "at": "2026-11-03T14:39:12.108Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:39:12.118Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 43,
+          "at": "2026-11-03T14:39:12.136Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 63,
+          "at": "2026-11-03T14:39:12.174Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 130,
+          "at": "2026-11-03T14:39:12.243Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 501,
+          "at": "2026-11-03T14:39:12.620Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:12.842Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:12.843Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:12.843Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:12.843Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:39:12.845Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:39:12.846Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:39:12.856Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:39:12.858Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:12.858Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:12.862Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:12.863Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 30,
+          "at": "2026-11-03T14:39:12.871Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:12.876Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:12.876Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:12.877Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:12.877Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:12.878Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:12.878Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:39:12.879Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 192,
+          "at": "2026-11-03T14:39:13.067Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 260,
+          "at": "2026-11-03T14:39:13.195Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 533,
+          "at": "2026-11-03T14:39:13.774Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T14:39:13.779Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:13.781Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:39:14.412Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 52,
+          "at": "2026-11-03T14:39:14.821Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 72,
+          "at": "2026-11-03T14:39:14.822Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 70,
+          "at": "2026-11-03T14:39:14.823Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 56,
+          "at": "2026-11-03T14:39:14.824Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 74,
+          "at": "2026-11-03T14:39:28.139Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:39:28.162Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionByHash",
+          "via": "page",
+          "durationMs": 7,
+          "at": "2026-11-03T14:39:28.225Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 77,
+          "at": "2026-11-03T14:39:28.317Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getBlockByNumber",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:39:28.339Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 16,
+          "at": "2026-11-03T14:39:32.199Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 14,
+          "at": "2026-11-03T14:39:32.233Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 20,
+          "at": "2026-11-03T14:39:32.275Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 603,
+          "at": "2026-11-03T14:39:32.909Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 41,
+          "at": "2026-11-03T14:39:32.984Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 60,
+          "at": "2026-11-03T14:39:54.467Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:54.473Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionByHash",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:54.477Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 76,
+          "at": "2026-11-03T14:39:54.556Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getBlockByNumber",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T14:39:54.560Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_blockNumber",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:39:58.484Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_getTransactionReceipt",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:58.492Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 44,
+          "at": "2026-11-03T14:39:58.569Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 42,
+          "at": "2026-11-03T14:39:58.576Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 57,
+          "at": "2026-11-03T14:39:58.590Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 65,
+          "at": "2026-11-03T14:39:58.592Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:39:58.593Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:39:58.608Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:39:58.617Z"
+        }
+      ],
+      "video": "videos/run_sl0f5pc65lhsrk.webm",
+      "trace": "traces/run_sl0f5pc65lhsrk.zip",
+      "finalScreenshot": "screenshots/run_sl0f5pc65lhsrk-run_sl0f5pc65lhsrk-final.png",
+      "forkBlocks": {
+        "1": "26334899"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:39:08.889Z",
+      "finishedAt": "2026-11-03T14:40:09.864Z"
+    },
+    {
+      "id": "run_w81jpsj88nkfah",
+      "flowId": "flow_fhso9eiodrn8qc",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Step 5 (Open withdraw dialog): Could not find role=button name=\"Withdraw\" (tried button \"Withdraw\", button ~\"Withdraw\")",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 233
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 521
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 312
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 328
+        },
+        {
+          "index": 4,
+          "status": "fail",
+          "durationMs": 15290,
+          "error": "Could not find role=button name=\"Withdraw\" (tried button \"Withdraw\", button ~\"Withdraw\")",
+          "screenshot": "screenshots/run_w81jpsj88nkfah-run_w81jpsj88nkfah-step4-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_lgbpofrkesk0dm",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:11.115Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_4edd0ul27ebuzg",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:40:14.124Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_x4ts142zb1q9yy",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+                  ]
+                }
+              ],
+              "date": 1793716814124
+            }
+          ]
+        },
+        {
+          "id": "req_xd944268aofwn3",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:14.127Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_5zqs3ig9lvlctr",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:14.127Z",
+          "outcome": "approved",
+          "result": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ]
+        },
+        {
+          "id": "req_gua40ok1mrfu61",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:14.130Z",
+          "outcome": "approved",
+          "result": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ]
+        },
+        {
+          "id": "req_r6f05rd2hdvyd9",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:14.131Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_garigwg94n5p0l",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:14.168Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_eh8ea1xzs7gl02",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0x4C6CDE020221f88042a72EB27dd07491731c8bdc"
+          ],
+          "chainId": 1,
+          "from": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:14.190Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "Sentry integration enabled {env: production}",
+          "at": "2026-11-03T14:40:10.776Z"
+        },
+        {
+          "level": "error",
+          "text": "Error: <svg> attribute width: Unexpected end of attribute. Expected length, \"\".",
+          "at": "2026-11-03T14:40:14.124Z"
+        },
+        {
+          "level": "error",
+          "text": "Error: <svg> attribute height: Unexpected end of attribute. Expected length, \"\".",
+          "at": "2026-11-03T14:40:14.124Z"
+        },
+        {
+          "level": "info",
+          "text": "Discarding cache for address eip155:1:0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+          "at": "2026-11-03T14:40:14.160Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:40:19.474Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:40:24.552Z"
+        },
+        {
+          "level": "warn",
+          "text": "The resource https://fonts.reown.com/KHTeka-Medium.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+          "at": "2026-11-03T14:40:31.659Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 117,
+          "at": "2026-11-03T14:40:11.274Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 238,
+          "at": "2026-11-03T14:40:11.395Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 240,
+          "at": "2026-11-03T14:40:11.414Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 247,
+          "at": "2026-11-03T14:40:11.415Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 238,
+          "at": "2026-11-03T14:40:11.415Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 244,
+          "at": "2026-11-03T14:40:11.420Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 128,
+          "at": "2026-11-03T14:40:11.726Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 155,
+          "at": "2026-11-03T14:40:11.751Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 162,
+          "at": "2026-11-03T14:40:11.758Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 162,
+          "at": "2026-11-03T14:40:11.759Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 172,
+          "at": "2026-11-03T14:40:11.769Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 218,
+          "at": "2026-11-03T14:40:11.818Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 222,
+          "at": "2026-11-03T14:40:11.819Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 219,
+          "at": "2026-11-03T14:40:11.820Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 310,
+          "at": "2026-11-03T14:40:11.906Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 307,
+          "at": "2026-11-03T14:40:11.907Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 443,
+          "at": "2026-11-03T14:40:12.478Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 19,
+          "at": "2026-11-03T14:40:12.505Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 216,
+          "at": "2026-11-03T14:40:12.705Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 24,
+          "at": "2026-11-03T14:40:14.197Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 30,
+          "at": "2026-11-03T14:40:14.204Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 31,
+          "at": "2026-11-03T14:40:14.205Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 18,
+          "at": "2026-11-03T14:40:14.208Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 8,
+          "at": "2026-11-03T14:40:14.228Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 71,
+          "at": "2026-11-03T14:40:14.274Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 139,
+          "at": "2026-11-03T14:40:14.359Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 191,
+          "at": "2026-11-03T14:40:14.380Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 587,
+          "at": "2026-11-03T14:40:14.817Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 480,
+          "at": "2026-11-03T14:40:15.312Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://eth-mainnet.g.alchemy.com/v2/REDACTED",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 965,
+          "at": "2026-11-03T14:40:16.334Z"
+        }
+      ],
+      "video": "videos/run_w81jpsj88nkfah.webm",
+      "trace": "traces/run_w81jpsj88nkfah.zip",
+      "finalScreenshot": "screenshots/run_w81jpsj88nkfah-run_w81jpsj88nkfah-final.png",
+      "forkBlocks": {
+        "1": "26334899"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:40:09.866Z",
+      "finishedAt": "2026-11-03T14:40:33.227Z"
+    }
+  ],
+  "issues": [],
+  "signingReviews": [
+    {
+      "id": "sgr_5r07k05nyoglwd",
+      "requestId": "req_qd7h95pu28doml",
+      "flowId": "flow_5l0ynnj9kzsxdy",
+      "stepIndex": 9,
+      "chainId": 1,
+      "method": "eth_sendTransaction",
+      "verdict": "check",
+      "title": "Approve USDC for ERC1967Proxy",
+      "summary": "The button says “Approve”. The wallet is asked to approve 100 USDC for 0x28B3…a43d (ERC1967Proxy, verified).",
+      "ui": {
+        "buttonLabel": "Approve",
+        "pageUrl": "https://app.spark.finance/",
+        "screenshot": "screenshots/run_sl0f5pc65lhsrk-run_sl0f5pc65lhsrk-step9-wallet.png"
+      },
+      "decoded": {
+        "kind": "transaction",
+        "to": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "contractName": "USD Coin",
+        "functionName": "approve",
+        "signature": "approve(address,uint256)",
+        "args": [
+          {
+            "name": "spender",
+            "type": "address",
+            "value": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+            "display": "0x28B3…a43d (ERC1967Proxy)"
+          },
+          {
+            "name": "value",
+            "type": "uint256",
+            "value": "100000000",
+            "display": "100 USDC"
+          }
+        ],
+        "value": "0",
+        "calldata": "0x095ea7b300000000000000000000000028b3a8fb53b741a8fd78c0fb9a6b2393d896a43d0000000000000000000000000000000000000000000000000000000005f5e100",
+        "abiSource": "sourcify"
+      },
+      "simulation": {
+        "status": "ok",
+        "balanceChanges": [],
+        "gasUsed": "55558"
+      },
+      "approvals": [
+        {
+          "standard": "erc20",
+          "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "symbol": "USDC",
+          "spender": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+          "spenderName": "ERC1967Proxy",
+          "amount": "100000000",
+          "display": "100 USDC",
+          "unlimited": false
+        }
+      ],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "pass",
+          "detail": "The button asks for an approval and the request is an approval of 100 USDC. The 'Approve' button is step 1 of a two-step Approve, then Deposit flow for 100 USDC into USDC Savings. The wallet request calls approve() on the official USDC contract (0xA0b8…eB48) for exactly 100 USDC, not an unlimited amount, matching the 100 USDC in the amount field, the balance change and the outcome line. The spender is an ERC1967Proxy, which is consistent with a Spark savings vault contract. I couldn't confirm from the page that this address is Spark's official vault. The amount is scoped and the action, token and amount all match.",
+          "evidence": {
+            "confidence": "high",
+            "via": "model",
+            "buttonLabel": "Approve"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Spender has verified source",
+          "status": "pass",
+          "detail": "0x28B3…a43d (ERC1967Proxy) is verified on Sourcify. The target 0xA0b8…eB48 (USD Coin) is verified."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Spender age",
+          "status": "unverified",
+          "detail": "Couldn't find out when 0x28B3…a43d (ERC1967Proxy) was deployed."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "pass",
+          "detail": "0x28B3…a43d (ERC1967Proxy) is a eip1967 proxy to 0x1b99…f455 (SparkVault) (verified). 0xA0b8…eB48 (USD Coin) is a oz-legacy proxy to 0x4350…02dd (FiatTokenV2_2) (verified).",
+          "evidence": {
+            "proxies": [
+              {
+                "address": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+                "kind": "eip1967",
+                "implementation": "0x1b992302652A92611DCd5090D1Cb388C6377f455",
+                "implementationVerified": true,
+                "implementationName": "SparkVault"
+              },
+              {
+                "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                "kind": "oz-legacy",
+                "implementation": "0x43506849D7C04F9138D1A2050bbF3A0c054402dd",
+                "implementationVerified": true,
+                "implementationName": "FiatTokenV2_2"
+              }
+            ]
+          }
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "pass",
+          "detail": "The real USDC on Ethereum, verified."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "pass",
+          "detail": "Approves 100 USDC for 0x28B3…a43d (ERC1967Proxy).",
+          "evidence": {
+            "approvals": [
+              {
+                "standard": "erc20",
+                "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                "symbol": "USDC",
+                "spender": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+                "spenderName": "ERC1967Proxy",
+                "amount": "100000000",
+                "display": "100 USDC",
+                "unlimited": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation: approve(), to 0xa0b8…eb48, spender 0x28b3…a43d, amount {{amount}}.",
+          "evidence": {
+            "expectation": {
+              "kind": "transaction",
+              "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+              "functionName": "approve",
+              "spenderMustBe": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+              "failIfUnlimited": true,
+              "amountMustEqual": "{{amount}}"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "pass",
+          "detail": "No balance change now. Allowance for 0x28B3…a43d goes from 0 USDC to 100 USDC.",
+          "evidence": {
+            "gasUsed": "55558",
+            "balanceChanges": [],
+            "stake": true
+          }
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Deployment date unknown.",
+      "fingerprint": "e8c1335fe19652d6",
+      "createdAt": "2026-11-03T14:39:27.796Z",
+      "runId": "run_sl0f5pc65lhsrk"
+    },
+    {
+      "id": "sgr_hyx1jljeor6pwp",
+      "requestId": "req_9w1jf4uf4b0e8a",
+      "flowId": "flow_5l0ynnj9kzsxdy",
+      "stepIndex": 11,
+      "chainId": 1,
+      "method": "eth_sendTransaction",
+      "verdict": "check",
+      "title": "Deposit 100 USDC on ERC1967Proxy",
+      "summary": "The button says “Deposit”. The wallet is asked to call deposit(100 USDC, 0x4C6C…8bdc (wallet address), 128) on 0x28B3…a43d (ERC1967Proxy, verified); on the fork −100 USDC leaves the wallet.",
+      "ui": {
+        "buttonLabel": "Deposit",
+        "pageUrl": "https://app.spark.finance/",
+        "screenshot": "screenshots/run_sl0f5pc65lhsrk-run_sl0f5pc65lhsrk-step11-wallet.png"
+      },
+      "decoded": {
+        "kind": "transaction",
+        "to": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+        "contractName": "ERC1967Proxy",
+        "functionName": "deposit",
+        "signature": "deposit(uint256,address,uint16)",
+        "args": [
+          {
+            "name": "assets",
+            "type": "uint256",
+            "value": "100000000",
+            "display": "100 USDC"
+          },
+          {
+            "name": "receiver",
+            "type": "address",
+            "value": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+            "display": "0x4C6C…8bdc (wallet address)"
+          },
+          {
+            "name": "referral",
+            "type": "uint16",
+            "value": "128"
+          }
+        ],
+        "value": "0",
+        "calldata": "0x9b8d6d380000000000000000000000000000000000000000000000000000000005f5e1000000000000000000000000004c6cde020221f88042a72eb27dd07491731c8bdc0000000000000000000000000000000000000000000000000000000000000080",
+        "abiSource": "sourcify"
+      },
+      "simulation": {
+        "status": "ok",
+        "balanceChanges": [
+          {
+            "owner": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+            "token": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+            "symbol": "spUSDC",
+            "decimals": 6,
+            "delta": "96163880",
+            "display": "+96.1638 spUSDC"
+          },
+          {
+            "owner": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+            "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "symbol": "USDC",
+            "decimals": 6,
+            "delta": "-100000000",
+            "display": "−100 USDC"
+          },
+          {
+            "owner": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "symbol": "USDC",
+            "decimals": 6,
+            "delta": "100000000",
+            "display": "+100 USDC"
+          },
+          {
+            "owner": "0x0000000000000000000000000000000000000000",
+            "token": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+            "symbol": "spUSDC",
+            "decimals": 6,
+            "delta": "-96163880",
+            "display": "−96.1638 spUSDC"
+          }
+        ],
+        "gasUsed": "108471"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "pass",
+          "detail": "“Deposit” and the call is deposit(). The request matches the page. The modal is \"Deposit to USDC Savings\" with 100 USDC entered. Step 1 (Approve USDC) is already done, and the user clicked \"Deposit\" on step 2. The page expects 100 USDC to land in Savings, taking the balance from 0.00 to 100.00. The transaction calls deposit(uint256,address,uint16) on the vault contract with assets = 100 USDC and receiver = the user's own wallet, so the savings position goes to the user and not a third party. The simulation shows only −100 USDC leaving the wallet, which is the token and amount shown on the page. It asks for no extra approval or permit and sends nothing to another recipient. The referral parameter (128) doesn't move any value. One thing I couldn't check here is whether 0x28B3…a43d is the official Spark USDC Savings vault address.",
+          "evidence": {
+            "confidence": "high",
+            "via": "model",
+            "buttonLabel": "Deposit"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "pass",
+          "detail": "0x28B3…a43d (ERC1967Proxy) is verified on Sourcify."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "unverified",
+          "detail": "Couldn't find out when 0x28B3…a43d (ERC1967Proxy) was deployed."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "pass",
+          "detail": "0x28B3…a43d (ERC1967Proxy) is a eip1967 proxy to 0x1b99…f455 (SparkVault) (verified).",
+          "evidence": {
+            "proxies": [
+              {
+                "address": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+                "kind": "eip1967",
+                "implementation": "0x1b992302652A92611DCd5090D1Cb388C6377f455",
+                "implementationVerified": true,
+                "implementationName": "SparkVault"
+              }
+            ]
+          }
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "pass",
+          "detail": "spUSDC (Spark Savings USDC, 6 decimals) has verified source."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation: 0x9b8d6d38(), to 0x28b3…a43d.",
+          "evidence": {
+            "expectation": {
+              "kind": "transaction",
+              "to": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+              "functionName": "0x9b8d6d38"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "pass",
+          "detail": "Balance changes: +96.1638 spUSDC, −100 USDC.",
+          "evidence": {
+            "gasUsed": "108471",
+            "balanceChanges": [
+              {
+                "owner": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+                "token": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+                "symbol": "spUSDC",
+                "decimals": 6,
+                "delta": "96163880",
+                "display": "+96.1638 spUSDC"
+              },
+              {
+                "owner": "0x4C6CDE020221f88042a72EB27dd07491731c8bdc",
+                "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                "symbol": "USDC",
+                "decimals": 6,
+                "delta": "-100000000",
+                "display": "−100 USDC"
+              },
+              {
+                "owner": "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+                "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "symbol": "USDC",
+                "decimals": 6,
+                "delta": "100000000",
+                "display": "+100 USDC"
+              },
+              {
+                "owner": "0x0000000000000000000000000000000000000000",
+                "token": "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d",
+                "symbol": "spUSDC",
+                "decimals": 6,
+                "delta": "-96163880",
+                "display": "−96.1638 spUSDC"
+              }
+            ],
+            "stake": true
+          }
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Deployment date unknown.",
+      "fingerprint": "85f0ed96ecabd0cf",
+      "createdAt": "2026-11-03T14:39:54.388Z",
+      "runId": "run_sl0f5pc65lhsrk"
+    }
+  ],
+  "costUsd": 1.3224996000000002,
+  "stoppedEarly": false
+}

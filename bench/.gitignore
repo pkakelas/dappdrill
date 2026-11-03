@@ -1,0 +1,3 @@
+results/*/*/*/artifacts/
+results/*/*/*/cli.log
+results/*/*/stale-*/

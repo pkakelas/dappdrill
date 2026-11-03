@@ -25,6 +25,7 @@ export const WalletExpectation = z.object({
   kind: z.enum(["transaction", "message", "typedData"]).optional(),
   /** Contract the transaction must go to. */
   to: z.string().optional(),
+  /** Function name, or its 4-byte selector ("0xa1903eab") when the recorder couldn't decode the call. */
   functionName: z.string().optional(),
   spenderMustBe: z.string().optional(),
   /** Human units, may reference a param: "{{amount}}". */
@@ -126,6 +127,16 @@ export const Variation = z.object({
   account: z.enum(["A", "B"]).optional(),
 });
 export type Variation = z.infer<typeof Variation>;
+
+/**
+ * Whether a call is the function an expectation names. Recorded expectations
+ * hold a bare selector when the recorder had no ABI for the call, while replays
+ * decode the name from a richer ABI, so a selector matches the calldata instead.
+ */
+export function matchesFunction(expected: string, call: { functionName?: string; calldata?: string }): boolean {
+  if (/^0x[0-9a-f]{8}$/i.test(expected)) return call.calldata?.slice(0, 10).toLowerCase() === expected.toLowerCase();
+  return call.functionName?.toLowerCase() === expected.toLowerCase();
+}
 
 /** Replace {{param}} placeholders with values. Unknown params are left as-is. */
 export function applyParams(text: string, values: Record<string, string>): string {

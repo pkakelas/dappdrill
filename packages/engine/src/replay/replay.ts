@@ -279,6 +279,7 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
         artifactsDir: session.artifactsDir,
         llm: env.opts.reviewLlm,
       });
+      review.runId = env.runId;
       env.result.signingReviews.push(review);
       await session.emit({ type: "signing-review", review });
     } catch (e) {

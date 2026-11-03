@@ -1,0 +1,14 @@
+{
+  "3bbd792673b52da8": {
+    "label": "true",
+    "note": "Confirmed in the final screenshot: after rejecting the sign-in signature the page goes back to the login card with no message. The report is accurate. It is a minor UX gap, not a fund-safety bug."
+  },
+  "f7207dae576fe2c2": {
+    "label": "true",
+    "note": "Mint signs typed data for chain 129302 while the wallet is on Ethereum; the wallet refuses and the faucet shows nothing and never asks to switch."
+  },
+  "dcaa88e86b85d0b4": {
+    "label": "true",
+    "note": "On Ethereum the sign-in stays on \"Connecting\u2026\" after the signature, with no prompt to switch or wrong-network message."
+  }
+}

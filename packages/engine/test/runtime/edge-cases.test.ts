@@ -92,6 +92,16 @@ describe("runEdgeCases", () => {
     expect(titles(silent.issues)).toEqual(["medium: No message after rejecting 'Deposit'"]);
   }, 180_000);
 
+  it("doesn't blame the rejection when the flow broke before anything was rejected", async () => {
+    const broken = (url: string) => {
+      const flow = depositFlow(url, fx.token, fx.vault);
+      return { ...flow, steps: flow.steps.map((s, i) => (i === 3 ? { kind: "click" as const, target: { role: "button", name: "Stake" } } : s)) };
+    };
+    const r = await matrix(["silent"], ["reject"], broken);
+    expect(r.runs[0]!.status).toBe("fail");
+    expect(titles(r.issues)).toEqual([]);
+  }, 180_000);
+
   it("finds a transaction sent from the old account after an account switch", async () => {
     const r = await matrix(["stale"], ["switch-account"]);
     expect(titles(r.issues)).toEqual(["critical: After switching accounts, the approve transaction still comes from the old account"]);

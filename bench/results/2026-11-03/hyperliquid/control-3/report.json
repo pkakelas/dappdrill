@@ -1,0 +1,2690 @@
+{
+  "url": "https://app.hyperliquid-testnet.xyz/trade",
+  "startedAt": "2026-11-03T14:22:22.729Z",
+  "finishedAt": "2026-11-03T14:24:37.636Z",
+  "chains": [
+    {
+      "id": 421614,
+      "name": "Arbitrum Sepolia",
+      "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+      "mode": "fork"
+    }
+  ],
+  "pages": [],
+  "flows": [
+    {
+      "id": "flow_4vfz8erc8r8oxu",
+      "name": "Connect wallet, accept terms and sign trading connection",
+      "origin": "discovered",
+      "startUrl": "https://app.hyperliquid-testnet.xyz/trade",
+      "params": [],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "text": "Connect",
+            "nth": 0
+          }
+        },
+        {
+          "note": "Choose MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "MetaMask"
+          }
+        },
+        {
+          "note": "Tick terms acknowledgement",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1)"
+          }
+        },
+        {
+          "note": "Tick cookie acknowledgement",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)"
+          }
+        },
+        {
+          "note": "Accept terms",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Accept"
+          }
+        },
+        {
+          "note": "Approve eth_signTypedData_v4 Hyperliquid",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "typedData"
+          }
+        },
+        {
+          "note": "Establish Connection (enable trading / agent approval)",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Establish Connection"
+          }
+        },
+        {
+          "note": "Approve eth_signTypedData_v4 HyperliquidTransaction",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "typedData"
+          }
+        },
+        {
+          "kind": "press",
+          "key": "Escape"
+        },
+        {
+          "note": "Close deposit popup",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div > div:nth-of-type(5) > div:nth-of-type(1)"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "{{account-head}}...{{account-tail}}"
+          }
+        }
+      ],
+      "chainId": 421614
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_6jkrupokp6emy4",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "edgeCase": "happy",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 121
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 220
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 711
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 178
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 235
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 2063,
+          "walletRequestId": "req_c5u0qggs2mzwbb"
+        },
+        {
+          "index": 6,
+          "status": "pass",
+          "durationMs": 93
+        },
+        {
+          "index": 7,
+          "status": "pass",
+          "durationMs": 1349,
+          "walletRequestId": "req_v2k9gu97on45zq"
+        },
+        {
+          "index": 8,
+          "status": "pass",
+          "durationMs": 6
+        },
+        {
+          "index": 9,
+          "status": "skipped",
+          "durationMs": 4136,
+          "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n  - waiting for locator('div > div:nth-of-type(5) > div:nth-of-type(1)').visible().first()\n    - locator resolved to <div>…</div>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"sc-cwSeag jBMzAI\"></div> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"sc-cwSeag jBMzAI\"></div> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    8 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"sc-cwSeag jBMzAI\"></div> intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n",
+          "screenshot": "screenshots/run_6jkrupokp6emy4-run_6jkrupokp6emy4-step9-fail.png"
+        },
+        {
+          "index": 10,
+          "status": "pass",
+          "durationMs": 7
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_fxa7vn7c9tsrm8",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:26.235Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_pg607to48b2l0e",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:26.457Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_bd1dtani0cm1et",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:22:30.161Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_dd6gwetewbi7n6",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+                  ]
+                }
+              ],
+              "date": 1793715750161
+            }
+          ]
+        },
+        {
+          "id": "req_090zu2ygt3mm9x",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.164Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_i2nm4o41kpxv3q",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.164Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_zn23zjw1mfwp5k",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.164Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_sefutalf5dz0b3",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.190Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_r7asi12x7kdglx",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.192Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_z8fu9h0mhy7nm0",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.245Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_s7b58hsiy9yj4e",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.245Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_tg3s2bbouyv3yp",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:30.279Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_gklgu1jyyz8omd",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:31.275Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_c5u0qggs2mzwbb",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+            "{\"domain\":{\"name\":\"HyperliquidSignTransaction\",\"version\":\"1\",\"chainId\":421614,\"verifyingContract\":\"0x0000000000000000000000000000000000000000\"},\"message\":{\"type\":\"acceptTerms\",\"time\":1793715750551,\"signatureChainId\":\"0x66eee\",\"hyperliquidChain\":\"Testnet\"},\"primaryType\":\"Hyperliquid:AcceptTerms\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"},{\"name\":\"verifyingContract\",\"type\":\"address\"}],\"Hyperliquid:AcceptTerms\":[{\"name\":\"hyperliquidChain\",\"type\":\"string\"},{\"name\":\"time\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:22:31.280Z",
+          "outcome": "approved",
+          "result": "0x16b93cad3dba5f2fcd50d83951d0b8d42b50910ceff118e0275bd8ab1ee5f6a32017db97f99f07d24d01b92788c8d8f583168dbc1518602060bd94ae4a74100b1c"
+        },
+        {
+          "id": "req_0v5dah6e663bta",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:33.443Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_v2k9gu97on45zq",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+            "{\"domain\":{\"name\":\"HyperliquidSignTransaction\",\"version\":\"1\",\"chainId\":421614,\"verifyingContract\":\"0x0000000000000000000000000000000000000000\"},\"message\":{\"hyperliquidChain\":\"Testnet\",\"signatureChainId\":\"0x66eee\",\"agentAddress\":\"0xc4e4470f0d312610b85af082b7680b57ce97ff60\",\"agentName\":\"\",\"nonce\":1793715752437,\"type\":\"approveAgent\"},\"primaryType\":\"HyperliquidTransaction:ApproveAgent\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"},{\"name\":\"verifyingContract\",\"type\":\"address\"}],\"HyperliquidTransaction:ApproveAgent\":[{\"name\":\"hyperliquidChain\",\"type\":\"string\"},{\"name\":\"agentAddress\",\"type\":\"address\"},{\"name\":\"agentName\",\"type\":\"string\"},{\"name\":\"nonce\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:22:33.445Z",
+          "outcome": "approved",
+          "result": "0x5443745c4a4768582c2e43c3e8256ad5e8eb04f5ddbd86f8ea97d74dfdb3d0e12ff5e4a03bfad9609975cba7be0815065218153ddd7b589ed8d85841c97469cf1b"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_g770431n8zx22s",
+        "sgr_jy4ksef28ud3vp"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} undefined",
+          "at": "2026-11-03T14:22:26.164Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:22:26.450Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 421614, 421614, 998",
+          "at": "2026-11-03T14:22:26.450Z"
+        },
+        {
+          "level": "log",
+          "text": "Wallet did not respond to eth_accounts. Defaulting to prefetched accounts. Bo: Must call 'eth_requestAccounts' before other methods\n    at Ro (https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:38838)\n    at https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:66859",
+          "at": "2026-11-03T14:22:26.458Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for metamask: []",
+          "at": "2026-11-03T14:22:26.462Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for base_account: []",
+          "at": "2026-11-03T14:22:26.477Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:22:26.971Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:22:26.971Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_chainId for metamask: 0x66eee",
+          "at": "2026-11-03T14:22:30.172Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:22:30.227Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:22:30.294Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:22:36.164Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:30.832Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 642,
+          "at": "2026-11-03T14:22:30.923Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 628,
+          "at": "2026-11-03T14:22:30.924Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1212,
+          "at": "2026-11-03T14:22:32.144Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1212,
+          "at": "2026-11-03T14:22:32.145Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:33.630Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:22:36.167Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:22:36.171Z"
+        }
+      ],
+      "trace": "traces/run_6jkrupokp6emy4.zip",
+      "finalScreenshot": "screenshots/run_6jkrupokp6emy4-run_6jkrupokp6emy4-final.png",
+      "forkBlocks": {
+        "421614": "325670273"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:22:24.354Z",
+      "finishedAt": "2026-11-03T14:22:40.135Z"
+    },
+    {
+      "id": "run_qnqme088aq2uj5",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "edgeCase": "reject",
+      "status": "fail",
+      "reason": "Step 7 (Establish Connection (enable trading / agent approval)): Could not find role=button name=\"Establish Connection\" (tried button \"Establish Connection\", button ~\"Establish Connection\")",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 183
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 239
+        },
+        {
+          "index": 2,
+          "status": "skipped",
+          "durationMs": 4102,
+          "error": "Could not find css=div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1) (tried css div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1))",
+          "screenshot": "screenshots/run_qnqme088aq2uj5-run_qnqme088aq2uj5-step2-fail.png"
+        },
+        {
+          "index": 3,
+          "status": "skipped",
+          "durationMs": 4108,
+          "error": "Could not find css=div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1) (tried css div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1))",
+          "screenshot": "screenshots/run_qnqme088aq2uj5-run_qnqme088aq2uj5-step3-fail.png"
+        },
+        {
+          "index": 4,
+          "status": "skipped",
+          "durationMs": 4100,
+          "error": "Could not find role=button name=\"Accept\" (tried button \"Accept\", button ~\"Accept\")",
+          "screenshot": "screenshots/run_qnqme088aq2uj5-run_qnqme088aq2uj5-step4-fail.png"
+        },
+        {
+          "index": 5,
+          "status": "skipped",
+          "durationMs": 0,
+          "error": "the optional step that asks for it didn't show"
+        },
+        {
+          "index": 6,
+          "status": "fail",
+          "durationMs": 15477,
+          "error": "Could not find role=button name=\"Establish Connection\" (tried button \"Establish Connection\", button ~\"Establish Connection\")",
+          "screenshot": "screenshots/run_qnqme088aq2uj5-run_qnqme088aq2uj5-step6-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_fso6zakqwxpnzp",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:42.053Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_69k7mqdmdh0zbr",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:42.071Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_fhwyslgbpqxpx4",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:22:45.832Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_3ldpz501hlewqk",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+                  ]
+                }
+              ],
+              "date": 1793715765832
+            }
+          ]
+        },
+        {
+          "id": "req_05c1tvbt4u0c57",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.837Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_899ce30t31el1h",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.838Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_vsildzute3i0nw",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.838Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_h17cgdfbsqzjp1",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.870Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_l02uuz03990a7f",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.870Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_ddlwwmf8v9ivl7",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.937Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_5f3sja2jiq54z2",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.938Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_kyox1opd0zwznl",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:46.002Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} undefined",
+          "at": "2026-11-03T14:22:41.997Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:22:42.063Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 421614, 421614, 998",
+          "at": "2026-11-03T14:22:42.064Z"
+        },
+        {
+          "level": "log",
+          "text": "Wallet did not respond to eth_accounts. Defaulting to prefetched accounts. Bo: Must call 'eth_requestAccounts' before other methods\n    at Ro (https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:38838)\n    at https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:66859",
+          "at": "2026-11-03T14:22:42.073Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for metamask: []",
+          "at": "2026-11-03T14:22:42.077Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for base_account: []",
+          "at": "2026-11-03T14:22:42.097Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:22:42.513Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:22:42.513Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_chainId for metamask: 0x66eee",
+          "at": "2026-11-03T14:22:45.848Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:22:45.913Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:22:46.012Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:22:51.999Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:01.997Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:11.998Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.946Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.947Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.948Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.951Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.951Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.951Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.962Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.963Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.991Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:22:45.991Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 604,
+          "at": "2026-11-03T14:22:46.619Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 617,
+          "at": "2026-11-03T14:22:46.619Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 791,
+          "at": "2026-11-03T14:22:47.414Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 793,
+          "at": "2026-11-03T14:22:47.416Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:22:52.009Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:22:52.018Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:23:02.000Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T14:23:02.004Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:23:12.001Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:23:12.004Z"
+        }
+      ],
+      "trace": "traces/run_qnqme088aq2uj5.zip",
+      "finalScreenshot": "screenshots/run_qnqme088aq2uj5-run_qnqme088aq2uj5-final.png",
+      "forkBlocks": {
+        "421614": "325670273"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:22:40.135Z",
+      "finishedAt": "2026-11-03T14:23:16.943Z"
+    },
+    {
+      "id": "run_or1odqqrs0d0ch",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "edgeCase": "wrong-network",
+      "status": "issue",
+      "reason": "Doesn't handle the wallet being on Ethereum",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 378
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 445
+        },
+        {
+          "index": 2,
+          "status": "skipped",
+          "durationMs": 4262,
+          "error": "Could not find css=div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1) (tried css div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1))",
+          "screenshot": "screenshots/run_or1odqqrs0d0ch-run_or1odqqrs0d0ch-step2-fail.png"
+        },
+        {
+          "index": 3,
+          "status": "skipped",
+          "durationMs": 4098,
+          "error": "Could not find css=div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1) (tried css div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1))",
+          "screenshot": "screenshots/run_or1odqqrs0d0ch-run_or1odqqrs0d0ch-step3-fail.png"
+        },
+        {
+          "index": 4,
+          "status": "skipped",
+          "durationMs": 4280,
+          "error": "Could not find role=button name=\"Accept\" (tried button \"Accept\", button ~\"Accept\")",
+          "screenshot": "screenshots/run_or1odqqrs0d0ch-run_or1odqqrs0d0ch-step4-fail.png"
+        },
+        {
+          "index": 5,
+          "status": "skipped",
+          "durationMs": 0,
+          "error": "the optional step that asks for it didn't show"
+        },
+        {
+          "index": 6,
+          "status": "fail",
+          "durationMs": 15165,
+          "error": "Could not find role=button name=\"Establish Connection\" (tried button \"Establish Connection\", button ~\"Establish Connection\")",
+          "screenshot": "screenshots/run_or1odqqrs0d0ch-run_or1odqqrs0d0ch-step6-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_zq4pgs53u27f6q",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:18.408Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_yxhj200lm0583h",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:18.540Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_cux1fakcnxuawl",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:23:22.495Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_7memebntunena5",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+                  ]
+                }
+              ],
+              "date": 1793715802495
+            }
+          ]
+        },
+        {
+          "id": "req_n48nimheabpn62",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.503Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_hrrujk5zgbe7ha",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.503Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_21xorfrvjey5wo",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.504Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_5x0r9phcr6at05",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.536Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_b3zg3enr7e0bcs",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.537Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_ng151tk979asrj",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.690Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_c1qv62xuxhx064",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.691Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_s1708ay2d7x2c3",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:22.717Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_vjsbycen2t2nj2",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:23.728Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_72fw39ukzrlcly",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:23.733Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_2tazp64sh4884g",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:23.739Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_drlsko4ludmqz4",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:25.745Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_b68p5m598tk5yq",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:25.748Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_2mdwl01n86sxgl",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:25.749Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_04mb60mjit7pea",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:29.755Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_hmvyqooeq6skad",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:29.755Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_kd2aizb2hr7l3m",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:29.758Z",
+          "outcome": "approved",
+          "result": "0x1"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [
+        "iss_08sxmu16p603o3"
+      ],
+      "console": [
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} undefined",
+          "at": "2026-11-03T14:23:18.354Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:23:18.540Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 421614, 421614, 998",
+          "at": "2026-11-03T14:23:18.540Z"
+        },
+        {
+          "level": "log",
+          "text": "Wallet did not respond to eth_accounts. Defaulting to prefetched accounts. Bo: Must call 'eth_requestAccounts' before other methods\n    at Ro (https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:38838)\n    at https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:66859",
+          "at": "2026-11-03T14:23:18.540Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for metamask: []",
+          "at": "2026-11-03T14:23:18.546Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for base_account: []",
+          "at": "2026-11-03T14:23:18.562Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:23:19.070Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:23:19.070Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_chainId for metamask: 0x1",
+          "at": "2026-11-03T14:23:22.535Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:22.678Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:28.345Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:38.339Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:48.337Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.701Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.701Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.702Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.702Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.702Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.702Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.703Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.703Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.703Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:22.711Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 624,
+          "at": "2026-11-03T14:23:23.336Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 810,
+          "at": "2026-11-03T14:23:24.213Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:23:28.360Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 7,
+          "at": "2026-11-03T14:23:28.374Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:23:38.343Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:23:38.348Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:23:48.340Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T14:23:48.343Z"
+        }
+      ],
+      "trace": "traces/run_or1odqqrs0d0ch.zip",
+      "finalScreenshot": "screenshots/run_or1odqqrs0d0ch-run_or1odqqrs0d0ch-final.png",
+      "forkBlocks": {
+        "421614": "325670273"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:23:16.943Z",
+      "finishedAt": "2026-11-03T14:23:51.717Z"
+    },
+    {
+      "id": "run_065pgllhn2jmq8",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "edgeCase": "switch-account",
+      "status": "skipped",
+      "reason": "couldn't finish as the second account (Step 6 (Approve eth_signTypedData_v4 Hyperliquid): the dApp sent no signing request within 30s); no requests from the old account",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 120
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 199
+        },
+        {
+          "index": 2,
+          "status": "skipped",
+          "durationMs": 4376,
+          "error": "Could not find css=div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1) (tried css div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div > div:nth-of-type(1))",
+          "screenshot": "screenshots/run_065pgllhn2jmq8-run_065pgllhn2jmq8-step2-fail.png"
+        },
+        {
+          "index": 3,
+          "status": "skipped",
+          "durationMs": 4055,
+          "error": "Could not find css=div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1) (tried css div:nth-of-type(4) > div > div > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1))",
+          "screenshot": "screenshots/run_065pgllhn2jmq8-run_065pgllhn2jmq8-step3-fail.png"
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1023
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30118,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_065pgllhn2jmq8-run_065pgllhn2jmq8-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_es9ihwf6uikgbg",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:53.505Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_6y8cz00sof7y6g",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:53.768Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_ugbi0xamigjaox",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 421614,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:23:57.210Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_d890d278zhrds5",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+                  ]
+                }
+              ],
+              "date": 1793715837210
+            }
+          ]
+        },
+        {
+          "id": "req_0kt5tt31prpf28",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.216Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_ynth9im60okmem",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.217Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_qx7yek4vlbn9p2",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.217Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_u40rs7n9ado5ie",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.244Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_r6gdsicoco623v",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.245Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_2lhme0sd7i11oi",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.311Z",
+          "outcome": "approved",
+          "result": [
+            "0x584F88c854426db4437CF32326544a5F0DF2B0Aa"
+          ]
+        },
+        {
+          "id": "req_wps4lwkikvb1yy",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.311Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_9pxzxnk77z2r3o",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:57.346Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_e03wjiebyco8c2",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:05.660Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_m7dw7y89yveixa",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:05.697Z",
+          "outcome": "approved",
+          "result": [
+            "0x231Db3B946015Fc9c45A24c5383A207D7B4E8293"
+          ]
+        },
+        {
+          "id": "req_oy1t0gv3b8hqlg",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:05.697Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        },
+        {
+          "id": "req_hig9cay4dxs4y7",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 421614,
+          "from": "0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:05.724Z",
+          "outcome": "approved",
+          "result": "0x66eee"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} undefined",
+          "at": "2026-11-03T14:23:53.441Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:23:53.731Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 421614, 421614, 998",
+          "at": "2026-11-03T14:23:53.732Z"
+        },
+        {
+          "level": "log",
+          "text": "Wallet did not respond to eth_accounts. Defaulting to prefetched accounts. Bo: Must call 'eth_requestAccounts' before other methods\n    at Ro (https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:38838)\n    at https://app.hyperliquid-testnet.xyz/assets/useActiveWallet-BdFIc7_K-DggiyHje.js:2:66859",
+          "at": "2026-11-03T14:23:53.772Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for metamask: []",
+          "at": "2026-11-03T14:23:53.773Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_accounts for base_account: []",
+          "at": "2026-11-03T14:23:53.805Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:23:54.329Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:23:54.329Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_chainId for metamask: 0x66eee",
+          "at": "2026-11-03T14:23:57.226Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:57.296Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:23:57.354Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x584F88c854426db4437CF32326544a5F0DF2B0Aa",
+          "at": "2026-11-03T14:24:03.392Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "at": "2026-11-03T14:24:05.686Z"
+        },
+        {
+          "level": "log",
+          "text": "eth_chainId for metamask: 0x66eee",
+          "at": "2026-11-03T14:24:05.697Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "at": "2026-11-03T14:24:05.729Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "at": "2026-11-03T14:24:13.394Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "at": "2026-11-03T14:24:23.396Z"
+        },
+        {
+          "level": "log",
+          "text": "setting chain data {read: Proxy(Object), simulate: Proxy(Object), createEventFilter: Proxy(Object), getEvents: Proxy(Object), watchEvent: Proxy(Object)} 0x231Db3B946015Fc9c45A24c5383A207D7B4E8293",
+          "at": "2026-11-03T14:24:33.393Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.315Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.315Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.316Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.317Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.317Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.317Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.317Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.341Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.341Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:23:57.344Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 615,
+          "at": "2026-11-03T14:23:57.970Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 625,
+          "at": "2026-11-03T14:23:57.972Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 774,
+          "at": "2026-11-03T14:23:58.749Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 773,
+          "at": "2026-11-03T14:23:58.749Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:24:03.396Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:03.398Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.697Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.698Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.699Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.700Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.700Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.701Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.702Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.703Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.703Z"
+        },
+        {
+          "chainId": 998,
+          "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 0,
+          "at": "2026-11-03T14:24:05.704Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 142,
+          "at": "2026-11-03T14:24:05.871Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 154,
+          "at": "2026-11-03T14:24:05.872Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 153,
+          "at": "2026-11-03T14:24:06.028Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 153,
+          "at": "2026-11-03T14:24:06.028Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:24:13.397Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:24:13.404Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T14:24:23.409Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 8,
+          "at": "2026-11-03T14:24:23.421Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1156,
+          "at": "2026-11-03T14:24:34.550Z"
+        },
+        {
+          "chainId": 421614,
+          "url": "https://sepolia-rollup.arbitrum.io/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 146,
+          "at": "2026-11-03T14:24:34.699Z"
+        }
+      ],
+      "trace": "traces/run_065pgllhn2jmq8.zip",
+      "finalScreenshot": "screenshots/run_065pgllhn2jmq8-run_065pgllhn2jmq8-final.png",
+      "forkBlocks": {
+        "421614": "325670273"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:23:51.718Z",
+      "finishedAt": "2026-11-03T14:24:37.631Z"
+    }
+  ],
+  "issues": [
+    {
+      "id": "iss_08sxmu16p603o3",
+      "fingerprint": "f765be87d061e820",
+      "severity": "high",
+      "category": "wallet",
+      "title": "Doesn't handle the wallet being on Ethereum",
+      "summary": "With the wallet on the wrong network the flow broke (Step 7 (Establish Connection (enable trading / agent approval)): Could not find role=button name=\"Establish Connection\" (tried button \"Establish Connection\", button ~\"Establish Connection\")) and the dApp neither asked to switch nor told the user.",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "flowName": "Connect wallet, accept terms and sign trading connection",
+      "edgeCase": "wrong-network",
+      "runId": "run_or1odqqrs0d0ch",
+      "stepsToReproduce": [
+        "Start with the wallet on Ethereum instead of Arbitrum Sepolia.",
+        "1. Open wallet picker",
+        "2. Choose MetaMask",
+        "3. Tick terms acknowledgement",
+        "4. Tick cookie acknowledgement",
+        "5. Accept terms",
+        "6. Approve eth_signTypedData_v4 Hyperliquid",
+        "7. Establish Connection (enable trading / agent approval)",
+        "8. Approve eth_signTypedData_v4 HyperliquidTransaction",
+        "9. Press Escape",
+        "10. Close deposit popup",
+        "11. See \"{{account-head}}...{{account-tail}}\""
+      ],
+      "expected": "Ask the wallet to switch to Arbitrum Sepolia or show a \"wrong network\" message.",
+      "actual": "Step 7 (Establish Connection (enable trading / agent approval)): Could not find role=button name=\"Establish Connection\" (tried button \"Establish Connection\", button ~\"Establish Connection\")",
+      "evidence": {
+        "screenshot": "screenshots/run_or1odqqrs0d0ch-run_or1odqqrs0d0ch-final.png",
+        "trace": "traces/run_or1odqqrs0d0ch.zip",
+        "console": [],
+        "rpc": [
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_getBalance",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.701Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.701Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.702Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.702Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.702Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.702Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.703Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.703Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.703Z"
+          },
+          {
+            "chainId": 998,
+            "url": "https://rpc.hyperliquid-testnet.xyz/evm",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 0,
+            "at": "2026-11-03T14:23:22.711Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 624,
+            "at": "2026-11-03T14:23:23.336Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 810,
+            "at": "2026-11-03T14:23:24.213Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 9,
+            "at": "2026-11-03T14:23:28.360Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 7,
+            "at": "2026-11-03T14:23:28.374Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 2,
+            "at": "2026-11-03T14:23:38.343Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 2,
+            "at": "2026-11-03T14:23:38.348Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 2,
+            "at": "2026-11-03T14:23:48.340Z"
+          },
+          {
+            "chainId": 421614,
+            "url": "https://sepolia-rollup.arbitrum.io/rpc",
+            "method": "eth_call",
+            "via": "page",
+            "durationMs": 1,
+            "at": "2026-11-03T14:23:48.343Z"
+          }
+        ]
+      },
+      "createdAt": "2026-11-03T14:23:51.717Z"
+    }
+  ],
+  "signingReviews": [
+    {
+      "id": "sgr_g770431n8zx22s",
+      "requestId": "req_c5u0qggs2mzwbb",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "stepIndex": 5,
+      "chainId": 421614,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign Hyperliquid:AcceptTerms for HyperliquidSignTransaction",
+      "summary": "The button says “Accept”. The wallet is asked to sign Hyperliquid:AcceptTerms typed data for HyperliquidSignTransaction.",
+      "ui": {
+        "buttonLabel": "Accept",
+        "pageUrl": "https://app.hyperliquid-testnet.xyz/trade",
+        "screenshot": "screenshots/run_6jkrupokp6emy4-run_6jkrupokp6emy4-step5-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "to": "0x0000000000000000000000000000000000000000",
+        "contractName": "HyperliquidSignTransaction",
+        "args": [
+          {
+            "name": "hyperliquidChain",
+            "type": "string",
+            "value": "Testnet"
+          },
+          {
+            "name": "time",
+            "type": "uint64",
+            "value": "1793715750551"
+          }
+        ],
+        "primaryType": "Hyperliquid:AcceptTerms",
+        "domain": {
+          "name": "HyperliquidSignTransaction",
+          "version": "1",
+          "chainId": 421614,
+          "verifyingContract": "0x0000000000000000000000000000000000000000"
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Accept"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "The target is a wallet address, not a contract."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "356f112ffee0edd2",
+      "createdAt": "2026-11-03T14:22:32.111Z"
+    },
+    {
+      "id": "sgr_jy4ksef28ud3vp",
+      "requestId": "req_v2k9gu97on45zq",
+      "flowId": "flow_4vfz8erc8r8oxu",
+      "stepIndex": 7,
+      "chainId": 421614,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign HyperliquidTransaction:ApproveAgent for HyperliquidSignTransaction",
+      "summary": "The button says “Establish Connection”. The wallet is asked to sign HyperliquidTransaction:ApproveAgent typed data for HyperliquidSignTransaction.",
+      "ui": {
+        "buttonLabel": "Establish Connection",
+        "pageUrl": "https://app.hyperliquid-testnet.xyz/trade",
+        "screenshot": "screenshots/run_6jkrupokp6emy4-run_6jkrupokp6emy4-step7-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "to": "0x0000000000000000000000000000000000000000",
+        "contractName": "HyperliquidSignTransaction",
+        "args": [
+          {
+            "name": "hyperliquidChain",
+            "type": "string",
+            "value": "Testnet"
+          },
+          {
+            "name": "agentAddress",
+            "type": "address",
+            "value": "0xc4e4470f0d312610b85af082b7680b57ce97ff60"
+          },
+          {
+            "name": "agentName",
+            "type": "string",
+            "value": ""
+          },
+          {
+            "name": "nonce",
+            "type": "uint64",
+            "value": "1793715752437"
+          }
+        ],
+        "primaryType": "HyperliquidTransaction:ApproveAgent",
+        "domain": {
+          "name": "HyperliquidSignTransaction",
+          "version": "1",
+          "chainId": 421614,
+          "verifyingContract": "0x0000000000000000000000000000000000000000"
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Establish Connection"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "The target is a wallet address, not a contract."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "5d2a01e39aafd621",
+      "createdAt": "2026-11-03T14:22:33.586Z"
+    }
+  ],
+  "costUsd": 0,
+  "stoppedEarly": false
+}

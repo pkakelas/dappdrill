@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getAddress } from "viem";
-import { DrillTarget } from "@dappdrill/core";
+import { DrillTarget, type SigningReview } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { startChains } from "../../src/chain/controller.js";
 import { createSession, type EngineSession } from "../../src/browser/session.js";
@@ -38,8 +38,12 @@ describe("replayFlow", () => {
     const snap = await chains.snapshot(CHAIN_ID);
     try {
       const flow = depositFlow(fx.pageUrl(), fx.token, fx.vault);
-      const r = await replayFlow(session, flow, { params: { amount: "7" } });
+      // A stand-in reviewer: this test is about the replay, not the review.
+      const reviewer = { review: async () => ({ id: "sgr_stub", verdict: "consistent", checks: [], approvals: [] }) as unknown as SigningReview };
+      const r = await replayFlow(session, flow, { params: { amount: "7" }, reviewer, runId: "run_replay" });
       expect(r.error).toBeUndefined();
+      // Signing issues find their edge case through the review's run.
+      expect(r.signingReviews.map((s) => s.runId)).toEqual(["run_replay", "run_replay"]);
       expect(r.completed).toBe(true);
       expect(r.steps.map((s) => s.status)).toEqual(["pass", "pass", "pass", "pass", "pass", "pass", "pass"]);
       expect(r.walletSteps.map((w) => w.asked)).toEqual([

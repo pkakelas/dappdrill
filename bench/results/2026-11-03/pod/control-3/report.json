@@ -1,0 +1,4169 @@
+{
+  "url": "https://staging-app.podtestnet.dev/trade",
+  "startedAt": "2026-11-03T14:22:37.592Z",
+  "finishedAt": "2026-11-03T14:25:27.789Z",
+  "chains": [
+    {
+      "id": 129302,
+      "name": "pod testnet",
+      "rpcUrl": "https://staging-rpc.podtestnet.dev",
+      "mode": "live"
+    }
+  ],
+  "pages": [],
+  "flows": [
+    {
+      "id": "flow_1g92i6g1lmwubu",
+      "name": "Sign in with wallet",
+      "origin": "discovered",
+      "startUrl": "https://staging-app.podtestnet.dev/trade",
+      "params": [],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Continue with a wallet"
+          }
+        },
+        {
+          "note": "Choose MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "text": "MetaMask→"
+          }
+        },
+        {
+          "note": "Approve personal_sign",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "message"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "Enable trading"
+          }
+        }
+      ],
+      "chainId": 129302
+    },
+    {
+      "id": "flow_h3pywkzicyv69v",
+      "name": "Enable trading",
+      "origin": "discovered",
+      "startUrl": "https://staging-app.podtestnet.dev/trade",
+      "params": [],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Continue with a wallet"
+          }
+        },
+        {
+          "note": "Choose MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "text": "MetaMask→"
+          }
+        },
+        {
+          "note": "Approve personal_sign",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "message"
+          }
+        },
+        {
+          "note": "Enable trading",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Enable trading"
+          }
+        },
+        {
+          "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "typedData"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "trading enabled"
+          }
+        }
+      ],
+      "chainId": 129302
+    },
+    {
+      "id": "flow_saixxhzgu1ot41",
+      "name": "Mint test funds",
+      "origin": "discovered",
+      "startUrl": "https://staging-app.podtestnet.dev/trade",
+      "params": [],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Continue with a wallet"
+          }
+        },
+        {
+          "note": "Choose MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "text": "MetaMask→"
+          }
+        },
+        {
+          "note": "Approve personal_sign",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "message"
+          }
+        },
+        {
+          "note": "Mint test funds",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Mint"
+          }
+        },
+        {
+          "note": "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "typedData"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "funds arrive shortly"
+          }
+        }
+      ],
+      "chainId": 129302
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_1irytmxs5u6y75",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "happy",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 132
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 131
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 2086,
+          "walletRequestId": "req_26xrh8xu5q0rga"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 4
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_4rdmo85e6ie367",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:38.767Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_krkypeeo65sxpc",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:22:40.395Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_p23cp162od6pnc",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:40.398Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_t6j4wtqm5av63j",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:40.399Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_26xrh8xu5q0rga",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20663639346438303338623835653164633565626232663236653135666432343236666465666465346165333162646434656662343434326266653639616634610a4973737565642041743a20323032362d31312d30335431343a32323a34302e3630325a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:22:40.606Z",
+          "outcome": "approved",
+          "result": "0x5e4fa7a3d42538dbd40705f7a5bedbbd7218f8230bc5f40028172a1852b002ae797354247734cc4f341ae46d077a3e3e5bf989a622f2269288ffc08a782a96511c"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_lzodekrdtn1pcp"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:22:38.550Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:22:38.753Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:22:38.759Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:22:38.759Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:22:39.193Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:22:39.193Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:39.558Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:39.588Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_1irytmxs5u6y75.zip",
+      "finalScreenshot": "screenshots/run_1irytmxs5u6y75-run_1irytmxs5u6y75-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:22:37.594Z",
+      "finishedAt": "2026-11-03T14:22:42.820Z"
+    },
+    {
+      "id": "run_ol5y6bhzjqsugf",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "reject",
+      "status": "issue",
+      "reason": "No message after rejecting 'MetaMask →'",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 205
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 210
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1629,
+          "walletRequestId": "req_js2o1v6sd1i97l"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_00hdb13grbsfj9",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:44.028Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_1mc4rbf2hy8mrh",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:22:45.957Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_luogqn44rlzzi9",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.961Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_raf7m9bxzx670z",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:45.962Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_js2o1v6sd1i97l",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20663664633762346330383162636162356438326664626262343836386539396234363633303338346361633432313032363262343466303834383530623361620a4973737565642041743a20323032362d31312d30335431343a32323a34362e3139355a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:22:46.197Z",
+          "outcome": "rejected",
+          "error": "4001 User rejected the request."
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_wljcavzzqtmiyo"
+      ],
+      "issueIds": [
+        "iss_fpi0vdwocatxwv"
+      ],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:22:43.794Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:22:44.015Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:22:44.020Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:22:44.020Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:22:44.579Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:22:44.579Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:45.010Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:45.017Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:49.937Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_ol5y6bhzjqsugf.zip",
+      "finalScreenshot": "screenshots/run_ol5y6bhzjqsugf-run_ol5y6bhzjqsugf-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:22:42.820Z",
+      "finishedAt": "2026-11-03T14:22:50.154Z"
+    },
+    {
+      "id": "run_me7iezd92xo182",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "wrong-network",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 128
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 126
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1602,
+          "walletRequestId": "req_p2czz264u9ydcj"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 5
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_7cxsphxueninvv",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:51.296Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_l0fam3llouab2h",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:22:52.870Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_xi3hwbhixlb1e7",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:52.872Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_jdxr3pkvl0bot8",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:52.872Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_p2czz264u9ydcj",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a20310a4e6f6e63653a20663839326132653338373332393039643433633639666337333936353166353133656434363336316334643636333633383034383165666234646462613431310a4973737565642041743a20323032362d31312d30335431343a32323a35332e3039305a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:22:53.090Z",
+          "outcome": "approved",
+          "result": "0x2492c7e54bb6c5585390105eb9dd5494f43013f06159942e697a252074f840084d4bf6e8234a4baa1d8e11d834c41b1cd6a2dd0b4d275de8aab5c023723c698a1c"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_ilary48u3rdqq2"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:22:51.088Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:22:51.284Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:22:51.289Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:22:51.289Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:22:51.684Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:22:51.684Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:52.034Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:52.038Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_me7iezd92xo182.zip",
+      "finalScreenshot": "screenshots/run_me7iezd92xo182-run_me7iezd92xo182-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:22:50.154Z",
+      "finishedAt": "2026-11-03T14:22:54.702Z"
+    },
+    {
+      "id": "run_sve3yves9h4iet",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "edgeCase": "switch-account",
+      "status": "skipped",
+      "reason": "couldn't finish as the second account (Step 4 (See \"Enable trading\"): Expected to see \"Enable trading\" but it never appeared); no requests from the old account",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 129
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 906
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1651,
+          "walletRequestId": "req_gm9h356er4gvfw"
+        },
+        {
+          "index": 3,
+          "status": "fail",
+          "durationMs": 15249,
+          "error": "Expected to see \"Enable trading\" but it never appeared",
+          "screenshot": "screenshots/run_sve3yves9h4iet-run_sve3yves9h4iet-step3-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_7rctm8nvsm6bbh",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:55.854Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_cl3y16y1zp4e7u",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:22:58.252Z",
+          "outcome": "approved",
+          "result": [
+            "0x6993D3B58881B8780F1489adB8171fd04E593A26"
+          ]
+        },
+        {
+          "id": "req_m0k7fa5jypqmdj",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:58.253Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_6djl00avl4slhn",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:22:58.254Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_gm9h356er4gvfw",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078363939334433423538383831423837383046313438396164423831373166643034453539334132360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20666365383134386637313264363936396237643339636632643430653436316361626539653762396361383466633463646662653964646638666663326538320a4973737565642041743a20323032362d31312d30335431343a32323a35382e3530395a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0x6993D3B58881B8780F1489adB8171fd04E593A26"
+          ],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:22:58.509Z",
+          "outcome": "approved",
+          "result": "0x6da2da00e117b39476349f87465781d70166f9f5cc4b2c26d1c9282e90038ac5209f904ee4a25acf85c9527fd63d060ae34013b8856dd14e39d234f692946d331b"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_yksld8p4um90mc"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:22:55.635Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:22:55.838Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:22:55.845Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:22:55.845Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:22:56.269Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:22:56.269Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:56.647Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:22:56.651Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/authenticate' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:22:58.717Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:22:58.717Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/authenticate' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:00.229Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:00.229Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:01.569Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/authenticate' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:04.746Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:04.746Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:10.225Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_sve3yves9h4iet.zip",
+      "finalScreenshot": "screenshots/run_sve3yves9h4iet-run_sve3yves9h4iet-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:22:54.702Z",
+      "finishedAt": "2026-11-03T14:23:16.281Z"
+    },
+    {
+      "id": "run_isost06cj0odgl",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Step 3 (Approve personal_sign): the dApp sent no signing request within 30s",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 159
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 205
+        },
+        {
+          "index": 2,
+          "status": "fail",
+          "durationMs": 30165,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_isost06cj0odgl-run_isost06cj0odgl-step2-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_jo0hs1pfb3icuv",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:17.747Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_r3e635fi189ggo",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:23:19.479Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_18nhkg9lqnllzt",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:19.483Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_1xfb0aw89s9qtl",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:19.483Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:23:17.281Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:23:17.730Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:23:17.740Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:23:17.740Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:23:18.156Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:23:18.156Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:18.557Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:18.560Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:19.528Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:19.528Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:21.048Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:21.049Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:23.531Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:25.563Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:25.563Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:32.176Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:39.076Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:39.076Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:48.291Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_isost06cj0odgl.zip",
+      "finalScreenshot": "screenshots/run_isost06cj0odgl-run_isost06cj0odgl-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:23:16.281Z",
+      "finishedAt": "2026-11-03T14:23:51.221Z"
+    },
+    {
+      "id": "run_1oxqyq7uc36zvb",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "reject",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 181
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 402
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 7904,
+          "walletRequestId": "req_tvbe0xysbchpq2"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 109
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1274,
+          "walletRequestId": "req_0epe6du1wbnx3y"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_biqtwuragy5120",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:52.831Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_rcu5p9qoad718n",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:23:54.969Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_wxbkhms3alae19",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:54.972Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_rzs4saq7uzox35",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:23:54.973Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_tvbe0xysbchpq2",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20616662663230623763353730373035376435393563623439313530383132613930336264393466356634326666613730656161316661373831323661303962660a4973737565642041743a20323032362d31312d30335431343a32343a30312e3234395a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:01.272Z",
+          "outcome": "approved",
+          "result": "0x034777d229388b8c72c5b7ef80301e6cd676acc2a3a9570a0b55ec4ca756eb861524fcba409a98dc16f86797d034959500c41ca7f9e4c6e04a794a426b27c3c41c"
+        },
+        {
+          "id": "req_q340qwsjhhrw9z",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:02.986Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_0epe6du1wbnx3y",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0x9bad6b7e78a792281697c4bc3dd29edcbc8f061f\",\"validUntil\":\"1794320642997000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:02.998Z",
+          "outcome": "rejected",
+          "error": "4001 User rejected the request."
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_9joa2oplhzfs1v",
+        "sgr_02mdckj9obmi1p"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:23:52.281Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:23:52.819Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:23:52.819Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:23:52.819Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:23:53.344Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:23:53.344Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:53.822Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:53.827Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:55.004Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:55.005Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:23:56.521Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:23:56.522Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:23:58.748Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_1oxqyq7uc36zvb.zip",
+      "finalScreenshot": "screenshots/run_1oxqyq7uc36zvb-run_1oxqyq7uc36zvb-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:23:51.227Z",
+      "finishedAt": "2026-11-03T14:24:07.171Z"
+    },
+    {
+      "id": "run_trh7iwrnnrtk0j",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "wrong-network",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 130
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 169
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1619,
+          "walletRequestId": "req_ao3itzmjrigval"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 89
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1266,
+          "walletRequestId": "req_drcv91pcgami98"
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 4
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_jrz7uu257w9x66",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:08.347Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_tvqqxyl2eh65r3",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:24:10.001Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_hyy6dyp3sh059r",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:10.003Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_7tbxi393iy9bys",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:10.003Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_ao3itzmjrigval",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a20310a4e6f6e63653a20653734623937336630393266393538373338333832353131626637353064396561653762346365313063363965393237616234353833343134626565346164630a4973737565642041743a20323032362d31312d30335431343a32343a31302e3233335a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:10.233Z",
+          "outcome": "approved",
+          "result": "0xb1191df567d81866516a473fe226765dd7e047511e89f44951696856078a0e123077dc6b125db693744e7bb32af26c3d5709186deece43e2e782cbfd820bc60b1c"
+        },
+        {
+          "id": "req_716vr9d0iuwxvn",
+          "method": "wallet_switchEthereumChain",
+          "params": [
+            {
+              "chainId": "0x1f916"
+            }
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "switch",
+          "at": "2026-11-03T14:24:11.702Z",
+          "outcome": "approved",
+          "result": null
+        },
+        {
+          "id": "req_u30u8e20jgwrii",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:11.707Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_drcv91pcgami98",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0x7dc6ac4bb3e39d5831af60ddb3584c334d662c83\",\"validUntil\":\"1794320651713000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:11.714Z",
+          "outcome": "approved",
+          "result": "0xcdf581465be9b9c3330c0937c9a8b8f48219c8155e8c8d359fb17a096971354f4c92bdd59826180017d7e495f7b0aa5c7c40e104a923ba4b3ae54890e3d253551c"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_u4tt6cvj8nu2yj",
+        "sgr_zl20bxzxvyl8uo"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:24:08.136Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:24:08.333Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:24:08.339Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:24:08.339Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:24:08.766Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:24:08.766Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:09.112Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:09.123Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_trh7iwrnnrtk0j.zip",
+      "finalScreenshot": "screenshots/run_trh7iwrnnrtk0j-run_trh7iwrnnrtk0j-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:24:07.172Z",
+      "finishedAt": "2026-11-03T14:24:13.308Z"
+    },
+    {
+      "id": "run_t6loshwhqce54v",
+      "flowId": "flow_h3pywkzicyv69v",
+      "edgeCase": "switch-account",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 154
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 886
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1636,
+          "walletRequestId": "req_7h28ynb54xt05q"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 92
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1275,
+          "walletRequestId": "req_e8n988o7772l7d"
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 4
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_az80i96xtv4nyw",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:14.484Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_ahmljkih4pk1at",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:24:16.914Z",
+          "outcome": "approved",
+          "result": [
+            "0x6993D3B58881B8780F1489adB8171fd04E593A26"
+          ]
+        },
+        {
+          "id": "req_ityuu6i4je38pi",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:16.916Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_a7th10kwqnbu11",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:16.916Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_7h28ynb54xt05q",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078363939334433423538383831423837383046313438396164423831373166643034453539334132360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20353339313734396165303137653962386536613739306661653432666137346335333635306534373138633761643666653161643266666139613032316338340a4973737565642041743a20323032362d31312d30335431343a32343a31372e3134365a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0x6993D3B58881B8780F1489adB8171fd04E593A26"
+          ],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:17.147Z",
+          "outcome": "approved",
+          "result": "0x566a16f3aba307039070f92ba77fb199dead8476700f669a0b8dbda23d1edc9a34f9ba4cb4f1623898f2ea9744d205994eabdad5e2dfd498eb6f883e6c48c27b1c"
+        },
+        {
+          "id": "req_zjxqpr3cu7n6lr",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:18.639Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_e8n988o7772l7d",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0x5f09989ffd59d1678fb3fa9453055eeef3bd4e25\",\"validUntil\":\"1794320658648000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:18.649Z",
+          "outcome": "approved",
+          "result": "0xb0283b5c4a437ea8cf134a14f76cb58a171a312444972f857d6078212cb8d889727b9e1cae0713b8d5a4949f09ec7009de9dba1abd70e10be5300b5cfc8b14eb1b"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_6txx0f3kcg3c76",
+        "sgr_h6ovbe72bggmir"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:24:14.245Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:24:14.471Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:24:14.477Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:24:14.477Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:24:14.915Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:24:14.915Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:15.288Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:15.295Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_t6loshwhqce54v.zip",
+      "finalScreenshot": "screenshots/run_t6loshwhqce54v-run_t6loshwhqce54v-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:24:13.308Z",
+      "finishedAt": "2026-11-03T14:24:20.314Z"
+    },
+    {
+      "id": "run_0mfo0kfrsu575p",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "happy",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 156
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 126
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1646,
+          "walletRequestId": "req_fihvhcw26mpl3i"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 78
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1325,
+          "walletRequestId": "req_bsy0zz0c26me5x"
+        },
+        {
+          "index": 5,
+          "status": "pass",
+          "durationMs": 10344
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_pz0b5zpqqzqwv3",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:21.524Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_ezdt97o1ndsjps",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:24:23.149Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_fqnij3cs0ipxhr",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:23.151Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_7y9t7csbilgmhs",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:23.151Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_fihvhcw26mpl3i",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20636264636166623764333232633166353861343366333633313864316538356266343039303830313933306137666137386238646161386533363161303332640a4973737565642041743a20323032362d31312d30335431343a32343a32332e3337365a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:23.376Z",
+          "outcome": "approved",
+          "result": "0xfc9e9bdba00174182e247d8336d607e1b1278cb5aaba1ad880b913683f1bc4cb13d6effc72e2935bf4a285f21cff1fe345d501feebf12cc90db4509f6d135cc21b"
+        },
+        {
+          "id": "req_bsy0zz0c26me5x",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+            "{\"domain\":{\"name\":\"PodFaucet\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"recipient\":\"0xfb5d84932c1a37c70113f92aa0c5d3c3389b56c6\",\"token\":\"0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd\",\"deadline\":\"1793715984938000\"},\"primaryType\":\"MintRequest\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"MintRequest\":[{\"name\":\"recipient\",\"type\":\"address\"},{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"deadline\",\"type\":\"uint256\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:24.939Z",
+          "outcome": "approved",
+          "result": "0x75f7ffa9df450020130a2ee2db270b5c708bbded4354a85472b693c4678bedb0251ba6ce80976a67c217037c0df28693fb7cf54842577a6ad235df0bea3a60d71c"
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_7b6xdi2o0u98oz",
+        "sgr_jutmh59eqk1ytl"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:24:21.295Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:24:21.510Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:24:21.516Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:24:21.517Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:24:21.923Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:24:21.923Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:22.283Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:22.287Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_0mfo0kfrsu575p.zip",
+      "finalScreenshot": "screenshots/run_0mfo0kfrsu575p-run_0mfo0kfrsu575p-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:24:20.314Z",
+      "finishedAt": "2026-11-03T14:24:37.250Z"
+    },
+    {
+      "id": "run_z88lfae2h2j2mh",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "reject",
+      "status": "pass",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 198
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 105
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1597,
+          "walletRequestId": "req_j39pbq46fz0c8y"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 88
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 1364,
+          "walletRequestId": "req_eg5bpbkvr2l270"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_wm3vhuzeryk5xw",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:38.735Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_buvimhnlz0qq3h",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:24:40.397Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_32b9y2qw9bey8t",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:40.398Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_33o1c582euvi49",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:40.399Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_j39pbq46fz0c8y",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20643430306434393736653539356638393133323032306436353431343231343832623730613236663661636337623465623539313731653361363437663962370a4973737565642041743a20323032362d31312d30335431343a32343a34302e3630315a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:40.602Z",
+          "outcome": "approved",
+          "result": "0xc0f40ee62b29908ae67d250ccca13d80114790dda7204446e8db3cc62449781561699660e578f5d80e1a41b214525e34d142aec04e65bb513c34baad2ae50ab01b"
+        },
+        {
+          "id": "req_eg5bpbkvr2l270",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+            "{\"domain\":{\"name\":\"PodFaucet\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"recipient\":\"0xfb5d84932c1a37c70113f92aa0c5d3c3389b56c6\",\"token\":\"0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd\",\"deadline\":\"1793716002150000\"},\"primaryType\":\"MintRequest\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"MintRequest\":[{\"name\":\"recipient\",\"type\":\"address\"},{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"deadline\",\"type\":\"uint256\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:42.152Z",
+          "outcome": "rejected",
+          "error": "4001 User rejected the request."
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_ut1e8gw5fv8095",
+        "sgr_mg8p46efo4xni7"
+      ],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:24:38.254Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:24:38.722Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:24:38.727Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:24:38.727Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:24:39.148Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:24:39.148Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:39.517Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:39.520Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_z88lfae2h2j2mh.zip",
+      "finalScreenshot": "screenshots/run_z88lfae2h2j2mh-run_z88lfae2h2j2mh-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:24:37.250Z",
+      "finishedAt": "2026-11-03T14:24:46.132Z"
+    },
+    {
+      "id": "run_1qglzb5d7uvvzx",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "wrong-network",
+      "status": "issue",
+      "reason": "Doesn't handle the wallet being on Ethereum",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 241
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 428
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 1627,
+          "walletRequestId": "req_jvwrclay5h3co1"
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 98
+        },
+        {
+          "index": 4,
+          "status": "fail",
+          "durationMs": 313,
+          "error": "The wallet could not send the transaction: Invalid parameters: Provided chainId \"129302\" must match the active chainId \"1\"",
+          "screenshot": "screenshots/run_1qglzb5d7uvvzx-run_1qglzb5d7uvvzx-step4-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_2ri69er03t1mcg",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:47.403Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_dyh3lv1l7fpupg",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:24:49.515Z",
+          "outcome": "approved",
+          "result": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ]
+        },
+        {
+          "id": "req_y21ze0vak50yqn",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:49.553Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_gs07n0vzz7msxu",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:49.554Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_jvwrclay5h3co1",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078466235443834393332633161333743373031313366393241613063356433433333383942353663360a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a20310a4e6f6e63653a20323035636433626637313362343434343535346538326165396133623635366161356561326139373161366465333332363432663734653836633630376136380a4973737565642041743a20323032362d31312d30335431343a32343a34392e3737385a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6"
+          ],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:49.780Z",
+          "outcome": "approved",
+          "result": "0x0e8455cb20d6e4964d86ff66e6b1cac6cd53467f373b8399cc186e11089221d96a47f31f12b612d060bd5641bc19df3ca46ef4f6e4f2c32f86b4fcf63b358cd81c"
+        },
+        {
+          "id": "req_yojzszow0hg45h",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+            "{\"domain\":{\"name\":\"PodFaucet\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"recipient\":\"0xfb5d84932c1a37c70113f92aa0c5d3c3389b56c6\",\"token\":\"0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd\",\"deadline\":\"1793716011349000\"},\"primaryType\":\"MintRequest\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"MintRequest\":[{\"name\":\"recipient\",\"type\":\"address\"},{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"deadline\",\"type\":\"uint256\"}]}}"
+          ],
+          "chainId": 1,
+          "from": "0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-03T14:24:51.352Z",
+          "outcome": "errored",
+          "error": "-32602 Invalid parameters: Provided chainId \"129302\" must match the active chainId \"1\""
+        }
+      ],
+      "signingReviewIds": [
+        "sgr_f845j75gd180tt",
+        "sgr_shjbeix59uenhy"
+      ],
+      "issueIds": [
+        "iss_c13e0ur9751emy"
+      ],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:24:47.142Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:24:47.383Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:24:47.394Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:24:47.394Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:24:47.839Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:24:47.839Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:48.319Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:48.334Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_1qglzb5d7uvvzx.zip",
+      "finalScreenshot": "screenshots/run_1qglzb5d7uvvzx-run_1qglzb5d7uvvzx-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:24:46.132Z",
+      "finishedAt": "2026-11-03T14:24:52.092Z"
+    },
+    {
+      "id": "run_1jkoiit8893i87",
+      "flowId": "flow_saixxhzgu1ot41",
+      "edgeCase": "switch-account",
+      "status": "skipped",
+      "reason": "couldn't finish as the second account (Step 3 (Approve personal_sign): the dApp sent no signing request within 30s); no requests from the old account",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 168
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 957
+        },
+        {
+          "index": 2,
+          "status": "fail",
+          "durationMs": 30224,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_1jkoiit8893i87-run_1jkoiit8893i87-step2-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_j5rvvxx7n88ozt",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:53.388Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_xtp18wdj67g98c",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:24:56.173Z",
+          "outcome": "approved",
+          "result": [
+            "0x6993D3B58881B8780F1489adB8171fd04E593A26"
+          ]
+        },
+        {
+          "id": "req_1m62o43j5u38b6",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:56.175Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_bj077v58azvejd",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x6993D3B58881B8780F1489adB8171fd04E593A26",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:24:56.176Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "info",
+          "text": "[pod] environment: staging (rest https://staging-rpc.podtestnet.dev/v1, ws wss://staging-rpc.podtestnet.dev)",
+          "at": "2026-11-03T14:24:53.118Z"
+        },
+        {
+          "level": "warn",
+          "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+          "at": "2026-11-03T14:24:53.371Z"
+        },
+        {
+          "level": "log",
+          "text": "Detected injected providers: [Object]",
+          "at": "2026-11-03T14:24:53.383Z"
+        },
+        {
+          "level": "info",
+          "text": "The configured chains are not supported by Coinbase Smart Wallet: 129302, 129302, 421614",
+          "at": "2026-11-03T14:24:53.383Z"
+        },
+        {
+          "level": "log",
+          "text": "%cWarning! color:#F16552; font-size:50px; font-weight: bold; -webkit-text-stroke: 1px black;",
+          "at": "2026-11-03T14:24:53.886Z"
+        },
+        {
+          "level": "log",
+          "text": "%cYou are reading this message because you opened the browser console, a developer tool. Do not enter or paste code you do not understand. Never share your tokens or any other info with anyone. If someone told you to do this, it is very likely a scam. font-size: 18px;",
+          "at": "2026-11-03T14:24:53.886Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:54.434Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:54.436Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:24:56.210Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:24:56.210Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:24:57.725Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:24:57.725Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:24:59.359Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:25:02.241Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:25:02.241Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:25:08.003Z"
+        },
+        {
+          "level": "error",
+          "text": "Access to fetch at 'https://auth.privy.io/api/v1/siwe/init' from origin 'https://staging-app.podtestnet.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+          "at": "2026-11-03T14:25:15.831Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: net::ERR_FAILED",
+          "at": "2026-11-03T14:25:15.832Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-03T14:25:24.129Z"
+        }
+      ],
+      "rpc": [],
+      "trace": "traces/run_1jkoiit8893i87.zip",
+      "finalScreenshot": "screenshots/run_1jkoiit8893i87-run_1jkoiit8893i87-final.png",
+      "forkBlocks": {},
+      "mode": "live",
+      "startedAt": "2026-11-03T14:24:52.093Z",
+      "finishedAt": "2026-11-03T14:25:27.789Z"
+    }
+  ],
+  "issues": [
+    {
+      "id": "iss_fpi0vdwocatxwv",
+      "fingerprint": "3bbd792673b52da8",
+      "severity": "medium",
+      "category": "wallet",
+      "title": "No message after rejecting 'MetaMask →'",
+      "summary": "After rejecting the request the page shows no error or hint, so the user doesn't know the action didn't happen.",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "flowName": "Sign in with wallet",
+      "edgeCase": "reject",
+      "runId": "run_ol5y6bhzjqsugf",
+      "stepIndex": 2,
+      "stepsToReproduce": [
+        "Reject the flow's main request in the wallet (error 4001).",
+        "1. Open wallet picker",
+        "2. Choose MetaMask",
+        "3. Approve personal_sign",
+        "4. See \"Enable trading\""
+      ],
+      "expected": "Say the request was rejected and that the user can try again.",
+      "actual": "No feedback text found on the page.",
+      "evidence": {
+        "screenshot": "screenshots/run_ol5y6bhzjqsugf-run_ol5y6bhzjqsugf-final.png",
+        "trace": "traces/run_ol5y6bhzjqsugf.zip",
+        "console": [
+          {
+            "level": "warn",
+            "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+            "at": "2026-11-03T14:22:44.015Z"
+          },
+          {
+            "level": "error",
+            "text": "Failed to load resource: the server responded with a status of 404 ()",
+            "at": "2026-11-03T14:22:45.010Z"
+          },
+          {
+            "level": "error",
+            "text": "Failed to load resource: the server responded with a status of 404 ()",
+            "at": "2026-11-03T14:22:45.017Z"
+          },
+          {
+            "level": "error",
+            "text": "Failed to load resource: the server responded with a status of 404 ()",
+            "at": "2026-11-03T14:22:49.937Z"
+          }
+        ],
+        "rpc": [],
+        "buttonLabel": "MetaMask →",
+        "walletAsked": "personal_sign of \"staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb\""
+      },
+      "createdAt": "2026-11-03T14:22:50.154Z"
+    },
+    {
+      "id": "iss_c13e0ur9751emy",
+      "fingerprint": "f7207dae576fe2c2",
+      "severity": "high",
+      "category": "wallet",
+      "title": "Doesn't handle the wallet being on Ethereum",
+      "summary": "With the wallet on the wrong network the flow broke (Step 5 (Approve eth_signTypedData_v4 MintRequest (PodFaucet)): The wallet could not send the transaction: Invalid parameters: Provided chainId \"129302\" must match the active chainId \"1\") and the dApp neither asked to switch nor told the user.",
+      "flowId": "flow_saixxhzgu1ot41",
+      "flowName": "Mint test funds",
+      "edgeCase": "wrong-network",
+      "runId": "run_1qglzb5d7uvvzx",
+      "stepsToReproduce": [
+        "Start with the wallet on Ethereum instead of pod testnet.",
+        "1. Open wallet picker",
+        "2. Choose MetaMask",
+        "3. Approve personal_sign",
+        "4. Mint test funds",
+        "5. Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+        "6. See \"funds arrive shortly\""
+      ],
+      "expected": "Ask the wallet to switch to pod testnet or show a \"wrong network\" message.",
+      "actual": "Step 5 (Approve eth_signTypedData_v4 MintRequest (PodFaucet)): The wallet could not send the transaction: Invalid parameters: Provided chainId \"129302\" must match the active chainId \"1\"",
+      "evidence": {
+        "screenshot": "screenshots/run_1qglzb5d7uvvzx-run_1qglzb5d7uvvzx-final.png",
+        "trace": "traces/run_1qglzb5d7uvvzx.zip",
+        "console": [
+          {
+            "level": "warn",
+            "text": "App configuration has Solana wallet login enabled, but no Solana wallet connectors have been passed to Privy. Make sure to pass Solana connectors to the `config.externalWallets.solana.connectors` field of the `PrivyProvider`",
+            "at": "2026-11-03T14:24:47.383Z"
+          },
+          {
+            "level": "error",
+            "text": "Failed to load resource: the server responded with a status of 404 ()",
+            "at": "2026-11-03T14:24:48.319Z"
+          },
+          {
+            "level": "error",
+            "text": "Failed to load resource: the server responded with a status of 404 ()",
+            "at": "2026-11-03T14:24:48.334Z"
+          }
+        ],
+        "rpc": []
+      },
+      "createdAt": "2026-11-03T14:24:52.092Z"
+    }
+  ],
+  "signingReviews": [
+    {
+      "id": "sgr_lzodekrdtn1pcp",
+      "requestId": "req_26xrh8xu5q0rga",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "stepIndex": 2,
+      "chainId": 129302,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_1irytmxs5u6y75-run_1irytmxs5u6y75-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: f694d8038b85e1dc5ebb2f26e15fd2426fdefde4ae31bdd4efb4442bfe69af4a\nIssued At: 2026-11-03T14:22:40.602Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "ff3b6c711a6ba8b2",
+      "createdAt": "2026-11-03T14:22:41.181Z"
+    },
+    {
+      "id": "sgr_wljcavzzqtmiyo",
+      "requestId": "req_js2o1v6sd1i97l",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "stepIndex": 2,
+      "chainId": 129302,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_ol5y6bhzjqsugf-run_ol5y6bhzjqsugf-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: f6dc7b4c081bcab5d82fdbbb4868e99b46630384cac4210262b44f084850b3ab\nIssued At: 2026-11-03T14:22:46.195Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "ff3b6c711a6ba8b2",
+      "createdAt": "2026-11-03T14:22:46.414Z"
+    },
+    {
+      "id": "sgr_ilary48u3rdqq2",
+      "requestId": "req_p2czz264u9ydcj",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "stepIndex": 2,
+      "chainId": 1,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_me7iezd92xo182-run_me7iezd92xo182-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 1\nNonce: f892a2e38732909d43c69fc739651f513ed46361c4d6636380481efb4ddba411\nIssued At: 2026-11-03T14:22:53.090Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "ff3b6c711a6ba8b2",
+      "createdAt": "2026-11-03T14:22:53.271Z"
+    },
+    {
+      "id": "sgr_yksld8p4um90mc",
+      "requestId": "req_gm9h356er4gvfw",
+      "flowId": "flow_1g92i6g1lmwubu",
+      "stepIndex": 2,
+      "chainId": 129302,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_sve3yves9h4iet-run_sve3yves9h4iet-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0x6993D3B58881B8780F1489adB8171fd04E593A26\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: fce8148f712d6969b7d39cf2d40e461cabe9e7b9ca84fc4cdfbe9ddf8ffc2e82\nIssued At: 2026-11-03T14:22:58.509Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "ff3b6c711a6ba8b2",
+      "createdAt": "2026-11-03T14:22:58.701Z"
+    },
+    {
+      "id": "sgr_9joa2oplhzfs1v",
+      "requestId": "req_tvbe0xysbchpq2",
+      "flowId": "flow_h3pywkzicyv69v",
+      "stepIndex": 2,
+      "chainId": 129302,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_1oxqyq7uc36zvb-run_1oxqyq7uc36zvb-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: afbf20b7c5707057d595cb49150812a903bd94f5f42ffa70eaa1fa78126a09bf\nIssued At: 2026-11-03T14:24:01.249Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "d83f96e297b56aaa",
+      "createdAt": "2026-11-03T14:24:01.673Z"
+    },
+    {
+      "id": "sgr_02mdckj9obmi1p",
+      "requestId": "req_0epe6du1wbnx3y",
+      "flowId": "flow_h3pywkzicyv69v",
+      "stepIndex": 4,
+      "chainId": 129302,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign DelegationAuth for pod delegation",
+      "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+      "ui": {
+        "buttonLabel": "Enable trading",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_1oxqyq7uc36zvb-run_1oxqyq7uc36zvb-step4-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "contractName": "pod delegation",
+        "args": [
+          {
+            "name": "delegate",
+            "type": "address",
+            "value": "0x9bad6b7e78a792281697c4bc3dd29edcbc8f061f"
+          },
+          {
+            "name": "validUntil",
+            "type": "uint64",
+            "value": "1794320642997000"
+          }
+        ],
+        "primaryType": "DelegationAuth",
+        "domain": {
+          "name": "pod delegation",
+          "version": "1",
+          "chainId": 129302
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Enable trading"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "48abb4b0a1c185e2",
+      "createdAt": "2026-11-03T14:24:03.070Z"
+    },
+    {
+      "id": "sgr_u4tt6cvj8nu2yj",
+      "requestId": "req_ao3itzmjrigval",
+      "flowId": "flow_h3pywkzicyv69v",
+      "stepIndex": 2,
+      "chainId": 1,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_trh7iwrnnrtk0j-run_trh7iwrnnrtk0j-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 1\nNonce: e74b973f092f958738382511bf750d9eae7b4ce10c69e927ab4583414bee4adc\nIssued At: 2026-11-03T14:24:10.233Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "d83f96e297b56aaa",
+      "createdAt": "2026-11-03T14:24:10.415Z"
+    },
+    {
+      "id": "sgr_zl20bxzxvyl8uo",
+      "requestId": "req_drcv91pcgami98",
+      "flowId": "flow_h3pywkzicyv69v",
+      "stepIndex": 4,
+      "chainId": 129302,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign DelegationAuth for pod delegation",
+      "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+      "ui": {
+        "buttonLabel": "Enable trading",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_trh7iwrnnrtk0j-run_trh7iwrnnrtk0j-step4-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "contractName": "pod delegation",
+        "args": [
+          {
+            "name": "delegate",
+            "type": "address",
+            "value": "0x7dc6ac4bb3e39d5831af60ddb3584c334d662c83"
+          },
+          {
+            "name": "validUntil",
+            "type": "uint64",
+            "value": "1794320651713000"
+          }
+        ],
+        "primaryType": "DelegationAuth",
+        "domain": {
+          "name": "pod delegation",
+          "version": "1",
+          "chainId": 129302
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Enable trading"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "48abb4b0a1c185e2",
+      "createdAt": "2026-11-03T14:24:11.775Z"
+    },
+    {
+      "id": "sgr_6txx0f3kcg3c76",
+      "requestId": "req_7h28ynb54xt05q",
+      "flowId": "flow_h3pywkzicyv69v",
+      "stepIndex": 2,
+      "chainId": 129302,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_t6loshwhqce54v-run_t6loshwhqce54v-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0x6993D3B58881B8780F1489adB8171fd04E593A26\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: 5391749ae017e9b8e6a790fae42fa74c53650e4718c7ad6fe1ad2ffa9a021c84\nIssued At: 2026-11-03T14:24:17.146Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "d83f96e297b56aaa",
+      "createdAt": "2026-11-03T14:24:17.350Z"
+    },
+    {
+      "id": "sgr_h6ovbe72bggmir",
+      "requestId": "req_e8n988o7772l7d",
+      "flowId": "flow_h3pywkzicyv69v",
+      "stepIndex": 4,
+      "chainId": 129302,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign DelegationAuth for pod delegation",
+      "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+      "ui": {
+        "buttonLabel": "Enable trading",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_t6loshwhqce54v-run_t6loshwhqce54v-step4-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "contractName": "pod delegation",
+        "args": [
+          {
+            "name": "delegate",
+            "type": "address",
+            "value": "0x5f09989ffd59d1678fb3fa9453055eeef3bd4e25"
+          },
+          {
+            "name": "validUntil",
+            "type": "uint64",
+            "value": "1794320658648000"
+          }
+        ],
+        "primaryType": "DelegationAuth",
+        "domain": {
+          "name": "pod delegation",
+          "version": "1",
+          "chainId": 129302
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Enable trading"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "48abb4b0a1c185e2",
+      "createdAt": "2026-11-03T14:24:18.719Z"
+    },
+    {
+      "id": "sgr_7b6xdi2o0u98oz",
+      "requestId": "req_fihvhcw26mpl3i",
+      "flowId": "flow_saixxhzgu1ot41",
+      "stepIndex": 2,
+      "chainId": 129302,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_0mfo0kfrsu575p-run_0mfo0kfrsu575p-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: cbdcafb7d322c1f58a43f36318d1e85bf4090801930a7fa78b8daa8e361a032d\nIssued At: 2026-11-03T14:24:23.376Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "af074f0d0daa74b4",
+      "createdAt": "2026-11-03T14:24:23.595Z"
+    },
+    {
+      "id": "sgr_jutmh59eqk1ytl",
+      "requestId": "req_bsy0zz0c26me5x",
+      "flowId": "flow_saixxhzgu1ot41",
+      "stepIndex": 4,
+      "chainId": 129302,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign MintRequest for PodFaucet",
+      "summary": "The button says “Mint”. The wallet is asked to sign MintRequest typed data for PodFaucet.",
+      "ui": {
+        "buttonLabel": "Mint",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_0mfo0kfrsu575p-run_0mfo0kfrsu575p-step4-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "contractName": "PodFaucet",
+        "args": [
+          {
+            "name": "recipient",
+            "type": "address",
+            "value": "0xfb5d84932c1a37c70113f92aa0c5d3c3389b56c6"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "value": "0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "value": "1793715984938000"
+          }
+        ],
+        "primaryType": "MintRequest",
+        "domain": {
+          "name": "PodFaucet",
+          "version": "1",
+          "chainId": 129302
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Mint"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "e1d860413da63c15",
+      "createdAt": "2026-11-03T14:24:24.999Z"
+    },
+    {
+      "id": "sgr_ut1e8gw5fv8095",
+      "requestId": "req_j39pbq46fz0c8y",
+      "flowId": "flow_saixxhzgu1ot41",
+      "stepIndex": 2,
+      "chainId": 129302,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_z88lfae2h2j2mh-run_z88lfae2h2j2mh-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: d400d4976e595f89132020d6541421482b70a26f6acc7b4eb59171e3a647f9b7\nIssued At: 2026-11-03T14:24:40.601Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "af074f0d0daa74b4",
+      "createdAt": "2026-11-03T14:24:40.794Z"
+    },
+    {
+      "id": "sgr_mg8p46efo4xni7",
+      "requestId": "req_eg5bpbkvr2l270",
+      "flowId": "flow_saixxhzgu1ot41",
+      "stepIndex": 4,
+      "chainId": 129302,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign MintRequest for PodFaucet",
+      "summary": "The button says “Mint”. The wallet is asked to sign MintRequest typed data for PodFaucet.",
+      "ui": {
+        "buttonLabel": "Mint",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_z88lfae2h2j2mh-run_z88lfae2h2j2mh-step4-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "contractName": "PodFaucet",
+        "args": [
+          {
+            "name": "recipient",
+            "type": "address",
+            "value": "0xfb5d84932c1a37c70113f92aa0c5d3c3389b56c6"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "value": "0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "value": "1793716002150000"
+          }
+        ],
+        "primaryType": "MintRequest",
+        "domain": {
+          "name": "PodFaucet",
+          "version": "1",
+          "chainId": 129302
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Mint"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "e1d860413da63c15",
+      "createdAt": "2026-11-03T14:24:42.241Z"
+    },
+    {
+      "id": "sgr_f845j75gd180tt",
+      "requestId": "req_jvwrclay5h3co1",
+      "flowId": "flow_saixxhzgu1ot41",
+      "stepIndex": 2,
+      "chainId": 1,
+      "method": "personal_sign",
+      "verdict": "check",
+      "title": "Sign in to staging-app.podtestnet.dev",
+      "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+      "ui": {
+        "buttonLabel": "MetaMask →",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_1qglzb5d7uvvzx-run_1qglzb5d7uvvzx-step2-wallet.png"
+      },
+      "decoded": {
+        "kind": "message",
+        "args": [],
+        "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xFb5D84932c1a37C70113f92Aa0c5d3C3389B56c6\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 1\nNonce: 205cd3bf713b4444554e82ae9a3b656aa5ea2a971a6de332642f74e86c607a68\nIssued At: 2026-11-03T14:24:49.778Z\nResources:\n- https://privy.io",
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "MetaMask →"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "message"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "af074f0d0daa74b4",
+      "createdAt": "2026-11-03T14:24:49.990Z"
+    },
+    {
+      "id": "sgr_shjbeix59uenhy",
+      "requestId": "req_yojzszow0hg45h",
+      "flowId": "flow_saixxhzgu1ot41",
+      "stepIndex": 4,
+      "chainId": 1,
+      "method": "eth_signTypedData_v4",
+      "verdict": "check",
+      "title": "Sign MintRequest for PodFaucet",
+      "summary": "The button says “Mint”. The wallet is asked to sign MintRequest typed data for PodFaucet.",
+      "ui": {
+        "buttonLabel": "Mint",
+        "pageUrl": "https://staging-app.podtestnet.dev/trade",
+        "screenshot": "screenshots/run_1qglzb5d7uvvzx-run_1qglzb5d7uvvzx-step4-wallet.png"
+      },
+      "decoded": {
+        "kind": "typedData",
+        "contractName": "PodFaucet",
+        "args": [
+          {
+            "name": "recipient",
+            "type": "address",
+            "value": "0xfb5d84932c1a37c70113f92aa0c5d3c3389b56c6"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "value": "0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "value": "1793716011349000"
+          }
+        ],
+        "primaryType": "MintRequest",
+        "domain": {
+          "name": "PodFaucet",
+          "version": "1",
+          "chainId": 129302
+        },
+        "abiSource": "none"
+      },
+      "approvals": [],
+      "checks": [
+        {
+          "id": "ui-match",
+          "label": "Matches the button",
+          "status": "unverified",
+          "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+          "evidence": {
+            "via": "none",
+            "buttonLabel": "Mint"
+          }
+        },
+        {
+          "id": "verified-source",
+          "label": "Contract has verified source",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "baseline",
+          "label": "Same as last run",
+          "status": "skip",
+          "detail": "No accepted earlier run to compare against."
+        },
+        {
+          "id": "contract-age",
+          "label": "Contract age",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "proxy",
+          "label": "Proxy",
+          "status": "skip",
+          "detail": "No contract involved."
+        },
+        {
+          "id": "token",
+          "label": "Token contract",
+          "status": "skip",
+          "detail": "No token involved."
+        },
+        {
+          "id": "known-bad",
+          "label": "Known-bad lists",
+          "status": "pass",
+          "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+        },
+        {
+          "id": "approval",
+          "label": "Approval scope",
+          "status": "skip",
+          "detail": "Nothing is approved."
+        },
+        {
+          "id": "expectation",
+          "label": "Flow expectation",
+          "status": "pass",
+          "detail": "Matches the flow's expectation.",
+          "evidence": {
+            "expectation": {
+              "kind": "typedData"
+            }
+          }
+        },
+        {
+          "id": "simulation",
+          "label": "Simulated",
+          "status": "skip",
+          "detail": "Nothing to simulate for a signature."
+        },
+        {
+          "id": "erc7730",
+          "label": "ERC-7730 descriptor",
+          "status": "skip",
+          "detail": "No clear-signing descriptor published for this contract."
+        }
+      ],
+      "explanation": "Worth a look. Couldn't compare with the button.",
+      "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+      "fingerprint": "e1d860413da63c15",
+      "createdAt": "2026-11-03T14:24:51.434Z"
+    }
+  ],
+  "costUsd": 0,
+  "stoppedEarly": false
+}

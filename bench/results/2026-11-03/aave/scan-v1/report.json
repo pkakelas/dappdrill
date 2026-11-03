@@ -1,0 +1,30 @@
+{
+  "url": "https://app.aave.com/",
+  "startedAt": "2026-11-03T13:40:49.178Z",
+  "finishedAt": "2026-11-03T13:43:44.859Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334631"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.aave.com/",
+      "title": "Aave - Open Source Liquidity Protocol"
+    },
+    {
+      "url": "https://app.aave.com/dashboard/",
+      "title": "User dashboard: supplies, borrows, assets to supply/borrow"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.8452864000000001,
+  "stoppedEarly": false
+}

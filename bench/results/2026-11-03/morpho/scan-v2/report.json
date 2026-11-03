@@ -1,0 +1,29 @@
+{
+  "url": "https://app.morpho.org/ethereum/earn",
+  "startedAt": "2026-11-03T14:11:38.715Z",
+  "finishedAt": "2026-11-03T14:13:11.805Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334784"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.morpho.org/vaults",
+      "title": "Morpho Vaults"
+    },
+    {
+      "url": "https://app.morpho.org/ethereum/vault/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB/steakhouse-usdc"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 1.2802852,
+  "stoppedEarly": false
+}

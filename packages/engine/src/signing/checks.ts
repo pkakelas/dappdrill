@@ -3,7 +3,7 @@
  * SigningCheck with a plain detail sentence. The verdict is decided in verdict.ts.
  */
 import type { Address } from "viem";
-import { applyParams, chainName, shortAddress, type BaselineChange, type CheckStatus, type SigningCheck, type SigningReview, type WalletExpectation } from "@dappdrill/core";
+import { applyParams, chainName, matchesFunction, shortAddress, type BaselineChange, type CheckStatus, type SigningCheck, type SigningReview, type WalletExpectation } from "@dappdrill/core";
 import { formatUnitsPlain } from "@dappdrill/core";
 import { NEW_CONTRACT_DAYS, hasStake, nativeValue, type Facts, type Subject } from "./facts.js";
 import { isLocalChain } from "./contract.js";
@@ -205,7 +205,7 @@ function expectation(facts: Facts): SigningCheck {
 
   if (exp.kind && exp.kind !== d.kind && !acceptPermit2) problems.push(`expected a ${exp.kind}, got a ${d.kind}`);
   if (exp.to && !same(exp.to, d.to) && !acceptPermit2) problems.push(`expected target ${shortAddress(exp.to)}, got ${d.to ? shortAddress(d.to) : "none"}`);
-  if (exp.functionName && !same(exp.functionName, d.functionName) && !acceptPermit2) problems.push(`expected ${exp.functionName}(), got ${d.functionName ? `${d.functionName}()` : d.primaryType ?? "no function"}`);
+  if (exp.functionName && !matchesFunction(exp.functionName, d) && !acceptPermit2) problems.push(`expected ${exp.functionName}(), got ${d.functionName ? `${d.functionName}()` : d.primaryType ?? "no function"}`);
   if (exp.spenderMustBe && !facts.approvals.some((a) => same(a.spender, exp.spenderMustBe))) {
     problems.push(`expected spender ${shortAddress(exp.spenderMustBe)}, got ${facts.approvals.map((a) => shortAddress(a.spender)).join(", ") || "no approval"}`);
   }

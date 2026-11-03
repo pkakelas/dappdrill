@@ -1,0 +1,6 @@
+{
+  "f765be87d061e820": {
+    "label": "false",
+    "note": "Hyperliquid signs with whatever chain the wallet is on, so Ethereum is fine and asking to switch isn't needed. The flow broke on a missing \"Establish Connection\" button, which the wrong-network check blames on network handling."
+  }
+}

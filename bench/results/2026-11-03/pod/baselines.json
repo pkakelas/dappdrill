@@ -1,0 +1,561 @@
+{
+  "ff3b6c711a6ba8b2": {
+    "id": "sgr_8z3buvm11ceyvs",
+    "requestId": "req_c4ppga0rvdo0sg",
+    "flowId": "flow_1g92i6g1lmwubu",
+    "stepIndex": 2,
+    "chainId": 129302,
+    "method": "personal_sign",
+    "verdict": "check",
+    "title": "Sign in to staging-app.podtestnet.dev",
+    "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+    "ui": {
+      "buttonLabel": "MetaMask →",
+      "pageUrl": "https://staging-app.podtestnet.dev/trade",
+      "screenshot": "screenshots/run_dmoc9qw57d5gqk-run_dmoc9qw57d5gqk-step2-wallet.png"
+    },
+    "decoded": {
+      "kind": "message",
+      "args": [],
+      "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xd84115446668d98fF5477A41A421419AC087D714\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: 3913491d01d6633c98b6368df920b6d8f1ee0e62cc179cff6fde59901d94f6b6\nIssued At: 2026-11-03T14:18:03.318Z\nResources:\n- https://privy.io",
+      "abiSource": "none"
+    },
+    "approvals": [],
+    "checks": [
+      {
+        "id": "ui-match",
+        "label": "Matches the button",
+        "status": "unverified",
+        "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+        "evidence": {
+          "via": "none",
+          "buttonLabel": "MetaMask →"
+        }
+      },
+      {
+        "id": "verified-source",
+        "label": "Contract has verified source",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "baseline",
+        "label": "Same as last run",
+        "status": "skip",
+        "detail": "No accepted earlier run to compare against."
+      },
+      {
+        "id": "contract-age",
+        "label": "Contract age",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "proxy",
+        "label": "Proxy",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "token",
+        "label": "Token contract",
+        "status": "skip",
+        "detail": "No token involved."
+      },
+      {
+        "id": "known-bad",
+        "label": "Known-bad lists",
+        "status": "pass",
+        "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+      },
+      {
+        "id": "approval",
+        "label": "Approval scope",
+        "status": "skip",
+        "detail": "Nothing is approved."
+      },
+      {
+        "id": "expectation",
+        "label": "Flow expectation",
+        "status": "pass",
+        "detail": "Matches the flow's expectation.",
+        "evidence": {
+          "expectation": {
+            "kind": "message"
+          }
+        }
+      },
+      {
+        "id": "simulation",
+        "label": "Simulated",
+        "status": "skip",
+        "detail": "Nothing to simulate for a signature."
+      },
+      {
+        "id": "erc7730",
+        "label": "ERC-7730 descriptor",
+        "status": "skip",
+        "detail": "No clear-signing descriptor published for this contract."
+      }
+    ],
+    "explanation": "Worth a look. Couldn't compare with the button.",
+    "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+    "fingerprint": "ff3b6c711a6ba8b2",
+    "createdAt": "2026-11-03T14:18:03.581Z"
+  },
+  "d83f96e297b56aaa": {
+    "id": "sgr_ntwhfxrjfh2fr1",
+    "requestId": "req_enalqylyc8l6qr",
+    "flowId": "flow_h3pywkzicyv69v",
+    "stepIndex": 2,
+    "chainId": 129302,
+    "method": "personal_sign",
+    "verdict": "check",
+    "title": "Sign in to staging-app.podtestnet.dev",
+    "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+    "ui": {
+      "buttonLabel": "MetaMask →",
+      "pageUrl": "https://staging-app.podtestnet.dev/trade",
+      "screenshot": "screenshots/run_mrfhwuwpy9isq5-run_mrfhwuwpy9isq5-step2-wallet.png"
+    },
+    "decoded": {
+      "kind": "message",
+      "args": [],
+      "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xd84115446668d98fF5477A41A421419AC087D714\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: 99671d5d9f11243a70d7723707a9570b395d31e5d770ca22b965d22ce4bc8567\nIssued At: 2026-11-03T14:18:33.504Z\nResources:\n- https://privy.io",
+      "abiSource": "none"
+    },
+    "approvals": [],
+    "checks": [
+      {
+        "id": "ui-match",
+        "label": "Matches the button",
+        "status": "unverified",
+        "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+        "evidence": {
+          "via": "none",
+          "buttonLabel": "MetaMask →"
+        }
+      },
+      {
+        "id": "verified-source",
+        "label": "Contract has verified source",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "baseline",
+        "label": "Same as last run",
+        "status": "skip",
+        "detail": "No accepted earlier run to compare against."
+      },
+      {
+        "id": "contract-age",
+        "label": "Contract age",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "proxy",
+        "label": "Proxy",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "token",
+        "label": "Token contract",
+        "status": "skip",
+        "detail": "No token involved."
+      },
+      {
+        "id": "known-bad",
+        "label": "Known-bad lists",
+        "status": "pass",
+        "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+      },
+      {
+        "id": "approval",
+        "label": "Approval scope",
+        "status": "skip",
+        "detail": "Nothing is approved."
+      },
+      {
+        "id": "expectation",
+        "label": "Flow expectation",
+        "status": "pass",
+        "detail": "Matches the flow's expectation.",
+        "evidence": {
+          "expectation": {
+            "kind": "message"
+          }
+        }
+      },
+      {
+        "id": "simulation",
+        "label": "Simulated",
+        "status": "skip",
+        "detail": "Nothing to simulate for a signature."
+      },
+      {
+        "id": "erc7730",
+        "label": "ERC-7730 descriptor",
+        "status": "skip",
+        "detail": "No clear-signing descriptor published for this contract."
+      }
+    ],
+    "explanation": "Worth a look. Couldn't compare with the button.",
+    "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+    "fingerprint": "d83f96e297b56aaa",
+    "createdAt": "2026-11-03T14:18:33.694Z"
+  },
+  "48abb4b0a1c185e2": {
+    "id": "sgr_jjgjki3pkgflsg",
+    "requestId": "req_utpkbqdyt2ochf",
+    "flowId": "flow_h3pywkzicyv69v",
+    "stepIndex": 4,
+    "chainId": 129302,
+    "method": "eth_signTypedData_v4",
+    "verdict": "check",
+    "title": "Sign DelegationAuth for pod delegation",
+    "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+    "ui": {
+      "buttonLabel": "Enable trading",
+      "pageUrl": "https://staging-app.podtestnet.dev/trade",
+      "screenshot": "screenshots/run_mrfhwuwpy9isq5-run_mrfhwuwpy9isq5-step4-wallet.png"
+    },
+    "decoded": {
+      "kind": "typedData",
+      "contractName": "pod delegation",
+      "args": [
+        {
+          "name": "delegate",
+          "type": "address",
+          "value": "0x0b2b5f379f559439586e67c20abf5b9700b53616"
+        },
+        {
+          "name": "validUntil",
+          "type": "uint64",
+          "value": "1794320314997000"
+        }
+      ],
+      "primaryType": "DelegationAuth",
+      "domain": {
+        "name": "pod delegation",
+        "version": "1",
+        "chainId": 129302
+      },
+      "abiSource": "none"
+    },
+    "approvals": [],
+    "checks": [
+      {
+        "id": "ui-match",
+        "label": "Matches the button",
+        "status": "unverified",
+        "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+        "evidence": {
+          "via": "none",
+          "buttonLabel": "Enable trading"
+        }
+      },
+      {
+        "id": "verified-source",
+        "label": "Contract has verified source",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "baseline",
+        "label": "Same as last run",
+        "status": "skip",
+        "detail": "No accepted earlier run to compare against."
+      },
+      {
+        "id": "contract-age",
+        "label": "Contract age",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "proxy",
+        "label": "Proxy",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "token",
+        "label": "Token contract",
+        "status": "skip",
+        "detail": "No token involved."
+      },
+      {
+        "id": "known-bad",
+        "label": "Known-bad lists",
+        "status": "pass",
+        "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+      },
+      {
+        "id": "approval",
+        "label": "Approval scope",
+        "status": "skip",
+        "detail": "Nothing is approved."
+      },
+      {
+        "id": "expectation",
+        "label": "Flow expectation",
+        "status": "pass",
+        "detail": "Matches the flow's expectation.",
+        "evidence": {
+          "expectation": {
+            "kind": "typedData"
+          }
+        }
+      },
+      {
+        "id": "simulation",
+        "label": "Simulated",
+        "status": "skip",
+        "detail": "Nothing to simulate for a signature."
+      },
+      {
+        "id": "erc7730",
+        "label": "ERC-7730 descriptor",
+        "status": "skip",
+        "detail": "No clear-signing descriptor published for this contract."
+      }
+    ],
+    "explanation": "Worth a look. Couldn't compare with the button.",
+    "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+    "fingerprint": "48abb4b0a1c185e2",
+    "createdAt": "2026-11-03T14:18:35.059Z"
+  },
+  "af074f0d0daa74b4": {
+    "id": "sgr_23ju680ipnhbst",
+    "requestId": "req_kgbt4tk7ky7oej",
+    "flowId": "flow_saixxhzgu1ot41",
+    "stepIndex": 2,
+    "chainId": 129302,
+    "method": "personal_sign",
+    "verdict": "check",
+    "title": "Sign in to staging-app.podtestnet.dev",
+    "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+    "ui": {
+      "buttonLabel": "MetaMask →",
+      "pageUrl": "https://staging-app.podtestnet.dev/trade",
+      "screenshot": "screenshots/run_mw3ywd4hzlprge-run_mw3ywd4hzlprge-step2-wallet.png"
+    },
+    "decoded": {
+      "kind": "message",
+      "args": [],
+      "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0xd84115446668d98fF5477A41A421419AC087D714\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: 1702e16bb54e3e6428a24c33e97989ad4e2fc7607952132653d073478c132193\nIssued At: 2026-11-03T14:19:51.347Z\nResources:\n- https://privy.io",
+      "abiSource": "none"
+    },
+    "approvals": [],
+    "checks": [
+      {
+        "id": "ui-match",
+        "label": "Matches the button",
+        "status": "unverified",
+        "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+        "evidence": {
+          "via": "none",
+          "buttonLabel": "MetaMask →"
+        }
+      },
+      {
+        "id": "verified-source",
+        "label": "Contract has verified source",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "baseline",
+        "label": "Same as last run",
+        "status": "skip",
+        "detail": "No accepted earlier run to compare against."
+      },
+      {
+        "id": "contract-age",
+        "label": "Contract age",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "proxy",
+        "label": "Proxy",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "token",
+        "label": "Token contract",
+        "status": "skip",
+        "detail": "No token involved."
+      },
+      {
+        "id": "known-bad",
+        "label": "Known-bad lists",
+        "status": "pass",
+        "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+      },
+      {
+        "id": "approval",
+        "label": "Approval scope",
+        "status": "skip",
+        "detail": "Nothing is approved."
+      },
+      {
+        "id": "expectation",
+        "label": "Flow expectation",
+        "status": "pass",
+        "detail": "Matches the flow's expectation.",
+        "evidence": {
+          "expectation": {
+            "kind": "message"
+          }
+        }
+      },
+      {
+        "id": "simulation",
+        "label": "Simulated",
+        "status": "skip",
+        "detail": "Nothing to simulate for a signature."
+      },
+      {
+        "id": "erc7730",
+        "label": "ERC-7730 descriptor",
+        "status": "skip",
+        "detail": "No clear-signing descriptor published for this contract."
+      }
+    ],
+    "explanation": "Worth a look. Couldn't compare with the button.",
+    "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+    "fingerprint": "af074f0d0daa74b4",
+    "createdAt": "2026-11-03T14:19:51.556Z"
+  },
+  "e1d860413da63c15": {
+    "id": "sgr_a6t4roixer5laf",
+    "requestId": "req_cceoasxij5jy38",
+    "flowId": "flow_saixxhzgu1ot41",
+    "stepIndex": 4,
+    "chainId": 129302,
+    "method": "eth_signTypedData_v4",
+    "verdict": "check",
+    "title": "Sign MintRequest for PodFaucet",
+    "summary": "The button says “Mint”. The wallet is asked to sign MintRequest typed data for PodFaucet.",
+    "ui": {
+      "buttonLabel": "Mint",
+      "pageUrl": "https://staging-app.podtestnet.dev/trade",
+      "screenshot": "screenshots/run_mw3ywd4hzlprge-run_mw3ywd4hzlprge-step4-wallet.png"
+    },
+    "decoded": {
+      "kind": "typedData",
+      "contractName": "PodFaucet",
+      "args": [
+        {
+          "name": "recipient",
+          "type": "address",
+          "value": "0xd84115446668d98ff5477a41a421419ac087d714"
+        },
+        {
+          "name": "token",
+          "type": "address",
+          "value": "0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd"
+        },
+        {
+          "name": "deadline",
+          "type": "uint256",
+          "value": "1793715713029000"
+        }
+      ],
+      "primaryType": "MintRequest",
+      "domain": {
+        "name": "PodFaucet",
+        "version": "1",
+        "chainId": 129302
+      },
+      "abiSource": "none"
+    },
+    "approvals": [],
+    "checks": [
+      {
+        "id": "ui-match",
+        "label": "Matches the button",
+        "status": "unverified",
+        "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+        "evidence": {
+          "via": "none",
+          "buttonLabel": "Mint"
+        }
+      },
+      {
+        "id": "verified-source",
+        "label": "Contract has verified source",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "baseline",
+        "label": "Same as last run",
+        "status": "skip",
+        "detail": "No accepted earlier run to compare against."
+      },
+      {
+        "id": "contract-age",
+        "label": "Contract age",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "proxy",
+        "label": "Proxy",
+        "status": "skip",
+        "detail": "No contract involved."
+      },
+      {
+        "id": "token",
+        "label": "Token contract",
+        "status": "skip",
+        "detail": "No token involved."
+      },
+      {
+        "id": "known-bad",
+        "label": "Known-bad lists",
+        "status": "pass",
+        "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+      },
+      {
+        "id": "approval",
+        "label": "Approval scope",
+        "status": "skip",
+        "detail": "Nothing is approved."
+      },
+      {
+        "id": "expectation",
+        "label": "Flow expectation",
+        "status": "pass",
+        "detail": "Matches the flow's expectation.",
+        "evidence": {
+          "expectation": {
+            "kind": "typedData"
+          }
+        }
+      },
+      {
+        "id": "simulation",
+        "label": "Simulated",
+        "status": "skip",
+        "detail": "Nothing to simulate for a signature."
+      },
+      {
+        "id": "erc7730",
+        "label": "ERC-7730 descriptor",
+        "status": "skip",
+        "detail": "No clear-signing descriptor published for this contract."
+      }
+    ],
+    "explanation": "Worth a look. Couldn't compare with the button.",
+    "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+    "fingerprint": "e1d860413da63c15",
+    "createdAt": "2026-11-03T14:19:53.250Z"
+  }
+}

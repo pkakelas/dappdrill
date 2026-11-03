@@ -183,6 +183,12 @@ describe("signing reviewer", () => {
       input(F.signRequest("eth_signTypedData_v4", [F.WALLET, F.permit2Single(F.USDC_MAINNET, F.VAULT, F.usdc(100), 1_900_000_000)]), { buttonLabel: "Approve 100 USDC" }, { flow: flow({ kind: "transaction", functionName: "approve", spenderMustBe: F.VAULT, amountMustEqual: "100", alsoAcceptPermit2: true }) }),
     );
     expect(check(permit2, "expectation")).toMatchObject({ status: "pass" });
+
+    // Recorded without an ABI for the call, so the expectation holds the selector.
+    const bySelector = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { flow: flow({ functionName: "0x095EA7B3" }) }));
+    expect(check(bySelector, "expectation")).toMatchObject({ status: "pass" });
+    const otherSelector = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { flow: flow({ functionName: "0xa1903eab" }) }));
+    expect(check(otherSelector, "expectation").detail).toMatch(/expected 0xa1903eab\(\), got approve\(\)/);
   });
 
   it("uses the model for labels the rules can't settle", async () => {

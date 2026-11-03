@@ -70,6 +70,32 @@ describe("startChains (fork)", () => {
   });
 });
 
+describe("startChains heartbeat", () => {
+  it("mines empty blocks on the wall clock, and pauses while automine is off", async () => {
+    const beating = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], { heartbeatMs: 150 });
+    try {
+      const head = async () => {
+        const b = (await beating.request(CHAIN_ID, "eth_getBlockByNumber", ["latest", false])) as { number: string; timestamp: string };
+        return { number: Number(b.number), timestamp: Number(b.timestamp) };
+      };
+      const start = await head();
+      await new Promise((r) => setTimeout(r, 700));
+      const later = await head();
+      expect(later.number).toBeGreaterThan(start.number);
+      expect(Math.abs(later.timestamp - Date.now() / 1000)).toBeLessThan(5);
+
+      await beating.setAutomine(CHAIN_ID, false);
+      await new Promise((r) => setTimeout(r, 200));
+      const paused = await head();
+      await new Promise((r) => setTimeout(r, 600));
+      expect((await head()).number).toBe(paused.number);
+      await beating.setAutomine(CHAIN_ID, true);
+    } finally {
+      await beating.close();
+    }
+  });
+});
+
 describe("startChains (live)", () => {
   it("refuses mainnet chains unless allowed, and forwards reads otherwise", async () => {
     await expect(startChains([{ id: 1, rpcUrl: fx.rpcUrl, mode: "live" }], {})).rejects.toThrow(/real money/);
@@ -78,5 +104,50 @@ describe("startChains (live)", () => {
     expect(await live.request(CHAIN_ID, "eth_chainId", [])).toBe("0x7a69");
     await expect(live.setBalance(CHAIN_ID, A, 1n)).rejects.toThrow(/needs a fork/);
     await live.close();
+  });
+});
+
+describe("rpcCall", () => {
+  async function busyServer(busyTimes: number, status = 429) {
+    const { createServer } = await import("node:http");
+    let calls = 0;
+    const server = createServer((req, res) => {
+      calls++;
+      req.resume();
+      req.on("end", () => {
+        if (calls <= busyTimes) {
+          res.writeHead(status).end("slow down");
+          return;
+        }
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0x1" }));
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    return { url, calls: () => calls, close: () => new Promise((r) => server.close(r)) };
+  }
+
+  it("retries a rate-limited public RPC before giving up", async () => {
+    const busy = await busyServer(2);
+    try {
+      expect(await rpcCall(busy.url, "eth_chainId", [], { retryDelaysMs: [1, 1, 1] })).toBe("0x1");
+      expect(busy.calls()).toBe(3);
+    } finally {
+      await busy.close();
+    }
+  });
+
+  it("still fails when the RPC stays busy, and doesn't retry other errors", async () => {
+    const busy = await busyServer(10);
+    const broken = await busyServer(10, 400);
+    try {
+      await expect(rpcCall(busy.url, "eth_chainId", [], { retryDelaysMs: [1, 1] })).rejects.toThrow(/HTTP 429/);
+      expect(busy.calls()).toBe(3);
+      await expect(rpcCall(broken.url, "eth_chainId", [], { retryDelaysMs: [1, 1] })).rejects.toThrow(/HTTP 400/);
+      expect(broken.calls()).toBe(1);
+    } finally {
+      await busy.close();
+      await broken.close();
+    }
   });
 });

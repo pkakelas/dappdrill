@@ -1,0 +1,29 @@
+{
+  "url": "https://aerodrome.finance/swap",
+  "startedAt": "2026-11-03T14:19:46.646Z",
+  "finishedAt": "2026-11-03T14:21:23.973Z",
+  "chains": [
+    {
+      "id": 8453,
+      "name": "Base",
+      "rpcUrl": "https://base-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "53463114"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://aerodrome.finance/swap?from=eth&to=0x940181a94a35a4569e4529a3cdfb74e38fd98631&chain0=8453&chain1=8453",
+      "title": "Aerodrome Finance"
+    },
+    {
+      "url": "https://aerodrome.finance/connect"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.8004884,
+  "stoppedEarly": false
+}

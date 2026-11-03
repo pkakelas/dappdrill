@@ -1,0 +1,1744 @@
+{
+  "url": "https://app.compound.finance/",
+  "startedAt": "2026-11-03T14:38:36.482Z",
+  "finishedAt": "2026-11-03T14:41:55.788Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork"
+    }
+  ],
+  "pages": [],
+  "flows": [
+    {
+      "id": "flow_hf2r1fn1rt31id",
+      "name": "Withdraw 40 USDC",
+      "origin": "discovered",
+      "startUrl": "https://app.compound.xyz/?market=usdc-mainnet",
+      "params": [],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "text": "Connect Wallet",
+            "nth": 0
+          }
+        },
+        {
+          "note": "Choose MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1)"
+          }
+        },
+        {
+          "note": "Open Withdraw USDC",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Withdraw USDC"
+          }
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "role": "textbox",
+            "name": "0"
+          },
+          "value": "40"
+        },
+        {
+          "note": "Add withdraw action",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Add Action"
+          }
+        },
+        {
+          "note": "Submit withdraw transaction",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Submit Transaction"
+          }
+        },
+        {
+          "note": "Approve eth_sendTransaction to 0xc3d6…cdc3",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+            "functionName": "0xf3fef3a3"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "4,940.0000"
+          }
+        }
+      ],
+      "chainId": 1,
+      "setup": [
+        {
+          "id": "flow_iy8y7nffjbm7tx",
+          "name": "Supply 100 USDC",
+          "origin": "discovered",
+          "startUrl": "https://app.compound.xyz/?market=usdc-mainnet",
+          "params": [],
+          "steps": [
+            {
+              "note": "Open wallet picker",
+              "optional": true,
+              "kind": "click",
+              "target": {
+                "text": "Connect Wallet",
+                "nth": 0
+              }
+            },
+            {
+              "note": "Choose MetaMask",
+              "optional": true,
+              "kind": "click",
+              "target": {
+                "css": "div > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1)"
+              }
+            },
+            {
+              "note": "Open Supply USDC modal",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Supply USDC"
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0"
+              },
+              "value": "100"
+            },
+            {
+              "note": "Approve USDC and supply",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Approve & Add"
+              }
+            },
+            {
+              "note": "Approve eth_sendTransaction to 0xa0b8…eb48",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "functionName": "approve",
+                "spenderMustBe": "0xc3d688b66703497daa19211eedff47f25384cdc3"
+              }
+            },
+            {
+              "note": "Submit supply transaction",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Submit Transaction"
+              }
+            },
+            {
+              "note": "Approve eth_sendTransaction to 0xc3d6…cdc3",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+                "functionName": "0xf2b9fdb8"
+              }
+            },
+            {
+              "kind": "expect",
+              "assert": {
+                "type": "visible",
+                "text": "Supplying @ 3.25% Net APR"
+              }
+            }
+          ],
+          "chainId": 1
+        }
+      ]
+    },
+    {
+      "id": "flow_iy8y7nffjbm7tx",
+      "name": "Supply 100 USDC",
+      "origin": "discovered",
+      "startUrl": "https://app.compound.xyz/?market=usdc-mainnet",
+      "params": [],
+      "steps": [
+        {
+          "note": "Open wallet picker",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "text": "Connect Wallet",
+            "nth": 0
+          }
+        },
+        {
+          "note": "Choose MetaMask",
+          "optional": true,
+          "kind": "click",
+          "target": {
+            "css": "div > div:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(4) > div:nth-of-type(1)"
+          }
+        },
+        {
+          "note": "Open Supply USDC modal",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Supply USDC"
+          }
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "role": "textbox",
+            "name": "0"
+          },
+          "value": "100"
+        },
+        {
+          "note": "Approve USDC and supply",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Approve & Add"
+          }
+        },
+        {
+          "note": "Approve eth_sendTransaction to 0xa0b8…eb48",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "functionName": "approve",
+            "spenderMustBe": "0xc3d688b66703497daa19211eedff47f25384cdc3"
+          }
+        },
+        {
+          "note": "Submit supply transaction",
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Submit Transaction"
+          }
+        },
+        {
+          "note": "Approve eth_sendTransaction to 0xc3d6…cdc3",
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+            "functionName": "0xf2b9fdb8"
+          }
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "Supplying @ 3.25% Net APR"
+          }
+        }
+      ],
+      "chainId": 1
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_tb5a9412bvznwh",
+      "flowId": "flow_hf2r1fn1rt31id",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Setup flow “Supply 100 USDC” didn't complete: Step 9 (See \"Supplying @ 3.25% Net APR\"): Expected to see \"Supplying @ 3.25% Net APR\" but it never appeared",
+      "steps": [],
+      "walletRequests": [],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [],
+      "forkBlocks": {},
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:39:19.302Z",
+      "finishedAt": "2026-11-03T14:39:19.302Z"
+    },
+    {
+      "id": "run_ihwjikplgnn8cz",
+      "flowId": "flow_iy8y7nffjbm7tx",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Step 3 (Open Supply USDC modal): Could not find role=button name=\"Supply USDC\" (tried button \"Supply USDC\", button ~\"Supply USDC\")",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 756
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 860
+        },
+        {
+          "index": 2,
+          "status": "fail",
+          "durationMs": 15309,
+          "error": "Could not find role=button name=\"Supply USDC\" (tried button \"Supply USDC\", button ~\"Supply USDC\")",
+          "screenshot": "screenshots/run_ihwjikplgnn8cz-run_ihwjikplgnn8cz-step2-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_s1150mj2iurszl",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:39:30.821Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_7lyyob3wde812q",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+                  ]
+                }
+              ],
+              "date": 1793716770821
+            }
+          ]
+        },
+        {
+          "id": "req_el901z6vah71vo",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:30.909Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_ieqv1jhuck2b5e",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:30.910Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_50bzu36tids11z",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:31.018Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_7tybmqohxxdnye",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:31.030Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_buymkjh6esgu1s",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:31.119Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_pgxp4urvkztb6q",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:31.120Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_f09fqxen3b3pf3",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:31.167Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_3a3fedhy7q5uzr",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:31.290Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_1c258o5ja1cwdc",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:39:32.051Z",
+          "outcome": "approved",
+          "result": "0x1"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:39:24.815Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 8,
+          "at": "2026-11-03T14:39:24.873Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 13,
+          "at": "2026-11-03T14:39:26.818Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 15,
+          "at": "2026-11-03T14:39:32.073Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 9,
+          "at": "2026-11-03T14:39:33.534Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 15673,
+          "at": "2026-11-03T14:39:40.599Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 15767,
+          "at": "2026-11-03T14:39:40.614Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14126,
+          "at": "2026-11-03T14:39:40.984Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 13343,
+          "at": "2026-11-03T14:39:45.430Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11879,
+          "at": "2026-11-03T14:39:45.432Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 22,
+          "at": "2026-11-03T14:39:45.502Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 390,
+          "at": "2026-11-03T14:39:45.966Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 392,
+          "at": "2026-11-03T14:39:45.967Z"
+        }
+      ],
+      "trace": "traces/run_ihwjikplgnn8cz.zip",
+      "finalScreenshot": "screenshots/run_ihwjikplgnn8cz-run_ihwjikplgnn8cz-final.png",
+      "forkBlocks": {
+        "1": "26334918"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:39:19.402Z",
+      "finishedAt": "2026-11-03T14:39:48.992Z"
+    },
+    {
+      "id": "run_ypij26v1t3is9e",
+      "flowId": "flow_iy8y7nffjbm7tx",
+      "edgeCase": "reject",
+      "status": "fail",
+      "reason": "Step 3 (Open Supply USDC modal): Could not find role=button name=\"Supply USDC\" (tried button \"Supply USDC\", button ~\"Supply USDC\")",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 542
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 549
+        },
+        {
+          "index": 2,
+          "status": "fail",
+          "durationMs": 15204,
+          "error": "Could not find role=button name=\"Supply USDC\" (tried button \"Supply USDC\", button ~\"Supply USDC\")",
+          "screenshot": "screenshots/run_ypij26v1t3is9e-run_ypij26v1t3is9e-step2-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_93txi9qwmprptx",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:40:01.358Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_7ez2ca348jwh6f",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+                  ]
+                }
+              ],
+              "date": 1793716801360
+            }
+          ]
+        },
+        {
+          "id": "req_zkdz7ew2t3xx75",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.378Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_42q56dbzhx59j4",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.378Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_8sek61sammeube",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.400Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_f6ccumvcfxnh2l",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.400Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_plp9tfo1xmszzr",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.421Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_n1j93z591o76gd",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.421Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_j2z3kfff2j1za6",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.439Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_lcaapq9i03smj9",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:01.459Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_9e8tx39w5r6j8n",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:02.367Z",
+          "outcome": "approved",
+          "result": "0x1"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 5,
+          "at": "2026-11-03T14:39:56.441Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:39:56.491Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 14,
+          "at": "2026-11-03T14:39:57.491Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:40:02.373Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:40:03.685Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14896,
+          "at": "2026-11-03T14:40:11.447Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14995,
+          "at": "2026-11-03T14:40:11.466Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14305,
+          "at": "2026-11-03T14:40:11.816Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 13577,
+          "at": "2026-11-03T14:40:15.967Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12263,
+          "at": "2026-11-03T14:40:15.968Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:40:15.993Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:40:15.994Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 410,
+          "at": "2026-11-03T14:40:16.415Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 408,
+          "at": "2026-11-03T14:40:16.416Z"
+        }
+      ],
+      "trace": "traces/run_ypij26v1t3is9e.zip",
+      "finalScreenshot": "screenshots/run_ypij26v1t3is9e-run_ypij26v1t3is9e-final.png",
+      "forkBlocks": {
+        "1": "26334918"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:39:48.999Z",
+      "finishedAt": "2026-11-03T14:40:19.478Z"
+    },
+    {
+      "id": "run_z7bark0zf7ep7v",
+      "flowId": "flow_iy8y7nffjbm7tx",
+      "edgeCase": "wrong-network",
+      "status": "fail",
+      "reason": "Step 6 (Approve eth_sendTransaction to 0xa0b8…eb48): the dApp sent no signing request within 30s",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 91
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 545
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 12931
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 35
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 473
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30043,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_z7bark0zf7ep7v-run_z7bark0zf7ep7v-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_fdu9jawif9crpi",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 11155111,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:40:30.079Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_rc276t1fyyv44n",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+                  ]
+                }
+              ],
+              "date": 1793716830080
+            }
+          ]
+        },
+        {
+          "id": "req_fdolhdaanjskqi",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.126Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        },
+        {
+          "id": "req_u1klsi2x9pejsn",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.126Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_jsbyoff7bc3fi1",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.135Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_49bnmgz1nom677",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.135Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        },
+        {
+          "id": "req_69anys8xiioxk8",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.142Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_j9mnkh246itzdh",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.142Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        },
+        {
+          "id": "req_5c261fidsl9q2e",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.153Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        },
+        {
+          "id": "req_j5i58jxi27er73",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:30.170Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        },
+        {
+          "id": "req_uxr2xxjxzlv7va",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 11155111,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:40:31.260Z",
+          "outcome": "approved",
+          "result": "0xaa36a7"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 4,
+          "at": "2026-11-03T14:40:24.668Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:40:24.956Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:40:26.683Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:40:31.277Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:40:32.522Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12916,
+          "at": "2026-11-03T14:40:37.875Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 13202,
+          "at": "2026-11-03T14:40:37.877Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11399,
+          "at": "2026-11-03T14:40:38.087Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 10995,
+          "at": "2026-11-03T14:40:42.293Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 9768,
+          "at": "2026-11-03T14:40:42.294Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 34,
+          "at": "2026-11-03T14:40:42.357Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 318,
+          "at": "2026-11-03T14:40:42.707Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 317,
+          "at": "2026-11-03T14:40:42.707Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:12.518Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 8,
+          "at": "2026-11-03T14:41:12.532Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:12.544Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:41:12.549Z"
+        }
+      ],
+      "trace": "traces/run_z7bark0zf7ep7v.zip",
+      "finalScreenshot": "screenshots/run_z7bark0zf7ep7v-run_z7bark0zf7ep7v-final.png",
+      "forkBlocks": {
+        "1": "26334918"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:40:19.479Z",
+      "finishedAt": "2026-11-03T14:41:14.823Z"
+    },
+    {
+      "id": "run_zr1j4mcntnkyp4",
+      "flowId": "flow_iy8y7nffjbm7tx",
+      "edgeCase": "switch-account",
+      "status": "skipped",
+      "reason": "couldn't finish as the second account (Step 5 (Approve USDC and supply): Could not find role=button name=\"Approve & Add\" (tried button \"Approve & Add\", button ~\"Approve & Add\")); no requests from the old account",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 87
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 484
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 12288
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 25
+        },
+        {
+          "index": 4,
+          "status": "fail",
+          "durationMs": 15942,
+          "error": "Could not find role=button name=\"Approve & Add\" (tried button \"Approve & Add\", button ~\"Approve & Add\")",
+          "screenshot": "screenshots/run_zr1j4mcntnkyp4-run_zr1j4mcntnkyp4-step4-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_iluzezxu8d2jw5",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T14:41:26.583Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_fzkugvh1ig4mbl",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+                  ]
+                }
+              ],
+              "date": 1793716886584
+            }
+          ]
+        },
+        {
+          "id": "req_n4kmiebfhzg04u",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.590Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_qyxad7v5ct08lf",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.590Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_2iq3k7ra9ra81w",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.593Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_vuo0lq7lfic23j",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.593Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_z05kf3k000lwrp",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.602Z",
+          "outcome": "approved",
+          "result": [
+            "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d"
+          ]
+        },
+        {
+          "id": "req_xgc06ux39gqetl",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.603Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_e9q7b2jivpw63q",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.606Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_c5zdl1lckjeuhl",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:26.610Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_v2ht54wku6d708",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0x9e0B39291e61B36f2E19BD392e4d84fE6096756d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:28.171Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_95rery7ofbir08",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.927Z",
+          "outcome": "approved",
+          "result": [
+            "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72"
+          ]
+        },
+        {
+          "id": "req_zdqrzzx7ue0dzx",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.927Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_q3tto44470dwa9",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.927Z",
+          "outcome": "approved",
+          "result": [
+            "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72"
+          ]
+        },
+        {
+          "id": "req_ve4qlhrj8tnegi",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.927Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_fe4q79eh60avon",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.931Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_x887hxktm9bmff",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.937Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_vxunk3csh19gcd",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.937Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_49xq3vwu8emq6q",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:38.954Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_xn22cpn7o1l2rp",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xCAe6fE8cBFaBb48653Bd83F582A4ca4bd28E8F72",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T14:41:40.022Z",
+          "outcome": "approved",
+          "result": "0x1"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 6,
+          "at": "2026-11-03T14:41:21.159Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:21.476Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:23.440Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:28.177Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:41:30.132Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12516,
+          "at": "2026-11-03T14:41:33.692Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12214,
+          "at": "2026-11-03T14:41:33.694Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 10433,
+          "at": "2026-11-03T14:41:33.876Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 10042,
+          "at": "2026-11-03T14:41:38.223Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 8088,
+          "at": "2026-11-03T14:41:38.227Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:38.255Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:38.273Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 294,
+          "at": "2026-11-03T14:41:38.603Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 295,
+          "at": "2026-11-03T14:41:38.605Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:41:38.943Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:39.436Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 7,
+          "at": "2026-11-03T14:41:39.449Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:40.025Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T14:41:42.146Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3435,
+          "at": "2026-11-03T14:41:42.394Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2367,
+          "at": "2026-11-03T14:41:42.395Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T14:41:42.406Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 1,
+          "at": "2026-11-03T14:41:42.409Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 436,
+          "at": "2026-11-03T14:41:42.586Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_chainId",
+          "via": "page",
+          "durationMs": 3,
+          "at": "2026-11-03T14:41:42.594Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 287,
+          "at": "2026-11-03T14:41:42.696Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 100,
+          "at": "2026-11-03T14:41:42.697Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://node-provider-v3-app.compound.xyz/ethereum-mainnet",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 286,
+          "at": "2026-11-03T14:41:42.697Z"
+        }
+      ],
+      "trace": "traces/run_zr1j4mcntnkyp4.zip",
+      "finalScreenshot": "screenshots/run_zr1j4mcntnkyp4-run_zr1j4mcntnkyp4-final.png",
+      "forkBlocks": {
+        "1": "26334918"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T14:41:14.824Z",
+      "finishedAt": "2026-11-03T14:41:55.783Z"
+    }
+  ],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0,
+  "stoppedEarly": false
+}

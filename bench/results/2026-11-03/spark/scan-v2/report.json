@@ -1,0 +1,33 @@
+{
+  "url": "https://app.spark.fi/",
+  "startedAt": "2026-11-03T14:10:52.312Z",
+  "finishedAt": "2026-11-03T14:12:08.003Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334780"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://app.spark.finance/",
+      "title": "Spark: Earn on your stablecoins"
+    },
+    {
+      "url": "https://app.spark.fi/",
+      "title": "Savings overview: list of savings accounts (USDC, USDT, USDS, ETH, PYUSD, stUSDS) with APYs and deposit entry"
+    },
+    {
+      "url": "https://app.spark.finance/savings/mainnet/speth"
+    }
+  ],
+  "flows": [],
+  "runs": [],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 0.9989817999999998,
+  "stoppedEarly": false
+}

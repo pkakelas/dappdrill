@@ -1,0 +1,1095 @@
+{
+  "url": "https://stake.lido.fi/",
+  "startedAt": "2026-11-03T13:40:49.161Z",
+  "finishedAt": "2026-11-03T13:47:27.516Z",
+  "chains": [
+    {
+      "id": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "mode": "fork",
+      "forkBlock": "26334631"
+    }
+  ],
+  "pages": [
+    {
+      "url": "https://stake.lido.fi/",
+      "title": "Stake with Lido | Lido"
+    },
+    {
+      "url": "https://stake.lido.fi/wrap",
+      "title": "Wrap stETH/ETH into wstETH and unwrap back"
+    }
+  ],
+  "flows": [
+    {
+      "id": "flow_tpr3dq1c0crf0m",
+      "name": "Stake 0.05 ETH",
+      "origin": "discovered",
+      "startUrl": "https://stake.lido.fi/",
+      "params": [
+        {
+          "name": "amount",
+          "default": "0.05",
+          "description": "Amount typed into the form"
+        }
+      ],
+      "steps": [
+        {
+          "kind": "click",
+          "target": {
+            "css": "div:nth-of-type(1) > header > div:nth-of-type(3) > button:nth-of-type(1)"
+          },
+          "note": "Open wallet picker",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "css": "div > div > div:nth-of-type(2) > div > div:nth-of-type(1) > label > label > svg",
+            "withinDialog": true
+          },
+          "note": "Accept terms checkbox",
+          "optional": true
+        },
+        {
+          "kind": "click",
+          "target": {
+            "role": "button",
+            "name": "Browser",
+            "withinDialog": true
+          },
+          "note": "Choose Browser (injected) wallet",
+          "optional": true
+        },
+        {
+          "kind": "fill",
+          "target": {
+            "testId": "stakeInput"
+          },
+          "value": "{{amount}}"
+        },
+        {
+          "kind": "click",
+          "target": {
+            "testId": "stakeSubmitBtn"
+          },
+          "note": "Submit stake"
+        },
+        {
+          "kind": "wallet",
+          "respond": "approve",
+          "expect": {
+            "kind": "transaction",
+            "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+            "functionName": "0xa1903eab",
+            "amountMustEqual": "{{amount}}"
+          },
+          "note": "Approve eth_sendTransaction to 0xae7a…fe84"
+        },
+        {
+          "kind": "press",
+          "key": "Escape"
+        },
+        {
+          "kind": "expect",
+          "assert": {
+            "type": "visible",
+            "text": "99.9499 ETH"
+          }
+        }
+      ],
+      "chainId": 1
+    }
+  ],
+  "runs": [
+    {
+      "id": "run_gjmidgbwt163o6",
+      "flowId": "flow_tpr3dq1c0crf0m",
+      "edgeCase": "happy",
+      "status": "fail",
+      "reason": "Step 6 (Approve eth_sendTransaction to 0xae7a…fe84): the dApp sent no signing request within 30s",
+      "steps": [
+        {
+          "index": 0,
+          "status": "pass",
+          "durationMs": 873
+        },
+        {
+          "index": 1,
+          "status": "pass",
+          "durationMs": 563
+        },
+        {
+          "index": 2,
+          "status": "pass",
+          "durationMs": 726
+        },
+        {
+          "index": 3,
+          "status": "pass",
+          "durationMs": 706
+        },
+        {
+          "index": 4,
+          "status": "pass",
+          "durationMs": 4391
+        },
+        {
+          "index": 5,
+          "status": "fail",
+          "durationMs": 30087,
+          "error": "the dApp sent no signing request within 30s",
+          "screenshot": "screenshots/run_gjmidgbwt163o6-run_gjmidgbwt163o6-step5-fail.png"
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_16zaizkflbpu1s",
+          "method": "wallet_requestPermissions",
+          "params": [
+            {
+              "eth_accounts": {}
+            }
+          ],
+          "chainId": 1,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-03T13:45:46.788Z",
+          "outcome": "approved",
+          "result": [
+            {
+              "id": "perm_xmdrr22ek9ruoz",
+              "parentCapability": "eth_accounts",
+              "invoker": "",
+              "caveats": [
+                {
+                  "type": "restrictReturnedAccounts",
+                  "value": [
+                    "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d"
+                  ]
+                }
+              ],
+              "date": 1793713546789
+            }
+          ]
+        },
+        {
+          "id": "req_e6cvrkjjpi4va1",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:46.979Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_n5ggvfip1od2x8",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:46.985Z",
+          "outcome": "approved",
+          "result": [
+            "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d"
+          ]
+        },
+        {
+          "id": "req_9g8tu7dnyggpyc",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.311Z",
+          "outcome": "approved",
+          "result": [
+            "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d"
+          ]
+        },
+        {
+          "id": "req_wzop6fi6gt4w5s",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.312Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_h954n5z8j8j6mg",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.360Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_za31zvrinoay29",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.423Z",
+          "outcome": "approved",
+          "result": [
+            "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d"
+          ]
+        },
+        {
+          "id": "req_zi05rmnd68u2gs",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.437Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_2crpsucx6judoc",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.437Z",
+          "outcome": "approved",
+          "result": [
+            "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d"
+          ]
+        },
+        {
+          "id": "req_3u7ohh57lsbc8j",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.437Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_nclcmhvhgrv7wh",
+          "method": "wallet_getCapabilities",
+          "params": [
+            "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d"
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.966Z",
+          "outcome": "approved",
+          "result": {
+            "0x1": {}
+          }
+        },
+        {
+          "id": "req_4i0go1t5v1426y",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:47.967Z",
+          "outcome": "approved",
+          "result": "0x1"
+        },
+        {
+          "id": "req_nlww9zgqbd8nj9",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xfde7938b",
+              "to": "0xC1db28B3301331277e307FDCfF8DE28242A4486E"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:54.588Z",
+          "outcome": "errored",
+          "error": "-32603 failed to get account for 0xC1db28B3301331277e307FDCfF8DE28242A4486E: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":393}\n\nHTTP diagnostics:\ncf-ray: a54bd2971995eea0-ATH\nserver: cloudflare"
+        },
+        {
+          "id": "req_usicvtzqwpw4km",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:45:59.371Z",
+          "outcome": "approved",
+          "result": "0x191d5a7"
+        },
+        {
+          "id": "req_xhwznjq9pyox4l",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xfa5093eb",
+              "to": "0xFdDf38947aFB03C621C71b06C9C70bce73f12999"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:46:01.161Z",
+          "outcome": "errored",
+          "error": "-32603 failed to get storage for 0xFdDf38947aFB03C621C71b06C9C70bce73f12999 at 6008225922440225403210475765274065390675659435721132440038799981819189218002: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":479}\n\nHTTP diagnostics:\ncf-ray: a54bd347fbdbeea0-ATH\nserver: cloudflare"
+        },
+        {
+          "id": "req_qfm22xittl5l8b",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0x665b4b0b",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:46:01.161Z",
+          "outcome": "errored",
+          "error": "-32603 failed to get storage for 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84 at 96860829410266183739968109275744835355652829419177135718944944339455505294235: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":420}\n\nHTTP diagnostics:\ncf-ray: a54bd2ca5859eea0-ATH\nserver: cloudflare"
+        },
+        {
+          "id": "req_w0r7qxfiahlnke",
+          "method": "eth_estimateGas",
+          "params": [
+            {
+              "data": "0xa1903eab0000000000000000000000000000000000000000000000000000000000000000",
+              "from": "0x87c0e047F4e4D3e289A56a36570D4CB957A37Ef1",
+              "to": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "value": "0x38d7ea4c68000"
+            }
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:46:01.162Z",
+          "outcome": "errored",
+          "error": "-32603 failed to apply withdrawal requests contract call: execution failed: database error: failed to get storage for 0x00000961Ef480Eb55e80D19ad83579A64c007002 at 3: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":472}\n\nHTTP diagnostics:\ncf-ray: a54bd32a8ed9eea0-ATH\nserver: cloudflare"
+        },
+        {
+          "id": "req_53erccfvjpe9xw",
+          "method": "eth_getBalance",
+          "params": [
+            "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:46:05.762Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        },
+        {
+          "id": "req_avqfu80oaj8g34",
+          "method": "eth_blockNumber",
+          "params": [],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:46:11.387Z",
+          "outcome": "approved",
+          "result": "0x191d5a7"
+        },
+        {
+          "id": "req_hwl1wwpa23mn8u",
+          "method": "eth_getBalance",
+          "params": [
+            "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:46:17.778Z",
+          "outcome": "approved",
+          "result": "0x56bc75e2d63100000"
+        },
+        {
+          "id": "req_ppjfqjx56hjlln",
+          "method": "eth_call",
+          "params": [
+            {
+              "data": "0xfde7938b",
+              "to": "0xC1db28B3301331277e307FDCfF8DE28242A4486E"
+            },
+            "latest"
+          ],
+          "chainId": 1,
+          "from": "0xe40f91F669587B0d7814d8Dc610B7252E43BdF7d",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-03T13:46:20.766Z",
+          "outcome": "approved",
+          "result": "0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000006895cfbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "signingReviewIds": [],
+      "issueIds": [],
+      "console": [
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.037Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_feeHistory, params: Array(3), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:50.038Z"
+        },
+        {
+          "level": "warn",
+          "text": "[StakeForm] Unhandled validation error in resolver Error: promise timeout\n    at https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:934:622583",
+          "at": "2026-11-03T13:45:52.223Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nReq…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.046Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nReq…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.046Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.588Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.588Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.588Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.588Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.588Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.588Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:45:54.588Z"
+        },
+        {
+          "level": "warn",
+          "text": "[StakeForm] Unhandled validation error in resolver Error: promise timeout\n    at https://stake.lido.fi/_next/static/chunks/pages/_app-7cca095943bc9cf6.js:934:622583",
+          "at": "2026-11-03T13:45:56.414Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:00.476Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: InternalRpcError: An internal error was received.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body: …, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:00.476Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: InternalRpcError: An internal error was received.\n\nDetails: failed to get account for 0xC1db28B3301…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:00.476Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: InternalRpcError: An internal error was received.\n\nDetails: failed to get storage for 0xae7ab96520D…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:08.408Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:10.511Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:10.512Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:10.512Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: TimeoutError: The request took too long to respond.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:20.609Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:20.609Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: false) {error: TimeoutError: The request took too long to respond.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:20.609Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: InternalRpcError: An internal error was received.\n\nDetails: failed to apply withdrawal requests con…, method: eth_estimateGas, params: Array(1), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:23.816Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: InternalRpcError: An internal error was received.\n\nDetails: failed to get storage for 0xFdDf38947aF…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:28.504Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: TimeoutError: The request took too long to respond.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nR…, method: eth_estimateGas, params: Array(1), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:33.969Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: InternalRpcError: An internal error was received.\n\nURL: https://stake.lido.fi/api/rpc?chainId=1\nReq…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:35.413Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: TimeoutError: The request took too long to respond.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body…, method: eth_estimateGas, params: Array(1), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:44.158Z"
+        },
+        {
+          "level": "warn",
+          "text": "[runtimeMutableTransport] error in RuntimeMutableTransport(using injected: true) {error: TimeoutError: The request took too long to respond.\n\nURL: https://ethereum.reth.rs/rpc\nRequest body…, method: eth_call, params: Array(2), transport: Object, status: error}",
+          "at": "2026-11-03T13:46:45.572Z"
+        }
+      ],
+      "rpc": [
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 1151,
+          "at": "2026-11-03T13:45:41.309Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getBalance",
+          "via": "page",
+          "durationMs": 11,
+          "at": "2026-11-03T13:45:47.968Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_getCode",
+          "via": "page",
+          "durationMs": 12,
+          "at": "2026-11-03T13:45:47.969Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11176,
+          "at": "2026-11-03T13:45:51.335Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1154,
+          "at": "2026-11-03T13:45:51.335Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11638,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.796Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11702,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.861Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11747,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.905Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11783,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.941Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11781,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.941Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11784,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.942Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1761,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.942Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1762,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.942Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1761,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.942Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1761,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.942Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 11784,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.943Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1763,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.943Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1760,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.943Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1763,
+          "error": "-32603 failed to get account for 0x60E09F1791F1168d0450E4F100616B4a3F95119C: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":371}\n\nHTTP diagnostics:\ncf-ray: a54bd2610b88eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:51.943Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_feeHistory",
+          "via": "page",
+          "durationMs": 2228,
+          "at": "2026-11-03T13:45:52.408Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5649,
+          "error": "-32603 failed to get account for 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":373}\n\nHTTP diagnostics:\ncf-ray: a54bd26d7f07eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:53.606Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5710,
+          "error": "-32603 failed to get account for 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":376}\n\nHTTP diagnostics:\ncf-ray: a54bd26d7f03eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:53.668Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14039,
+          "error": "-32603 failed to get account for 0x7d4E742018fb52E48b08BE73d041C18B21de6Fb5: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":382}\n\nHTTP diagnostics:\ncf-ray: a54bd2714a9feea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:54.197Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 4035,
+          "error": "-32603 failed to get account for 0x7d4E742018fb52E48b08BE73d041C18B21de6Fb5: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":382}\n\nHTTP diagnostics:\ncf-ray: a54bd2714a9feea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:54.214Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 4034,
+          "error": "-32603 failed to get account for 0x7d4E742018fb52E48b08BE73d041C18B21de6Fb5: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":382}\n\nHTTP diagnostics:\ncf-ray: a54bd2714a9feea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:54.214Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 14071,
+          "error": "-32603 failed to get account for 0x7d4E742018fb52E48b08BE73d041C18B21de6Fb5: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":382}\n\nHTTP diagnostics:\ncf-ray: a54bd2714a9feea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:45:54.229Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3392,
+          "at": "2026-11-03T13:45:58.963Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3393,
+          "at": "2026-11-03T13:45:58.964Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3394,
+          "at": "2026-11-03T13:45:58.965Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3394,
+          "at": "2026-11-03T13:45:58.965Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3398,
+          "at": "2026-11-03T13:45:58.968Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3402,
+          "at": "2026-11-03T13:45:58.973Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 3403,
+          "at": "2026-11-03T13:45:58.974Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5970,
+          "error": "-32603 failed to get account for 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":387}\n\nHTTP diagnostics:\ncf-ray: a54bd296e970eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:46:00.253Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5763,
+          "error": "-32603 failed to get account for 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":389}\n\nHTTP diagnostics:\ncf-ray: a54bd296e96eeea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:46:00.254Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5581,
+          "error": "-32603 failed to get account for 0x7d4E742018fb52E48b08BE73d041C18B21de6Fb5: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":394}\n\nHTTP diagnostics:\ncf-ray: a54bd29d3862eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:46:01.151Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5581,
+          "error": "-32603 failed to get account for 0x7d4E742018fb52E48b08BE73d041C18B21de6Fb5: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":394}\n\nHTTP diagnostics:\ncf-ray: a54bd29d3862eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:46:01.151Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5599,
+          "at": "2026-11-03T13:46:07.273Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5871,
+          "at": "2026-11-03T13:46:07.545Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 7927,
+          "error": "-32603 failed to get storage for 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 at 32203758720218865506812135374676112245928756257036080333568837447966752045453: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":419}\n\nHTTP diagnostics:\ncf-ray: a54bd2ca5857eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:46:08.404Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 7928,
+          "error": "-32603 failed to get storage for 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84 at 96860829410266183739968109275744835355652829419177135718944944339455505294235: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":420}\n\nHTTP diagnostics:\ncf-ray: a54bd2ca5859eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:46:08.405Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2280,
+          "at": "2026-11-03T13:46:12.903Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 5177,
+          "at": "2026-11-03T13:46:13.772Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 2,
+          "at": "2026-11-03T13:46:21.067Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12054,
+          "at": "2026-11-03T13:46:22.676Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 1612,
+          "at": "2026-11-03T13:46:22.676Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://ethereum.reth.rs/rpc",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 12126,
+          "at": "2026-11-03T13:46:22.748Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 22272,
+          "at": "2026-11-03T13:46:22.748Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_call",
+          "via": "page",
+          "durationMs": 6745,
+          "error": "-32603 failed to get storage for 0xFdDf38947aFB03C621C71b06C9C70bce73f12999 at 6008225922440225403210475765274065390675659435721132440038799981819189218000: Max retries exceeded HTTP error 429 with body: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32005,\"message\":\"Rate limit exceeded. To obtain higher limits, please request a personal token or a dedicated node: https://www.allnodes.com/publicnode\"},\"id\":486}\n\nHTTP diagnostics:\ncf-ray: a54bd3731c46eea0-ATH\nserver: cloudflare",
+          "at": "2026-11-03T13:46:35.405Z"
+        },
+        {
+          "chainId": 1,
+          "url": "https://stake.lido.fi/api/rpc?chainId=1",
+          "method": "eth_estimateGas",
+          "via": "page",
+          "durationMs": 16556,
+          "at": "2026-11-03T13:46:40.566Z"
+        }
+      ],
+      "video": "videos/run_gjmidgbwt163o6.webm",
+      "trace": "traces/run_gjmidgbwt163o6.zip",
+      "finalScreenshot": "screenshots/run_gjmidgbwt163o6-run_gjmidgbwt163o6-final.png",
+      "forkBlocks": {
+        "1": "26334631"
+      },
+      "mode": "fork",
+      "startedAt": "2026-11-03T13:45:38.452Z",
+      "finishedAt": "2026-11-03T13:47:27.507Z"
+    }
+  ],
+  "issues": [],
+  "signingReviews": [],
+  "costUsd": 1.4790677999999997,
+  "stoppedEarly": false
+}
