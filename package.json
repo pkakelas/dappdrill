@@ -7,13 +7,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @dappdrill/web --filter @dappdrill/worker dev",
-    "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r test",
-    "db:generate": "pnpm --filter @dappdrill/db generate",
-    "db:migrate": "pnpm --filter @dappdrill/db migrate",
+    "dev": "corepack pnpm --parallel --filter @dappdrill/web --filter @dappdrill/worker dev",
+    "typecheck": "corepack pnpm -r --parallel typecheck",
+    "test": "corepack pnpm -r test",
+    "db:generate": "corepack pnpm --filter @dappdrill/db generate",
+    "db:migrate": "corepack pnpm --filter @dappdrill/db migrate",
     "fixture": "corepack pnpm --filter @dappdrill/harbor-vault start", "fixture:stop": "corepack pnpm --filter @dappdrill/harbor-vault stop",
-    "cli": "pnpm --filter @dappdrill/cli exec tsx src/main.ts"
+    "cli": "corepack pnpm --filter @dappdrill/cli exec tsx src/main.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
