@@ -334,7 +334,9 @@ function runStatus(edge: EdgeCaseId, replay: ReplayFlowResult | undefined, issue
 function learnFromHappy(plan: Plan, replay: ReplayFlowResult): void {
   plan.txSignIndexes = [];
   replay.walletSteps.forEach((ws, signIndex) => {
-    if (ws.request.method === "eth_sendTransaction" || ws.request.method === "wallet_sendCalls") plan.txSignIndexes!.push(signIndex);
+    // A transaction the flow rejects is never sent, so it needs no gas and can't be sped up.
+    const sent = ws.response === "approve" && (ws.request.method === "eth_sendTransaction" || ws.request.method === "wallet_sendCalls");
+    if (sent) plan.txSignIndexes!.push(signIndex);
     const decoded = decodeBuiltin(ws.request);
     const spender = spenderOf(decoded);
     if (!plan.approval && decoded.kind === "transaction" && decoded.functionName === "approve" && decoded.to && spender && decoded.args.length === 2) {

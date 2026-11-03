@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DrillTarget, EDGE_CASES, chainName, type DrillEvent, type EdgeCaseId, type Issue } from "@dappdrill/core";
+import { DrillTarget, EDGE_CASES, chainName, type DrillEvent, type EdgeCaseId, type Flow, type Issue } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { startChains } from "../../src/chain/controller.js";
 import { runEdgeCases, type RunEdgeCasesResult } from "../../src/replay/edge-cases.js";
@@ -35,14 +35,14 @@ afterAll(async () => {
   await fx?.close();
 });
 
-async function matrix(bugs: string[], edgeCases: EdgeCaseId[]): Promise<RunEdgeCasesResult & { events: DrillEvent[] }> {
+async function matrix(bugs: string[], edgeCases: EdgeCaseId[], flow?: (url: string) => Flow): Promise<RunEdgeCasesResult & { events: DrillEvent[] }> {
   const url = fx.pageUrl(bugs);
   const target = DrillTarget.parse({ url, chains: [{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }, { id: OTHER_CHAIN, rpcUrl: fx.rpcUrl }], accounts: ACCOUNTS });
   const events: DrillEvent[] = [];
   const result = await runEdgeCases({
     target,
     chains,
-    flow: depositFlow(url, fx.token, fx.vault),
+    flow: flow?.(url) ?? depositFlow(url, fx.token, fx.vault),
     edgeCases,
     sink: async (e) => void events.push(e),
     artifactsDir,
@@ -143,5 +143,17 @@ describe("runEdgeCases", () => {
       ["speed-up", "pass", undefined],
       ["existing-approval", "skipped", "needs the happy path first to learn the flow's approval"],
     ]);
-  }, 120_000);
+
+    // A transaction the flow rejects is never sent: no gas to run out of, nothing to speed up.
+    const rejecting = (url: string) => {
+      const f = depositFlow(url, fx.token, fx.vault);
+      return { ...f, id: "flow_reject", steps: [...f.steps.slice(0, 4), { kind: "wallet" as const, respond: "reject" as const }] };
+    };
+    const rr = await matrix([], ["happy", "speed-up", "low-gas"], rejecting);
+    expect(rr.runs.map((x) => [x.edgeCase, x.status, x.reason])).toEqual([
+      ["happy", "pass", undefined],
+      ["low-gas", "skipped", "the flow sends no transaction"],
+      ["speed-up", "skipped", "the flow sends no transaction"],
+    ]);
+  }, 180_000);
 });
