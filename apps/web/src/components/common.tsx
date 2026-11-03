@@ -1,6 +1,8 @@
 import { HEALTH_LABEL, VERDICT_LABEL, shortAddress, type Health, type RunStatus, type Severity, type Verdict } from "@dappdrill/core";
-import type { ReactNode } from "react";
+import Link from "next/link";
+import { Children, Fragment, type ComponentProps, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Item, ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
 
 export { cn as cx };
@@ -129,7 +131,7 @@ export function Sparkbars({ statuses, slots = 10 }: { statuses: RunStatus[]; slo
   const label = shown.length
     ? `Last ${shown.length} runs: ` + Object.entries(counts).map(([s, n]) => `${n} ${RUN_STATUS_LABEL[s as RunStatus].toLowerCase()}`).join(", ")
     : "No runs yet";
-  const color: Record<RunStatus, string> = { pass: "bg-border", issue: "bg-warn-bar", fail: "bg-bad", error: "bg-muted-foreground", skipped: "bg-muted" };
+  const color: Record<RunStatus, string> = { pass: "bg-foreground/20", issue: "bg-warn-bar", fail: "bg-bad", error: "bg-muted-foreground", skipped: "bg-muted" };
   return (
     <div role="img" aria-label={label} title={label} className="flex gap-[3px]">
       {Array.from({ length: pad }, (_, i) => (
@@ -181,6 +183,41 @@ export function SettingsSection({ id, title, hint, children }: { id: string; tit
       </div>
       <div className="flex min-w-0 flex-col gap-4">{children}</div>
     </section>
+  );
+}
+
+/** A bordered list of shadcn Items, with separators between them. */
+export function ItemList({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <ItemGroup className={cn("overflow-hidden rounded-xl border bg-card shadow-xs", className)}>
+      {Children.toArray(children).map((child, i) => (
+        <Fragment key={i}>
+          {i > 0 && <ItemSeparator />}
+          {child}
+        </Fragment>
+      ))}
+    </ItemGroup>
+  );
+}
+
+/** One row of an ItemList. Put a RowLink in it to make the whole row clickable; ItemActions stay clickable above it. */
+export function ListItem({ className, ...props }: ComponentProps<typeof Item>) {
+  return (
+    <Item
+      size="sm"
+      role="listitem"
+      className={cn("relative min-h-14 rounded-none hover:bg-accent/40 [&_[data-slot=item-actions]]:relative [&_[data-slot=item-actions]]:z-10", className)}
+      {...props}
+    />
+  );
+}
+
+/** The row's main link, stretched over the whole ListItem. */
+export function RowLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
+  return (
+    <Link href={href} scroll={false} className={cn("outline-none after:absolute after:inset-0 focus-visible:underline", className)}>
+      {children}
+    </Link>
   );
 }
 
