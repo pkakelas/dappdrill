@@ -6,7 +6,7 @@ import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger, type Logger } from "../log.js";
 import { notifyAfter } from "../notify/index.js";
-import { Persister } from "../persist.js";
+import { closeFixed, Persister } from "../persist.js";
 import { buildTarget, loadApp, loadBaselines, replayChains } from "../target.js";
 import { logEvents, serialSink } from "./sink.js";
 
@@ -55,7 +55,10 @@ export async function runBatch(db: Db, engine: Engine, batchId: string, signal: 
     await drain();
     await persister.all(result);
     if (signal.aborted) [status, error] = ["failed", "The worker shut down during the run."];
-    else await proposeRepairs(db, engine, target, flowList, [...persister.written.runs.values()], join(dir, "repairs"), log);
+    else {
+      await closeFixed(db, app.id, persister, log, false);
+      await proposeRepairs(db, engine, target, flowList, [...persister.written.runs.values()], join(dir, "repairs"), log);
+    }
   } catch (e) {
     [status, error] = ["failed", signal.aborted ? "The worker shut down during the run." : errorMessage(e)];
     log.error("failed", e);

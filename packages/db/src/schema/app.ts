@@ -324,8 +324,10 @@ export const issues = pgTable(
     category: text("category").$type<IssueCategory>().notNull(),
     title: text("title").notNull(),
     data: jsonb("data").$type<Issue>().notNull(),
-    /** open; ignored = "This is expected". */
+    /** open; ignored = "This is expected"; fixed = a later run of the same flow and edge case no longer hit it. */
     status: text("status").$type<"open" | "ignored" | "fixed">().notNull().default("open"),
+    fixedByRunId: text("fixed_by_run_id"),
+    fixedAt: ts("fixed_at"),
     githubIssueUrl: text("github_issue_url"),
     createdAt: createdAt(),
   },

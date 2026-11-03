@@ -25,7 +25,8 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
   const visible = s.open.filter((i) => filter === "all" || i.category === filter);
   const main = visible.filter((i) => i.severity !== "low");
   const low = visible.filter((i) => i.severity === "low");
-  const ignored = results.issues.filter((i) => i.status !== "open");
+  const ignored = results.issues.filter((i) => i.status === "ignored");
+  const fixed = results.issues.filter((i) => i.status === "fixed");
   const reviewHref = (id?: string) => {
     const r = id && results.reviews.find((v) => v.id === id || v.data.id === id);
     return r ? ctx.panelHref(`review.${r.id}`) : null;
@@ -109,6 +110,16 @@ export function ReportBody({ results, ctx, cat, filterHref, batch }: { results: 
             <summary className="btn-link w-fit text-sm text-muted">{ignored.length} marked as expected</summary>
             <div className="mt-3 flex flex-col gap-3">
               {ignored.map((i) => (
+                <IssueRowCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
+              ))}
+            </div>
+          </details>
+        )}
+        {fixed.length > 0 && (
+          <details>
+            <summary className="btn-link w-fit text-sm text-muted">{fixed.length} fixed since</summary>
+            <div className="mt-3 flex flex-col gap-3">
+              {fixed.map((i) => (
                 <IssueRowCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
               ))}
             </div>

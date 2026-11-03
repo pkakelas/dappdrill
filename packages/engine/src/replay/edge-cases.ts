@@ -855,6 +855,7 @@ async function askJudge(judge: RecoveryJudge, session: EngineSession, edge: Edge
         summary: verdict.explanation,
         expected,
         unverified: true,
+        byModel: true,
       });
     }
   } catch {

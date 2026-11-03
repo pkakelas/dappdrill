@@ -30,6 +30,7 @@ export interface IssueDraft {
   stepIndex?: number;
   evidence?: Issue["evidence"];
   unverified?: boolean;
+  byModel?: boolean;
 }
 
 export interface IssueContext {
@@ -59,6 +60,7 @@ export function makeIssue(ctx: IssueContext, draft: IssueDraft): Issue {
     actual: draft.actual,
     evidence: { ...ctx.evidence, ...draft.evidence },
     unverified: draft.unverified,
+    byModel: draft.byModel,
     createdAt: nowIso(),
   };
 }

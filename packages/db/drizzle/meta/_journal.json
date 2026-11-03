@@ -29,6 +29,20 @@
       "when": 1793718658756,
       "tag": "0003_bot_protection",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793728692714,
+      "tag": "0004_issue_fixed",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793731177780,
+      "tag": "0005_backfill_fixed_issues",
+      "breakpoints": true
     }
   ]
 }

@@ -1,11 +1,12 @@
 import { describeStep, edgeCaseInfo, type FlowRun } from "@dappdrill/core";
-import { db, flows, issues, runs, signingReviews } from "@dappdrill/db";
-import { and, asc, eq, or, sql } from "drizzle-orm";
+import { db, flows, issues, runBatches, runs, signingReviews } from "@dappdrill/db";
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import Link from "next/link";
 import { setIssueStatusAction } from "@/actions/results";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { Cell, cx, RUN_STATUS_LABEL, SeverityTag, VerdictTag } from "@/components/ui";
 import { artifactOwner, artifactUrl } from "@/lib/artifacts";
-import { dateTime } from "@/lib/format";
+import { dateTime, timeAgo } from "@/lib/format";
 import { githubNewIssueUrl, issueMarkdown } from "@/lib/github";
 import type { IssueRow, RunRow } from "@/lib/queries";
 import { cellKind, type PanelData, type ReviewRow } from "@/lib/report";
@@ -32,6 +33,85 @@ async function reviewByCoreId(appId: string, id?: string): Promise<ReviewRow | u
   return row;
 }
 
+/** What happened when the issue's flow was replayed again, for the panel. */
+async function recheck(issue: IssueRow) {
+  const edgeCase = issue.data.edgeCase;
+  if (issue.status === "fixed" || issue.status === "ignored" || !issue.flowId || !edgeCase) return null;
+  const [pending] = await db()
+    .select({ id: runBatches.id })
+    .from(runBatches)
+    .where(
+      and(
+        eq(runBatches.appId, issue.appId),
+        inArray(runBatches.status, ["queued", "running"]),
+        sql`${runBatches.request}->'flowIds' @> ${JSON.stringify([issue.flowId])}::jsonb`,
+      ),
+    )
+    .limit(1);
+  if (pending) return { kind: "running" as const };
+  const [later] = await db()
+    .select({ id: runs.id, batchId: runs.batchId, status: runs.status, createdAt: runs.createdAt, filed: sql<number>`jsonb_array_length(${runs.result}->'issueIds')` })
+    .from(runs)
+    .where(
+      and(
+        eq(runs.flowId, issue.flowId),
+        eq(runs.edgeCase, edgeCase),
+        gt(runs.createdAt, issue.createdAt),
+        issue.runId ? ne(runs.id, issue.runId) : undefined,
+        isNull(sql`${runs.result}->>'variationId'`),
+      ),
+    )
+    .orderBy(desc(runs.createdAt))
+    .limit(1);
+  if (!later) return null;
+  const [again] = await db()
+    .select({ id: issues.id })
+    .from(issues)
+    .where(and(eq(issues.appId, issue.appId), eq(issues.fingerprint, issue.fingerprint), or(eq(issues.runId, later.id), sql`${issues.data}->>'runId' = ${later.id}`)))
+    .limit(1);
+  return { kind: "later" as const, hit: !!again, ...later };
+}
+
+function RecheckNote({ issue, ctx, check }: { issue: IssueRow; ctx: ViewCtx; check: Awaited<ReturnType<typeof recheck>> }) {
+  const runLink = (id: string, label: string) => (
+    <Link href={ctx.panelHref(`run.${id}`)} scroll={false} className="btn-link shrink-0">
+      {label}
+    </Link>
+  );
+  if (issue.status === "fixed") {
+    return (
+      <div className="card flex items-center justify-between gap-3 px-4 py-3 text-sm">
+        <span>Fixed. A later run of this flow didn't hit it ({timeAgo(issue.fixedAt)}).</span>
+        {issue.fixedByRunId && runLink(issue.fixedByRunId, "Open that run")}
+      </div>
+    );
+  }
+  if (!check) return null;
+  if (check.kind === "running") {
+    return (
+      <div className="card px-4 py-3 text-sm text-muted">
+        <AutoRefresh every={4000} />
+        Re-running this flow. This panel updates when it finishes.
+      </div>
+    );
+  }
+  const ago = timeAgo(check.createdAt);
+  return (
+    <div className="card flex items-center justify-between gap-3 px-4 py-3 text-sm">
+      <span>
+        {check.hit
+          ? `Still happens. The replay ${ago} hit it again.`
+          : issue.data.byModel && check.batchId
+            ? "Replays don't run the check that found this. The next scan will confirm whether it's fixed."
+            : check.status === "pass" || (check.status === "issue" && check.filed > 0)
+            ? `The replay ${ago} didn't hit this. Re-run to confirm it's fixed.`
+            : `The replay ${ago} couldn't tell whether this is fixed, so it stays open.`}
+      </span>
+      {runLink(check.id, "Open that run")}
+    </div>
+  );
+}
+
 export async function ResultPanel({ data, ctx }: { data: PanelData; ctx: ViewCtx }) {
   if (data.kind === "issue") return <IssuePanel issue={data.row} ctx={ctx} />;
   if (data.kind === "run") return <RunPanel run={data.row} ctx={ctx} />;
@@ -41,10 +121,11 @@ export async function ResultPanel({ data, ctx }: { data: PanelData; ctx: ViewCtx
 async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
   const d = issue.data;
   const owner = artifactOwner(issue);
-  const [name, review, run] = await Promise.all([
+  const [name, review, run, check] = await Promise.all([
     flowName(issue.flowId),
     reviewByCoreId(issue.appId, d.evidence.signingReviewId),
     issue.runId ? db().select().from(runs).where(eq(runs.id, issue.runId)).then((r) => r[0]) : Promise.resolve(undefined),
+    recheck(issue),
   ]);
   const result: FlowRun | undefined = run?.result;
   const video = artifactUrl(owner, d.evidence.video ?? result?.video, ctx.share);
@@ -63,6 +144,7 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
       }
       title={issue.title}
     >
+      <RecheckNote issue={issue} ctx={ctx} check={check} />
       <p className="m-0 text-[15px] leading-relaxed text-ink-2">{d.summary}</p>
       <SaidVsAsked said={d.evidence.buttonLabel} asked={d.evidence.walletAsked} />
       {(d.expected || d.actual) && (
@@ -102,14 +184,18 @@ async function IssuePanel({ issue, ctx }: { issue: IssueRow; ctx: ViewCtx }) {
       <RpcLog entries={d.evidence.rpc ?? result?.rpc} />
       {!ctx.readOnly && (
         <div className="flex flex-wrap gap-2 border-t border-divide pt-5">
-          <RerunButton ctx={ctx} flowId={issue.flowId} edgeCase={d.edgeCase} label="Re-run" />
-          <form action={setIssueStatusAction}>
-            <input type="hidden" name="issueId" value={issue.id} />
-            <input type="hidden" name="status" value={issue.status === "ignored" ? "open" : "ignored"} />
-            <button type="submit" className="btn btn-sm">
-              {issue.status === "ignored" ? "Reopen" : "This is expected"}
-            </button>
-          </form>
+          {check?.kind !== "running" && (
+            <RerunButton ctx={ctx} flowId={issue.flowId} edgeCase={d.edgeCase} label="Re-run" back={ctx.panelHref(`issue.${issue.id}`)} />
+          )}
+          {issue.status !== "fixed" && (
+            <form action={setIssueStatusAction}>
+              <input type="hidden" name="issueId" value={issue.id} />
+              <input type="hidden" name="status" value={issue.status === "ignored" ? "open" : "ignored"} />
+              <button type="submit" className="btn btn-sm">
+                {issue.status === "ignored" ? "Reopen" : "This is expected"}
+              </button>
+            </form>
+          )}
           {ctx.githubRepo ? (
             <a href={githubNewIssueUrl(ctx.githubRepo, issue.title, md)} target="_blank" rel="noreferrer" className="btn btn-sm">
               Open GitHub issue

@@ -8,7 +8,7 @@ import { CriticalIssueCard, IssueRowCard } from "@/components/report/issues";
 import { ResultPanel } from "@/components/report/panels";
 import { cx, Empty, HEALTH_TEXT, HealthBadge, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/ui";
 import { hostFromUrl, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
-import { githubRepo, healthOfCounts, issueCounts, latestScan, openIssues, recentStatuses } from "@/lib/queries";
+import { fixedSince, githubRepo, healthOfCounts, issueCounts, latestScan, openIssues, recentStatuses } from "@/lib/queries";
 import { loadPanel } from "@/lib/report";
 import { healthOfIssues } from "@dappdrill/core";
 import { requireApp } from "@/lib/session";
@@ -35,7 +35,11 @@ export default async function OverviewPage({ params, searchParams }: Props) {
     githubRepo(app.teamId),
     loadPanel(app.id, panel),
   ]);
-  const [batchCounts, statuses] = await Promise.all([issueCounts("batch", batches.map((b) => b.id)), recentStatuses(flowRows.map((f) => f.id))]);
+  const [batchCounts, statuses, fixed] = await Promise.all([
+    issueCounts("batch", batches.map((b) => b.id)),
+    recentStatuses(flowRows.map((f) => f.id)),
+    fixedSince(app.id, finished?.createdAt),
+  ]);
   const ctx = { appId: app.id, panelHref: makePanelHref(path, {}), readOnly: false, githubRepo: repo };
   const health = healthOfIssues(issues);
   const attention = issues.filter((i) => i.severity === "critical" || i.severity === "high");
@@ -87,9 +91,12 @@ export default async function OverviewPage({ params, searchParams }: Props) {
       )}
 
       <section aria-labelledby="open" className="flex flex-col gap-3">
-        <h2 id="open" className="h2">
-          Open issues
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 id="open" className="h2">
+            Open issues
+          </h2>
+          {fixed > 0 && <span className="text-sm text-muted">{plural(fixed, "issue")} fixed since the last scan</span>}
+        </div>
         {issues.length === 0 ? (
           <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">None. The latest scan and runs found nothing to fix.</p>
         ) : (

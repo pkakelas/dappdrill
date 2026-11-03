@@ -17,6 +17,8 @@ const Rerun = z.object({
   flowId: Id.optional(),
   edgeCase: EdgeCaseId.optional(),
   variationId: Id.optional(),
+  /** Where to land afterwards, e.g. the issue panel the re-run started from. Same app only. */
+  back: z.string().max(500).optional(),
 });
 
 /** Re-run one flow (optionally one edge case / variation) as a new run batch. */
@@ -26,6 +28,7 @@ export async function rerunAction(form: FormData): Promise<void> {
     flowId: form.get("flowId") || undefined,
     edgeCase: form.get("edgeCase") || undefined,
     variationId: form.get("variationId") || undefined,
+    back: form.get("back") || undefined,
   });
   const { app } = await requireApp(input.appId);
   let batchId: string;
@@ -39,7 +42,8 @@ export async function rerunAction(form: FormData): Promise<void> {
     if (err instanceof LaunchError) redirect(`/apps/${app.id}/flows?error=${encodeURIComponent(err.message)}`);
     throw err;
   }
-  redirect(`/apps/${app.id}/runs/${batchId}`);
+  const back = input.back?.startsWith(`/apps/${app.id}/`) || input.back?.startsWith(`/apps/${app.id}?`) ? input.back : undefined;
+  redirect(back ?? `/apps/${app.id}/runs/${batchId}`);
 }
 
 async function reviewFor(reviewId: string) {

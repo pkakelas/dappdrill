@@ -48,6 +48,7 @@ export function signingIssues(flow: Flow, reviews: SigningReview[], runs: FlowRu
         walletAsked: review.title,
       },
       unverified: review.checks.some((c) => c.status === "unverified" && (c.id === "verified-source" || c.id === "contract-age")) || undefined,
+      byModel: !review.checks.some((c) => (c.status === "fail" || c.status === "warn") && !byModelCheck(c)) || undefined,
       createdAt: nowIso(),
     });
   }
@@ -59,6 +60,11 @@ function severityOf(review: SigningReview): Severity | undefined {
   if (review.checks.some((c) => c.status === "fail")) return "medium";
   if (review.checks.some((c) => c.status === "warn")) return "low";
   return undefined;
+}
+
+/** The button comparison, when the model made the call; replays run without one. */
+function byModelCheck(check: SigningReview["checks"][number]): boolean {
+  return check.id === "ui-match" && check.evidence?.via === "model";
 }
 
 /** "Don't ship this. Unlimited where the UI shows 100. …" → "Unlimited where the UI shows 100" */

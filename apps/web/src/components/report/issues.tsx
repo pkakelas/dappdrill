@@ -10,18 +10,26 @@ export function issueMeta(issue: IssueRow, flowName?: string): string {
   return [CATEGORY_LABEL[issue.category], flowName ?? d.flowName, d.edgeCase && d.edgeCase !== "happy" ? edgeCaseInfo(d.edgeCase).label : null].filter(Boolean).join(" · ");
 }
 
-export function RerunButton({ ctx, flowId, edgeCase, label = "Re-run this flow", small }: { ctx: ViewCtx; flowId?: string | null; edgeCase?: string; label?: string; small?: boolean }) {
+/** `back` keeps the user where they are (the run reports there) instead of opening the run page. */
+export function RerunButton({ ctx, flowId, edgeCase, label = "Re-run this flow", small, back }: { ctx: ViewCtx; flowId?: string | null; edgeCase?: string; label?: string; small?: boolean; back?: string }) {
   if (ctx.readOnly || !flowId) return null;
   return (
     <form action={rerunAction}>
       <input type="hidden" name="appId" value={ctx.appId} />
       <input type="hidden" name="flowId" value={flowId} />
       {edgeCase && <input type="hidden" name="edgeCase" value={edgeCase} />}
+      {back && <input type="hidden" name="back" value={back} />}
       <button type="submit" className={cx("btn", small ? "btn-xs" : "btn-sm")}>
         {label}
       </button>
     </form>
   );
+}
+
+function StatusPill({ status }: { status: IssueRow["status"] }) {
+  if (status === "ignored") return <span className="pill bg-hair text-muted">Marked expected</span>;
+  if (status === "fixed") return <span className="pill bg-hair text-muted">Fixed</span>;
+  return null;
 }
 
 /** "The button said" vs "The wallet was asked for". */
@@ -49,7 +57,7 @@ export function CriticalIssueCard({ issue, ctx, flowName, reviewHref }: { issue:
         <div className="flex flex-wrap items-center gap-2.5">
           <SeverityTag severity={issue.severity} />
           <span className="text-[13px] text-muted">{issueMeta(issue, flowName)}</span>
-          {issue.status === "ignored" && <span className="pill bg-hair text-muted">Marked expected</span>}
+          <StatusPill status={issue.status} />
         </div>
         <h3 className="m-0 font-serif text-[24px] leading-snug font-[400] tracking-[-0.015em]">{issue.title}</h3>
         <SaidVsAsked said={d.evidence.buttonLabel} asked={d.evidence.walletAsked} />
@@ -79,7 +87,7 @@ export function IssueRowCard({ issue, ctx, flowName }: { issue: IssueRow; ctx: V
           <SeverityTag severity={issue.severity} />
           <span className="text-[13px] text-muted">{issueMeta(issue, flowName)}</span>
           {issue.data.unverified && <span className="pill bg-hair text-muted">Unverified</span>}
-          {issue.status === "ignored" && <span className="pill bg-hair text-muted">Marked expected</span>}
+          <StatusPill status={issue.status} />
         </div>
         <h3 className="m-0 text-base font-semibold">
           <Link href={ctx.panelHref(`issue.${issue.id}`)} scroll={false} className="no-underline hover:underline">

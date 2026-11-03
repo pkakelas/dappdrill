@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Issue } from "@dappdrill/core";
-import { alertText, composeAlert, slackPayload } from "../src/notify/compose.js";
+import { FlowRun, Issue } from "@dappdrill/core";
+import { alertText, composeAlert, composeScanDone, slackPayload } from "../src/notify/compose.js";
 import { utcMinute } from "../src/jobs/schedule.js";
 
 const issue = (severity: Issue["severity"], title: string): Issue =>
@@ -47,6 +47,32 @@ describe("composeAlert", () => {
     const json = JSON.stringify(slackPayload(alert));
     expect(json).toContain("&lt;script&gt; &amp; co");
     expect(json).toContain(`<${base.link}|Open the report>`);
+  });
+});
+
+describe("composeScanDone", () => {
+  const at = new Date().toISOString();
+  const run = (id: string, status: FlowRun["status"], issueIds: string[] = []): FlowRun =>
+    FlowRun.parse({ id, flowId: "flow_dep", edgeCase: "reject", status, issueIds, startedAt: at, finishedAt: at });
+  const base = { appName: "Harbor", number: 4, failed: false, flows: [{ id: "flow_dep", name: "Deposit USDC" }], link: "http://app/apps/a/scans/s" };
+
+  it("says all clear when nothing needs attention", () => {
+    const done = composeScanDone({ ...base, issues: [issue("low", "Tiny")], runs: [run("r1", "pass")] });
+    expect(done.title).toBe("Scan #4 of Harbor: all clear");
+    expect(done.lines).toEqual([]);
+    expect(done.counts).toBe("1 flow found · 1 run");
+  });
+
+  it("counts broken runs that filed no issue with critical and high issues", () => {
+    const done = composeScanDone({ ...base, issues: [issue("medium", "Slow"), issue("high", "Spinner")], runs: [run("r1", "fail"), run("r2", "pass")] });
+    expect(done.title).toBe("Scan #4 of Harbor: 2 things need your attention");
+    expect(done.lines).toEqual(["High: Spinner (Deposit USDC)", "Medium: Slow (Deposit USDC)", "Didn't finish: Deposit USDC · Reject"]);
+  });
+
+  it("names a failed scan with its error", () => {
+    const done = composeScanDone({ ...base, failed: true, error: "The site did not load.", issues: [], runs: [] });
+    expect(done.title).toBe("Scan #4 of Harbor failed");
+    expect(done.lines).toEqual(["The site did not load."]);
   });
 });
 

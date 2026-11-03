@@ -79,6 +79,15 @@ export async function latestScan(appId: string, finished = false): Promise<ScanR
   return row;
 }
 
+/** How many issues later replays found fixed since the given time. */
+export async function fixedSince(appId: string, since: Date | undefined): Promise<number> {
+  const [row] = await db()
+    .select({ n: count() })
+    .from(issues)
+    .where(and(eq(issues.appId, appId), eq(issues.status, "fixed"), since ? gt(issues.fixedAt, since) : undefined));
+  return row?.n ?? 0;
+}
+
 /**
  * Open issues for the app right now: the latest finished scan plus any run batch
  * after it, newest first, one per fingerprint.

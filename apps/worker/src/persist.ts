@@ -2,6 +2,7 @@ import { and, eq, notInArray, sql } from "drizzle-orm";
 import type { Flow, FlowRun, Issue, SigningReview } from "@dappdrill/core";
 import { flows, issues, runs, signingReviews, type Db } from "@dappdrill/db";
 import type { ReportInput } from "@dappdrill/cli";
+import { errorMessage, type Logger } from "./log.js";
 
 export interface Owner {
   appId: string;
@@ -141,6 +142,50 @@ export class Persister {
     for (const r of result.signingReviews) if (!this.written.reviews.has(r.id)) await this.review(r);
     for (const i of result.issues) if (!this.written.issues.has(i.id)) await this.issue(i);
     for (const r of result.runs) await this.run(r);
+  }
+}
+
+/**
+ * Close open issues that a finished run of the same flow and edge case no longer hits:
+ * the run passed, or it filed issues but not this one. Returns the ids it closed.
+ * Without the model (replays), issues only a model check could find stay open.
+ */
+export async function closeFixedIssues(db: Db, appId: string, runList: FlowRun[], found: Issue[], withModel: boolean): Promise<string[]> {
+  const foundIds = found.map((i) => i.id);
+  const closed: string[] = [];
+  for (const run of runList) {
+    // A variation runs with other inputs, so it says nothing about the flow's own issues.
+    if ((run.status !== "pass" && run.status !== "issue") || run.variationId) continue;
+    const still = found.filter((i) => i.runId === run.id || run.issueIds.includes(i.id)).map((i) => i.fingerprint);
+    // An "issue" run that can't say what it found can't vouch for anything being fixed.
+    if (run.status === "issue" && still.length === 0) continue;
+    const rows = await db
+      .update(issues)
+      .set({ status: "fixed", fixedByRunId: run.id, fixedAt: new Date() })
+      .where(
+        and(
+          eq(issues.appId, appId),
+          eq(issues.flowId, run.flowId),
+          eq(issues.status, "open"),
+          sql`${issues.data}->>'edgeCase' = ${run.edgeCase}`,
+          withModel ? undefined : sql`coalesce((${issues.data}->>'byModel')::boolean, false) = false`,
+          foundIds.length ? notInArray(issues.id, foundIds) : undefined,
+          still.length ? notInArray(issues.fingerprint, still) : undefined,
+        ),
+      )
+      .returning({ id: issues.id });
+    closed.push(...rows.map((r) => r.id));
+  }
+  return closed;
+}
+
+/** closeFixedIssues for everything a job wrote; logs instead of failing the job. */
+export async function closeFixed(db: Db, appId: string, persister: Persister, log: Logger, withModel: boolean): Promise<void> {
+  try {
+    const closed = await closeFixedIssues(db, appId, [...persister.written.runs.values()], [...persister.written.issues.values()], withModel);
+    if (closed.length) log.info(`marked ${closed.length} issue(s) fixed`);
+  } catch (e) {
+    log.warn(`could not close fixed issues: ${errorMessage(e)}`);
   }
 }
 

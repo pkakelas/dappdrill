@@ -68,6 +68,8 @@ export const Issue = z.object({
     .default({}),
   /** Based on indexer/explorer data we couldn't confirm on the fork. */
   unverified: z.boolean().optional(),
+  /** Only a model check found it. Scans run those and replays don't, so a passing replay can't call it fixed. */
+  byModel: z.boolean().optional(),
   createdAt: z.string(),
 });
 export type Issue = z.infer<typeof Issue>;

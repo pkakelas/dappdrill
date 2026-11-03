@@ -5,8 +5,8 @@ import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
-import { notifyAfter } from "../notify/index.js";
-import { Persister } from "../persist.js";
+import { notifyAfter, notifyScanDone } from "../notify/index.js";
+import { closeFixed, Persister } from "../persist.js";
 import { buildTarget, loadApp, loadBaselines, loadKnownFlows } from "../target.js";
 import { serialSink } from "./sink.js";
 
@@ -44,6 +44,7 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
   const abort = AbortSignal.any([stop.signal, signal]);
 
   let walletSet = false;
+  let blocked = scan.blocked;
   const { sink, drain } = serialSink(async (event: DrillEvent) => {
     await db.insert(scanEvents).values({ scanId, event });
     switch (event.type) {
@@ -65,6 +66,7 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
       case "cost":
         return void (await update({ costUsd: event.usd }));
       case "blocked":
+        blocked = event.blocked;
         return void (await update({ blocked: event.blocked }));
       case "wallet-request":
         if (!event.request.from || walletSet) return;
@@ -120,13 +122,19 @@ export async function runScan(db: Db, engine: Engine, scanId: string, signal: Ab
   await update({ status, error, finishedAt: new Date(), ...(report ? { costUsd: report.costUsd } : {}) });
   log.info(`${status}: ${persister.summary()}`);
 
+  if (status !== "failed") await closeFixed(db, app.id, persister, log, true);
+
+  const notify = { app, what: "scan" as const, path: `/apps/${app.id}/scans/${scanId}`, persister, report: report ?? persister.asReport(app.url) };
+  let emailed: string[] = [];
   if (status !== "failed") {
-    await notifyAfter(db, {
-      app,
-      what: "scan",
-      path: `/apps/${app.id}/scans/${scanId}`,
-      persister,
-      report: report ?? persister.asReport(app.url),
-    }).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));
+    emailed = await notifyAfter(db, notify)
+      .then((r) => r.emailed)
+      .catch((e) => (log.warn(`notifications failed: ${errorMessage(e)}`), []));
+  }
+  // Someone who stopped the scan already knows it ended.
+  if (status !== "stopped") {
+    await notifyScanDone(db, { ...notify, scan: { number: scan.number, triggeredBy: scan.triggeredBy, blocked }, error, failed: status === "failed", emailed }).catch((e) =>
+      log.warn(`scan-done email failed: ${errorMessage(e)}`),
+    );
   }
 }
