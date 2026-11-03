@@ -15,10 +15,10 @@ import { StepsEditor } from "@/components/flows/steps-editor";
 import { AddVariation } from "@/components/flows/variations";
 import { makePanelHref } from "@/components/report/ctx";
 import { ResultPanel } from "@/components/report/panels";
-import { cx, Empty, PageHeader, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/common";
+import { cx, Empty, ItemList, ListItem, PageHeader, RowLink, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { env } from "@/lib/env";
 import { plural, timeAgo } from "@/lib/format";
@@ -171,64 +171,50 @@ export default async function FlowPage({ params, searchParams }: Props) {
               <p className="text-muted-foreground">The same steps with other inputs, wallet, chain or account. If the steps themselves differ, duplicate the flow instead.</p>
             </div>
             {vars.length > 0 && (
-              <Card className="py-0">
-                <Table className="min-w-[600px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-4">Variation</TableHead>
-                      <TableHead>Changes</TableHead>
-                      <TableHead>Last result</TableHead>
-                      <TableHead className="sr-only">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {vars.map((v) => {
-                      const r = lastByVariation.get(v.id);
-                      const changesText = [
-                        ...Object.entries(v.inputs).map(([k, val]) => `${k} = ${val}`),
-                        v.wallet && `wallet = ${WALLET_LABEL[v.wallet]}`,
-                        v.chainId && `chain = ${chainInfo(v.chainId)?.name ?? v.chainId}`,
-                        v.account && `account = ${v.account}`,
-                      ].filter(Boolean);
-                      return (
-                        <TableRow key={v.id}>
-                          <TableCell className="pl-4 font-medium">{v.name}</TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">{changesText.join(" · ") || "—"}</TableCell>
-                          <TableCell>
-                            {r ? (
-                              <Link href={ctx.panelHref(`run.${r.id}`)} className={cx("hover:underline", RUN_STATUS_TEXT[r.status])}>
-                                {RUN_STATUS_LABEL[r.status]}
-                                {r.result.reason && <span className="text-muted-foreground"> · {r.result.reason}</span>}
-                              </Link>
-                            ) : (
-                              <span className="text-muted-foreground">Not run yet</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="pr-4">
-                            <div className="flex justify-end gap-1">
-                              <form action={rerunAction}>
-                                <input type="hidden" name="appId" value={app.id} />
-                                <input type="hidden" name="flowId" value={flow.id} />
-                                <input type="hidden" name="variationId" value={v.id} />
-                                <input type="hidden" name="edgeCase" value="happy" />
-                                <Button type="submit" variant="outline" size="xs">
-                                  Run
-                                </Button>
-                              </form>
-                              <form action={removeVariationAction}>
-                                <input type="hidden" name="variationId" value={v.id} />
-                                <Button type="submit" variant="ghost" size="xs" aria-label={`Remove ${v.name}`}>
-                                  Remove
-                                </Button>
-                              </form>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </Card>
+              <ItemList>
+                {vars.map((v) => {
+                  const r = lastByVariation.get(v.id);
+                  const changesText = [
+                    ...Object.entries(v.inputs).map(([k, val]) => `${k} = ${val}`),
+                    v.wallet && `wallet = ${WALLET_LABEL[v.wallet]}`,
+                    v.chainId && `chain = ${chainInfo(v.chainId)?.name ?? v.chainId}`,
+                    v.account && `account = ${v.account}`,
+                  ].filter(Boolean);
+                  return (
+                    <ListItem key={v.id} className="hover:bg-transparent">
+                      <ItemContent className="min-w-0">
+                        <ItemTitle>{v.name}</ItemTitle>
+                        <ItemDescription className="font-mono text-xs">{changesText.join(" · ") || "No changes"}</ItemDescription>
+                      </ItemContent>
+                      <ItemActions className="gap-3">
+                        {r ? (
+                          <Link href={ctx.panelHref(`run.${r.id}`)} scroll={false} className={cx("max-w-56 truncate text-xs hover:underline", RUN_STATUS_TEXT[r.status])}>
+                            {RUN_STATUS_LABEL[r.status]}
+                            {r.result.reason && <span className="text-muted-foreground"> · {r.result.reason}</span>}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Not run yet</span>
+                        )}
+                        <form action={rerunAction}>
+                          <input type="hidden" name="appId" value={app.id} />
+                          <input type="hidden" name="flowId" value={flow.id} />
+                          <input type="hidden" name="variationId" value={v.id} />
+                          <input type="hidden" name="edgeCase" value="happy" />
+                          <Button type="submit" variant="outline" size="xs">
+                            Run
+                          </Button>
+                        </form>
+                        <form action={removeVariationAction}>
+                          <input type="hidden" name="variationId" value={v.id} />
+                          <Button type="submit" variant="ghost" size="xs" aria-label={`Remove ${v.name}`}>
+                            Remove
+                          </Button>
+                        </form>
+                      </ItemActions>
+                    </ListItem>
+                  );
+                })}
+              </ItemList>
             )}
             <AddVariation flowId={flow.id} params={def.params} />
           </section>
@@ -249,47 +235,36 @@ export default async function FlowPage({ params, searchParams }: Props) {
         (runRows.length === 0 ? (
           <Empty title="This flow hasn't run yet" />
         ) : (
-          <Card className="py-0">
-            <Table className="min-w-[520px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">Edge case</TableHead>
-                  <TableHead>Result</TableHead>
-                  <TableHead>Variation</TableHead>
-                  <TableHead className="pr-4">When</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {runRows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="pl-4">
-                      <Link href={ctx.panelHref(`run.${r.id}`)} className="hover:underline">
+          <ItemList>
+            {runRows.map((r) => {
+              const variation = r.result.variationId && vars.find((v) => v.id === r.result.variationId)?.name;
+              const report = r.batchId ? `/apps/${app.id}/runs/${r.batchId}` : r.scanId ? `/apps/${app.id}/scans/${r.scanId}` : null;
+              return (
+                <ListItem key={r.id}>
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="w-full min-w-0">
+                      <RowLink href={ctx.panelHref(`run.${r.id}`)} className="truncate">
                         {edgeCaseInfo(r.edgeCase).label}
+                      </RowLink>
+                    </ItemTitle>
+                    <ItemDescription className="line-clamp-1 text-xs">
+                      <span className={RUN_STATUS_TEXT[r.status]}>{RUN_STATUS_LABEL[r.status]}</span>
+                      {[r.result.reason, variation].filter(Boolean).map((t) => ` · ${t}`)}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    {report ? (
+                      <Link href={report} className="text-xs text-muted-foreground hover:text-foreground hover:underline" title="Open the report this run was part of">
+                        {timeAgo(r.createdAt)}
                       </Link>
-                    </TableCell>
-                    <TableCell className={RUN_STATUS_TEXT[r.status]}>
-                      {RUN_STATUS_LABEL[r.status]}
-                      {r.result.reason && <span className="text-muted-foreground"> · {r.result.reason}</span>}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{(r.result.variationId && vars.find((v) => v.id === r.result.variationId)?.name) || "—"}</TableCell>
-                    <TableCell className="pr-4 text-muted-foreground">
-                      {r.batchId ? (
-                        <Link href={`/apps/${app.id}/runs/${r.batchId}`} className="hover:underline">
-                          {timeAgo(r.createdAt)}
-                        </Link>
-                      ) : r.scanId ? (
-                        <Link href={`/apps/${app.id}/scans/${r.scanId}`} className="hover:underline">
-                          {timeAgo(r.createdAt)}
-                        </Link>
-                      ) : (
-                        timeAgo(r.createdAt)
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
+                    )}
+                  </ItemActions>
+                </ListItem>
+              );
+            })}
+          </ItemList>
         ))}
 
       {tab === "code" && (

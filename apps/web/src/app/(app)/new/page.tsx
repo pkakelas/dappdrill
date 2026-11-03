@@ -1,10 +1,9 @@
 import { DEFAULT_EDGE_CASES } from "@dappdrill/core";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { NewScanForm, type NewScanDefaults } from "@/components/scan/new-scan-form";
-import { cx, PageHeader } from "@/components/common";
+import { cx, ItemList, ListItem, PageHeader, RowLink } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { plural, hostFromUrl, timeAgo } from "@/lib/format";
 import { PLANS, scanAllowance } from "@/lib/plan";
 import { flowCountsByScan, healthOfCounts, issueCounts, recentScans } from "@/lib/queries";
@@ -63,49 +62,38 @@ export default async function NewScanPage({ searchParams }: { searchParams: Prom
           <h2 id="recent" className="text-lg font-semibold">
             Recent scans
           </h2>
-          <div className="rounded-xl border bg-card shadow-xs">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">App</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead className="hidden sm:table-cell">Flows</TableHead>
-                  <TableHead className="pr-4 text-right">Result</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recent.map(({ scan, appUrl }) => {
-                  const c = counts.get(scan.id);
-                  const health = healthOfCounts(c);
-                  const attention = c ? c.critical + c.high : 0;
-                  const toCheck = c ? c.medium + c.low : 0;
-                  const href = `/apps/${scan.appId}/scans/${scan.id}`;
-                  return (
-                    <TableRow key={scan.id} className="relative">
-                      <TableCell className="max-w-0 truncate pl-4 font-mono sm:max-w-none">
-                        <Link href={href} className="after:absolute after:inset-0">
-                          {hostFromUrl(appUrl)}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{timeAgo(scan.createdAt)}</TableCell>
-                      <TableCell className="hidden text-muted-foreground sm:table-cell">{flowCounts.get(scan.id) ?? 0}</TableCell>
-                      <TableCell className="pr-4 text-right">
-                        {scan.status === "done" ? (
-                          <Badge variant="secondary" className={cx("rounded-md", health === "broken" ? "bg-bad-bg text-bad-ink" : health === "review" ? "bg-warn-bg text-warn" : "text-muted-foreground")}>
-                            {health === "broken" ? `${attention} need attention` : health === "review" ? `${toCheck} to check` : flowCounts.get(scan.id) ? "All clear" : "Nothing tested"}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className={cx("rounded-md", scan.status === "running" || scan.status === "queued" ? "bg-live-bg text-live-ink" : "text-muted-foreground")}>
-                            {STATUS_TEXT[scan.status]}
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          <ItemList>
+            {recent.map(({ scan, appUrl }) => {
+              const c = counts.get(scan.id);
+              const health = healthOfCounts(c);
+              const attention = c ? c.critical + c.high : 0;
+              const toCheck = c ? c.medium + c.low : 0;
+              const flowsFound = flowCounts.get(scan.id) ?? 0;
+              return (
+                <ListItem key={scan.id}>
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="w-full min-w-0">
+                      <RowLink href={`/apps/${scan.appId}/scans/${scan.id}`} className="truncate">
+                        {hostFromUrl(appUrl)}
+                      </RowLink>
+                    </ItemTitle>
+                    <ItemDescription className="text-xs">{[timeAgo(scan.createdAt), flowsFound ? `${plural(flowsFound, "flow")} found` : null].filter(Boolean).join(" · ")}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions className="pointer-events-none">
+                    {scan.status === "done" ? (
+                      <Badge variant="secondary" className={cx("rounded-md", health === "broken" ? "bg-bad-bg text-bad-ink" : health === "review" ? "bg-warn-bg text-warn" : "text-muted-foreground")}>
+                        {health === "broken" ? `${attention} need attention` : health === "review" ? `${toCheck} to check` : flowsFound ? "All clear" : "Nothing tested"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className={cx("rounded-md", scan.status === "running" || scan.status === "queued" ? "bg-live-bg text-live-ink" : "text-muted-foreground")}>
+                        {STATUS_TEXT[scan.status]}
+                      </Badge>
+                    )}
+                  </ItemActions>
+                </ListItem>
+              );
+            })}
+          </ItemList>
         </section>
       )}
     </div>

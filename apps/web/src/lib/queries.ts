@@ -152,3 +152,50 @@ export async function lastRuns(flowIds: string[]) {
   for (const r of rows) out.set(r.flow_id, { status: r.status, at: new Date(r.created_at) });
   return out;
 }
+
+export type Outcome = {
+  fresh: number;
+  fixed: number;
+  /** The most severe issue this scan or replay found first, for a one-line preview. */
+  topNew?: { title: string; severity: Severity };
+  topFixed?: { title: string };
+};
+
+/** What each scan or replay batch changed: issues seen for the first time, and issues it confirmed fixed. */
+export async function activityOutcomes(scanIds: string[], batchIds: string[]) {
+  const out = new Map<string, Outcome>();
+  const ids = [...scanIds, ...batchIds];
+  if (ids.length === 0) return out;
+  const rank = sql`case i.severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end`;
+  const [found, fixed] = await Promise.all([
+    db().execute<{ owner: string; n: number; title: string; severity: Severity }>(sql`
+      select distinct on (owner) owner, count(*) over (partition by owner)::int as n, title, severity from (
+        select coalesce(i.scan_id, i.batch_id) as owner, i.title, i.severity, ${rank} as rank, i.created_at from ${issues} i
+        where (i.scan_id in ${ids} or i.batch_id in ${ids})
+          and not exists (select 1 from ${issues} e where e.app_id = i.app_id and e.fingerprint = i.fingerprint and e.created_at < i.created_at)
+      ) f
+      order by owner, rank, created_at`),
+    db().execute<{ owner: string; n: number; title: string }>(sql`
+      select distinct on (owner) owner, count(*) over (partition by owner)::int as n, title from (
+        select coalesce(r.scan_id, r.batch_id) as owner, i.title, ${rank} as rank from ${issues} i
+        join ${runs} r on r.id = i.fixed_by_run_id
+        where r.scan_id in ${ids} or r.batch_id in ${ids}
+      ) f
+      order by owner, rank`),
+  ]);
+  for (const id of ids) out.set(id, { fresh: 0, fixed: 0 });
+  for (const r of found) Object.assign(out.get(r.owner)!, { fresh: r.n, topNew: { title: r.title, severity: r.severity } });
+  for (const r of fixed) Object.assign(out.get(r.owner)!, { fixed: r.n, topFixed: { title: r.title } });
+  return out;
+}
+
+/** The newest end-of-flow screenshot of the dApp, from a happy-path run that passed. */
+export async function latestScreenshot(appId: string) {
+  const [row] = await db()
+    .select({ scanId: runs.scanId, batchId: runs.batchId, path: sql<string>`${runs.result}->>'finalScreenshot'` })
+    .from(runs)
+    .where(and(eq(runs.appId, appId), eq(runs.edgeCase, "happy"), eq(runs.status, "pass"), sql`${runs.result}->>'finalScreenshot' is not null`))
+    .orderBy(desc(runs.createdAt))
+    .limit(1);
+  return row;
+}
