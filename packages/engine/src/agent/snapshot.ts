@@ -282,9 +282,23 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
     // div-based buttons: pointer cursor, short text, no real controls inside.
     if (getComputedStyle(el).cursor === "pointer" && !hasInteractiveDescendant(el)) {
       const t = text(el.textContent);
-      return t.length > 0 && t.length <= 60;
+      if (t) return t.length <= 60;
+      // Icon-only controls (custom checkboxes, close icons): small, and where the cursor is set, not a child inheriting it.
+      const r = el.getBoundingClientRect();
+      const parent = el.parentElement;
+      return r.width <= 48 && r.height <= 48 && (!parent || getComputedStyle(parent).cursor !== "pointer");
     }
     return false;
+  };
+
+  /** Text of the closest ancestor that has some, to name an unlabeled icon control. */
+  const nearbyText = (el: Element): string => {
+    let p = el.parentElement;
+    for (let i = 0; p && i < 3; i++, p = p.parentElement) {
+      const t = text(p.textContent);
+      if (t) return t;
+    }
+    return "";
   };
 
   const refFor = (el: Element): string => {
@@ -326,7 +340,9 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
       }
 
       if (hasBox(el) && (isInteractive(el, role) || (LANDMARK_ROLES.has(role) && !isDialog))) {
-        const node: SnapshotNode = { ref: refFor(el), role: role || "generic", name: clip(accessibleName(el, role)) };
+        const near = role ? "" : nearbyText(el);
+        const name = accessibleName(el, role) || (near && `unlabeled, next to "${clip(near, 60)}"`);
+        const node: SnapshotNode = { ref: refFor(el), role: role || "generic", name: clip(name, 90) };
         if (inDialog) node.inDialog = true;
         if (tag === "input" || tag === "textarea") {
           const input = el as HTMLInputElement;

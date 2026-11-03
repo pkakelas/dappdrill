@@ -64,6 +64,22 @@ describe("takeSnapshot", () => {
     expect(snap.nodes.find((n) => n.name === "Withdraw")?.disabled).toBe(true);
     expect(snap.nodes.find((n) => n.role === "status")).toBeDefined();
   });
+
+  it("finds icon-only custom checkboxes and names them by their label text", async () => {
+    // Shaped like Hyperliquid's terms modal: an empty pointer box next to text with links in it.
+    await s.page.setContent(`
+      <style>.box { width: 16px; height: 16px; border: 1px solid; cursor: pointer } .box div { width: 100%; height: 100% }</style>
+      <div style="display: grid; grid-template-columns: 16px 1fr">
+        <div class="box"><div></div></div>
+        <div style="cursor: pointer">You agree to the <a href="/terms">Terms of Use</a>.</div>
+      </div>
+    `);
+    const snap = await takeSnapshot(s.page);
+    const boxes = snap.nodes.filter((n) => n.name.startsWith("unlabeled"));
+    expect(boxes).toHaveLength(1);
+    expect(boxes[0]!.name).toBe('unlabeled, next to "You agree to the Terms of Use."');
+    await elementByRef(s.page, boxes[0]!.ref).click();
+  });
 });
 
 describe("locatorFor", () => {
