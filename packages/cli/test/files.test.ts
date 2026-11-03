@@ -1,5 +1,9 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { UsageError, parseChain, parseEdgeCases, parseToken } from "../src/files.js";
+import { ScanReport } from "@dappdrill/core";
+import { UsageError, loadReport, parseChain, parseEdgeCases, parseToken } from "../src/files.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
@@ -43,5 +47,18 @@ describe("parseToken", () => {
   it("rejects anything else", () => {
     expect(() => parseToken("1:usdc=5")).toThrow(UsageError);
     expect(() => parseToken("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48=5")).toThrow(/expected <chain id>/);
+  });
+});
+
+describe("loadReport", () => {
+  it("reads back a saved report whose wallet requests had no params", async () => {
+    const at = "2026-11-03T00:00:00.000Z";
+    const request = { id: "req_1", method: "eth_accounts", params: undefined, chainId: 1, kind: "other", at, outcome: "approved" };
+    const run = { id: "run_1", flowId: "flow_1", edgeCase: "happy", status: "pass", walletRequests: [request], startedAt: at, finishedAt: at };
+    const report = { url: "https://app.example", startedAt: at, finishedAt: at, chains: [], flows: [], runs: [run], issues: [], signingReviews: [] };
+    const path = join(await mkdtemp(join(tmpdir(), "dappdrill-")), "report.json");
+    await writeFile(path, JSON.stringify(report)); // drops the undefined params key, as the CLI's writeJson does
+    const loaded = await loadReport(path, ScanReport);
+    expect(loaded.runs[0]?.walletRequests[0]?.method).toBe("eth_accounts");
   });
 });

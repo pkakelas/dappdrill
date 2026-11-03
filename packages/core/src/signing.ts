@@ -5,7 +5,7 @@ import { WalletProfileId } from "./flow.js";
 export const WalletRequest = z.object({
   id: z.string(),
   method: z.string(),
-  params: z.unknown(),
+  params: z.unknown().optional(),
   chainId: z.number().int(),
   from: z.string().optional(),
   /** The injected wallet the dApp sent it to (matters when two are installed). */
