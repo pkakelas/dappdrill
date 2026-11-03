@@ -1,0 +1,24 @@
+{
+  "name": "@dappdrill/harbor-vault",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx scripts/start.ts",
+    "stop": "tsx scripts/stop.ts",
+    "build": "forge build && vite build",
+    "verify": "tsx scripts/verify.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "viem": "^2.57.14"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "playwright": "^1.64.1",
+    "vite": "^8.3.5"
+  }
+}

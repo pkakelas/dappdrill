@@ -1,0 +1,12 @@
+[profile.default]
+src = "contracts"
+out = "out"
+cache_path = "cache"
+libs = []
+solc_version = "0.8.28"
+optimizer = true
+bytecode_hash = "none"
+cbor_metadata = false
+
+[lint]
+lint_on_build = false

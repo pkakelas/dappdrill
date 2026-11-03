@@ -1,0 +1,95 @@
+{
+  "about": "Bugs seeded into Harbor Vault. All are on by default; ?bugs=none turns them off and ?bugs=1,4 turns on a subset. Addresses are in site/public/deployments.json.",
+  "bugs": [
+    {
+      "id": 1,
+      "title": "Approve button says \"Approve <amount> hUSDC\" but requests an unlimited approval",
+      "category": "signing",
+      "severity": "critical",
+      "flow": "Deposit hUSDC into the vault (approve step)",
+      "edgeCase": "happy path",
+      "detect": "Compare the button label with the wallet request: approve(HarborVault, 2^256-1) instead of approve(HarborVault, amount * 10^6).",
+      "code": "site/src/pages/Vault.tsx (DepositCard.approve)"
+    },
+    {
+      "id": 2,
+      "title": "\"Claim rewards\" first asks to approve hUSDC to the Helper contract",
+      "category": "signing",
+      "severity": "critical",
+      "flow": "Claim rewards",
+      "edgeCase": "happy path",
+      "detect": "The first wallet request is approve(Helper, claimable) on hUSDC. The spender is neither the vault nor the RewardsDistributor, has no verified source, and the button only said \"Claim rewards\".",
+      "code": "site/src/pages/Rewards.tsx (claim)"
+    },
+    {
+      "id": 3,
+      "title": "After rejecting the deposit in the wallet, the Deposit button stays on \"Confirming…\" forever",
+      "category": "wallet",
+      "severity": "high",
+      "flow": "Deposit hUSDC into the vault",
+      "edgeCase": "user rejects (4001)",
+      "detect": "Reject eth_sendTransaction for deposit(); the button stays disabled with \"Confirming…\" and no message, so the user cannot retry without reloading.",
+      "code": "site/src/pages/Vault.tsx (DepositCard.deposit)"
+    },
+    {
+      "id": 4,
+      "title": "No network check: on the wrong chain the deposit is sent anyway",
+      "category": "wallet",
+      "severity": "high",
+      "flow": "Deposit hUSDC into the vault",
+      "edgeCase": "wrong network",
+      "detect": "With the wallet on another chain (e.g. 1), no wrong-network banner and no wallet_switchEthereumChain; eth_sendTransaction is sent while the wallet reports the other chain, and the UI then waits forever for a receipt.",
+      "code": "site/src/tx.ts (sendTx), site/src/App.tsx (Banners)"
+    },
+    {
+      "id": 5,
+      "title": "Account switch is ignored: header keeps the old address and balance, next tx uses the stale from",
+      "category": "wallet",
+      "severity": "high",
+      "flow": "Any transaction after switching account (e.g. faucet, deposit)",
+      "edgeCase": "account switch",
+      "detect": "Emit accountsChanged with a new account; the header still shows the previous address/balance and the next eth_sendTransaction has from = the previous account.",
+      "code": "site/src/wallet.ts (activate)"
+    },
+    {
+      "id": 6,
+      "title": "Withdraw with too little ETH for gas throws an uncaught error and the page goes blank",
+      "category": "ui",
+      "severity": "high",
+      "flow": "Withdraw from the vault",
+      "edgeCase": "low gas / funds",
+      "detect": "Drain the account's ETH and withdraw: an uncaught TypeError (\"Cannot read properties of undefined (reading 'errorName')\") and #root is empty. Expected: a \"Not enough ETH to pay for gas\" message.",
+      "code": "site/src/pages/Vault.tsx (revertReason)"
+    },
+    {
+      "id": 7,
+      "title": "Under slow RPC the Deposit button isn't disabled while pending, so a second click sends a second deposit",
+      "category": "ui",
+      "severity": "medium",
+      "flow": "Deposit hUSDC into the vault",
+      "edgeCase": "slow RPC",
+      "detect": "Delay the page's RPC (~1.5s) and click Deposit twice: two deposit() eth_sendTransaction requests reach the wallet.",
+      "code": "site/src/pages/Vault.tsx (DepositCard.deposit)"
+    },
+    {
+      "id": 8,
+      "title": "\"Sign in\" says \"Sign in to Harbor Vault\" but requests an EIP-712 Permit for hUSDC to the Helper",
+      "category": "signing",
+      "severity": "critical",
+      "flow": "Sign in",
+      "edgeCase": "happy path",
+      "detect": "The dialog promises a free sign-in message, but the wallet gets eth_signTypedData_v4 with primaryType Permit on hUSDC, spender = Helper, value = 2^256-1. Expected: personal_sign of a SIWE-style message.",
+      "code": "site/src/wallet.ts (signIn)"
+    },
+    {
+      "id": 9,
+      "title": "With two wallets installed it always uses window.ethereum instead of the wallet the user picked",
+      "category": "wallet",
+      "severity": "medium",
+      "flow": "Connect wallet",
+      "edgeCase": "two wallets (EIP-6963)",
+      "detect": "Announce two wallets, with only the first as window.ethereum; pick the second in the modal. eth_requestAccounts (and every later request) goes to the first wallet, while the UI names the second.",
+      "code": "site/src/wallet.ts (providerFor)"
+    }
+  ]
+}
