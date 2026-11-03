@@ -12,7 +12,8 @@
     "test": "corepack pnpm -r test",
     "db:generate": "corepack pnpm --filter @dappdrill/db generate",
     "db:migrate": "corepack pnpm --filter @dappdrill/db migrate",
-    "fixture": "corepack pnpm --filter @dappdrill/harbor-vault start", "fixture:stop": "corepack pnpm --filter @dappdrill/harbor-vault stop",
+    "fixture": "corepack pnpm --filter @dappdrill/harbor-vault start",
+    "fixture:stop": "corepack pnpm --filter @dappdrill/harbor-vault stop",
     "cli": "corepack pnpm --filter @dappdrill/cli exec tsx src/main.ts"
   },
   "devDependencies": {
