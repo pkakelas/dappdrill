@@ -66,7 +66,7 @@ export async function loadReport(path: string, schema: z.ZodType<ScanReport>): P
   return parseOrExplain(schema, await readJson(path), path);
 }
 
-/** "8453" or "8453=https://rpc" → a fork config. */
+/** "8453" or "8453=https://rpc" → a chain config; chains we know can't be forked run live. */
 export function parseChain(spec: string): ChainConfig {
   const [idText, rpc] = spec.split(/=(.*)/s, 2);
   const id = Number(idText);
@@ -74,7 +74,7 @@ export function parseChain(spec: string): ChainConfig {
   const known = chainInfo(id);
   const rpcUrl = rpc || known?.rpcUrl;
   if (!rpcUrl) throw new UsageError(`Chain ${id} is not one we know; pass its RPC: --chain ${id}=https://…`);
-  return { id, name: known?.name, rpcUrl, mode: "fork" };
+  return { id, name: known?.name, rpcUrl, mode: known && !known.forkable ? "live" : "fork" };
 }
 
 export function parseEdgeCases(csv: string): EdgeCaseId[] {

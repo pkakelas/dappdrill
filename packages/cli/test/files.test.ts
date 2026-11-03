@@ -7,6 +7,10 @@ describe("parseChain", () => {
     expect(parseChain("8453").rpcUrl).toMatch(/^https:/);
   });
 
+  it("runs chains that can't be forked live", () => {
+    expect(parseChain("129302")).toMatchObject({ id: 129302, mode: "live" });
+  });
+
   it("keeps an explicit RPC, including one with '=' in it", () => {
     expect(parseChain("999=https://rpc.example/?key=abc").rpcUrl).toBe("https://rpc.example/?key=abc");
   });

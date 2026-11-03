@@ -51,11 +51,19 @@ async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promis
     opts.log?.(`chain ${config.id}: live mode via ${config.rpcUrl}${opts.liveKey ? "" : " (no live key: read-only)"}`);
     return { config, mode: "live", url: config.rpcUrl };
   }
-  let fork = await startAnvilFork({
-    rpcUrl: config.rpcUrl,
-    chainId: config.id,
-    forkBlock: config.forkBlock ? BigInt(config.forkBlock) : undefined,
-  });
+  let fork: AnvilFork;
+  try {
+    fork = await startAnvilFork({
+      rpcUrl: config.rpcUrl,
+      chainId: config.id,
+      forkBlock: config.forkBlock ? BigInt(config.forkBlock) : undefined,
+    });
+  } catch (err) {
+    // Chains that aren't standard EVM nodes can't be forked: test them live, never on mainnet.
+    if (MAINNET_CHAIN_IDS.has(config.id)) throw err;
+    opts.log?.(`chain ${config.id}: can't fork ${config.rpcUrl} (${(err as Error).message.split("\n")[0]}); falling back to live mode`);
+    return startEntry({ ...config, mode: "live", forkBlock: undefined }, opts);
+  }
   // Public RPCs prune old state. A block pinned by an earlier scan may no longer
   // be readable; fork near the tip instead of failing every call later.
   if (config.forkBlock && !(await readable(fork.url))) {
