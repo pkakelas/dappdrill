@@ -4,7 +4,17 @@
  * transactions straight to the node: the wallet has its own RPC, so the
  * latency/failure faults aimed at the dApp never touch it.
  */
-import { isHex, type Hex as ViemHex, type PrivateKeyAccount } from "viem";
+import {
+  InvalidStructTypeError,
+  concat,
+  getTypesForEIP712Domain,
+  hashDomain,
+  hashStruct,
+  isHex,
+  keccak256,
+  type Hex as ViemHex,
+  type PrivateKeyAccount,
+} from "viem";
 import type { ChainController, Hex } from "../types.js";
 import { JsonRpcError, hexToNumber, rpcCall, toHex } from "../chain/rpc.js";
 import { WalletErrors } from "./errors.js";
@@ -61,7 +71,17 @@ export async function signTypedData(account: PrivateKeyAccount, params: unknown)
     throw WalletErrors.invalidParams("typed data needs types, primaryType, domain and message");
   }
   const { EIP712Domain: _domain, ...types } = typed.types;
-  return account.signTypedData({ domain: typed.domain ?? {}, types, primaryType: typed.primaryType, message: typed.message });
+  const domain = typed.domain ?? {};
+  try {
+    return await account.signTypedData({ domain, types, primaryType: typed.primaryType, message: typed.message });
+  } catch (err) {
+    if (!(err instanceof InvalidStructTypeError)) throw err;
+    // viem only allows [A-Za-z0-9_$] in struct names; MetaMask also signs names like
+    // "Hyperliquid:AcceptTerms". viem's hashing itself handles them, so hash unvalidated.
+    const all = { EIP712Domain: typed.types.EIP712Domain ?? getTypesForEIP712Domain({ domain }), ...types };
+    const hash = keccak256(concat(["0x1901", hashDomain({ domain, types: all }), hashStruct({ data: typed.message, primaryType: typed.primaryType, types: all })]));
+    return account.sign({ hash });
+  }
 }
 
 /** Fill in what the dApp left out, like MetaMask's confirmation screen does. */
