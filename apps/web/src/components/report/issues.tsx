@@ -29,7 +29,7 @@ export function RerunButton({ ctx, flowId, edgeCase, label = "Re-run this flow",
   );
 }
 
-function StatusBadge({ status }: { status: IssueRow["status"] }) {
+export function StatusBadge({ status }: { status: IssueRow["status"] }) {
   if (status === "ignored") return <Badge variant="secondary">Marked expected</Badge>;
   if (status === "fixed") return <Badge variant="secondary">Fixed</Badge>;
   return null;

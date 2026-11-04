@@ -14,13 +14,14 @@ export function Video({ src }: { src: string | null }) {
   );
 }
 
-export function Screenshot({ src, alt, title = "Screenshot" }: { src: string | null; alt: string; title?: string }) {
+/** `compact` when a video already shows the same screen: a thumbnail that opens full size. */
+export function Screenshot({ src, alt, title = "Screenshot", compact }: { src: string | null; alt: string; title?: string; compact?: boolean }) {
   if (!src) return null;
   return (
     <PanelSection title={title}>
-      <a href={src} target="_blank" rel="noreferrer">
+      <a href={src} target="_blank" rel="noreferrer" className={cx("block overflow-hidden rounded-lg border hover:opacity-90", compact ? "w-full sm:w-64" : "w-full")} title="Open full size">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className="w-full rounded-lg border" />
+        <img src={src} alt={alt} className={cx("w-full object-cover object-top", compact ? "aspect-video" : "max-h-72")} />
       </a>
     </PanelSection>
   );
