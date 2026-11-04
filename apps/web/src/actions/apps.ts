@@ -141,8 +141,6 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
     if (!k.success) return { error: k.error.issues[0]?.message };
     liveKey = { enc: encrypt(k.data), address: privateKeyToAccount(k.data as `0x${string}`).address };
   }
-  const hasKey = liveKey ? Boolean(liveKey.enc) : Boolean(app.liveKeyEnc);
-  if (chains.some((c) => c.mode === "live") && !hasKey) return { error: "Live chains need a funded testnet key." };
 
   let headers: { enc: string | null; names: string[] } | undefined;
   const headerName = String(form.get("headerName") ?? "").trim();

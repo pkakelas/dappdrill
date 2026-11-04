@@ -25,7 +25,7 @@ import { browseTask, chat, type ChatInput } from "./agent/chat.js";
 import { createLlm } from "./agent/index.js";
 import { draftTest, type DraftInput } from "./agent/writer.js";
 import { diagnoseStall } from "./browser/traffic.js";
-import { openEnv, type Env } from "./pipeline/env.js";
+import { openEnv, withoutFallback, type Env } from "./pipeline/env.js";
 import { pin } from "./pipeline/flows.js";
 import { landingBotCheck, runTestItems, type RunTestsOptions, type TestHooks, type TestItem, type TestOutcome } from "./pipeline/tests.js";
 import { createSession, type EngineSession } from "./runtime.js";
@@ -91,7 +91,7 @@ export async function analyze(
     await restore();
     await env.close();
   }
-  return { ...out, chains: env.chains.configs(), costUsd: env.costUsd() };
+  return { ...out, chains: withoutFallback(env.chains.configs()), costUsd: env.costUsd() };
 }
 
 /** Run tests one after another on one set of forks, each on pinned state. */
@@ -105,7 +105,7 @@ export async function runTests(
   const env = await openEnv(DrillTarget.parse(target), sink, { headless: opts.headless });
   try {
     const outcomes = await runTestItems(env, items, opts, hooks);
-    return { outcomes, chains: env.chains.configs(), costUsd: env.costUsd() };
+    return { outcomes, chains: withoutFallback(env.chains.configs()), costUsd: env.costUsd() };
   } finally {
     await env.close();
   }

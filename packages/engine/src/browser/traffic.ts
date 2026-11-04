@@ -25,11 +25,14 @@ interface HostStats {
 export class Traffic {
   private readonly open = new Map<Request, { host: string; at: number }>();
   private readonly hosts = new Map<string, HostStats>();
+  private readonly seen = new Set<string>();
 
   install(context: BrowserContext): void {
     context.on("request", (r) => {
       const host = tracked(r);
-      if (host) this.open.set(r, { host, at: Date.now() });
+      if (!host) return;
+      this.open.set(r, { host, at: Date.now() });
+      this.seen.add(new URL(r.url()).origin);
     });
     context.on("requestfinished", (r) => {
       const entry = this.open.get(r);
@@ -67,6 +70,14 @@ export class Traffic {
       .slice(0, MAX_BACKENDS);
   }
 
+  /** Origins the page fetched from, ones on the app's own site (e.g. app.x.dev → node.x.dev) first. */
+  origins(appUrl: string): string[] {
+    const site = siteOf(new URL(appUrl).hostname);
+    const all = [...this.seen];
+    const own = all.filter((o) => siteOf(new URL(o).hostname) === site);
+    return [...own, ...all.filter((o) => !own.includes(o))];
+  }
+
   private fail(host: string, status?: number): void {
     const s = this.hosts.get(host) ?? { failed: 0, statuses: new Set<number>() };
     s.failed++;
@@ -87,6 +98,11 @@ function tracked(r: Request): string | undefined {
   }
   if (!/^https?:$/.test(url.protocol) || NOISE.test(r.url())) return undefined;
   return url.host;
+}
+
+/** The last two labels of a hostname: good enough to tell the app's own hosts from third parties. */
+function siteOf(hostname: string): string {
+  return hostname.split(".").slice(-2).join(".");
 }
 
 /** Failed fork reads per chain we run, with the cause when the upstream error names it. */

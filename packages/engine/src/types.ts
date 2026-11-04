@@ -23,11 +23,14 @@ export type Hex = `0x${string}`;
 
 // ---------------------------------------------------------------- chains
 
-/** What the app passed to wallet_addEthereumChain. */
+/** A chain the app wants: what it passed to wallet_addEthereumChain, or the chain of typed data it asked to sign. */
 export interface AddChainRequest {
   id: number;
   name?: string;
+  /** RPCs the app offered (wallet_addEthereumChain). */
   rpcUrls: string[];
+  /** Hosts the page called, tried after the offered RPCs: an app's own node often answers JSON-RPC too. */
+  rpcHints?: string[];
 }
 
 export interface ChainController {
@@ -55,7 +58,7 @@ export interface ChainController {
   setFaults(faults: { latencyMs?: number; failureRate?: number }): void;
 
   /**
-   * Start a chain the app asked the wallet to add mid-run: forked when it can be,
+   * Start a chain the app asked the wallet for mid-run: forked when it can be,
    * else live (never live on mainnet without allowMainnetLive). Throws with the
    * reason when it can't, and remembers that chain in missing().
    */

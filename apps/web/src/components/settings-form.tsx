@@ -92,7 +92,7 @@ export function SettingsForm({ appId, defaults: d }: { appId: string; defaults: 
         )}
       </SettingsSection>
 
-      <SettingsSection id="chains" title="Chains" hint="Leave all off to use what the app asks for. Every chain runs on a local fork; nothing touches mainnet.">
+      <SettingsSection id="chains" title="Chains" hint="Leave all off to use what the app asks for. Chains run on local forks; a testnet that can't be forked runs live. Nothing touches mainnet.">
         <div className="flex flex-wrap gap-2">
           {KNOWN_CHAINS.filter((c) => c.id !== 31337).map((c) => (
             <label key={c.id} className={CHIP}>
@@ -101,7 +101,7 @@ export function SettingsForm({ appId, defaults: d }: { appId: string; defaults: 
             </label>
           ))}
         </div>
-        <Field label="Other chains" hint={'One per line: "<chain id> <rpc url>". Add "live" for a testnet that can\'t be forked; it needs the funded key below.'}>
+        <Field label="Other chains" hint={'One per line: "<chain id> <rpc url>". Add "live" for a testnet that can\'t be forked. Without the funded key below, tests there get a new account each run that can sign but not pay for transactions.'}>
           <Textarea name="customChains" defaultValue={d.customChains} rows={2} className="font-mono" placeholder="129302 https://rpc.example.org live" spellCheck={false} />
         </Field>
         <Field label="Funded testnet key" hint={d.liveKeyAddress ? `Saved for ${d.liveKeyAddress}. Paste a new one to replace it.` : "Only for live testnets. Stored encrypted, never shown again."}>

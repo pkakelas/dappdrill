@@ -141,6 +141,7 @@ class Session implements EngineSession {
       this.touch();
       void this.emit({ type: "wallet-request", request });
     });
+    wallet.setRpcHints(() => this.traffic.origins(this.target.url));
     wallet.setEmitter(async (event, args) => {
       await Promise.all(
         context.pages().map((p) =>

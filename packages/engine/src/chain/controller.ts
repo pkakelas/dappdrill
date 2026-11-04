@@ -19,6 +19,8 @@ export interface StartChainsOptions {
   log?: (message: string) => void;
   /** Called once a chain the app asked for is running, before the wallet answers the app (fund it, report it). */
   onAdded?: (config: ChainConfig) => Promise<void>;
+  /** Called when a chain the app asked for couldn't be started (the first time per chain). */
+  onMissing?: (chain: MissingChain) => Promise<void>;
 }
 
 interface Entry {
@@ -58,24 +60,32 @@ function refuseMainnetLive(c: ChainConfig, opts: StartChainsOptions): void {
   }
 }
 
+/** Hosts the page called that we try as RPCs for a chain the app wants. */
+const MAX_HINTS = 6;
+
 /**
- * The config for a chain the app asked to add. A chain we know uses our RPC;
- * otherwise the first RPC the app offered that answers as that chain.
+ * The config for a chain the app asked for. A chain we know uses our RPC;
+ * otherwise the first RPC the app offered, then the first host the page
+ * called, that answers as that chain.
  */
-async function configForApp(req: AddChainRequest): Promise<ChainConfig> {
+export async function configForApp(req: AddChainRequest): Promise<ChainConfig> {
   const info = chainInfo(req.id);
   if (info) return { id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: info.forkable ? "fork" : "live", fromApp: true };
-  const offered = req.rpcUrls.filter((u) => /^https?:\/\//i.test(u));
-  if (offered.length === 0) throw new Error("the app gave no RPC URL for it");
-  for (const url of offered.slice(0, 3)) {
-    if ((await probeChainId(url)) === req.id) return { id: req.id, name: req.name, rpcUrl: url, mode: "fork", fromApp: true };
-  }
-  throw new Error(`${offered[0]} didn't answer as chain ${req.id}`);
+  const offered = req.rpcUrls.filter((u) => /^https?:\/\//i.test(u)).slice(0, 3);
+  const hints = (req.rpcHints ?? []).filter((u) => /^https?:\/\//i.test(u) && !offered.includes(u)).slice(0, MAX_HINTS);
+  const candidates = [...offered, ...hints];
+  if (candidates.length === 0) throw new Error("the app gave no RPC URL for it");
+  const ids = await Promise.all(candidates.map((url) => probeChainId(url)));
+  const url = candidates.find((_, i) => ids[i] === req.id);
+  if (url) return { id: req.id, name: req.name, rpcUrl: url, mode: "fork", fromApp: true };
+  if (offered.length) throw new Error(`${offered[0]} didn't answer as chain ${req.id}`);
+  const tried = hints.length === 1 ? "the one host the page called didn't answer" : `none of the ${hints.length} hosts the page called answered`;
+  throw new Error(`the app gave no RPC URL for it, and ${tried} as chain ${req.id}`);
 }
 
 async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promise<Entry> {
   if (config.mode === "live") {
-    opts.log?.(`chain ${config.id}: live mode via ${config.rpcUrl}${opts.liveKey ? "" : " (no live key: read-only)"}`);
+    opts.log?.(`chain ${config.id}: live mode via ${config.rpcUrl}${opts.liveKey ? "" : " (no funded key: signs messages, sends no transactions)"}`);
     return { config, mode: "live", url: config.rpcUrl };
   }
   let fork: AnvilFork;
@@ -152,8 +162,12 @@ class Controller implements ChainController {
       }
     } catch (err) {
       const reason = (err as Error).message.split("\n")[0]!;
+      // An offered RPC is worth naming; hosts we only guessed at aren't.
       const rpcUrl = req.rpcUrls.find((u) => /^https?:\/\//i.test(u));
-      this.missingChains.set(req.id, { chainId: req.id, name: req.name ?? chainInfo(req.id)?.name, rpcUrl, reason });
+      const first = !this.missingChains.has(req.id);
+      const missing: MissingChain = { chainId: req.id, name: req.name ?? chainInfo(req.id)?.name, rpcUrl, reason };
+      this.missingChains.set(req.id, missing);
+      if (first) await this.opts.onMissing?.(missing).catch(() => {});
       throw err;
     }
     this.entries.set(req.id, entry);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { concat, encodeAbiParameters, hashDomain, keccak256, recoverAddress, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { signTypedData } from "../../src/wallet/signer.js";
+import { signTypedData, typedDataChainId } from "../../src/wallet/signer.js";
 
 const account = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
 
@@ -35,5 +35,20 @@ describe("signTypedData", () => {
     );
     const hash = keccak256(concat(["0x1901", hashDomain({ domain: { ...domain, chainId: 421614n }, types: { EIP712Domain: domainTypes } }), structHash]));
     expect(await recoverAddress({ hash, signature })).toBe(account.address);
+  });
+});
+
+describe("typedDataChainId", () => {
+  const typed = (chainId: unknown) => ({ types: {}, primaryType: "X", domain: { name: "Pod", chainId }, message: {} });
+  it("reads the domain chain from a JSON string or an object", () => {
+    expect(typedDataChainId(["0xabc", JSON.stringify(typed(129302))])).toBe(129302);
+    expect(typedDataChainId(["0xabc", typed("0x1f916")])).toBe(129302);
+    expect(typedDataChainId(["0xabc", typed("129302")])).toBe(129302);
+  });
+  it("is undefined when the data names no usable chain", () => {
+    expect(typedDataChainId(["0xabc", typed(undefined)])).toBeUndefined();
+    expect(typedDataChainId(["0xabc", typed(0)])).toBeUndefined();
+    expect(typedDataChainId(["0xabc", "{not json"])).toBeUndefined();
+    expect(typedDataChainId([])).toBeUndefined();
   });
 });

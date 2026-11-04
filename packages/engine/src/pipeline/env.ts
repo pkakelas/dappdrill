@@ -6,7 +6,7 @@
 import os from "node:os";
 import path from "node:path";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { chainInfo, nowIso, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type FlowRun, type Issue } from "@dappdrill/core";
+import { chainInfo, nowIso, stallReasons, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type FlowRun, type Issue } from "@dappdrill/core";
 import { createLlm, createRecoveryJudge } from "../agent/index.js";
 import { openInbox } from "../inbox/index.js";
 import { detectChains, startChains } from "../runtime.js";
@@ -90,7 +90,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
     await wrapped({ type: "log", level, message, at: nowIso() });
   };
 
-  let configs = input.chains;
+  let configs = withoutFallback(input.chains);
   if (configs.length === 0) {
     await log("Detecting which chains the app uses");
     configs = await detectChains(input.url, { headless, log: (m) => void log(m) });
@@ -120,17 +120,17 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
       await log(`The app asked the wallet for ${c.name ?? `chain ${c.id}`} (chain ${c.id}); added it ${c.mode === "live" ? `as a live testnet via ${c.rpcUrl}` : `as a fork of ${c.rpcUrl}`}`);
       await wrapped({ type: "chains", chains: chains.configs() });
     },
+    onMissing: (m) => log(stallReasons({ chains: [m], backends: [], rpc: [] })[0]! + " Add it under Settings → Chains with an RPC that answers for it.", "warn"),
   });
+  const live = chains.configs().filter((c) => c.mode === "live");
   const target: DrillTarget = {
     ...input,
     chains: chains.configs(),
     // Keys stay the same for the whole call so setup flows, edge cases and approvals line up.
-    accounts: input.accounts ?? { A: generatePrivateKey(), B: generatePrivateKey() },
+    accounts: freshAccounts(live.length > 0, input) ?? input.accounts ?? { A: generatePrivateKey(), B: generatePrivateKey() },
   };
   await wrapped({ type: "chains", chains: target.chains });
-  for (const c of target.chains) {
-    if (c.mode === "live") await log(`${c.name ?? `Chain ${c.id}`} can't be forked: using the live testnet${input.liveKey ? " with your funded key" : " (read-only, no funded key)"}`, "warn");
-  }
+  for (const c of live) await log(liveChainLine(c, !!input.liveKey), "warn");
 
   return {
     target,
@@ -194,5 +194,27 @@ function fundedAddresses(target: DrillTarget): Hex[] {
 
 function fallbackChain(): ChainConfig {
   const info = chainInfo(FALLBACK_CHAIN)!;
-  return { id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: "fork" };
+  return { id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: "fork", fallback: true };
+}
+
+/** The chains without the Ethereum fallback once any chain of the app's own is known. */
+export function withoutFallback(configs: ChainConfig[]): ChainConfig[] {
+  return configs.some((c) => !c.fallback) ? configs.filter((c) => !c.fallback) : configs;
+}
+
+/**
+ * On a live network with no funded key the saved test accounts would be the
+ * same real accounts every run (faucets and sign-ups remember them), so each
+ * call gets new ones. They can sign messages but hold nothing to pay gas with.
+ */
+export function freshAccounts(anyLive: boolean, input: Pick<DrillTarget, "liveKey">): DrillTarget["accounts"] | undefined {
+  if (!anyLive || input.liveKey) return undefined;
+  return { A: generatePrivateKey(), B: generatePrivateKey() };
+}
+
+export function liveChainLine(c: ChainConfig, funded: boolean): string {
+  const name = c.name ? `${c.name} (chain ${c.id})` : `Chain ${c.id}`;
+  return funded
+    ? `${name} can't be forked, so this run uses its live network with your funded key`
+    : `${name} can't be forked, so this run uses its live network with a new account. It can sign messages but can't pay for transactions; add a funded key under Settings → Chains for those`;
 }

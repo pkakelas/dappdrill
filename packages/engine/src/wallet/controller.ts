@@ -11,7 +11,7 @@ import type { ChainController, Hex, PendingSign, WalletController, WalletPolicy 
 import { JsonRpcError, hexToNumber, rpcCall, toHex, toRpcError } from "../chain/rpc.js";
 import { WalletErrors } from "./errors.js";
 import type { BridgeRequest, BridgeResponse } from "./inject.js";
-import { nodeError, prepareTransaction, sendPrepared, signEthSign, signPersonal, signTypedData, type PreparedTx, type TxRequest } from "./signer.js";
+import { nodeError, prepareTransaction, sendPrepared, signEthSign, signPersonal, signTypedData, typedDataChainId, type PreparedTx, type TxRequest } from "./signer.js";
 
 export interface WalletOptions {
   profile: WalletProfileId;
@@ -85,6 +85,7 @@ export class Wallet implements WalletController {
   private unknownChainDone = false;
   private passthroughCalls = 0;
   private emitter: (event: string, args: unknown) => Promise<void> = async () => {};
+  private rpcHints: () => string[] = () => [];
   private readonly chains: ChainController;
   private readonly liveKey?: string;
   private readonly log: (m: string) => void;
@@ -113,6 +114,11 @@ export class Wallet implements WalletController {
   /** The session installs the function that emits provider events into the page(s). */
   setEmitter(fn: (event: string, args: unknown) => Promise<void>): void {
     this.emitter = fn;
+  }
+
+  /** The session installs where to look for an RPC of a chain the app wants but never offered one for. */
+  setRpcHints(fn: () => string[]): void {
+    this.rpcHints = fn;
   }
 
   // ------------------------------------------------------------ WalletController
@@ -367,6 +373,7 @@ export class Wallet implements WalletController {
         // Messages sign on any network, as in MetaMask; transactions need the chain.
         const signsMessage = method === "personal_sign" || method === "eth_sign" || method.startsWith("eth_signTypedData");
         if (!signsMessage && !this.chains.has(this.chain)) throw WalletErrors.chainDisconnected(this.chain);
+        if (method.startsWith("eth_signTypedData")) await this.learnChain(typedDataChainId(params));
         const run = () => this.sign(method, params).then((result) => ({ result }) as BridgeResponse, (e) => ({ error: toRpcError(e) }) as BridgeResponse);
         if (this.pol.autoSign) {
           const res = await run();
@@ -380,6 +387,24 @@ export class Wallet implements WalletController {
         if (method.startsWith("wallet_") || method.startsWith("__")) throw WalletErrors.methodNotFound(method);
         return { result: await this.read(method, params) };
     }
+  }
+
+  /**
+   * Typed data bound to a chain we don't run means the app works on that chain, even
+   * when it never asked the wallet to add or switch to it (it signs for its own chain
+   * straight away). Start that chain so later runs begin on it. The request itself
+   * still fails below, as MetaMask refuses typed data for another chain than its own.
+   */
+  private async learnChain(chainId: number | undefined): Promise<void> {
+    if (chainId === undefined || chainId === this.chain || this.chains.has(chainId)) return;
+    try {
+      await this.chains.addFromApp({ id: chainId, rpcUrls: [], rpcHints: this.rpcHints() });
+    } catch (e) {
+      this.log(`wallet: the app asked to sign for chain ${chainId}, which couldn't be started: ${(e as Error).message}`);
+      return;
+    }
+    // The Ethereum fallback was our guess, not the app's choice: move to the chain the app uses.
+    if (this.chains.configs().find((c) => c.id === this.chain)?.fallback) await this.switchChain(chainId);
   }
 
   /** Read-only call: forward to the chain the wallet is on. */

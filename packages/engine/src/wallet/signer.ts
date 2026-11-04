@@ -59,6 +59,21 @@ export async function signEthSign(account: PrivateKeyAccount, params: unknown): 
   return account.sign({ hash: hash as ViemHex });
 }
 
+/** The chain typed data is bound to (its domain's chainId), when it names one. */
+export function typedDataChainId(params: unknown[]): number | undefined {
+  const payload = params[1];
+  let typed: any;
+  try {
+    typed = typeof payload === "string" ? JSON.parse(payload) : payload;
+  } catch {
+    return undefined;
+  }
+  const raw = typed?.domain?.chainId;
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
 export async function signTypedData(account: PrivateKeyAccount, params: unknown, activeChainId?: number): Promise<Hex> {
   const [, payload] = requireParams(params, 2, "eth_signTypedData expects [address, typedData]");
   let typed: any;

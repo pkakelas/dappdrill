@@ -146,6 +146,36 @@ describe("addFromApp", () => {
   });
 });
 
+describe("addFromApp with hosts the page called", () => {
+  const OTHER = 4545;
+
+  it("finds the RPC among the page's hosts when the app offers none", async () => {
+    const other = await startBareChain(OTHER);
+    const ctl = await startChains([], {});
+    try {
+      const cfg = await ctl.addFromApp({ id: OTHER, rpcUrls: [], rpcHints: ["ftp://nope.example", fx.rpcUrl, other.rpcUrl] });
+      expect(cfg).toMatchObject({ id: OTHER, rpcUrl: other.rpcUrl, mode: "fork", fromApp: true });
+    } finally {
+      await ctl.close();
+      await other.close();
+    }
+  }, 60_000);
+
+  it("reports once when none of the hosts answer for the chain", async () => {
+    const reported: number[] = [];
+    const ctl = await startChains([], { onMissing: async (m) => void reported.push(m.chainId) });
+    try {
+      const req = { id: OTHER, rpcUrls: [], rpcHints: [fx.rpcUrl] };
+      await expect(ctl.addFromApp(req)).rejects.toThrow(`the one host the page called didn't answer as chain ${OTHER}`);
+      await expect(ctl.addFromApp(req)).rejects.toThrow();
+      expect(reported).toEqual([OTHER]);
+      expect(ctl.missing()[0]).toMatchObject({ chainId: OTHER, rpcUrl: undefined });
+    } finally {
+      await ctl.close();
+    }
+  });
+});
+
 describe("rpcCall", () => {
   async function busyServer(busyTimes: number, status = 429) {
     const { createServer } = await import("node:http");
