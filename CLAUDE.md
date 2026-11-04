@@ -7,8 +7,9 @@ Tests run with our own wallet against local Anvil forks (never mainnet). Unhappy
 signature request is reviewed. A fast assistant on every page can see the app map and
 drive the browser. Product context: `docs/product-context.md`. Layout reference:
 `docs/designs/*.html`, where the v2 UX notes in the product context win where the two differ.
-The look (paper and ink, Newsreader for text, Plex Mono for controls, pill buttons) follows the
-marketing site in `../dappdrill-site`; tokens live in `apps/web/src/app/globals.css`.
+The web UI is shadcn/ui (new-york, neutral) on Tailwind v4: use the components in `apps/web/src/components/ui/`
+(add more with the shadcn CLI) and keep pages plain. Only problems get colour, through the status tokens
+(bad, warn, live) next to the shadcn theme in `apps/web/src/app/globals.css`; the brand red is only in the logo.
 
 ## Layout
 

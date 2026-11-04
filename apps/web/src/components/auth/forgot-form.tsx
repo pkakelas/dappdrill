@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function ForgotForm() {
   const [sent, setSent] = useState(false);
@@ -17,24 +21,28 @@ export function ForgotForm() {
   }
 
   return (
-    <div className="card flex flex-col gap-5 p-7">
-      <h1 className="m-0 font-serif text-[32px] leading-tight font-[380] tracking-[-0.02em]">Reset your password</h1>
-      {sent ? (
-        <p className="m-0 text-sm text-ink-2">If that email has an account, a reset link is on its way.</p>
-      ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="label">Email</span>
-            <input name="email" type="email" required className="field" autoComplete="email" />
-          </label>
-          <button className="btn btn-primary w-full" disabled={pending}>
-            Send reset link
-          </button>
-        </form>
-      )}
-      <Link href="/login" className="text-sm text-muted">
-        Back to log in
-      </Link>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl">Reset your password</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {sent ? (
+          <p>If that email has an account, a reset link is on its way.</p>
+        ) : (
+          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" required autoComplete="email" />
+            </div>
+            <Button className="w-full" disabled={pending}>
+              Send reset link
+            </Button>
+          </form>
+        )}
+        <Link href="/login" className="w-fit text-muted-foreground hover:underline">
+          Back to log in
+        </Link>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,7 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { Plus, X } from "lucide-react";
+import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { updateTestAction } from "@/actions/tests";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Spec {
   name: string;
@@ -48,15 +53,15 @@ export function SpecEditor({ testId, spec, stepsFixed, view, disabled }: { testI
     return (
       <div className="relative flex flex-col gap-3">
         {!disabled && (
-          <button type="button" className="btn btn-xs absolute -top-2 right-0" onClick={() => open()}>
+          <Button type="button" variant="outline" size="xs" className="absolute -top-1 right-0" onClick={() => open()}>
             Edit
-          </button>
+          </Button>
         )}
         {view}
         {!disabled && !stepsFixed && (
-          <button type="button" className="btn-link w-fit pl-4 font-mono text-[12.5px] text-muted hover:text-ink" onClick={() => open(true)}>
-            + Add step
-          </button>
+          <Button type="button" variant="ghost" size="sm" className="w-fit text-muted-foreground" onClick={() => open(true)}>
+            <Plus /> Add step
+          </Button>
         )}
       </div>
     );
@@ -73,28 +78,22 @@ export function SpecEditor({ testId, spec, stepsFixed, view, disabled }: { testI
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
       }}
     >
-      <Field label="Name">
-        <input className="field" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} maxLength={80} />
-      </Field>
-      <Field label="Goal">
-        <textarea className="field" rows={2} value={draft.goal} onChange={(e) => setDraft({ ...draft, goal: e.target.value })} />
-      </Field>
-      <Field label="Expected result">
-        <textarea className="field" rows={2} value={draft.expected} onChange={(e) => setDraft({ ...draft, expected: e.target.value })} />
-      </Field>
+      <Field label="Name">{(id) => <Input id={id} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} maxLength={80} />}</Field>
+      <Field label="Goal">{(id) => <Textarea id={id} rows={2} value={draft.goal} onChange={(e) => setDraft({ ...draft, goal: e.target.value })} />}</Field>
+      <Field label="Expected result">{(id) => <Textarea id={id} rows={2} value={draft.expected} onChange={(e) => setDraft({ ...draft, expected: e.target.value })} />}</Field>
       {!stepsFixed && (
-        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-          <legend className="label mb-2">Steps</legend>
-          <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-sm font-medium">Steps</legend>
+          <ol className="flex flex-col gap-1.5">
             {draft.steps.map((s, i) => (
               <li key={i} className="flex items-center gap-2">
-                <span className="w-5 shrink-0 text-right font-mono text-[12px] text-faint">{i + 1}</span>
-                <input
+                <span className="w-5 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{i + 1}</span>
+                <Input
                   ref={(el) => {
                     refs.current[i] = el;
                   }}
                   aria-label={`Step ${i + 1}`}
-                  className="field h-10 flex-1"
+                  className="flex-1"
                   value={s}
                   placeholder="Short and imperative, e.g. Click Deposit"
                   onChange={(e) => setStep(i, e.target.value)}
@@ -109,36 +108,37 @@ export function SpecEditor({ testId, spec, stepsFixed, view, disabled }: { testI
                     }
                   }}
                 />
-                <button type="button" aria-label={`Remove step ${i + 1}`} className="btn btn-icon h-9 w-9 border-transparent text-muted hover:text-ink" onClick={() => remove(i)}>
-                  ×
-                </button>
+                <Button type="button" variant="ghost" size="icon" aria-label={`Remove step ${i + 1}`} className="text-muted-foreground" onClick={() => remove(i)}>
+                  <X />
+                </Button>
               </li>
             ))}
           </ol>
-          <button type="button" className="btn-link ml-7 w-fit text-muted" onClick={() => insertAfter(draft.steps.length - 1)}>
-            + Add step
-          </button>
-          <p className="hint m-0 ml-7 text-[13px]">Enter adds a step below. Unchanged steps keep their recorded clicks.</p>
+          <Button type="button" variant="ghost" size="sm" className="ml-5 w-fit text-muted-foreground" onClick={() => insertAfter(draft.steps.length - 1)}>
+            <Plus /> Add step
+          </Button>
+          <p className="ml-7 text-sm text-muted-foreground">Enter adds a step below. Unchanged steps keep their recorded clicks.</p>
         </fieldset>
       )}
-      {error && <p className="m-0 text-[13px] text-bad">{error}</p>}
+      {error && <p className="text-sm text-bad">{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" className="btn btn-sm btn-primary" disabled={pending}>
+        <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Save"}
-        </button>
-        <button type="button" className="btn btn-sm" onClick={() => setEditing(false)}>
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
+  const id = useId();
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="label">{label}</span>
-      {children}
-    </label>
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      {children(id)}
+    </div>
   );
 }

@@ -1,8 +1,11 @@
 "use client";
 
 import { CONDITIONS, type EdgeCaseId } from "@dappdrill/core";
+import { Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { addUnhappyAction } from "@/actions/tests";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /** Pick conditions to run this happy path under; the new tests run right away. */
 export function AddUnhappy({ testId, existing }: { testId: string; existing: EdgeCaseId[] }) {
@@ -15,10 +18,10 @@ export function AddUnhappy({ testId, existing }: { testId: string; existing: Edg
 
   if (!open)
     return (
-      <button type="button" onClick={() => setOpen(true)} className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left font-mono text-[12.5px] text-muted hover:bg-sub hover:text-ink">
-        <span className="inline-flex w-4 justify-center text-[15px] leading-none">+</span>
+      <Button type="button" variant="ghost" onClick={() => setOpen(true)} className="h-auto w-full justify-start gap-2.5 rounded-none px-4 py-3 font-normal text-muted-foreground has-[>svg]:px-4">
+        <Plus className="size-4" aria-hidden="true" />
         Add unhappy paths
-      </button>
+      </Button>
     );
   return (
     <form
@@ -32,31 +35,31 @@ export function AddUnhappy({ testId, existing }: { testId: string; existing: Edg
         });
       }}
     >
-      <fieldset className="m-0 flex flex-col gap-1 border-0 p-0" disabled={pending}>
-        <legend className="hint mb-2 text-[13px]">Runs this test&apos;s steps under each condition and checks the app copes.</legend>
+      <fieldset className="flex flex-col gap-1" disabled={pending}>
+        <legend className="mb-2 text-sm text-muted-foreground">Runs this test&apos;s steps under each condition and checks the app copes.</legend>
         {available.map((c) => (
-          <label key={c.id} className="flex cursor-pointer items-start gap-2.5 rounded-lg px-1 py-1.5 hover:bg-sub">
-            <input
-              type="checkbox"
-              className="mt-[5px] accent-ink"
+          <label key={c.id} htmlFor={`condition-${c.id}`} className="flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1.5 hover:bg-accent/50">
+            <Checkbox
+              id={`condition-${c.id}`}
+              className="mt-0.5"
               checked={picked.includes(c.id)}
-              onChange={(e) => setPicked((p) => (e.target.checked ? [...p, c.id] : p.filter((x) => x !== c.id)))}
+              onCheckedChange={(checked) => setPicked((p) => (checked === true ? [...p, c.id] : p.filter((x) => x !== c.id)))}
             />
-            <span className="flex flex-col">
-              <span className="text-[14.5px]">{c.name}</span>
-              <span className="text-[12.5px] leading-snug text-muted">{c.expected}</span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">{c.name}</span>
+              <span className="text-sm leading-snug text-muted-foreground">{c.expected}</span>
             </span>
           </label>
         ))}
       </fieldset>
-      {error && <p className="m-0 text-[13px] text-bad">{error}</p>}
+      {error && <p className="text-sm text-bad">{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" className="btn btn-sm btn-primary" disabled={pending || picked.length === 0}>
+        <Button type="submit" size="sm" disabled={pending || picked.length === 0}>
           {pending ? "Adding…" : picked.length === 1 ? "Add and run 1" : `Add and run ${picked.length}`}
-        </button>
-        <button type="button" className="btn btn-sm" onClick={() => setOpen(false)}>
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

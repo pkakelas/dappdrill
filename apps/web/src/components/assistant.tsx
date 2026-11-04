@@ -1,10 +1,12 @@
 "use client";
 
+import { ArrowUp, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { agentMessagesAction, clearAgentAction, sendAgentMessageAction, type AgentMessage } from "@/actions/agent";
 import { cx } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 const ON_TEST = ["Why did this fail?", "Fork it with a different amount", "Add unhappy paths and run them"];
 const ON_LIST = ["Which tests are failing?", "Add a test for withdrawing everything", "Run every test"];
@@ -70,71 +72,65 @@ export function Assistant({ appId }: { appId: string }) {
 
   if (!open)
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed right-5 bottom-5 z-40 flex cursor-pointer items-center gap-2.5 rounded-full bg-ink py-2.5 pr-3 pl-4 font-mono text-[12.5px] text-paper shadow-[0_6px_24px_-8px_rgb(0_0_0/0.45)] hover:bg-ink-2 max-sm:px-4"
-      >
+      <Button type="button" onClick={() => setOpen(true)} className="fixed right-5 bottom-5 z-40 h-10 gap-2.5 rounded-full pr-3 pl-4 shadow-lg max-sm:px-4">
         Ask
-        <kbd className="rounded-md bg-paper/15 px-1.5 py-0.5 font-mono text-[10.5px] max-sm:hidden">⌘K</kbd>
-      </button>
+        <kbd className="rounded bg-primary-foreground/15 px-1.5 py-0.5 text-xs max-sm:hidden">⌘K</kbd>
+      </Button>
     );
 
   const suggestions = testId ? ON_TEST : ON_LIST;
   return (
-    <aside
-      aria-label="Assistant"
-      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-line bg-paper shadow-[-12px_0_40px_-24px_rgb(0_0_0/0.35)] sm:w-[420px]"
-    >
-      <header className="flex items-center gap-3 border-b border-line px-5 py-3.5">
+    <aside aria-label="Assistant" className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l bg-background shadow-lg sm:w-[420px]">
+      <header className="flex items-center gap-3 border-b px-5 py-3.5">
         <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className="m-0 font-serif text-[19px] font-[420] tracking-[-0.01em]">Ask</h2>
-          <p className="m-0 text-[12.5px] text-muted">{testId ? "About this test, or anything in the app." : "About your tests, or anything in the app."}</p>
+          <h2 className="text-base font-semibold">Ask</h2>
+          <p className="text-sm text-muted-foreground">{testId ? "About this test, or anything in the app." : "About your tests, or anything in the app."}</p>
         </div>
         {messages && messages.length > 0 && !waiting && (
-          <button
+          <Button
             type="button"
-            className="btn btn-xs"
+            variant="outline"
+            size="xs"
             onClick={async () => {
               await clearAgentAction(appId);
               await load();
             }}
           >
             Clear
-          </button>
+          </Button>
         )}
-        <button type="button" aria-label="Close" className="btn btn-icon" onClick={() => setOpen(false)}>
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M2 2l8 8M10 2l-8 8" />
-          </svg>
-        </button>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={() => setOpen(false)}>
+          <X aria-hidden="true" />
+        </Button>
       </header>
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         {messages?.length === 0 && (
           <div className="flex flex-col gap-2 pt-2">
-            <p className="m-0 text-[14px] text-ink-3">It can read, write, fork and run tests, and look around the app in a browser.</p>
+            <p className="text-sm text-muted-foreground">It can read, write, fork and run tests, and look around the app in a browser.</p>
             <div className="flex flex-col items-start gap-1.5 pt-2">
               {suggestions.map((s) => (
-                <button key={s} type="button" className="chip cursor-pointer text-left" onClick={() => send(s)}>
+                <Button key={s} type="button" variant="outline" size="sm" className="h-auto rounded-full py-1.5 text-left font-normal whitespace-normal" onClick={() => send(s)}>
                   {s}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
         )}
-        {messages?.map((m) => <Message key={m.id} message={m} onLink={() => setOpen(window.innerWidth >= 1280)} />)}
+        {messages?.map((m) => (
+          <Message key={m.id} message={m} onLink={() => setOpen(window.innerWidth >= 1280)} />
+        ))}
         <div ref={bottom} />
       </div>
 
       <form
-        className="border-t border-line px-4 py-3"
+        className="border-t px-4 py-3"
         onSubmit={(e) => {
           e.preventDefault();
           send(draft);
         }}
       >
-        <div className="flex items-end gap-2 rounded-2xl border border-line-strong bg-card px-3 py-2 focus-within:border-ink">
+        <div className="flex items-end gap-2 rounded-xl border border-input bg-background px-3 py-2 shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
           <textarea
             ref={input}
             value={draft}
@@ -147,39 +143,38 @@ export function Assistant({ appId }: { appId: string }) {
             }}
             rows={Math.min(6, Math.max(1, draft.split("\n").length))}
             placeholder={testId ? "e.g. the same but sell half" : "e.g. add a test for claiming rewards"}
-            className="max-h-40 min-h-[26px] flex-1 resize-none border-0 bg-transparent py-0.5 text-[14.5px] leading-snug outline-none placeholder:text-faint"
+            className="max-h-40 min-h-8 flex-1 resize-none border-0 bg-transparent py-1.5 text-sm leading-snug outline-none placeholder:text-muted-foreground"
           />
-          <button type="submit" aria-label="Send" disabled={!draft.trim() || waiting || sending} className="btn btn-primary btn-icon shrink-0 disabled:opacity-30">
-            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 10V2M2.5 5.5L6 2l3.5 3.5" />
-            </svg>
-          </button>
+          <Button type="submit" size="icon-sm" aria-label="Send" disabled={!draft.trim() || waiting || sending} className="rounded-full disabled:opacity-30">
+            <ArrowUp aria-hidden="true" />
+          </Button>
         </div>
-        {error && <p className="m-0 px-1 pt-2 text-[13px] text-bad">{error}</p>}
+        {error && <p className="px-1 pt-2 text-sm text-bad">{error}</p>}
       </form>
     </aside>
   );
 }
 
 function Message({ message: m, onLink }: { message: AgentMessage; onLink: () => void }) {
-  if (m.role === "user")
-    return <p className="m-0 max-w-[85%] self-end rounded-2xl rounded-br-md bg-sub px-3.5 py-2 text-[14.5px] leading-snug whitespace-pre-wrap">{m.text}</p>;
+  if (m.role === "user") return <p className="max-w-[85%] self-end rounded-2xl rounded-br-md bg-muted px-3.5 py-2 text-sm leading-snug whitespace-pre-wrap">{m.text}</p>;
   return (
     <div className="flex flex-col gap-2.5">
       {m.text ? (
-        <p className={cx("m-0 text-[14.5px] leading-relaxed whitespace-pre-wrap", m.status === "failed" && "text-bad")}>{m.text}</p>
+        <p className={cx("text-sm leading-relaxed whitespace-pre-wrap", m.status === "failed" && "text-bad")}>{m.text}</p>
       ) : (
-        <p className="m-0 flex items-center gap-2 text-[13px] text-muted">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-live" />
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="size-1.5 animate-pulse rounded-full bg-live" />
           Working on it
         </p>
       )}
       {m.links.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {m.links.map((l, i) => (
-            <Link key={i} href={l.href} onClick={onLink} className="btn btn-xs no-underline">
-              {l.label} →
-            </Link>
+            <Button key={i} asChild variant="outline" size="xs">
+              <Link href={l.href} onClick={onLink}>
+                {l.label} →
+              </Link>
+            </Button>
           ))}
         </div>
       )}

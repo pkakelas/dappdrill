@@ -1,18 +1,12 @@
 "use client";
 
+import { Play, Square } from "lucide-react";
 import { useTransition } from "react";
 import { runAllAction, runFlowAction, runTestsAction, stopRunsAction } from "@/actions/tests";
-import { cx, PlayIcon } from "@/components/ui";
+import { cx } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 export type RunTarget = { appId: string } & ({ testIds: string[] } | { flowId: string } | { all: true });
-
-function StopIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="currentColor">
-      <rect x="2" y="2" width="8" height="8" rx="1.5" />
-    </svg>
-  );
-}
 
 /**
  * Play, or stop while any of the target's tests is queued or running.
@@ -46,27 +40,34 @@ export function RunButton({
     });
   };
   const text = active ? "Stop" : label;
+  const icon = active ? <Square className="size-3 fill-current" aria-hidden="true" /> : <Play className="size-3.5 fill-current" aria-hidden="true" />;
   if (size === "icon")
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={onClick}
         disabled={pending || disabled}
         aria-label={active ? `Stop ${label.toLowerCase()}` : label}
         title={active ? "Stop" : label}
-        className={cx(
-          "inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-transparent text-ink-3 transition-colors hover:border-line-strong hover:bg-card hover:text-ink disabled:cursor-default disabled:opacity-40",
-          active && "text-live hover:text-live",
-        )}
+        className={cx("rounded-full text-muted-foreground hover:text-foreground", active && "text-live hover:text-live")}
       >
-        {active ? <StopIcon /> : <PlayIcon />}
-      </button>
+        {icon}
+      </Button>
     );
   return (
-    <button type="button" onClick={onClick} disabled={pending || disabled} className={cx("btn", size === "sm" && "btn-sm max-sm:w-10 max-sm:px-0", primary && !active && "btn-primary")}>
-      {active ? <StopIcon /> : <PlayIcon />}
+    <Button
+      type="button"
+      variant={primary && !active ? "default" : "outline"}
+      size={size === "sm" ? "sm" : "default"}
+      onClick={onClick}
+      disabled={pending || disabled}
+      className={cx(size === "sm" && "max-sm:w-8 max-sm:px-0")}
+    >
+      {icon}
       {/* Small ones sit in card headers; on a phone they shrink to the icon. */}
       <span className={cx(size === "sm" && "max-sm:sr-only")}>{pending ? (active ? "Stopping…" : "Starting…") : text}</span>
-    </button>
+    </Button>
   );
 }

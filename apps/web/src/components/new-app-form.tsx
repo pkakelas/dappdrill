@@ -2,6 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { createAppAction } from "@/actions/apps";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { ActionResult } from "@/lib/action-result";
 
 export function NewAppForm() {
@@ -13,30 +16,20 @@ export function NewAppForm() {
         <label htmlFor="url" className="sr-only">
           Your app&apos;s URL
         </label>
-        <input
-          id="url"
-          name="url"
-          required
-          autoFocus
-          autoComplete="url"
-          inputMode="url"
-          spellCheck={false}
-          placeholder="app.example.com"
-          className="field h-14 rounded-full sm:flex-1 px-6 font-mono text-[16px]"
-        />
-        <button type="submit" className="btn btn-primary h-14 px-8" disabled={pending}>
+        <Input id="url" name="url" required autoFocus autoComplete="url" inputMode="url" spellCheck={false} placeholder="app.example.com" className="h-11 text-base md:text-base sm:flex-1" />
+        <Button type="submit" size="lg" className="h-11 px-8" disabled={pending}>
           {pending ? "Starting…" : "Start"}
-        </button>
+        </Button>
       </div>
       {note ? (
-        <textarea name="hints" rows={2} maxLength={2000} className="field" placeholder="Anything it should know? e.g. the swap is under /trade, use USDC on Base." autoFocus />
+        <Textarea name="hints" rows={2} maxLength={2000} placeholder="Anything it should know? e.g. the swap is under /trade, use USDC on Base." autoFocus />
       ) : (
-        <button type="button" className="btn-link w-fit text-muted" onClick={() => setNote(true)}>
+        <Button type="button" variant="link" className="h-auto w-fit p-0 text-muted-foreground" onClick={() => setNote(true)}>
           + Add a note
-        </button>
+        </Button>
       )}
       {state?.error && (
-        <p role="alert" className="m-0 text-[14px] text-bad">
+        <p role="alert" className="text-sm text-bad">
           {state.error}
         </p>
       )}

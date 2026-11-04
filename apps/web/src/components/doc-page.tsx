@@ -5,18 +5,18 @@ import { Logo } from "@/components/ui";
 export function DocPage({ title, lead, children }: { title: string; lead: React.ReactNode; children: React.ReactNode }) {
   return (
     <>
-      <header className="border-b border-line">
-        <div className="page flex items-center justify-between gap-3 py-3.5">
-          <Link href="/" className="flex items-center gap-2.5 no-underline">
-            <Logo />
-            <span className="font-serif text-[20px] tracking-[-0.02em]">DappDrill</span>
+      <header className="border-b">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <Logo size={18} />
+            <span className="font-semibold">DappDrill</span>
           </Link>
         </div>
       </header>
-      <main className="page flex max-w-[720px] flex-col gap-9 py-10 text-[15px] leading-relaxed text-ink-2">
+      <main className="page flex max-w-3xl flex-col gap-9 py-10 text-base leading-relaxed">
         <header className="flex flex-col gap-3">
-          <h1 className="h1">{title}</h1>
-          <p className="m-0 text-[17px] text-ink-3">{lead}</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          <p className="text-lg text-muted-foreground">{lead}</p>
         </header>
         {children}
       </main>
@@ -27,12 +27,12 @@ export function DocPage({ title, lead, children }: { title: string; lead: React.
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="h2">{title}</h2>
+      <h2 className="text-lg font-semibold">{title}</h2>
       {children}
     </section>
   );
 }
 
 export function Code({ children }: { children: React.ReactNode }) {
-  return <code className="rounded bg-sub px-1.5 py-0.5 font-mono text-[13px]">{children}</code>;
+  return <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">{children}</code>;
 }

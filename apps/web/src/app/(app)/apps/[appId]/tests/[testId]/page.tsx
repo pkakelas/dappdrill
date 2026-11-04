@@ -1,6 +1,7 @@
 import { conditionInfo, formatDuration, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { db, flows, latestRuns, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
+import { Check, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,6 +15,7 @@ import { SpecEditor } from "@/components/tests/spec-editor";
 import { isActive, STATE_LABEL, STATE_TEXT, StateMark, stateOf } from "@/components/tests/status";
 import { AddUnhappy } from "@/components/tests/unhappy";
 import { cx } from "@/components/ui";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
@@ -22,7 +24,10 @@ type Params = { appId: string; testId: string };
 
 async function load(appId: string, testId: string) {
   await requireApp(appId);
-  const [test] = await db().select().from(tests).where(and(eq(tests.id, testId), eq(tests.appId, appId)));
+  const [test] = await db()
+    .select()
+    .from(tests)
+    .where(and(eq(tests.id, testId), eq(tests.appId, appId)));
   if (!test) notFound();
   return test;
 }
@@ -43,7 +48,10 @@ export default async function TestPage({ params, searchParams }: { params: Promi
     db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15),
     test.forkedFrom ? db().select({ id: tests.id, name: tests.name }).from(tests).where(eq(tests.id, test.forkedFrom)) : Promise.resolve([]),
   ]);
-  const childRuns = await latestRuns(db(), children.map((c) => c.id));
+  const childRuns = await latestRuns(
+    db(),
+    children.map((c) => c.id),
+  );
 
   const latest = history[0];
   const run = (runParam && history.find((r) => r.id === runParam)) || latest;
@@ -61,28 +69,35 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       {(isActive(state) || childActive) && <AutoRefresh every={2000} />}
 
       <header className="flex flex-col gap-4">
-        <nav aria-label="Breadcrumb" className="crumbs flex flex-wrap items-center gap-1.5">
-          <Link href={`/apps/${appId}`}>Tests</Link>
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+          <Link href={`/apps/${appId}`} className="hover:text-foreground">
+            Tests
+          </Link>
           <span aria-hidden="true">/</span>
           <span>{flow?.name}</span>
           {base && (
             <>
               <span aria-hidden="true">/</span>
-              <Link href={`/apps/${appId}/tests/${base.id}`}>{base.name}</Link>
+              <Link href={`/apps/${appId}/tests/${base.id}`} className="hover:text-foreground">
+                {base.name}
+              </Link>
             </>
           )}
         </nav>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="h1 text-[30px] sm:text-[38px]">{test.name}</h1>
-            <p className={cx("m-0 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[12px]", STATE_TEXT[state])}>
+            <h1 className="text-2xl font-semibold tracking-tight">{test.name}</h1>
+            <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state])}>
               <StateMark state={state} />
               <span>{STATE_LABEL[state]}</span>
-              {latest?.finishedAt && state !== "running" && state !== "queued" && <span className="text-muted">· {timeAgo(latest.finishedAt)}</span>}
-              {latest?.startedAt && latest.finishedAt && <span className="text-muted">· took {formatDuration(latest.finishedAt.getTime() - latest.startedAt.getTime())}</span>}
+              {latest?.finishedAt && state !== "running" && state !== "queued" && <span className="text-muted-foreground">· {timeAgo(latest.finishedAt)}</span>}
+              {latest?.startedAt && latest.finishedAt && <span className="text-muted-foreground">· took {formatDuration(latest.finishedAt.getTime() - latest.startedAt.getTime())}</span>}
               {forkedFrom && (
-                <span className="text-muted">
-                  · forked from <Link href={`/apps/${appId}/tests/${forkedFrom.id}`}>{forkedFrom.name}</Link>
+                <span className="text-muted-foreground">
+                  · forked from{" "}
+                  <Link href={`/apps/${appId}/tests/${forkedFrom.id}`} className="underline underline-offset-4 hover:text-foreground">
+                    {forkedFrom.name}
+                  </Link>
                 </span>
               )}
             </p>
@@ -90,7 +105,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           <div className="flex flex-wrap items-center gap-2">
             <RunButton target={{ appId, testIds: [test.id] }} active={state === "running" || state === "queued"} stopIds={[test.id]} label="Run" size="md" primary disabled={state === "drafting"} />
             {!test.baseId && state !== "drafting" && <Fork testId={test.id} />}
-            <ConfirmButton className="btn btn-sm" onConfirm={deleteTestAction.bind(null, test.id)}>
+            <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
             </ConfirmButton>
           </div>
@@ -98,27 +113,28 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       </header>
 
       {test.drafting && (
-        <div className="card flex items-center gap-3 border-dashed px-5 py-4">
-          <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-quiet" />
-          <p className="m-0 text-[15px] text-ink-3">
-            Writing this test from “{test.drafting}”. It runs as soon as the steps are ready.
-          </p>
+        <div className="flex items-center gap-3 rounded-xl border border-dashed bg-card px-5 py-4">
+          <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/50" />
+          <p className="text-muted-foreground">Writing this test from “{test.drafting}”. It runs as soon as the steps are ready.</p>
         </div>
       )}
 
       {viewingOld && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-sub px-5 py-3 text-[14px] text-ink-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-5 py-3 text-muted-foreground">
           <span>
             Showing the run from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
           </span>
-          <Link href={`/apps/${appId}/tests/${test.id}`} className="btn-link">
-            Back to the latest
-          </Link>
+          <Button asChild variant="link" size="sm" className="h-auto p-0">
+            <Link href={`/apps/${appId}/tests/${test.id}`}>Back to the latest</Link>
+          </Button>
         </div>
       )}
 
       {result?.failure && (runState === "fail" || runState === "error") && (
-        <div role="status" className={cx("rounded-xl border px-5 py-4 text-[15px] leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-line bg-sub text-ink-2")}>
+        <div
+          role="status"
+          className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
+        >
           {result.failure}
         </div>
       )}
@@ -133,16 +149,20 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             view={
               <div className="flex flex-col gap-6">
                 {condition && base && (
-                  <p className="m-0 rounded-xl bg-sub px-4 py-3 text-[14px] text-ink-3">
-                    Runs the steps of <Link href={`/apps/${appId}/tests/${base.id}`}>{base.name}</Link> with this condition: <strong className="font-semibold text-ink">{condition.name}</strong>.
+                  <p className="rounded-xl bg-muted px-4 py-3 text-muted-foreground">
+                    Runs the steps of{" "}
+                    <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
+                      {base.name}
+                    </Link>{" "}
+                    with this condition: <strong className="font-semibold text-foreground">{condition.name}</strong>.
                   </p>
                 )}
-                <Block label="Goal">{test.goal || <span className="text-faint">Not written yet</span>}</Block>
+                <Block label="Goal">{test.goal || <span className="text-muted-foreground">Not written yet</span>}</Block>
                 <Block label="Expected result">
-                  {test.expected || <span className="text-faint">Not written yet</span>}
+                  {test.expected || <span className="text-muted-foreground">Not written yet</span>}
                   {result?.verdict && (
-                    <span className={cx("mt-2 flex gap-2 text-[13.5px]", result.verdict.ok ? "text-muted" : "text-bad")}>
-                      <span aria-hidden="true">{result.verdict.ok ? "✓" : "✗"}</span>
+                    <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
+                      {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
                       <span>{result.verdict.reason}</span>
                     </span>
                   )}
@@ -162,15 +182,15 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           {!test.baseId && (
             <Panel title="Unhappy paths" count={children.length || undefined}>
               {children.length > 0 && (
-                <ul className="m-0 list-none divide-y divide-divide border-b border-divide p-0">
+                <ul className="divide-y border-b">
                   {children.map((c) => {
                     const s = stateOf(c, childRuns.get(c.id));
                     return (
                       <li key={c.id}>
-                        <Link href={`/apps/${appId}/tests/${c.id}`} className="flex items-center gap-3 px-4 py-2.5 no-underline hover:bg-sub">
+                        <Link href={`/apps/${appId}/tests/${c.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50">
                           <StateMark state={s} />
-                          <span className="min-w-0 flex-1 truncate text-[14.5px]">{c.name}</span>
-                          <span className={cx("font-mono text-[11px]", STATE_TEXT[s])}>{STATE_LABEL[s]}</span>
+                          <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                          <span className={cx("text-xs", STATE_TEXT[s])}>{STATE_LABEL[s]}</span>
                         </Link>
                       </li>
                     );
@@ -191,8 +211,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
 function Block({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="label">{label}</span>
-      <p className="m-0 flex flex-col text-[16px] leading-relaxed">{children}</p>
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <p className="flex flex-col leading-relaxed">{children}</p>
     </div>
   );
 }
@@ -201,31 +221,31 @@ function Steps({ steps, result, url }: { steps: TestStep[]; result?: TestRunResu
   if (steps.length === 0)
     return (
       <div className="flex flex-col gap-1.5">
-        <span className="label">Steps</span>
-        <p className="m-0 text-[15px] text-faint">No steps yet. The first run works them out from the goal.</p>
+        <span className="text-sm font-medium text-muted-foreground">Steps</span>
+        <p className="text-muted-foreground">No steps yet. The first run works them out from the goal.</p>
       </div>
     );
   return (
     <div className="flex flex-col gap-2">
-      <span className="label">Steps</span>
-      <ol className="card m-0 list-none divide-y divide-divide p-0">
+      <span className="text-sm font-medium text-muted-foreground">Steps</span>
+      <ol className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
         {steps.map((s, i) => {
           const r = result?.steps[i];
           const shot = url(r?.screenshot);
           return (
             <li key={i} className={cx("flex gap-3 px-4 py-3", r?.status === "fail" && "bg-bad-soft")}>
-              <span className="flex w-5 shrink-0 justify-center pt-[3px]">
-                {r && r.status !== "pending" ? <StateMark state={r.status === "skipped" ? "skipped" : r.status} /> : <span className="font-mono text-[12px] text-faint">{i + 1}</span>}
+              <span className="flex w-5 shrink-0 justify-center pt-0.5">
+                {r && r.status !== "pending" ? <StateMark state={r.status === "skipped" ? "skipped" : r.status} /> : <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span>}
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className={cx("text-[15.5px] leading-snug", r?.status === "skipped" && "text-faint")}>{s.text}</span>
-                {r?.note && <span className={cx("text-[13px] leading-snug", r.status === "fail" ? "text-bad" : "text-ink-3")}>{r.note}</span>}
-                {r && r.did.length > 0 && <span className="text-[12.5px] leading-snug text-muted">{r.did.join(" · ")}</span>}
+                <span className={cx("leading-snug", r?.status === "skipped" && "text-muted-foreground")}>{s.text}</span>
+                {r?.note && <span className={cx("leading-snug", r.status === "fail" ? "text-bad" : "text-muted-foreground")}>{r.note}</span>}
+                {r && r.did.length > 0 && <span className="text-xs leading-snug text-muted-foreground">{r.did.join(" · ")}</span>}
               </div>
               {shot && (
                 <a href={shot} target="_blank" rel="noreferrer" className="shrink-0" aria-label={`Screenshot after step ${i + 1}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={shot} alt="" className="h-12 w-20 rounded-md border border-line object-cover object-top" />
+                  <img src={shot} alt="" className="h-12 w-20 rounded-md border object-cover object-top" />
                 </a>
               )}
             </li>
@@ -243,19 +263,19 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
   const video = !running ? url(result?.video) : null;
   if (!frame && !video)
     return running || run.status === "queued" ? (
-      <div className="card flex aspect-[16/10] items-center justify-center font-mono text-[12px] text-muted">{running ? "Opening the app…" : "Waiting for a browser…"}</div>
+      <div className="flex aspect-[16/10] items-center justify-center rounded-xl border bg-card text-muted-foreground shadow-xs">{running ? "Opening the app…" : "Waiting for a browser…"}</div>
     ) : null;
   return (
-    <div className="card overflow-hidden">
+    <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
       {video ? (
-        <video src={video} poster={frame ?? undefined} controls muted playsInline className="block aspect-[16/10] w-full bg-sub object-contain" />
+        <video src={video} poster={frame ?? undefined} controls muted playsInline className="block aspect-[16/10] w-full bg-muted object-contain" />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={frame!} alt={running ? "The test running now" : "The page when the test finished"} className="block aspect-[16/10] w-full bg-sub object-cover object-top" />
+        <img src={frame!} alt={running ? "The test running now" : "The page when the test finished"} className="block aspect-[16/10] w-full bg-muted object-cover object-top" />
       )}
       {running && (
-        <div className="flex items-center gap-2 border-t border-divide px-4 py-2 font-mono text-[11px] text-live">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-live" /> Live
+        <div className="flex items-center gap-2 border-t px-4 py-2 text-xs text-live">
+          <span className="size-1.5 animate-pulse rounded-full bg-live" /> Live
         </div>
       )}
     </div>
@@ -265,18 +285,18 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
 function History({ appId, testId, runs, selected }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string }) {
   return (
     <Panel title="Runs" count={runs.length}>
-      <ul className="m-0 list-none divide-y divide-divide p-0">
+      <ul className="divide-y">
         {runs.map((r, i) => (
           <li key={r.id}>
             <Link
               href={i === 0 ? `/apps/${appId}/tests/${testId}` : `/apps/${appId}/tests/${testId}?run=${r.id}`}
               aria-current={r.id === selected ? "true" : undefined}
-              className={cx("flex items-center gap-3 px-4 py-2 no-underline hover:bg-sub", r.id === selected && "bg-sub")}
+              className={cx("flex items-center gap-3 px-4 py-2 hover:bg-accent/50", r.id === selected && "bg-accent")}
             >
               <StateMark state={r.status} />
-              <span className={cx("flex-1 text-[14px]", STATE_TEXT[r.status])}>{STATE_LABEL[r.status]}</span>
-              <span className="font-mono text-[11px] text-muted">{TRIGGER_LABEL[r.trigger]}</span>
-              <span className="w-[86px] text-right font-mono text-[11px] text-faint">{timeAgo(r.createdAt)}</span>
+              <span className={cx("flex-1", STATE_TEXT[r.status])}>{STATE_LABEL[r.status]}</span>
+              <span className="text-xs text-muted-foreground">{TRIGGER_LABEL[r.trigger]}</span>
+              <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
             </Link>
           </li>
         ))}

@@ -1,28 +1,28 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Ellipsis } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { deleteFlowAction, renameFlowAction } from "@/actions/tests";
-import { ConfirmButton } from "@/components/confirm-button";
-import { Menu, MenuItem, menuLinkClass } from "@/components/shell/menu";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { plural } from "@/lib/format";
 import { RunButton } from "./run-button";
 
-export function FlowHeader({
-  appId,
-  flow,
-  count,
-  summary,
-  activeIds,
-}: {
-  appId: string;
-  flow: { id: string; name: string };
-  count: number;
-  summary: string;
-  activeIds: string[];
-}) {
+export function FlowHeader({ appId, flow, count, summary, activeIds }: { appId: string; flow: { id: string; name: string }; count: number; summary: string; activeIds: string[] }) {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(flow.name);
   const [pending, start] = useTransition();
+  // Delete asks once, in place: the first pick arms it for a few seconds (as ConfirmButton does).
+  const [armed, setArmed] = useState(false);
+  const [deleting, startDelete] = useTransition();
+  const toRename = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
 
   const save = () =>
     start(async () => {
@@ -31,7 +31,7 @@ export function FlowHeader({
     });
 
   return (
-    <div className="flex items-center gap-3 border-b border-divide px-5 py-3.5">
+    <div className="flex items-center gap-3 border-b px-5 py-3">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {renaming ? (
           <form
@@ -43,9 +43,9 @@ export function FlowHeader({
             <label htmlFor={`rename-${flow.id}`} className="sr-only">
               Flow name
             </label>
-            <input
+            <Input
               id={`rename-${flow.id}`}
-              autoFocus
+              ref={input}
               value={name}
               disabled={pending}
               onChange={(e) => setName(e.target.value)}
@@ -57,40 +57,56 @@ export function FlowHeader({
                 }
               }}
               maxLength={60}
-              className="field h-9 max-w-[320px] font-serif text-[19px]"
+              className="h-8 max-w-80 text-base font-semibold"
             />
           </form>
         ) : (
-          <h2 className="h2 truncate text-[20px]">{flow.name}</h2>
+          <h2 className="truncate text-base font-semibold">{flow.name}</h2>
         )}
-        <span className="font-mono text-[11px] text-muted">
+        <span className="text-sm text-muted-foreground">
           {plural(count, "test")} · {summary}
         </span>
       </div>
       <RunButton target={{ appId, flowId: flow.id }} active={activeIds.length > 0} stopIds={activeIds} label="Run flow" size="sm" />
-      <Menu
-        label={`More for ${flow.name}`}
-        align="right"
-        buttonClassName="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-ink-3 hover:bg-sub hover:text-ink"
-        button={
-          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
-            <circle cx="3.5" cy="8" r="1.3" />
-            <circle cx="8" cy="8" r="1.3" />
-            <circle cx="12.5" cy="8" r="1.3" />
-          </svg>
-        }
-      >
-        <MenuItem>
-          <button type="button" className={menuLinkClass} onClick={() => setRenaming(true)}>
+      <DropdownMenu onOpenChange={(open) => !open && setArmed(false)}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label={`More for ${flow.name}`} className="text-muted-foreground">
+            <Ellipsis />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-56"
+          onCloseAutoFocus={(e) => {
+            // Renaming focuses the name field rather than handing focus back to this button. Done here, not with
+            // autoFocus, because the menu still holds focus while it closes and the field's onBlur would save.
+            if (!toRename.current) return;
+            e.preventDefault();
+            toRename.current = false;
+            input.current?.focus();
+          }}
+        >
+          <DropdownMenuItem
+            onSelect={() => {
+              toRename.current = true;
+              setRenaming(true);
+            }}
+          >
             Rename
-          </button>
-        </MenuItem>
-        <MenuItem>
-          <ConfirmButton className={menuLinkClass} confirm="Delete flow and its tests?" onConfirm={() => deleteFlowAction(flow.id)}>
-            Delete flow
-          </ConfirmButton>
-        </MenuItem>
-      </Menu>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={deleting}
+            onSelect={(e) => {
+              e.preventDefault();
+              if (armed) startDelete(async () => void (await deleteFlowAction(flow.id)));
+              else setArmed(true);
+            }}
+          >
+            {deleting ? "Deleting…" : armed ? "Delete flow and its tests?" : "Delete flow"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

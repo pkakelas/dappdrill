@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { cx } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
-export function CopyButton({ text, label, className }: { text: string; label: string; className?: string }) {
+export function CopyButton({ text, label, className, size = "sm" }: { text: string; label: string; className?: string; size?: "xs" | "sm" }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
+    <Button
       type="button"
-      className={cx("btn btn-sm", className)}
+      variant="outline"
+      size={size}
+      className={className}
       onClick={async () => {
         await navigator.clipboard.writeText(text);
         setCopied(true);
@@ -16,6 +18,6 @@ export function CopyButton({ text, label, className }: { text: string; label: st
       }}
     >
       {copied ? "Copied" : label}
-    </button>
+    </Button>
   );
 }
