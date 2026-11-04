@@ -53,23 +53,75 @@ async function analyze(appId: string): Promise<void> {
   await enqueue("analysis.run", { analysisId: id });
 }
 
+const KeyHex = z
+  .string()
+  .trim()
+  .transform((s) => (s.startsWith("0x") ? s : `0x${s}`))
+  .pipe(z.string().regex(/^0x[0-9a-fA-F]{64}$/, "The funded key is 64 hex characters."));
+
 /** /new: find or create the app for this URL. A new app (or one with no tests yet) gets analyzed. */
 export async function createAppAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
   const { team } = await currentTeam();
   const url = Url.safeParse(form.get("url"));
   if (!url.success) return { error: url.error.issues[0]?.message };
+  const customized = form.get("customized") === "1";
   const hints = String(form.get("hints") ?? "").trim().slice(0, 2000);
+  let wallets: AppSettings["wallets"] = ["metamask"];
+  const chains: ChainConfig[] = [];
+  const chainFunding: Record<string, string> = {};
+
+  if (customized) {
+    const wallet = WalletProfileId.safeParse(form.get("wallet"));
+    if (!wallet.success) return { error: "Choose a primary wallet." };
+    wallets = [wallet.data];
+    const ids = [...new Set(form.getAll("chain").map(Number))];
+    for (const id of ids) {
+      const info = KNOWN_CHAINS.find((c) => c.id === id && c.id !== 31337);
+      if (!info) return { error: "Choose a supported chain." };
+      // Mainnets always fork. Non-standard testnets that Anvil can't fork always run live.
+      const mode = info.testnet && info.forkable && form.get(`chainMode-${id}`) === "live" ? "live" : info.forkable ? "fork" : "live";
+      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode });
+      if (mode === "live") {
+        const funding = String(form.get(`chainFunding-${id}`) ?? "").trim().slice(0, 1000);
+        if (funding) chainFunding[id] = funding;
+      }
+    }
+  }
+  if (chains.some((c) => c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id))) return { error: "Live mode is for testnets only. Mainnet chains always run on a local fork." };
 
   const [existing] = await db().select().from(apps).where(and(eq(apps.teamId, team.id), eq(apps.url, url.data)));
+  const needsLiveKey = chains.some((c) => c.mode === "live");
+  const keyIn = needsLiveKey ? String(form.get("liveKey") ?? "").trim() : "";
+  if (needsLiveKey && !keyIn && !existing?.liveKeyEnc) return { error: "Add a private key with test funds for the live testnet." };
+  let liveKey: { liveKeyEnc: string; liveKeyAddress: string } | undefined;
+  if (keyIn) {
+    const key = KeyHex.safeParse(keyIn);
+    if (!key.success) return { error: key.error.issues[0]?.message };
+    liveKey = { liveKeyEnc: encrypt(key.data), liveKeyAddress: privateKeyToAccount(key.data as `0x${string}`).address };
+  }
+
+  const settingsBase: AppSettings = {
+    wallets,
+    chains,
+    ...(hints ? { hints } : {}),
+    ...(Object.keys(chainFunding).length ? { chainFunding } : {}),
+  };
+
   let appId = existing?.id;
   if (!existing) {
     appId = newId("app");
     const host = hostOf(url.data);
     await db()
       .insert(apps)
-      .values({ id: appId, teamId: team.id, name: nameFromHost(host), url: url.data, host, settings: { wallets: ["metamask"], chains: [], ...(hints ? { hints } : {}) } });
-  } else if (hints) {
-    await db().update(apps).set({ settings: { ...existing.settings, hints } }).where(eq(apps.id, existing.id));
+      .values({ id: appId, teamId: team.id, name: nameFromHost(host), url: url.data, host, settings: settingsBase, ...liveKey });
+  } else if (customized || hints || liveKey) {
+    const settings = customized
+      ? { ...existing.settings, ...settingsBase }
+      : { ...existing.settings, ...(hints ? { hints } : {}) };
+    await db()
+      .update(apps)
+      .set({ settings, ...liveKey })
+      .where(eq(apps.id, existing.id));
   }
   const hasFlows = existing ? (await db().select({ id: flows.id }).from(flows).where(eq(flows.appId, existing.id)).limit(1)).length > 0 : false;
   if (!hasFlows) await analyze(appId!);
@@ -93,12 +145,6 @@ export async function stopAnalysisAction(appId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------- settings
-
-const KeyHex = z
-  .string()
-  .trim()
-  .transform((s) => (s.startsWith("0x") ? s : `0x${s}`))
-  .pipe(z.string().regex(/^0x[0-9a-fA-F]{64}$/, "The funded key is 64 hex characters."));
 
 /** "<chain id> <rpc url> [live]" per line. */
 function parseCustomChains(text: string): ChainConfig[] | string {

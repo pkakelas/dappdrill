@@ -101,6 +101,8 @@ export interface AppSettings {
   chains: ChainConfig[];
   /** Notes for the analysis ("the swap page is under /trade"). */
   hints?: string;
+  /** Per-chain funding hints for testnet mode ("use the Sepolia faucet", "mint test USDC at 0x..."). */
+  chainFunding?: Record<string, string>;
   allowMainnetLive?: boolean;
   /** localStorage set on the app's origin before it loads (a fork mode, a feature flag). */
   storage?: Record<string, string>;

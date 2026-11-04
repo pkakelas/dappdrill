@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { DrillTarget, type ChainConfig } from "@dappdrill/core";
+import { DrillTarget, chainName, type ChainConfig } from "@dappdrill/core";
 import { decrypt, apps, testWallets, type Db } from "@dappdrill/db";
 
 export type AppRow = typeof apps.$inferSelect;
@@ -8,6 +8,18 @@ export async function loadApp(db: Db, appId: string): Promise<AppRow> {
   const [app] = await db.select().from(apps).where(eq(apps.id, appId));
   if (!app) throw new Error(`App ${appId} not found`);
   return app;
+}
+
+/** Builds the hints string the explorer receives, combining general context with per-chain funding notes. */
+export function targetHints(settings: AppRow["settings"]): string | undefined {
+  const parts: string[] = [];
+  if (settings.hints) parts.push(settings.hints);
+  if (settings.chainFunding) {
+    for (const [id, note] of Object.entries(settings.chainFunding)) {
+      if (note.trim()) parts.push(`Funding for ${chainName(Number(id))} testnet: ${note.trim()}`);
+    }
+  }
+  return parts.length ? parts.join("\n\n") : undefined;
 }
 
 /**

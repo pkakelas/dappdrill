@@ -6,7 +6,7 @@ import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
 import { QUEUES, type TestsJob } from "../queues.js";
-import { buildTarget, loadApp } from "../target.js";
+import { buildTarget, loadApp, targetHints } from "../target.js";
 import { serialSink } from "./sink.js";
 import { pollStops } from "./stop.js";
 
@@ -54,7 +54,7 @@ export async function runAnalysis(db: Db, engine: Engine, boss: PgBoss, analysis
   let error: string | null = null;
   let created: string[] = [];
   try {
-    const out = await engine.analyze(await buildTarget(db, app, "analysis"), { artifactsDir: artifactsDir("analyses", analysisId), hints: app.settings.hints }, sink, abort);
+    const out = await engine.analyze(await buildTarget(db, app, "analysis"), { artifactsDir: artifactsDir("analyses", analysisId), hints: targetHints(app.settings) }, sink, abort);
     await drain();
     await db
       .update(apps)
