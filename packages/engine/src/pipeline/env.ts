@@ -26,9 +26,9 @@ export interface Env {
   readonly headless: boolean;
   /** Wraps the caller's sink: cost events carry the running total of every model used here. */
   readonly sink: DrillEventSink;
-  /** Plans, reviews signatures and repairs flows (Opus by default). */
+  /** Analyzes apps (Opus by default). */
   thinkLlm(): Llm;
-  /** Carries out planned flows step by step (Sonnet by default). */
+  /** Takes over steps the fast model can't do (Sonnet by default). */
   actLlm(): Llm;
   /** The acting model at low effort, for short yes/no checks. */
   cheapLlm(): Llm;

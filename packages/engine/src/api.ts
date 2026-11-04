@@ -67,7 +67,7 @@ export async function analyze(
     const blocked = await landingBotCheck(session);
     out = blocked
       ? { flows: [], blocked }
-      : await analyzeApp(session, env.actLlm(), {
+      : await analyzeApp(session, env.thinkLlm(), {
           maxMs: opts.maxMs,
           hints: opts.hints,
           inbox: env.inbox,

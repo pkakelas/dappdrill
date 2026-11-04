@@ -4,7 +4,7 @@ import type { AgentTool, AgentToolResult } from "../types.js";
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
-/** Plans, reviews and repairs. */
+/** Analyzes apps. */
 export const DEFAULT_MODEL = "claude-opus-5-5";
 /** Steps the fast model couldn't do, and recovery checks. */
 export const DEFAULT_ACT_MODEL = "claude-sonnet-5-5";

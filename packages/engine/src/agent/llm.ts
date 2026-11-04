@@ -12,7 +12,7 @@ export { LlmError, type LlmErrorCode, type Effort } from "./llm-common.js";
 
 export interface LlmOptions {
   /**
-   * "think" (default) plans, reviews and repairs: DAPPDRILL_MODEL, else Opus.
+   * "think" (default) analyzes apps: DAPPDRILL_MODEL, else Opus.
    * "act" takes over steps the fast model couldn't do: DAPPDRILL_ACT_MODEL, else Sonnet.
    * "fast" runs test steps, judges results and writes tests: DAPPDRILL_FAST_MODEL, else Haiku.
    */
