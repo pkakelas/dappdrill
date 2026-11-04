@@ -34,6 +34,9 @@ import { edgeLabel, inspectRecovery, makeIssue, pickConsole, pickRpc, type Issue
 import { resolveLocator } from "./locators.js";
 import { replayFlow, sameRequest, type ReplayFlowResult, type ReplayHooks } from "./replay.js";
 
+/** Playwright errors end in a multi-line call log; summaries keep only what failed. */
+const firstLine = (text?: string) => text?.split("\n")[0]?.trim();
+
 export interface RunEdgeCasesOptions {
   target: DrillTarget;
   chains: ChainController;
@@ -544,7 +547,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "medium",
               category: "rpc",
               title: "Flow breaks when the RPC is slow",
-              summary: `With 2.5s of latency on every RPC call the flow did not complete: ${replay.error}.`,
+              summary: `With 2.5s of latency on every RPC call the flow did not complete: ${firstLine(replay.error)}.`,
               expected: "Keep working, just slower, with a loading state.",
               actual: replay.error,
             });
@@ -565,7 +568,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "medium",
               category: "rpc",
               title: "Flow breaks when some RPC calls fail",
-              summary: `With 30% of RPC calls failing the flow did not complete: ${replay.error}.`,
+              summary: `With 30% of RPC calls failing the flow did not complete: ${firstLine(replay.error)}.`,
               expected: "Retry failed reads, or show the user what went wrong.",
               actual: replay.error,
             });
@@ -671,7 +674,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "medium",
               category: "wallet",
               title: "Flow breaks when the token is already approved",
-              summary: `With an existing approval in place the flow did not complete: ${replay.error}.`,
+              summary: `With an existing approval in place the flow did not complete: ${firstLine(replay.error)}.`,
               actual: replay.error,
             });
           }
@@ -691,7 +694,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "medium",
               category: "wallet",
               title: "Flow breaks after a previous approval was revoked",
-              summary: `With the allowance explicitly set to zero the flow did not complete: ${replay.error}.`,
+              summary: `With the allowance explicitly set to zero the flow did not complete: ${firstLine(replay.error)}.`,
               actual: replay.error,
             });
           }
