@@ -1,38 +1,29 @@
 /**
- * Job contract between the web app (producer) and apps/worker (consumer).
+ * Job contract between the web app (producer) and apps/worker (consumer); see apps/worker/src/queues.ts.
  *
  * The web app always writes the row first, then enqueues its id:
- *   "scan.run"        { scanId }   scans row: status "queued", number = next per app, settings snapshot.
- *   "batch.run"       { batchId }  run_batches row: request { flowIds, edgeCases, variationId? }.
- *   "flow-change.run" { changeId } flow_changes row: kind "describe", prompt, flowId (null = new flow);
- *                                  or kind "retry", prompt = hint, scanId and planItem (a planned flow's name).
- * Stopping a scan is not a job: the web sets scans.stop_requested and the worker polls it.
+ *   "analysis.run"   { analysisId }  analyses row, status "queued".
+ *   "tests.run"      { batchId }     test_runs rows sharing the batch id (queueRuns in @dappdrill/db).
+ *   "test-draft.run" { testId }      tests row with `drafting` = the developer's sentence; forkedFrom for a fork.
+ *   "agent.reply"    { messageId }   a pending agent_messages row after the user's message.
+ * Stopping is not a job: the web sets stop_requested and the worker polls it.
  *
- * Artifacts: a job writes into ARTIFACTS_DIR/<artifactDir(kind, id)>, and every artifact path stored in
- * results (FlowRun.video, Issue.evidence.screenshot, scans.live_frame, "frame" events…) is relative to
- * that directory. The web serves them at /api/artifacts/<kind>/<id>/<path>.
+ * Artifacts: a job writes into ARTIFACTS_DIR/<kind>/<id>/ ("analyses"/<analysisId>, "runs"/<batchId>,
+ * "agent"/<messageId>) and every stored path is relative to that directory. The web serves them at
+ * /api/artifacts/<kind>/<id>/<path>.
  */
 import "server-only";
 import { PgBoss } from "pg-boss";
 
-export const QUEUES = {
-  scan: "scan.run",
-  batch: "batch.run",
-  flowChange: "flow-change.run",
-} as const;
-
 export interface JobPayloads {
-  "scan.run": { scanId: string };
-  "batch.run": { batchId: string };
-  "flow-change.run": { changeId: string };
+  "analysis.run": { analysisId: string };
+  "tests.run": { batchId: string };
+  "test-draft.run": { testId: string };
+  "agent.reply": { messageId: string };
 }
 export type QueueName = keyof JobPayloads;
 
-export type ArtifactKind = "scans" | "batches" | "flow-changes";
-
-export function artifactDir(kind: ArtifactKind, id: string): string {
-  return `${kind}/${id}`;
-}
+export type ArtifactKind = "analyses" | "runs" | "agent";
 
 // One send-only pg-boss instance per server process (kept across dev reloads).
 const g = globalThis as unknown as { __ddBoss?: Promise<PgBoss>; __ddQueues?: Set<string> };
@@ -55,7 +46,8 @@ export async function enqueue<Q extends QueueName>(queue: Q, data: JobPayloads[Q
   const known = (g.__ddQueues ??= new Set());
   if (!known.has(queue)) {
     if (!(await b.getQueue(queue))) {
-      await b.createQueue(queue).catch(async (err) => {
+      // The worker brings retry options in line when it starts.
+      await b.createQueue(queue, { retryLimit: 0 }).catch(async (err) => {
         if (!(await b.getQueue(queue))) throw err; // lost a race with the worker: fine
       });
     }

@@ -45,4 +45,4 @@ export function hostFromUrl(url: string): string {
   }
 }
 
-export const TRIGGER_LABEL = { manual: "Manual", schedule: "Schedule", ci: "CI" } as const;
+export const TRIGGER_LABEL = { manual: "Run by you", analysis: "First run", schedule: "Daily run", agent: "Run by the assistant" } as const;

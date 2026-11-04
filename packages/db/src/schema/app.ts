@@ -1,25 +1,17 @@
 import type {
+  AppMap,
   Blocked,
+  ChainConfig,
+  EdgeCaseId,
   FixedResponse,
   Stalled,
-  ChainConfig,
-  DrillEvent,
-  EdgeCaseId,
-  Flow,
-  FlowRun,
-  ScanPlan,
-  Issue,
-  IssueCategory,
-  RunStatus,
-  ScanStage,
-  Severity,
-  SigningReview,
-  Verdict,
+  TestRunResult,
+  TestRunStatus,
+  TestStep,
   WalletProfileId,
 } from "@dappdrill/core";
-import { sql } from "drizzle-orm";
 import {
-  bigserial,
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -103,18 +95,12 @@ export const integrations = pgTable(
 // ---------------------------------------------------------------- apps
 
 export interface AppSettings {
-  edgeCases: EdgeCaseId[];
   wallets: WalletProfileId[];
   /** Empty = auto-detect. */
   chains: ChainConfig[];
-  /** Extra notes for the explorer. */
+  /** Notes for the analysis ("the swap page is under /trade"). */
   hints?: string;
   allowMainnetLive?: boolean;
-  maxFlows?: number;
-  /** 1 happy paths only, 2 also variants, 3 also unusual cases. */
-  depth?: 1 | 2 | 3;
-  /** Planned flows the user chose not to test, by name; the explorer leaves them out. */
-  skipFlows?: string[];
   /** localStorage set on the app's origin before it loads (a fork mode, a feature flag). */
   storage?: Record<string, string>;
   /** Requests answered with a fixed body (a version check, a backend that disagrees with the fork). */
@@ -138,10 +124,12 @@ export const apps = pgTable(
     accessHeadersEnc: text("access_headers_enc"),
     /** Their names, shown in settings (values are never shown again). */
     accessHeaderNames: jsonb("access_header_names").$type<string[]>().notNull().default([]),
-    /** Daily replay schedule, "HH:MM" UTC; null = off. */
+    /** What the analysis learned: a summary and the main pages. */
+    map: jsonb("map").$type<AppMap>(),
+    /** Chains the analysis saw the app use (with the fork block), for runs when none are configured. */
+    chains: jsonb("chains").$type<ChainConfig[]>().notNull().default([]),
+    /** Daily run of every test, "HH:MM" UTC; null = off. */
     scheduleTime: text("schedule_time"),
-    /** Public read-only report links. */
-    shareToken: text("share_token").unique(),
     createdAt: createdAt(),
   },
   (t) => [index("apps_team_idx").on(t.teamId)],
@@ -161,214 +149,121 @@ export const domains = pgTable(
   (t) => [uniqueIndex("domains_team_host").on(t.teamId, t.host)],
 );
 
-/** Per-app tokens for the CLI / GitHub Action to report results. */
-export const apiTokens = pgTable("api_tokens", {
-  id: id(),
-  appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  /** sha256 of the token; the token itself is shown once. */
-  tokenHash: text("token_hash").notNull().unique(),
-  lastUsedAt: ts("last_used_at"),
-  createdAt: createdAt(),
-});
 
-// ---------------------------------------------------------------- scans
+// ---------------------------------------------------------------- analysis
 
 export type JobStatus = "queued" | "running" | "done" | "failed" | "stopped";
-export type Trigger = "manual" | "schedule" | "ci";
 
-export const scans = pgTable(
-  "scans",
+/** The first look at an app: a couple of minutes of browsing that maps it and writes the first tests. */
+export const analyses = pgTable(
+  "analyses",
   {
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    /** Per-app sequence shown as "Scan #31". */
-    number: integer("number").notNull(),
     status: text("status").$type<JobStatus>().notNull().default("queued"),
-    trigger: text("trigger").$type<Trigger>().notNull().default("manual"),
-    triggeredBy: text("triggered_by").references(() => user.id, { onDelete: "set null" }),
-    /** Snapshot of settings used. */
-    settings: jsonb("settings").$type<AppSettings>().notNull(),
-    chains: jsonb("chains").$type<ChainConfig[]>().notNull().default([]),
-    stages: jsonb("stages")
-      .$type<Partial<Record<ScanStage, { status: "running" | "done"; progress: number }>>>()
-      .notNull()
-      .default({}),
-    walletAddress: text("wallet_address"),
     /** Latest live-view frame (artifact path). */
     liveFrame: text("live_frame"),
-    pages: jsonb("pages").$type<{ url: string; title?: string }[]>().notNull().default([]),
-    costUsd: real("cost_usd").notNull().default(0),
-    /** Set when a bot check stopped the exploration. */
+    /** What it's doing, newest last. */
+    log: jsonb("log").$type<{ at: string; text: string }[]>().notNull().default([]),
     blocked: jsonb("blocked").$type<Blocked>(),
-    /** Why a scan with no flows had nothing to test: what the app's data was waiting on. */
     stalled: jsonb("stalled").$type<Stalled>(),
-    /** What the explorer planned to test and what became of each flow. */
-    plan: jsonb("plan").$type<ScanPlan>(),
+    costUsd: real("cost_usd").notNull().default(0),
     error: text("error"),
     stopRequested: boolean("stop_requested").notNull().default(false),
     startedAt: ts("started_at"),
     finishedAt: ts("finished_at"),
     createdAt: createdAt(),
   },
-  (t) => [index("scans_app_idx").on(t.appId, t.createdAt)],
+  (t) => [index("analyses_app_idx").on(t.appId, t.createdAt)],
 );
 
-/** "What it's doing" log and every other streamed event. */
-export const scanEvents = pgTable(
-  "scan_events",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    scanId: text("scan_id").notNull().references(() => scans.id, { onDelete: "cascade" }),
-    event: jsonb("event").$type<DrillEvent>().notNull(),
-    createdAt: createdAt(),
-  },
-  (t) => [index("scan_events_scan_idx").on(t.scanId, t.id)],
-);
+// ---------------------------------------------------------------- flows & tests
 
-// ---------------------------------------------------------------- flows
-
+/** A thing users do (trade, deposit); groups its happy path with the tests forked or derived from it. */
 export const flows = pgTable(
   "flows",
   {
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    definition: jsonb("definition").$type<Flow>().notNull(),
-    /** Scan that discovered it, if any. */
-    scanId: text("scan_id").references(() => scans.id, { onDelete: "set null" }),
-    archived: boolean("archived").notNull().default(false),
+    position: integer("position").notNull().default(0),
     createdAt: createdAt(),
-    updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [index("flows_app_idx").on(t.appId)],
 );
 
-export const variations = pgTable("variations", {
-  id: id(),
-  flowId: text("flow_id").notNull().references(() => flows.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  inputs: jsonb("inputs").$type<Record<string, string>>().notNull().default({}),
-  wallet: text("wallet").$type<WalletProfileId>(),
-  chainId: integer("chain_id"),
-  account: text("account").$type<"A" | "B">(),
-  createdAt: createdAt(),
-});
-
-/** Agent-proposed fixes to a flow that broke; a person accepts or dismisses them. */
-export const repairs = pgTable("repairs", {
-  id: id(),
-  flowId: text("flow_id").notNull().references(() => flows.id, { onDelete: "cascade" }),
-  runId: text("run_id"),
-  explanation: text("explanation").notNull(),
-  proposed: jsonb("proposed").$type<Flow>().notNull(),
-  status: text("status").$type<"open" | "accepted" | "dismissed">().notNull().default("open"),
-  createdAt: createdAt(),
-});
-
-/** A request to change a flow, in plain English or from a recording, processed by the worker. */
-export const flowChanges = pgTable("flow_changes", {
-  id: id(),
-  appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-  /** Null when the change creates a new flow. */
-  flowId: text("flow_id").references(() => flows.id, { onDelete: "cascade" }),
-  /** retry: record a flow a scan planned but couldn't, with the person's hint in `prompt`. */
-  kind: text("kind").$type<"describe" | "record" | "retry">().notNull(),
-  prompt: text("prompt").notNull(),
-  /** For a retry: the scan and the name of its planned flow. */
-  scanId: text("scan_id").references(() => scans.id, { onDelete: "cascade" }),
-  planItem: text("plan_item"),
-  status: text("status").$type<JobStatus>().notNull().default("queued"),
-  proposed: jsonb("proposed").$type<Flow>(),
-  explanation: text("explanation"),
-  error: text("error"),
-  /** What the person did with the proposal; null while it waits for them. */
-  resolution: text("resolution").$type<"accepted" | "dismissed">(),
-  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
-  createdAt: createdAt(),
-});
-
-// ---------------------------------------------------------------- runs & results
-
-/** A batch of flow runs: one replay request, a scheduled run-all, a CI run, or a scan's matrix. */
-export const runBatches = pgTable(
-  "run_batches",
+export const tests = pgTable(
+  "tests",
   {
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    scanId: text("scan_id").references(() => scans.id, { onDelete: "cascade" }),
+    flowId: text("flow_id").notNull().references(() => flows.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    goal: text("goal").notNull(),
+    expected: text("expected").notNull(),
+    startPath: text("start_path").notNull().default("/"),
+    steps: jsonb("steps").$type<TestStep[]>().notNull(),
+    /** Unhappy path: runs `baseId`'s steps under this condition. */
+    condition: text("condition").$type<EdgeCaseId>(),
+    baseId: text("base_id").references((): AnyPgColumn => tests.id, { onDelete: "cascade" }),
+    /** The test this one was forked from. */
+    forkedFrom: text("forked_from"),
+    /** Text that proved the expected result last time. */
+    proof: text("proof"),
+    /** Set while the worker writes the test (a fork, a request to the agent); the page shows it. */
+    drafting: text("drafting"),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("tests_flow_idx").on(t.flowId), index("tests_app_idx").on(t.appId)],
+);
+
+export type Trigger = "manual" | "analysis" | "schedule" | "agent";
+
+/** One run of one test. Runs started together (a flow's play button) share a batch id. */
+export const testRuns = pgTable(
+  "test_runs",
+  {
+    id: id(),
+    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
+    testId: text("test_id").notNull().references(() => tests.id, { onDelete: "cascade" }),
+    batchId: text("batch_id").notNull(),
     trigger: text("trigger").$type<Trigger>().notNull().default("manual"),
-    status: text("status").$type<JobStatus>().notNull().default("queued"),
-    /** What was asked for: flow ids, edge cases, variation. */
-    request: jsonb("request")
-      .$type<{ flowIds: string[]; edgeCases: EdgeCaseId[]; variationId?: string; commit?: string; branch?: string }>()
-      .notNull(),
-    error: text("error"),
-    /** Set by the web "Stop" button; the worker polls it between runs. */
+    status: text("status").$type<TestRunStatus>().notNull().default("queued"),
+    result: jsonb("result").$type<TestRunResult>(),
+    liveFrame: text("live_frame"),
     stopRequested: boolean("stop_requested").notNull().default(false),
     startedAt: ts("started_at"),
     finishedAt: ts("finished_at"),
     createdAt: createdAt(),
   },
-  (t) => [index("run_batches_app_idx").on(t.appId, t.createdAt)],
+  (t) => [index("test_runs_test_idx").on(t.testId, t.createdAt), index("test_runs_batch_idx").on(t.batchId)],
 );
 
-export const runs = pgTable(
-  "runs",
+// ---------------------------------------------------------------- agent
+
+export interface AgentLink {
+  label: string;
+  href: string;
+}
+
+/** The agent panel's conversation, per app. */
+export const agentMessages = pgTable(
+  "agent_messages",
   {
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    batchId: text("batch_id").references(() => runBatches.id, { onDelete: "cascade" }),
-    scanId: text("scan_id").references(() => scans.id, { onDelete: "cascade" }),
-    flowId: text("flow_id").references(() => flows.id, { onDelete: "set null" }),
-    edgeCase: text("edge_case").$type<EdgeCaseId>().notNull(),
-    status: text("status").$type<RunStatus>().notNull(),
-    result: jsonb("result").$type<FlowRun>().notNull(),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    role: text("role").$type<"user" | "agent">().notNull(),
+    text: text("text").notNull().default(""),
+    /** Agent replies: pending while the worker answers. */
+    status: text("status").$type<"pending" | "done" | "failed">().notNull().default("done"),
+    /** The page the user was on: what "this test" means. */
+    context: jsonb("context").$type<{ testId?: string; flowId?: string }>().notNull().default({}),
+    /** What the agent changed, as links. */
+    links: jsonb("links").$type<AgentLink[]>().notNull().default([]),
     createdAt: createdAt(),
   },
-  (t) => [index("runs_flow_idx").on(t.flowId, t.createdAt), index("runs_batch_idx").on(t.batchId)],
-);
-
-export const issues = pgTable(
-  "issues",
-  {
-    id: id(),
-    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    scanId: text("scan_id").references(() => scans.id, { onDelete: "cascade" }),
-    batchId: text("batch_id").references(() => runBatches.id, { onDelete: "cascade" }),
-    runId: text("run_id"),
-    flowId: text("flow_id").references(() => flows.id, { onDelete: "set null" }),
-    fingerprint: text("fingerprint").notNull(),
-    severity: text("severity").$type<Severity>().notNull(),
-    category: text("category").$type<IssueCategory>().notNull(),
-    title: text("title").notNull(),
-    data: jsonb("data").$type<Issue>().notNull(),
-    /** open; ignored = "This is expected". */
-    status: text("status").$type<"open" | "ignored" | "fixed">().notNull().default("open"),
-    githubIssueUrl: text("github_issue_url"),
-    createdAt: createdAt(),
-  },
-  (t) => [index("issues_app_idx").on(t.appId, t.createdAt), index("issues_fp_idx").on(t.appId, t.fingerprint)],
-);
-
-export const signingReviews = pgTable(
-  "signing_reviews",
-  {
-    id: id(),
-    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    scanId: text("scan_id").references(() => scans.id, { onDelete: "cascade" }),
-    batchId: text("batch_id").references(() => runBatches.id, { onDelete: "cascade" }),
-    flowId: text("flow_id").references(() => flows.id, { onDelete: "set null" }),
-    fingerprint: text("fingerprint").notNull(),
-    verdict: text("verdict").$type<Verdict>().notNull(),
-    data: jsonb("data").$type<SigningReview>().notNull(),
-    /** "Accept as new baseline" */
-    isBaseline: boolean("is_baseline").notNull().default(false),
-    createdAt: createdAt(),
-  },
-  (t) => [
-    index("signing_app_idx").on(t.appId, t.createdAt),
-    index("signing_fp_idx").on(t.appId, t.fingerprint),
-    uniqueIndex("signing_one_baseline").on(t.appId, t.fingerprint).where(sql`${t.isBaseline}`),
-  ],
+  (t) => [index("agent_messages_app_idx").on(t.appId, t.createdAt)],
 );

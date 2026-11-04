@@ -1,10 +1,9 @@
 import { and, eq, gt, isNotNull } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
-import { DEFAULT_EDGE_CASES, newId } from "@dappdrill/core";
-import { apps, domains, flows, runBatches, type Db } from "@dappdrill/db";
+import { apps, domains, queueRuns, testRuns, tests, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { logger } from "../log.js";
-import { QUEUES, type BatchJob } from "../queues.js";
+import { QUEUES, type TestsJob } from "../queues.js";
 
 const log = logger("schedule");
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
@@ -15,7 +14,7 @@ export function utcMinute(at = new Date()): string {
 }
 
 /**
- * schedule.tick (every minute): start the daily replay of every app scheduled for this minute.
+ * schedule.tick (every minute): run every test of each app scheduled for this minute.
  * Only apps on a verified domain run unattended (localhost too, in dev).
  */
 export async function scheduleTick(db: Db, boss: PgBoss, at = utcMinute()): Promise<string[]> {
@@ -28,22 +27,20 @@ export async function scheduleTick(db: Db, boss: PgBoss, at = utcMinute()): Prom
     }
     // A tick can be delivered twice (or two workers can run); one scheduled batch per window is enough.
     const recent = await db
-      .select({ id: runBatches.id })
-      .from(runBatches)
-      .where(and(eq(runBatches.appId, app.id), eq(runBatches.trigger, "schedule"), gt(runBatches.createdAt, new Date(Date.now() - 2 * 60_000))))
+      .select({ id: testRuns.id })
+      .from(testRuns)
+      .where(and(eq(testRuns.appId, app.id), eq(testRuns.trigger, "schedule"), gt(testRuns.createdAt, new Date(Date.now() - 2 * 60_000))))
       .limit(1);
     if (recent.length) continue;
 
-    const flowIds = (await db.select({ id: flows.id }).from(flows).where(and(eq(flows.appId, app.id), eq(flows.archived, false)))).map((f) => f.id);
-    if (flowIds.length === 0) {
-      log.info(`${app.name}: no flows to run`);
+    const ids = (await db.select({ id: tests.id }).from(tests).where(eq(tests.appId, app.id))).map((t) => t.id);
+    const batchId = await queueRuns(db, app.id, ids, "schedule");
+    if (!batchId) {
+      log.info(`${app.name}: no tests to run`);
       continue;
     }
-    const batchId = newId("batch");
-    const edgeCases = app.settings.edgeCases?.length ? app.settings.edgeCases : DEFAULT_EDGE_CASES;
-    await db.insert(runBatches).values({ id: batchId, appId: app.id, trigger: "schedule", request: { flowIds, edgeCases } });
-    await boss.send(QUEUES.batch, { batchId } satisfies BatchJob);
-    log.info(`${app.name}: scheduled run ${batchId} (${flowIds.length} flows × ${edgeCases.length} edge cases)`);
+    await boss.send(QUEUES.tests, { batchId } satisfies TestsJob);
+    log.info(`${app.name}: scheduled run ${batchId} (${ids.length} tests)`);
     started.push(batchId);
   }
   return started;

@@ -6,16 +6,17 @@
 import type { Llm } from "../types.js";
 import { createApiLlm } from "./llm-api.js";
 import { createAgentSdkLlm } from "./llm-agent-sdk.js";
-import { DEFAULT_ACT_MODEL, DEFAULT_MODEL, type Effort } from "./llm-common.js";
+import { DEFAULT_ACT_MODEL, DEFAULT_FAST_MODEL, DEFAULT_MODEL, type Effort } from "./llm-common.js";
 
 export { LlmError, type LlmErrorCode, type Effort } from "./llm-common.js";
 
 export interface LlmOptions {
   /**
    * "think" (default) plans, reviews and repairs: DAPPDRILL_MODEL, else Opus.
-   * "act" carries out a plan step by step: DAPPDRILL_ACT_MODEL, else Sonnet.
+   * "act" takes over steps the fast model couldn't do: DAPPDRILL_ACT_MODEL, else Sonnet.
+   * "fast" runs test steps, judges results and writes tests: DAPPDRILL_FAST_MODEL, else Haiku.
    */
-  role?: "think" | "act";
+  role?: "think" | "act" | "fast";
   /** Overrides the role's model. */
   model?: string;
   backend?: "api" | "agent-sdk";
@@ -25,8 +26,12 @@ export interface LlmOptions {
 }
 
 export function createLlm(opts: LlmOptions = {}): Llm {
-  const model =
-    opts.model ?? (opts.role === "act" ? (process.env.DAPPDRILL_ACT_MODEL ?? DEFAULT_ACT_MODEL) : (process.env.DAPPDRILL_MODEL ?? DEFAULT_MODEL));
+  const byRole = {
+    think: () => process.env.DAPPDRILL_MODEL ?? DEFAULT_MODEL,
+    act: () => process.env.DAPPDRILL_ACT_MODEL ?? DEFAULT_ACT_MODEL,
+    fast: () => process.env.DAPPDRILL_FAST_MODEL ?? DEFAULT_FAST_MODEL,
+  };
+  const model = opts.model ?? byRole[opts.role ?? "think"]();
   const apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
   const backend = opts.backend ?? (apiKey ? "api" : "agent-sdk");
   const effort = opts.effort ?? "medium";

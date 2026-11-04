@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
-import { apps, db, flowChanges, runBatches, scans, teamMembers } from "@dappdrill/db";
+import { agentMessages, analyses, apps, db, teamMembers, testRuns } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
 import { env } from "@/lib/env";
 import { getSession } from "@/lib/session";
@@ -23,17 +23,14 @@ const TYPES: Record<string, string> = {
 };
 
 async function appIdFor(kind: string, id: string): Promise<string | undefined> {
-  const table = kind === "scans" ? scans : kind === "batches" ? runBatches : kind === "flow-changes" ? flowChanges : null;
-  if (!table) return undefined;
-  const [row] = await db().select({ appId: table.appId }).from(table).where(eq(table.id, id));
-  return row?.appId;
+  const d = db();
+  if (kind === "analyses") return (await d.select({ appId: analyses.appId }).from(analyses).where(eq(analyses.id, id)))[0]?.appId;
+  if (kind === "runs") return (await d.select({ appId: testRuns.appId }).from(testRuns).where(eq(testRuns.batchId, id)).limit(1))[0]?.appId;
+  if (kind === "agent") return (await d.select({ appId: agentMessages.appId }).from(agentMessages).where(eq(agentMessages.id, id)))[0]?.appId;
+  return undefined;
 }
 
-async function allowed(appId: string, share: string | null): Promise<boolean> {
-  if (share) {
-    const [row] = await db().select({ id: apps.id }).from(apps).where(and(eq(apps.id, appId), eq(apps.shareToken, share)));
-    if (row) return true;
-  }
+async function allowed(appId: string): Promise<boolean> {
   const session = await getSession();
   if (!session) return false;
   const [row] = await db()
@@ -44,15 +41,14 @@ async function allowed(appId: string, share: string | null): Promise<boolean> {
   return Boolean(row);
 }
 
-/** Serves ARTIFACTS_DIR/<kind>/<id>/<path> to team members, or to holders of the app's share link. */
+/** Serves ARTIFACTS_DIR/<kind>/<id>/<path> to members of the app's team. */
 export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const [kind, id, ...rest] = path;
   if (!kind || !id || rest.length === 0) return new Response("Not found", { status: 404 });
 
   const appId = await appIdFor(kind, id);
-  const share = new URL(req.url).searchParams.get("share");
-  if (!appId || !(await allowed(appId, share))) return new Response("Not found", { status: 404 });
+  if (!appId || !(await allowed(appId))) return new Response("Not found", { status: 404 });
 
   const root = resolve(env.artifactsDir, kind, id);
   const file = resolve(root, ...rest);

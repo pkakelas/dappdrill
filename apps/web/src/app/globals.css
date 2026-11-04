@@ -74,6 +74,12 @@
   a:hover {
     color: var(--color-ink-3);
   }
+  /* Links in running text; UI links carry a class. */
+  a:not([class]) {
+    text-decoration: underline;
+    text-decoration-color: var(--color-line-strong);
+    text-underline-offset: 3px;
+  }
   ::selection {
     background: var(--color-ink);
     color: var(--color-paper);

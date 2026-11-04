@@ -24,8 +24,9 @@ export const config = {
   artifactsRoot: isAbsolute(artifacts) ? artifacts : resolve(repoRoot(), artifacts),
   appUrl: (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
   dev: process.env.DAPPDRILL_DEV === "1",
-  scanConcurrency: int("DAPPDRILL_SCAN_CONCURRENCY", 1),
-  batchConcurrency: int("DAPPDRILL_BATCH_CONCURRENCY", 2),
-  flowChangeConcurrency: int("DAPPDRILL_FLOW_CHANGE_CONCURRENCY", 2),
+  analysisConcurrency: int("DAPPDRILL_ANALYSIS_CONCURRENCY", 1),
+  testsConcurrency: int("DAPPDRILL_TESTS_CONCURRENCY", 2),
+  /** Drafts and assistant replies: small model calls, sometimes a short browse. */
+  chatConcurrency: int("DAPPDRILL_CHAT_CONCURRENCY", 4),
   stopPollMs: int("DAPPDRILL_STOP_POLL_MS", 2000),
 };

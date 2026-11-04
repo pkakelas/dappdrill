@@ -1,10 +1,12 @@
 import { Command } from "commander";
-import { UsageError, collect } from "./files.js";
-import { baselineAcceptCommand, describeCommand, pushFlowsCommand } from "./commands/misc.js";
+import { UsageError } from "./files.js";
+import { analyzeCommand } from "./commands/analyze.js";
 import { runCommand } from "./commands/run.js";
-import { scanCommand } from "./commands/scan.js";
+import { targetOptions } from "./commands/target.js";
 
-/** Exit codes: 0 ok, 1 results at or above --fail-on, 2 usage or DappDrill error. */
+const TESTS_FILE = ".dappdrill/tests.json";
+
+/** Exit codes: 0 all passed, 1 a test failed, 2 usage or DappDrill couldn't run. */
 function action<A extends unknown[]>(fn: (...args: A) => Promise<number>) {
   return async (...args: A) => {
     try {
@@ -17,77 +19,31 @@ function action<A extends unknown[]>(fn: (...args: A) => Promise<number>) {
   };
 }
 
-const program = new Command("dappdrill").description("QA for web3 dApp frontends, on local forks.").showHelpAfterError();
+const program = new Command("dappdrill").description("Tests for web3 apps, run on local forks.").showHelpAfterError();
 
-program
-  .command("scan")
-  .description("Explore a dApp, save the flows it finds, run them under wallet edge cases and review every signature request.")
-  .argument("<url>", "dApp URL")
-  .option("--chain <id[=rpc]>", "chain to fork (repeatable); known chains need no RPC", collect, [])
-  .option("--edge-cases <list>", "comma-separated edge cases (default: the standard set)")
-  .option("--max-minutes <n>", "time budget")
-  .option("--max-flows <n>", "stop after this many flows")
-  .option("--depth <1-3>", "1 happy paths only, 2 also variants, 3 also unusual cases (default 2)")
-  .option("--hints <text>", "plain-English hints for the explorer")
-  .option("--out <dir>", "output directory", "dappdrill-out")
-  .option("--live-key-env <VAR>", "env var holding a funded testnet key for chains that can't be forked")
-  .option("--token <chain:address=amount>", "ERC-20 balance for the test accounts on a fork (repeatable)", collect, [])
-  .option("--init-script <file>", "JavaScript to run in every page before the dApp (repeatable)", collect, [])
-  .option("--header <name: value>", "header for the dApp's own site only, e.g. your bot-protection bypass (repeatable; also $DAPPDRILL_HEADERS)", collect, [])
-  .option("--storage <key=value>", "localStorage entry set on the dApp's origin before it loads, e.g. a fork-mode flag (repeatable)", collect, [])
-  .option("--respond <url [status] body|@file>", "answer requests to this URL (* wildcards) with a fixed body (repeatable)", collect, [])
-  .option("--headed", "show the browser")
-  .action(action((url: string, flags) => scanCommand(url, flags)));
+targetOptions(
+  program
+    .command("analyze")
+    .description("Use the app for about two minutes, write a test for each of its main flows, then run them.")
+    .argument("<url>", "the app's URL")
+    .option("--file <path>", "where to write the tests", TESTS_FILE)
+    .option("--hints <text>", "where things are, what to use")
+    .option("--max-minutes <n>", "time to spend looking around")
+    .option("--unhappy", "also add the usual unhappy paths (rejected in wallet, slow RPC, …)")
+    .option("--no-run", "only write the tests")
+    .option("--junit <file>", "write JUnit XML")
+    .option("--force", "replace an existing tests file"),
+).action(action((url: string, flags) => analyzeCommand(url, flags)));
 
-program
-  .command("run")
-  .description("Replay saved flows deterministically. Exits 1 when results reach --fail-on.")
-  .argument("[flows...]", "flow files (default: every .json in --flows-dir)")
-  .option("--url <url>", "dApp URL (default with --pull: the app's URL)")
-  .option("--flows-dir <dir>", "directory of flow files", ".dappdrill/flows")
-  .option("--chain <id[=rpc]>", "chain to fork (repeatable)", collect, [])
-  .option("--edge-cases <list>", "comma-separated edge cases (default: happy, or the app's with --pull)")
-  .option("--baseline <file>", "accepted signing reviews", ".dappdrill/baselines.json")
-  .option("--junit <file>", "write JUnit XML")
-  .option("--out <dir>", "output directory", "dappdrill-out")
-  .option("--fail-on <level>", "broken | review | never", "broken")
-  .option("--pull", "also fetch the app's flows from the web app (needs --report-to)")
-  .option("--report-to <app url>", "DappDrill web app to pull flows from and report results to")
-  .option("--token-env <VAR>", "env var holding the app's API token", "DAPPDRILL_TOKEN")
-  .option("--no-video", "don't record video")
-  .option("--token <chain:address=amount>", "ERC-20 balance for the test accounts on a fork (repeatable)", collect, [])
-  .option("--init-script <file>", "JavaScript to run in every page before the dApp (repeatable)", collect, [])
-  .option("--header <name: value>", "header for the dApp's own site only, e.g. your bot-protection bypass (repeatable; also $DAPPDRILL_HEADERS)", collect, [])
-  .option("--storage <key=value>", "localStorage entry set on the dApp's origin before it loads, e.g. a fork-mode flag (repeatable)", collect, [])
-  .option("--respond <url [status] body|@file>", "answer requests to this URL (* wildcards) with a fixed body (repeatable)", collect, [])
-  .option("--headed", "show the browser")
-  .action(action((files: string[], flags) => runCommand(files, flags)));
-
-program
-  .command("push-flows")
-  .description("Upload the flow files in --flows-dir to the web app.")
-  .option("--flows-dir <dir>", "directory of flow files", ".dappdrill/flows")
-  .option("--report-to <app url>", "DappDrill web app")
-  .option("--token-env <VAR>", "env var holding the app's API token", "DAPPDRILL_TOKEN")
-  .action(action((flags) => pushFlowsCommand(flags)));
-
-program
-  .command("describe")
-  .description("Turn a plain-English description into a flow by doing it on the site.")
-  .argument("<description>", "what the flow should do")
-  .requiredOption("--url <url>", "dApp URL")
-  .option("--out <file>", "where to write the flow", "flow.json")
-  .option("--flow <file>", "change this existing flow instead of creating one")
-  .option("--headed", "show the browser")
-  .action(action((description: string, flags) => describeCommand(description, flags)));
-
-program
-  .command("baseline")
-  .description("Manage accepted signing reviews.")
-  .command("accept")
-  .description("Accept the signing reviews in a report as the new baseline.")
-  .option("--from <report.json>", "report to accept", "dappdrill-out/report.json")
-  .option("--baseline <file>", "baseline file", ".dappdrill/baselines.json")
-  .action(action((flags) => baselineAcceptCommand(flags)));
+targetOptions(
+  program
+    .command("run")
+    .description("Run the tests in a tests file. Exits 1 when one fails.")
+    .argument("[file]", "tests file", TESTS_FILE)
+    .option("--url <url>", "run against this URL instead, e.g. a preview deploy")
+    .option("--only <text>", "only tests whose flow or name contains this")
+    .option("--unhappy", "add the usual unhappy paths to tests that don't have them")
+    .option("--junit <file>", "write JUnit XML"),
+).action(action((file: string, flags) => runCommand(file, flags)));
 
 await program.parseAsync();

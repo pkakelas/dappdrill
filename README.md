@@ -1,12 +1,12 @@
 # DappDrill
 
-AI QA for web3 dApp frontends. Paste a URL: an agent with its own test wallet explores the
-dApp on local Anvil forks, saves the flows it finds as deterministic tests, replays them under
-wallet edge cases (reject, wrong network, account switch, low gas, slow RPC, two wallets…) and
-reviews every signature request. Nothing touches mainnet.
+Tests for web3 dApp frontends. Paste a URL: in a minute or two DappDrill finds the app's main
+flows and writes a test for each one, with a goal, an expected result and short steps. It runs
+them with its own test wallet on local Anvil forks, adds unhappy paths (rejected in wallet, slow
+RPC, wrong network, low gas) and reviews every signature request. Nothing touches mainnet.
 
 ```
-apps/web          Next.js app: accounts, apps, scans, flows, runs, issues, signing reviews, settings
+apps/web          Next.js app: accounts, apps, flows and tests, runs, settings, the assistant
 apps/worker       pg-boss jobs that run the engine and store results in Postgres
 packages/engine   The drilling backend (Playwright + Anvil + Claude). No database
 packages/cli      `dappdrill` CLI: the engine on its own, for CI or local runs
@@ -29,14 +29,13 @@ corepack pnpm dev               # web on :3000 + worker
 ```
 
 Sign up at http://localhost:3000/signup and paste a URL. Google login turns on when
-`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. `corepack pnpm --filter @dappdrill/web seed:demo`
-creates a demo account with a scanned app.
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
 
 ## Try it on the test dApp
 
 ```bash
 corepack pnpm fixture           # anvil on :8545, Harbor Vault on :5173
-corepack pnpm cli scan http://localhost:5173 --max-minutes 15
+corepack pnpm cli analyze http://localhost:5173
 ```
 
 `http://localhost:5173/?bugs=none` serves the same app without the seeded bugs
@@ -47,18 +46,20 @@ corepack pnpm cli scan http://localhost:5173 --max-minutes 15
 The engine runs without the web app or a database:
 
 ```bash
-dappdrill scan <url>                    # explore, save flows to dappdrill-out/flows, test them
-dappdrill run --url <url>               # replay .dappdrill/flows; exits 1 on Broken
-dappdrill describe "deposit 10 USDC" --url <url>
+dappdrill analyze <url>                 # find the flows, write .dappdrill/tests.json, run it
+dappdrill run                           # run .dappdrill/tests.json; exits 1 when a test fails
+dappdrill run --url <url> --only deposit --unhappy --junit junit.xml
 ```
 
-Reports are written as JSON, Markdown and JUnit. Chains that can't be forked run on the live
-testnet: pass a funded testnet key with `--live-key-env VAR`. Without one, the wallet signs
-messages but can't send transactions. Mainnet chain ids are never run live.
+The tests file is plain JSON: edit a test's goal, expected result or steps by hand and commit it.
+Runs save the browser actions that worked back into it, so the next run is fast. Results go to
+`dappdrill-out` (`results.json`, `summary.md`, videos and screenshots). Chains that can't be
+forked run on the live testnet: pass a funded testnet key with `--live-key-env VAR`. Without
+one, the wallet signs messages but can't send transactions. Mainnet chain ids are never run live.
 
 For GitHub, copy `.github/workflows/dappdrill.example.yml` into your dApp's repo. It uses the
-action in `.github/actions/dappdrill`, comments results on the PR, and can report to the web
-app with the app's CI token (Settings → CI).
+action in `.github/actions/dappdrill`, runs the committed tests file against the PR's build and
+comments the results on the PR.
 
 ## Development
 

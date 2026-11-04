@@ -46,7 +46,7 @@ describe("rpcFailures", () => {
   it("puts a chain the wallet couldn't add ahead of everything else", () => {
     const line = stalledLine({ chains: [{ chainId: 4242, name: "Other", rpcUrl: "https://rpc.other", reason: "https://rpc.other didn't answer as chain 4242" }], backends: [], rpc: [] });
     expect(line).toBe(
-      "The app needs a chain the test wallet couldn't use, so exploring stopped there. The app needs Other (chain 4242), RPC https://rpc.other, but the test wallet couldn't add it: https://rpc.other didn't answer as chain 4242. Add it to the app's chains in scan settings with an RPC that answers for it.",
+      "The app needs Other (chain 4242), RPC https://rpc.other, but the test wallet couldn't add it: https://rpc.other didn't answer as chain 4242. Add it under Settings → Chains with an RPC that answers for it.",
     );
   });
 });

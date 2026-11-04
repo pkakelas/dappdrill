@@ -1,123 +1,101 @@
 import { join, resolve } from "node:path";
-import { nowIso, type ChainConfig, type EdgeCaseId, type Flow, type ScanReport, type WalletProfileId } from "@dappdrill/core";
+import { CONDITIONS, newId, type DrillTarget } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
-import { CiApi, ciContext } from "../ci-api.js";
-import { UsageError, loadBaselines, loadFlows, parseChain, parseEdgeCases, parseToken, parseHeaders, parseResponses, parseStorage, readInitScripts, writeJson, writeText } from "../files.js";
-import { consoleSink } from "../progress.js";
-import { exitCodeFor, healthLine, renderJunit, renderMarkdown, reportHealth, type FailOn } from "../report/index.js";
-import { parseTarget } from "./scan.js";
+import type { TestItem, TestOutcome } from "@dappdrill/engine";
+import { UsageError, loadTests, writeJson, writeText, type SavedTest, type TestsFile } from "../files.js";
+import { renderJunit } from "../junit.js";
+import { renderMarkdown } from "../markdown.js";
+import { buildTarget, dim, red, type TargetFlags } from "./target.js";
 import { interruptSignal } from "./util.js";
 
-export interface RunFlags {
+export interface RunFlags extends TargetFlags {
   url?: string;
-  flowsDir: string;
-  chain: string[];
-  edgeCases?: string;
-  baseline: string;
+  only?: string;
+  unhappy?: boolean;
   junit?: string;
-  out: string;
-  failOn: string;
-  pull?: boolean;
-  reportTo?: string;
-  tokenEnv: string;
-  headed?: boolean;
-  video: boolean;
-  token: string[];
-  initScript: string[];
-  header: string[];
-  storage: string[];
-  respond: string[];
 }
 
-export async function runCommand(files: string[], flags: RunFlags): Promise<number> {
-  const failOn = parseFailOn(flags.failOn);
-  const api = flags.pull || flags.reportTo ? CiApi.fromEnv(requireUrl(flags.reportTo, "--pull needs --report-to <app url>"), flags.tokenEnv) : undefined;
+/** `dappdrill run`: run the tests in a tests file. Exits 1 when one fails. */
+export async function runCommand(file: string, flags: RunFlags): Promise<number> {
+  const tests = await loadTests(file);
+  if (flags.unhappy) addUnhappyPaths(tests);
+  const target = await buildTarget(flags.url ?? tests.url, flags, tests.chains);
+  const code = await runTests(tests, target, flags);
+  // Steps carry the browser actions that worked; saving them keeps the next run fast.
+  await writeJson(file, tests);
+  return code;
+}
 
-  let flows: Flow[] = await loadFlows(files, flags.flowsDir);
-  let url = flags.url;
-  let edgeCases: EdgeCaseId[] | undefined = flags.edgeCases ? parseEdgeCases(flags.edgeCases) : undefined;
-  let chains: ChainConfig[] = flags.chain.map(parseChain);
-  let wallets: WalletProfileId[] | undefined;
-  if (flags.pull && api) {
-    const pulled = await api.pullFlows();
-    console.log(`Pulled ${pulled.flows.length} flow(s) from ${flags.reportTo}`);
-    // Local files win over pulled flows with the same id.
-    const local = new Set(flows.map((f) => f.id));
-    flows = [...pulled.flows.filter((f) => !local.has(f.id)), ...flows];
-    url ??= pulled.app.url;
-    edgeCases ??= pulled.app.settings.edgeCases;
-    if (chains.length === 0) chains = pulled.app.settings.chains ?? [];
-    wallets = pulled.app.settings.wallets;
-  }
-  if (!url) throw new UsageError("Pass --url <dApp url> (or --pull to use the app's URL).");
-  if (flows.length === 0) throw new UsageError(`No flows in ${flags.flowsDir}. Save some with \`dappdrill scan\` or \`dappdrill describe\`, or use --pull.`);
-
-  const target = parseTarget({
-    url,
-    chains,
-    edgeCases: edgeCases ?? ["happy"],
-    wallets,
-    tokens: flags.token.map(parseToken),
-    initScripts: await readInitScripts(flags.initScript),
-    headers: parseHeaders(flags.header),
-    storage: parseStorage(flags.storage),
-    responses: await parseResponses(flags.respond),
+export async function runTests(tests: TestsFile, target: DrillTarget, flags: RunFlags): Promise<number> {
+  const all = tests.flows.flatMap((f) => f.tests.map((test) => ({ flow: f.name, test })));
+  const picked = flags.only ? all.filter(({ flow, test }) => `${flow} ${test.name}`.toLowerCase().includes(flags.only!.toLowerCase())) : all;
+  if (picked.length === 0) throw new UsageError(flags.only ? `No test matches "${flags.only}".` : "There are no tests in the file.");
+  const byId = new Map(all.map(({ test }) => [test.id, test]));
+  const items: TestItem[] = picked.map(({ test }) => {
+    const base = test.baseId ? byId.get(test.baseId) : undefined;
+    if (test.baseId && !base) throw new UsageError(`${test.name} is an unhappy path of ${test.baseId}, which isn't in the file.`);
+    return { spec: test, base };
   });
+
   const out = resolve(flags.out);
+  const label = new Map(picked.map(({ flow, test }) => [test.id, `${flow} · ${test.name}`]));
+  const started = new Map<string, number>();
+  const seconds = new Map<string, number>();
+  const width = Math.min(60, Math.max(...[...label.values()].map((l) => l.length)));
+
+  console.log(`Running ${picked.length} ${picked.length === 1 ? "test" : "tests"} on ${target.url}\n`);
   const engine = await loadEngine();
-  const signal = interruptSignal();
-  console.log(`Replaying ${flows.length} flow(s) on ${target.url} under: ${target.edgeCases.join(", ")}`);
-  const startedAt = nowIso();
-  const result = await engine.replay(
+  const { outcomes } = await engine.runTests(
     target,
-    flows,
+    items,
+    { artifactsDir: join(out, "artifacts"), map: tests.map, headless: !flags.headed, signal: interruptSignal() },
     {
-      edgeCases: target.edgeCases,
-      artifactsDir: join(out, "artifacts"),
-      baselines: await loadBaselines(flags.baseline),
-      headless: !flags.headed,
-      video: flags.video,
+      onStart: async (id) => void started.set(id, Date.now()),
+      onDone: async (o) => {
+        const secs = Math.round((Date.now() - (started.get(o.testId) ?? Date.now())) / 1000);
+        seconds.set(o.testId, secs);
+        const name = label.get(o.testId)!.padEnd(width);
+        if (o.status === "pass") console.log(`  ✓ ${name}  ${dim(`${secs}s`)}`);
+        else if (o.status === "fail" || o.status === "error") {
+          console.log(red(`  ✗ ${name}  ${secs}s`));
+          if (o.result.failure) console.log(red(`      ${o.result.failure}`));
+        } else console.log(dim(`  - ${name}  ${o.status}`));
+        learn(byId, o);
+      },
     },
-    consoleSink(flows),
-    signal,
   );
 
-  const report: ScanReport = {
-    url: target.url,
-    startedAt,
-    finishedAt: nowIso(),
-    chains: target.chains,
-    pages: [],
-    flows,
-    ...result,
-    costUsd: 0,
-    stoppedEarly: signal.aborted,
-  };
-  await writeJson(join(out, "report.json"), report);
-  await writeText(join(out, "report.md"), renderMarkdown(report, { title: "DappDrill run" }));
-  if (flags.junit) await writeText(resolve(flags.junit), renderJunit(report));
+  await writeJson(join(out, "results.json"), outcomes);
+  await writeText(join(out, "summary.md"), renderMarkdown(tests, outcomes));
+  if (flags.junit) await writeText(flags.junit, renderJunit(tests, outcomes, seconds));
 
-  if (flags.reportTo && api) {
-    try {
-      await api.report({ ...ciContext(), runs: report.runs, issues: report.issues, signingReviews: report.signingReviews });
-      console.log(`Reported results to ${flags.reportTo}`);
-    } catch (e) {
-      console.error(`Could not report results: ${(e as Error).message}`);
-    }
+  const count = (s: TestOutcome["status"][]) => outcomes.filter((o) => s.includes(o.status)).length;
+  const failed = count(["fail", "error"]);
+  const summary = [`${count(["pass"])} passed`, failed && `${failed} failed`, count(["skipped", "stopped"]) && `${count(["skipped", "stopped"])} not run`].filter(Boolean).join(", ");
+  console.log(`\n${failed ? red(summary) : summary}. Videos and screenshots: ${join(flags.out, "artifacts")}`);
+  return failed ? 1 : 0;
+}
+
+/** Keep what this run learned: the actions that worked, and the text that proved the result. */
+function learn(byId: Map<string, SavedTest>, o: TestOutcome) {
+  const test = byId.get(o.testId);
+  if (!test) return;
+  if (o.steps) test.steps = o.steps;
+  if (o.proof) test.proof = o.proof;
+  const base = test.baseId ? byId.get(test.baseId) : undefined;
+  if (base && o.baseSteps) base.steps = o.baseSteps;
+}
+
+/** The usual unhappy paths for every happy-path test that doesn't have them yet. */
+export function addUnhappyPaths(tests: TestsFile): void {
+  for (const flow of tests.flows) {
+    flow.tests = flow.tests.flatMap((test) => {
+      if (test.baseId) return [test];
+      const have = new Set(flow.tests.filter((t) => t.baseId === test.id).map((t) => t.condition));
+      const added = CONDITIONS.filter((c) => c.default && !have.has(c.id)).map(
+        (c): SavedTest => ({ id: newId("test"), name: c.name, goal: test.goal, expected: c.expected, startPath: test.startPath, steps: [], condition: c.id, baseId: test.id }),
+      );
+      return [test, ...added];
+    });
   }
-
-  const health = reportHealth(report);
-  console.log(`\n${healthLine(report)}`);
-  console.log(`Report: ${join(out, "report.md")}${flags.junit ? `\nJUnit:  ${resolve(flags.junit)}` : ""}`);
-  return exitCodeFor(health, failOn);
-}
-
-function parseFailOn(value: string): FailOn {
-  if (value === "broken" || value === "review" || value === "never") return value;
-  throw new UsageError(`--fail-on must be broken, review or never (got "${value}")`);
-}
-
-export function requireUrl(value: string | undefined, message: string): string {
-  if (!value) throw new UsageError(message);
-  return value;
 }

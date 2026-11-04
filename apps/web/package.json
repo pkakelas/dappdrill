@@ -7,8 +7,7 @@
     "dev": "next dev --webpack --port 3000",
     "build": "next build --webpack",
     "start": "next start --port 3000",
-    "typecheck": "tsc -p .",
-    "seed:demo": "tsx --env-file-if-exists=../../.env scripts/seed-demo.ts"
+    "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@dappdrill/core": "workspace:*",

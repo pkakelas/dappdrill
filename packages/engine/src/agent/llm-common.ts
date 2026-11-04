@@ -6,8 +6,10 @@ export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
 /** Plans, reviews and repairs. */
 export const DEFAULT_MODEL = "claude-opus-5-5";
-/** Clicks through flows a plan already describes. */
+/** Steps the fast model couldn't do, and recovery checks. */
 export const DEFAULT_ACT_MODEL = "claude-sonnet-5-5";
+/** Runs test steps, judges expected results, writes tests and answers in the agent panel. */
+export const DEFAULT_FAST_MODEL = "claude-haiku-5-5";
 
 export type LlmErrorCode = "refusal" | "max_tokens" | "max_turns" | "aborted" | "invalid_output" | "api";
 

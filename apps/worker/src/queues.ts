@@ -1,27 +1,35 @@
 /**
- * Job contract shared with the web app. The web inserts the row first, then sends the job:
+ * Job contract shared with the web app (apps/web/src/lib/jobs.ts). The web writes the row first,
+ * then sends its id:
  *
- *   import { createBoss, QUEUES } from "@dappdrill/worker";
- *   const boss = await createBoss();
- *   await boss.send(QUEUES.scan, { scanId } satisfies ScanJob);
+ *   "analysis.run"   { analysisId }  analyses row, status "queued".
+ *   "tests.run"      { batchId }     test_runs rows sharing the batch id, status "queued" (queueRuns in @dappdrill/db).
+ *   "test-draft.run" { testId }      tests row with `drafting` = the developer's sentence; forkedFrom set for a fork.
+ *   "agent.reply"    { messageId }   agent_messages row, role "agent", status "pending", after the user's message.
+ *
+ * Stopping is not a job: the web sets stop_requested on the analysis or run and the worker polls it.
  */
 import { PgBoss, type Queue } from "pg-boss";
 
 export const QUEUES = {
-  scan: "scan.run",
-  batch: "batch.run",
-  flowChange: "flow-change.run",
+  analysis: "analysis.run",
+  tests: "tests.run",
+  draft: "test-draft.run",
+  agent: "agent.reply",
   scheduleTick: "schedule.tick",
 } as const;
 
-export interface ScanJob {
-  scanId: string;
+export interface AnalysisJob {
+  analysisId: string;
 }
-export interface BatchJob {
+export interface TestsJob {
   batchId: string;
 }
-export interface FlowChangeJob {
-  changeId: string;
+export interface DraftJob {
+  testId: string;
+}
+export interface AgentJob {
+  messageId: string;
 }
 /** `at` ("HH:MM" UTC) overrides the current minute; handy for testing. */
 export interface ScheduleTickJob {
@@ -31,13 +39,14 @@ export interface ScheduleTickJob {
 const HOUR = 3600;
 
 /**
- * Scans and replays are expensive and have side effects (artifacts, rows), so nothing
- * retries automatically: a failed job leaves its row as failed with the error.
+ * Jobs cost money and leave rows behind, so nothing retries automatically:
+ * a failed job leaves its row failed with the error.
  */
 const QUEUE_OPTIONS: Record<(typeof QUEUES)[keyof typeof QUEUES], Omit<Queue, "name">> = {
-  "scan.run": { retryLimit: 0, expireInSeconds: 4 * HOUR },
-  "batch.run": { retryLimit: 0, expireInSeconds: 2 * HOUR },
-  "flow-change.run": { retryLimit: 0, expireInSeconds: HOUR / 2 },
+  "analysis.run": { retryLimit: 0, expireInSeconds: HOUR / 2 },
+  "tests.run": { retryLimit: 0, expireInSeconds: 4 * HOUR },
+  "test-draft.run": { retryLimit: 0, expireInSeconds: 600 },
+  "agent.reply": { retryLimit: 0, expireInSeconds: HOUR / 4 },
   "schedule.tick": { retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: HOUR },
 };
 

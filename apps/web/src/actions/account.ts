@@ -1,7 +1,7 @@
 "use server";
 
 import { newId } from "@dappdrill/core";
-import { apiTokens, db, domains, encrypt, integrations, invites, sha256, teamMembers, testWallets } from "@dappdrill/db";
+import { db, domains, encrypt, integrations, invites, teamMembers, testWallets } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -10,7 +10,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { checkDomain, HOST_RE } from "@/lib/domains";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
-import { currentTeam, requireApp } from "@/lib/session";
+import { currentTeam } from "@/lib/session";
 
 const Id = z.string().min(1).max(100);
 const done = (ok: string): ActionResult => {
@@ -93,9 +93,9 @@ export async function removeDomainAction(form: FormData): Promise<void> {
 
 // ---------------------------------------------------------------- integrations
 // Contract with the worker: slack secret = webhook URL; telegram secret = bot token, config.chatId;
-// email config.to (comma-separated); github config.repo ("owner/name").
+// email config.to (comma-separated).
 
-const Kind = z.enum(["slack", "telegram", "email", "github"]);
+const Kind = z.enum(["slack", "telegram", "email"]);
 const emails = z
   .string()
   .trim()
@@ -125,15 +125,10 @@ export async function saveIntegrationAction(_prev: ActionResult, form: FormData)
     const chatId = String(form.get("chatId") ?? "").trim();
     if (!/^-?\d+$|^@\w+$/.test(chatId)) return { error: "Chat id is a number like -1001234567890, or @channelname." };
     config = { chatId };
-  } else if (kind === "email") {
+  } else {
     const parsed = emails.safeParse(String(form.get("to") ?? ""));
     if (!parsed.success) return { error: parsed.error.issues[0]?.message };
     config = { to: parsed.data.join(", ") };
-    secret = null;
-  } else {
-    const repo = String(form.get("repo") ?? "").trim().replace(/^https:\/\/github\.com\//, "").replace(/\.git$|\/$/g, "");
-    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return { error: "Use owner/name, like harborvault/app." };
-    config = { repo };
     secret = null;
   }
 
@@ -157,27 +152,6 @@ export async function removeIntegrationAction(form: FormData): Promise<void> {
   const { team } = await currentTeam();
   const kind = Kind.parse(form.get("kind"));
   await db().delete(integrations).where(and(eq(integrations.teamId, team.id), eq(integrations.kind, kind)));
-  revalidatePath("/account");
-}
-
-// ---------------------------------------------------------------- API tokens
-
-export async function createTokenAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const { app } = await requireApp(Id.parse(form.get("appId")));
-  const name = z.string().trim().min(1, "Name the token, e.g. GitHub Action.").max(60).safeParse(form.get("name"));
-  if (!name.success) return { error: name.error.issues[0]?.message };
-  const token = `ddt_${randomBytes(24).toString("base64url")}`;
-  await db().insert(apiTokens).values({ id: newId("tok"), appId: app.id, name: name.data, tokenHash: sha256(token) });
-  revalidatePath("/account");
-  return { ok: "Copy it now. You won't see it again.", secret: token };
-}
-
-export async function revokeTokenAction(form: FormData): Promise<void> {
-  const id = Id.parse(form.get("tokenId"));
-  const [row] = await db().select({ appId: apiTokens.appId }).from(apiTokens).where(eq(apiTokens.id, id));
-  if (!row) return;
-  await requireApp(row.appId);
-  await db().delete(apiTokens).where(eq(apiTokens.id, id));
   revalidatePath("/account");
 }
 

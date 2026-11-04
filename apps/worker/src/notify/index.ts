@@ -1,41 +1,35 @@
-import { and, desc, eq, notInArray } from "drizzle-orm";
-import type { FlowRun, Issue } from "@dappdrill/core";
-import { renderMarkdown, type ReportInput } from "@dappdrill/cli";
-import { decrypt, integrations, runs, teamMembers, user, type Db } from "@dappdrill/db";
+import { and, desc, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
+import { decrypt, flows, integrations, teamMembers, testRuns, tests, user, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
-import { isNewFingerprint, type Persister } from "../persist.js";
 import type { AppRow } from "../target.js";
 import { sendEmail, sendSlack, sendTelegram } from "./channels.js";
 import { composeAlert, type Alert, type Regression } from "./compose.js";
 
 const log = logger("notify");
 
-export interface NotifyInput {
-  app: AppRow;
-  what: "scan" | "scheduled run" | "run";
-  /** Path under APP_URL, e.g. /apps/<id>/scans/<id>. */
-  path: string;
-  persister: Persister;
-  report: ReportInput;
-}
+/** After a batch: tell the team about tests that failed now and passed the time before. */
+export async function notifyRegressions(db: Db, app: AppRow, runIds: string[]): Promise<Alert | null> {
+  if (runIds.length === 0) return null;
+  const failed = await db
+    .select({ testId: testRuns.testId, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, flowName: flows.name })
+    .from(testRuns)
+    .innerJoin(tests, eq(tests.id, testRuns.testId))
+    .innerJoin(flows, eq(flows.id, tests.flowId))
+    .where(and(inArray(testRuns.id, runIds), eq(testRuns.status, "fail")));
 
-/** After a scan or batch: alert the team about new Broken issues and flows that went from passing to broken. */
-export async function notifyAfter(db: Db, input: NotifyInput): Promise<Alert | null> {
-  const { app, persister } = input;
-  const issues = [...persister.written.issues.values()];
-  const runList = [...persister.written.runs.values()];
-
-  const newIssues: Issue[] = [];
-  for (const issue of issues) {
-    if (issue.severity !== "critical" && issue.severity !== "high") continue;
-    if (persister.ignored.has(issue.id)) continue;
-    if (newIssues.some((i) => i.fingerprint === issue.fingerprint)) continue;
-    if (await isNewFingerprint(db, app.id, issue.fingerprint, issues.map((i) => i.id))) newIssues.push(issue);
+  const regressions: Regression[] = [];
+  for (const run of failed) {
+    const [previous] = await db
+      .select({ status: testRuns.status })
+      .from(testRuns)
+      .where(and(eq(testRuns.testId, run.testId), notInArray(testRuns.id, runIds), lt(testRuns.createdAt, run.createdAt), isNotNull(testRuns.finishedAt), inArray(testRuns.status, ["pass", "fail"])))
+      .orderBy(desc(testRuns.createdAt))
+      .limit(1);
+    if (previous?.status === "pass") regressions.push({ testName: run.testName, flowName: run.flowName, failure: run.result?.failure });
   }
-  const regressions = await findRegressions(db, runList, input);
 
-  const alert = composeAlert({ appName: app.name, what: input.what, newIssues, regressions, link: `${config.appUrl}${input.path}` });
+  const alert = composeAlert({ appName: app.name, regressions, link: `${config.appUrl}/apps/${app.id}` });
   if (!alert) return null;
 
   const rows = await db.select().from(integrations).where(and(eq(integrations.teamId, app.teamId), eq(integrations.enabled, true)));
@@ -56,7 +50,7 @@ export async function notifyAfter(db: Db, input: NotifyInput): Promise<Alert | n
         case "email": {
           const to = await emailRecipients(db, app.teamId, row.config);
           if (to.length === 0) throw new Error("no recipients");
-          await sendEmail(to, alert, renderMarkdown(input.report, { title: app.name, link: alert.link }));
+          await sendEmail(to, alert);
           break;
         }
         default:
@@ -68,26 +62,6 @@ export async function notifyAfter(db: Db, input: NotifyInput): Promise<Alert | n
     }
   }
   return alert;
-}
-
-/** Runs that broke now where the previous run of the same flow and edge case passed. */
-async function findRegressions(db: Db, current: FlowRun[], input: NotifyInput): Promise<Regression[]> {
-  const out: Regression[] = [];
-  const ids = current.map((r) => r.id);
-  for (const run of current) {
-    if (run.status !== "fail") continue;
-    const [previous] = await db
-      .select({ status: runs.status })
-      .from(runs)
-      .where(and(eq(runs.flowId, run.flowId), eq(runs.edgeCase, run.edgeCase), notInArray(runs.id, ids)))
-      .orderBy(desc(runs.createdAt))
-      .limit(1);
-    if (previous && (previous.status === "pass" || previous.status === "issue")) {
-      const flowName = input.report.flows.find((f) => f.id === run.flowId)?.name ?? run.flowId;
-      out.push({ flowName, edgeCase: run.edgeCase });
-    }
-  }
-  return out;
 }
 
 /** config.to (comma-separated), else every member of the team. */

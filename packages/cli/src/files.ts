@@ -1,22 +1,44 @@
-import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { z } from "zod";
-import { ChainConfig, EdgeCaseId, Flow, SigningReview, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget, type ScanReport } from "@dappdrill/core";
+import { AppMap, ChainConfig, TestSpec, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget } from "@dappdrill/core";
 
 export class UsageError extends Error {}
 
-export async function readJson(path: string): Promise<unknown> {
-  try {
-    return JSON.parse(await readFile(path, "utf8"));
-  } catch (e) {
-    throw new UsageError(`Can't read ${path}: ${(e as Error).message}`);
-  }
-}
+/** The tests file `analyze` writes and `run` reads: commit it, run it in CI. */
+export const SavedTest = TestSpec.extend({
+  /** For an unhappy path: the test it runs under its condition. */
+  baseId: z.string().optional(),
+});
+export type SavedTest = z.infer<typeof SavedTest>;
 
-export async function writeJson(path: string, value: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+export const TestsFile = z.object({
+  url: z.string().url(),
+  map: AppMap.optional(),
+  /** Chains the app used when it was analyzed; `run` forks these unless --chain says otherwise. */
+  chains: z.array(ChainConfig).default([]),
+  flows: z.array(z.object({ name: z.string(), tests: z.array(SavedTest) })),
+});
+export type TestsFile = z.infer<typeof TestsFile>;
+
+export async function loadTests(path: string): Promise<TestsFile> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await readFile(path, "utf8"));
+  } catch (e) {
+    throw new UsageError(`Can't read ${path}: ${(e as Error).message}. Make one with: dappdrill analyze <url>`);
+  }
+  const parsed = TestsFile.safeParse(raw);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    throw new UsageError(`${path} is not valid: ${first ? `${first.path.join(".") || "(root)"}: ${first.message}` : parsed.error.message}`);
+  }
+  const ids = new Set<string>();
+  for (const t of parsed.data.flows.flatMap((f) => f.tests)) {
+    if (ids.has(t.id)) throw new UsageError(`${path}: two tests share the id ${t.id}`);
+    ids.add(t.id);
+  }
+  return parsed.data;
 }
 
 export async function writeText(path: string, text: string): Promise<void> {
@@ -24,46 +46,8 @@ export async function writeText(path: string, text: string): Promise<void> {
   await writeFile(path, text);
 }
 
-function parseOrExplain<T>(schema: z.ZodType<T>, value: unknown, what: string): T {
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    throw new UsageError(`${what} is not valid: ${first ? `${first.path.join(".") || "(root)"}: ${first.message}` : parsed.error.message}`);
-  }
-  return parsed.data;
-}
-
-/** Flow files given explicitly, or every *.json in `dir` (missing dir = no flows). */
-export async function loadFlows(files: string[], dir: string): Promise<Flow[]> {
-  let paths = files;
-  if (paths.length === 0) {
-    if (!existsSync(dir)) return [];
-    paths = (await readdir(dir)).filter((f) => f.endsWith(".json")).sort().map((f) => join(dir, f));
-  }
-  const flows: Flow[] = [];
-  for (const path of paths) flows.push(parseOrExplain(Flow, await readJson(path), path));
-  const ids = new Set<string>();
-  for (const f of flows) {
-    if (ids.has(f.id)) throw new UsageError(`Two flows share the id ${f.id}`);
-    ids.add(f.id);
-  }
-  return flows;
-}
-
-export async function saveFlows(flows: Flow[], dir: string): Promise<void> {
-  for (const flow of flows) await writeJson(join(dir, `${flow.id}.json`), flow);
-}
-
-export const Baselines = z.record(z.string(), SigningReview);
-export type Baselines = z.infer<typeof Baselines>;
-
-export async function loadBaselines(path: string | undefined): Promise<Baselines> {
-  if (!path || !existsSync(path)) return {};
-  return parseOrExplain(Baselines, await readJson(path), path);
-}
-
-export async function loadReport(path: string, schema: z.ZodType<ScanReport>): Promise<ScanReport> {
-  return parseOrExplain(schema, await readJson(path), path);
+export async function writeJson(path: string, value: unknown): Promise<void> {
+  await writeText(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 /** "8453" or "8453=https://rpc" → a chain config; chains we know can't be forked run live. */
@@ -120,30 +104,19 @@ export async function parseResponses(specs: string[]): Promise<DrillTarget["resp
       const r = parseFixedResponse(spec);
       if (!r) throw new UsageError(`Bad --respond "${spec}": expected "<url> [status] <body or @file>"`);
       if (!r.body.startsWith("@")) return r;
-      const file = r.body.slice(1);
-      const body = await readFile(file, "utf8").catch((e: Error) => {
-        throw new UsageError(`Can't read ${file}: ${e.message}`);
-      });
-      return { ...r, body };
+      return { ...r, body: await readOrExplain(r.body.slice(1)) };
     }),
   );
 }
 
 export async function readInitScripts(paths: string[]): Promise<string[]> {
-  return Promise.all(
-    paths.map((p) =>
-      readFile(p, "utf8").catch((e: Error) => {
-        throw new UsageError(`Can't read ${p}: ${e.message}`);
-      }),
-    ),
-  );
+  return Promise.all(paths.map(readOrExplain));
 }
 
-export function parseEdgeCases(csv: string): EdgeCaseId[] {
-  const ids = csv.split(",").map((s) => s.trim()).filter(Boolean);
-  const bad = ids.filter((id) => !EdgeCaseId.safeParse(id).success);
-  if (bad.length) throw new UsageError(`Unknown edge case(s): ${bad.join(", ")}. Known: ${EdgeCaseId.options.join(", ")}`);
-  return ids as EdgeCaseId[];
+function readOrExplain(path: string): Promise<string> {
+  return readFile(path, "utf8").catch((e: Error) => {
+    throw new UsageError(`Can't read ${path}: ${e.message}`);
+  });
 }
 
 export function collect(value: string, previous: string[] = []): string[] {

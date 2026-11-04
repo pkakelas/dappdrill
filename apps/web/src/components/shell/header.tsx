@@ -11,8 +11,6 @@ export interface ShellApp {
   id: string;
   name: string;
   host: string;
-  scansUsed: number;
-  scansLimit: number;
 }
 
 export interface ShellProps {
@@ -21,23 +19,20 @@ export interface ShellProps {
   user: { name: string; email: string };
   team: { id: string; name: string };
   teams: { id: string; name: string }[];
-  planName: string;
-  devQuota: boolean;
   switchTeam: (teamId: string) => Promise<void>;
 }
 
 const NAV = [
-  { label: "Overview", path: "" },
-  { label: "Flows", path: "/flows" },
-  { label: "Runs", path: "/runs" },
+  { label: "Tests", path: "" },
+  { label: "Settings", path: "/settings" },
 ];
 
-export function Header({ apps, lastAppId, user, team, teams, planName, devQuota, switchTeam }: ShellProps) {
+export function Header({ apps, lastAppId, user, team, teams, switchTeam }: ShellProps) {
   const params = useParams<{ appId?: string }>();
   const pathname = usePathname();
   const app = apps.find((a) => a.id === params.appId) ?? apps.find((a) => a.id === lastAppId) ?? apps[0];
 
-  // Remember the app last looked at, for "/" and the Scan button.
+  // Remember the app last looked at, for "/".
   useEffect(() => {
     if (params.appId) document.cookie = `dd_app=${params.appId}; path=/; max-age=31536000; samesite=lax`;
   }, [params.appId]);
@@ -45,13 +40,13 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
   const base = app ? `/apps/${app.id}` : null;
   const active = (path: string) => {
     if (!base) return false;
-    if (path === "") return pathname === base || pathname.startsWith(`${base}/scans`) || pathname.startsWith(`${base}/signing`);
+    if (path === "") return pathname === base || pathname.startsWith(`${base}/tests`);
     return pathname.startsWith(base + path);
   };
   const initial = (user.name || user.email).trim().charAt(0).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-line bg-paper">
       <div className="mx-auto flex w-full max-w-[1080px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5 no-underline" aria-label="DappDrill home">
           <Logo size={18} />
@@ -82,13 +77,13 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
             </MenuItem>
           ))}
           <MenuItem className="mt-1 border-t border-divide pt-1">
-            <Link href="/new?add=1" className={menuLinkClass}>
+            <Link href="/new" className={menuLinkClass}>
               Add app
             </Link>
           </MenuItem>
         </Menu>
 
-        {base && (
+        {base && params.appId && (
           <nav aria-label="Main" className="order-last flex w-full gap-5 md:order-none md:w-auto md:gap-6">
             {NAV.map((n) => (
               <Link
@@ -107,14 +102,6 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
         )}
 
         <div className="ml-auto flex items-center gap-3">
-          {app && (
-            <span className="hidden font-mono text-[11px] text-muted lg:inline" title={devQuota ? "Plan limits are lifted in dev mode" : undefined}>
-              {app.scansUsed} of {app.scansLimit} discovery scans used · replays unlimited
-            </span>
-          )}
-          <Link href={app ? `/new?app=${app.id}` : "/new"} className="btn btn-primary btn-sm h-9">
-            Scan
-          </Link>
           <Menu
             label="Account menu"
             align="right"
@@ -124,11 +111,6 @@ export function Header({ apps, lastAppId, user, team, teams, planName, devQuota,
             <div className="flex flex-col gap-0.5 border-b border-divide px-4 pt-2 pb-3">
               <span className="text-[15px] font-medium">{user.name || user.email}</span>
               <span className="font-mono text-[11px] text-muted">{user.email}</span>
-              {app && (
-                <span className="mt-1.5 font-mono text-[11px] text-muted">
-                  {planName} · {app.scansUsed} of {app.scansLimit} discovery scans used
-                </span>
-              )}
             </div>
             {teams.length > 1 && (
               <div className="border-b border-divide py-1">

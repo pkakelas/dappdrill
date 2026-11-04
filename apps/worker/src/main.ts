@@ -2,12 +2,13 @@ import { createDb } from "@dappdrill/db";
 import { loadEngine } from "@dappdrill/engine/fake";
 import type { Job } from "pg-boss";
 import { config } from "./config.js";
-import { runBatch } from "./jobs/batch.js";
-import { runFlowChange } from "./jobs/flow-change.js";
+import { runAgentReply } from "./jobs/agent.js";
+import { runAnalysis } from "./jobs/analyze.js";
+import { runDraft } from "./jobs/draft.js";
 import { scheduleTick } from "./jobs/schedule.js";
-import { runScan } from "./jobs/scan.js";
+import { runTestBatch } from "./jobs/tests.js";
 import { errorMessage, logger } from "./log.js";
-import { createBoss, QUEUES, type BatchJob, type FlowChangeJob, type ScanJob, type ScheduleTickJob } from "./queues.js";
+import { createBoss, QUEUES, type AgentJob, type AnalysisJob, type DraftJob, type ScheduleTickJob, type TestsJob } from "./queues.js";
 
 const log = logger("worker");
 const SHUTDOWN_GRACE_MS = 30_000;
@@ -16,7 +17,7 @@ async function main() {
   const db = createDb();
   const engine = await loadEngine();
   const boss = await createBoss();
-  // Aborted on shutdown so in-flight scans stop and record why.
+  // Aborted on shutdown so in-flight jobs stop and record why.
   const shutdown = new AbortController();
 
   /** Runs each job with a signal that fires on shutdown or when pg-boss gives up on it. */
@@ -26,19 +27,16 @@ async function main() {
       for (const job of jobs) await handle(job.data, AbortSignal.any([shutdown.signal, job.signal]));
     };
 
-  await boss.work<ScanJob>(QUEUES.scan, { localConcurrency: config.scanConcurrency }, each((d, s) => runScan(db, engine, d.scanId, s)));
-  await boss.work<BatchJob>(QUEUES.batch, { localConcurrency: config.batchConcurrency }, each((d, s) => runBatch(db, engine, d.batchId, s)));
-  await boss.work<FlowChangeJob>(
-    QUEUES.flowChange,
-    { localConcurrency: config.flowChangeConcurrency },
-    each((d, s) => runFlowChange(db, engine, d.changeId, s)),
-  );
+  await boss.work<AnalysisJob>(QUEUES.analysis, { localConcurrency: config.analysisConcurrency }, each((d, s) => runAnalysis(db, engine, boss, d.analysisId, s)));
+  await boss.work<TestsJob>(QUEUES.tests, { localConcurrency: config.testsConcurrency }, each((d, s) => runTestBatch(db, engine, d.batchId, s)));
+  await boss.work<DraftJob>(QUEUES.draft, { localConcurrency: config.chatConcurrency }, each((d) => runDraft(db, engine, boss, d.testId)));
+  await boss.work<AgentJob>(QUEUES.agent, { localConcurrency: config.chatConcurrency }, each((d, s) => runAgentReply(db, engine, boss, d.messageId, s)));
   await boss.work<ScheduleTickJob>(QUEUES.scheduleTick, each((d) => scheduleTick(db, boss, d?.at)));
   await boss.schedule(QUEUES.scheduleTick, "* * * * *");
 
   log.info(
     `ready: ${process.env.DAPPDRILL_FAKE_ENGINE === "1" ? "fake" : "real"} engine, ` +
-      `concurrency scans ${config.scanConcurrency} / runs ${config.batchConcurrency} / flow changes ${config.flowChangeConcurrency}, ` +
+      `concurrency analyses ${config.analysisConcurrency} / test batches ${config.testsConcurrency} / chat ${config.chatConcurrency}, ` +
       `artifacts in ${config.artifactsRoot}`,
   );
 

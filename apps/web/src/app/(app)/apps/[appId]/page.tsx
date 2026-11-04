@@ -1,208 +1,195 @@
-import { db, flows, runBatches } from "@dappdrill/db";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { analyses, db, flowsWithTests, latestRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { desc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { makePanelHref } from "@/components/report/ctx";
-import { CriticalIssueCard, IssueRowCard } from "@/components/report/issues";
-import { ResultPanel } from "@/components/report/panels";
-import { cx, Empty, HEALTH_TEXT, HealthBadge, RUN_STATUS_LABEL, RUN_STATUS_TEXT, Sparkbars } from "@/components/ui";
-import { hostFromUrl, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
-import { githubRepo, healthOfCounts, issueCounts, latestScan, openIssues, recentStatuses } from "@/lib/queries";
-import { loadPanel } from "@/lib/report";
-import { healthOfIssues } from "@dappdrill/core";
+import { AddTest, NewFlow } from "@/components/tests/add-test";
+import { AnalysisPanel } from "@/components/tests/analysis-panel";
+import { FlowHeader } from "@/components/tests/flow-header";
+import { RunButton } from "@/components/tests/run-button";
+import { isActive, StateMark, stateOf, type TestState } from "@/components/tests/status";
+import { cx } from "@/components/ui";
+import { hostFromUrl, plural, timeAgo } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
-type Props = { params: Promise<{ appId: string }>; searchParams: Promise<{ panel?: string }> };
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
   const { app } = await requireApp((await params).appId);
   return { title: app.name };
 }
 
-export default async function OverviewPage({ params, searchParams }: Props) {
+export default async function TestsHome({ params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
-  const { panel } = await searchParams;
   const { app } = await requireApp(appId);
-  const path = `/apps/${app.id}`;
-
-  const [current, finished, issues, batches, flowRows, repo, panelData] = await Promise.all([
-    latestScan(app.id),
-    latestScan(app.id, true),
-    openIssues(app.id),
-    db().select().from(runBatches).where(and(eq(runBatches.appId, app.id), isNull(runBatches.scanId))).orderBy(desc(runBatches.createdAt)).limit(5),
-    db().select().from(flows).where(and(eq(flows.appId, app.id), eq(flows.archived, false))).orderBy(asc(flows.createdAt)),
-    githubRepo(app.teamId),
-    loadPanel(app.id, panel),
+  const [[analysis], all] = await Promise.all([
+    db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1),
+    flowsWithTests(db(), appId),
   ]);
-  const [batchCounts, statuses] = await Promise.all([issueCounts("batch", batches.map((b) => b.id)), recentStatuses(flowRows.map((f) => f.id))]);
-  const ctx = { appId: app.id, panelHref: makePanelHref(path, {}), readOnly: false, githubRepo: repo };
-  const health = healthOfIssues(issues);
-  const attention = issues.filter((i) => i.severity === "critical" || i.severity === "high");
-  const running = current && (current.status === "queued" || current.status === "running") ? current : null;
-  const busy = running || batches.some((b) => b.status === "queued" || b.status === "running");
-  const lastChecked = [finished?.finishedAt, ...batches.map((b) => b.finishedAt)].filter(Boolean).sort((a, b) => b!.getTime() - a!.getTime())[0];
-  const names = new Map(flowRows.map((f) => [f.id, f.name]));
+  const tests = all.flatMap((f) => f.tests);
+  const runs = await latestRuns(db(), tests.map((t) => t.id));
+  const state = new Map(tests.map((t) => [t.id, stateOf(t, runs.get(t.id))]));
+  const host = hostFromUrl(app.url);
 
-  if (!current) {
-    return (
-      <div className="page flex flex-col gap-6">
-        <Header name={app.name} url={app.url} />
-        <Empty title="No scans yet">
-          <p className="m-0 mb-4">Run the first scan and DappDrill will find this app&apos;s flows and try them with every wallet edge case.</p>
-          <Link href={`/new?app=${app.id}`} className="btn btn-primary">
-            Run the first scan
-          </Link>
-        </Empty>
-      </div>
-    );
-  }
+  const exploring = analysis && (analysis.status === "queued" || analysis.status === "running");
+  const anyActive = [...state.values()].some(isActive);
+  const activeIds = tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
+  const passing = tests.filter((t) => state.get(t.id) === "pass").length;
+  const failing = tests.filter((t) => state.get(t.id) === "fail").length;
+  const lastRun = [...runs.values()].map((r) => r.finishedAt).filter((d) => d !== null).sort((a, b) => b.getTime() - a.getTime())[0];
 
   return (
-    <div className="page flex flex-col gap-9">
-      {busy && <AutoRefresh every={5000} />}
-      <div className="flex flex-col gap-4">
-        <Header name={app.name} url={app.url} />
-        <div className="flex flex-wrap items-center gap-3">
-          <HealthBadge health={health} className="px-3 py-1.5 text-sm" />
-          <p className={cx("m-0 text-[17px]", HEALTH_TEXT[health] === "text-muted" ? "text-ink-2" : HEALTH_TEXT[health])}>
-            {health === "broken"
-              ? `${plural(attention.length, "thing needs", "things need")} your attention.`
-              : health === "review"
-                ? `Nothing broken. ${plural(issues.length, "thing")} worth a look.`
-                : "Nothing needs your attention."}
-            <span className="text-muted"> Last checked {timeAgo(lastChecked ?? current.createdAt)}.</span>
+    <div className="page flex flex-col gap-8">
+      {(exploring || anyActive) && <AutoRefresh every={2000} />}
+
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-2">
+          <h1 className="h1 truncate">{app.name}</h1>
+          <p className="m-0 flex flex-wrap items-center gap-x-2 font-mono text-[12px] text-muted">
+            <a href={app.url} target="_blank" rel="noreferrer" className="text-muted">
+              {host}
+            </a>
+            {tests.length > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{plural(tests.length, "test")}</span>
+                {failing > 0 && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="text-bad">{failing} failing</span>
+                  </>
+                )}
+                {passing > 0 && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{passing} passing</span>
+                  </>
+                )}
+                {lastRun && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>last run {timeAgo(lastRun)}</span>
+                  </>
+                )}
+              </>
+            )}
           </p>
         </div>
-      </div>
+        {tests.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
+      </header>
 
-      {running && (
-        <Link href={`${path}/scans/${running.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-live-bg bg-live-soft px-5 py-4 no-underline">
-          <span className="flex items-center gap-2.5 text-sm">
-            <span className="size-2 animate-pulse rounded-full bg-live" />
-            Scan #{running.number} is {running.status === "queued" ? "queued" : "running"}.
-          </span>
-          <span className="text-sm font-medium text-live-ink">Watch it live →</span>
-        </Link>
-      )}
+      {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} hasFlows={all.length > 0} />}
 
-      <section aria-labelledby="open" className="flex flex-col gap-3">
-        <h2 id="open" className="h2">
-          Open issues
-        </h2>
-        {issues.length === 0 ? (
-          <p className="m-0 rounded-xl border border-line bg-card px-5 py-4 text-sm text-muted">None. The latest scan and runs found nothing to fix.</p>
-        ) : (
-          issues.map((i) =>
-            i.severity === "critical" ? (
-              <CriticalIssueCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
-            ) : (
-              <IssueRowCard key={i.id} issue={i} ctx={ctx} flowName={i.flowId ? names.get(i.flowId) : undefined} />
-            ),
-          )
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <section aria-labelledby="latest" className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between">
-            <h2 id="latest" className="h2">
-              Latest scan
-            </h2>
-            <Link href={`/new?app=${app.id}`} className="btn-link">
-              New scan
-            </Link>
-          </div>
-          {finished ? (
-            <Link href={`${path}/scans/${finished.id}`} className="card flex items-center justify-between gap-3 px-5 py-4 no-underline hover:bg-sub">
-              <span className="flex flex-col">
-                <span className="text-sm font-medium">Scan #{finished.number}</span>
-                <span className="text-[13px] text-muted">
-                  {timeAgo(finished.finishedAt ?? finished.createdAt)}
-                  {finished.status === "stopped" ? " · stopped early" : ""}
-                </span>
-              </span>
-              <span className="text-[13px] text-muted">Open report →</span>
-            </Link>
-          ) : (
-            <p className="hint m-0">No finished scan yet.</p>
-          )}
-
-          <div className="mt-3 flex items-baseline justify-between">
-            <h2 className="h2">Recent runs</h2>
-            <Link href={`${path}/runs`} className="btn-link">
-              All runs
-            </Link>
-          </div>
-          {batches.length === 0 ? (
-            <p className="hint m-0">No replays yet. Run your flows from the Flows tab.</p>
-          ) : (
-            <ul className="card m-0 list-none divide-y divide-divide p-0">
-              {batches.map((b) => {
-                const h = healthOfCounts(batchCounts.get(b.id));
-                return (
-                  <li key={b.id}>
-                    <Link href={`${path}/runs/${b.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 no-underline hover:bg-sub">
-                      <span className="flex min-w-0 flex-col">
-                        <span className="text-sm">
-                          {plural(b.request.flowIds.length, "flow")} · {TRIGGER_LABEL[b.trigger]}
-                          {b.request.branch && <span className="font-mono text-[13px] text-muted"> {b.request.branch}</span>}
-                        </span>
-                        <span className="text-[13px] text-muted">{timeAgo(b.createdAt)}</span>
-                      </span>
-                      {b.status === "done" ? <HealthBadge health={h} /> : <span className="pill bg-live-bg text-live-ink capitalize">{b.status}</span>}
-                    </Link>
-                  </li>
-                );
-              })}
+      {all.map((f) => {
+        const states = f.tests.map((t) => state.get(t.id)!);
+        const flowActive = f.tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
+        return (
+          <section key={f.id} aria-label={f.name} className="card overflow-hidden">
+            <FlowHeader appId={appId} flow={f} count={f.tests.length} summary={flowSummary(states)} activeIds={flowActive} />
+            <ul className="m-0 list-none divide-y divide-divide p-0">
+              {f.tests
+                .filter((t) => !t.baseId)
+                .map((t) => {
+                  const children = f.tests.filter((c) => c.baseId === t.id);
+                  return [
+                    <TestLine key={t.id} appId={appId} test={t} state={state.get(t.id)!} run={runs.get(t.id)} />,
+                    children.length > 0 && <UnhappyGroup key={`${t.id}-unhappy`} appId={appId} tests={children} state={state} runs={runs} />,
+                  ];
+                })}
             </ul>
-          )}
-        </section>
+            <div className="border-t border-divide">
+              <AddTest appId={appId} flowId={f.id} flowName={f.name} />
+            </div>
+          </section>
+        );
+      })}
 
-        <section aria-labelledby="flowhealth" className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between">
-            <h2 id="flowhealth" className="h2">
-              Flow health
-            </h2>
-            <Link href={`${path}/flows`} className="btn-link">
-              All flows
-            </Link>
-          </div>
-          {flowRows.length === 0 ? (
-            <p className="hint m-0">No saved flows yet. The scan saves the flows it finds.</p>
-          ) : (
-            <ul className="card m-0 list-none divide-y divide-divide p-0">
-              {flowRows.map((f) => {
-                const st = statuses.get(f.id) ?? [];
-                const last = st.at(-1);
-                return (
-                  <li key={f.id}>
-                    <Link href={`${path}/flows/${f.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 no-underline hover:bg-sub">
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-sm font-medium">{f.name}</span>
-                        <span className={cx("text-[13px]", last ? RUN_STATUS_TEXT[last] : "text-muted")}>{last ? RUN_STATUS_LABEL[last] : "Not run yet"}</span>
-                      </span>
-                      <Sparkbars statuses={st} />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+      {all.length > 0 ? (
+        <NewFlow appId={appId} />
+      ) : !exploring ? (
+        <div className="flex flex-col gap-4">
+          {!analysis && (
+            <section className="card flex flex-wrap items-center justify-between gap-4 p-6">
+              <div className="flex flex-col gap-1">
+                <h2 className="h2">No tests yet</h2>
+                <p className="m-0 text-[15px] text-ink-3">Let DappDrill explore {host} and write the first ones, or add a flow yourself.</p>
+              </div>
+              <form action={analyzeAction.bind(null, appId)}>
+                <button type="submit" className="btn btn-primary">
+                  Explore the app
+                </button>
+              </form>
+            </section>
           )}
-        </section>
-      </div>
-      {panelData && <ResultPanel data={panelData} ctx={ctx} />}
+          <NewFlow appId={appId} first />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function Header({ name, url }: { name: string; url: string }) {
+function flowSummary(states: TestState[]): string {
+  if (states.some((s) => s === "running" || s === "queued")) return "running";
+  const fail = states.filter((s) => s === "fail").length;
+  if (fail) return `${fail} failing`;
+  if (states.length && states.every((s) => s === "pass")) return "all passing";
+  if (states.every((s) => s === "never" || s === "drafting")) return "not run yet";
+  return `${states.filter((s) => s === "pass").length} passing`;
+}
+
+/** A test's unhappy paths: one quiet row, opened when one of them fails or is running. */
+function UnhappyGroup({ appId, tests, state, runs }: { appId: string; tests: TestRow[]; state: Map<string, TestState>; runs: Map<string, TestRunRow> }) {
+  const states = tests.map((t) => state.get(t.id)!);
+  const open = states.some((s) => s === "fail" || s === "error" || isActive(s));
+  const active = tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
   return (
-    <div className="flex flex-col gap-1">
-      <h1 className="h1">{name}</h1>
-      <a href={url} target="_blank" rel="noreferrer" className="w-fit font-mono text-sm text-muted no-underline hover:underline">
-        {hostFromUrl(url)}
-      </a>
-    </div>
+    <li>
+      <details open={open} className="group/unhappy">
+        <summary className="flex cursor-pointer list-none items-center gap-3 py-2.5 pr-5 pl-5 hover:bg-sub">
+          <span aria-hidden="true" className="ml-1.5 h-4 w-3 shrink-0 self-start border-b border-l border-line-strong" style={{ marginTop: -2 }} />
+          <span className="flex flex-1 items-center gap-1.5 font-mono text-[12px] text-muted">
+            {plural(tests.length, "unhappy path")} · {flowSummary(states)}
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className="transition-transform group-open/unhappy:rotate-90">
+              <path d="M3.5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            </svg>
+          </span>
+          <span className="relative z-10">
+            <RunButton target={{ appId, testIds: tests.map((t) => t.id) }} active={active.length > 0} stopIds={active} label="Run unhappy paths" />
+          </span>
+        </summary>
+        <ul className="m-0 list-none divide-y divide-divide border-t border-divide p-0">
+          {tests.map((t) => (
+            <TestLine key={t.id} appId={appId} test={t} state={state.get(t.id)!} run={runs.get(t.id)} />
+          ))}
+        </ul>
+      </details>
+    </li>
+  );
+}
+
+function TestLine({ appId, test, state, run }: { appId: string; test: TestRow; state: TestState; run?: TestRunRow }) {
+  const unhappy = Boolean(test.baseId);
+  const steps = run?.result?.steps ?? [];
+  const current = steps.findIndex((s) => s.status === "running");
+  let detail: React.ReactNode = null;
+  if (state === "drafting") detail = <span className="text-muted">Writing the steps…</span>;
+  else if (state === "running" && current >= 0) detail = <span className="text-live">Step {current + 1} of {steps.length}</span>;
+  else if (state === "queued") detail = <span className="text-live">Queued</span>;
+  else if ((state === "fail" || state === "error") && run?.result?.failure) detail = <span className={state === "fail" ? "text-bad" : "text-ink-3"}>{run.result.failure}</span>;
+
+  return (
+    <li className="group relative flex items-center gap-3 px-5 py-3 hover:bg-sub">
+      {unhappy && <span aria-hidden="true" className="ml-1.5 h-4 w-3 shrink-0 self-start border-b border-l border-line-strong" style={{ marginTop: -2 }} />}
+      <StateMark state={state} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Link href={`/apps/${appId}/tests/${test.id}`} className={cx("truncate no-underline after:absolute after:inset-0", unhappy ? "text-[14.5px] text-ink-2" : "text-[15.5px] text-ink")}>
+          {test.name}
+        </Link>
+        {detail && <span className="truncate text-[13px]">{detail}</span>}
+      </div>
+      <span className="hidden shrink-0 font-mono text-[11px] text-faint sm:inline">{run?.finishedAt && state !== "running" && state !== "queued" ? timeAgo(run.finishedAt) : ""}</span>
+      <span className="relative z-10">
+        <RunButton target={{ appId, testIds: [test.id] }} active={state === "running" || state === "queued"} stopIds={[test.id]} label="Run test" disabled={state === "drafting"} />
+      </span>
+    </li>
   );
 }

@@ -26,8 +26,8 @@ export function sendTelegram(botToken: string, chatId: string, alert: Alert): Pr
 }
 
 /** Email over SMTP_URL; without it the message is logged instead. */
-export async function sendEmail(to: string[], alert: Alert, body: string): Promise<void> {
-  const text = `${alertText(alert)}\n\n${body}`;
+export async function sendEmail(to: string[], alert: Alert): Promise<void> {
+  const text = alertText(alert);
   if (!process.env.SMTP_URL) {
     log.info(`SMTP_URL not set; email to ${to.join(", ")} would say:\n${text}`);
     return;

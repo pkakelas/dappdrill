@@ -44,6 +44,8 @@ export interface ReplayFlowOptions {
   /** How long a `wallet` step waits for the dApp to ask (default 30s). */
   signTimeoutMs?: number;
   hooks?: ReplayHooks;
+  /** Continue on the page the session is on instead of opening the flow's start URL. */
+  here?: boolean;
   runId?: string;
   signal?: AbortSignal;
   log?: (message: string) => void;
@@ -95,7 +97,7 @@ export async function replayFlow(session: EngineSession, flow: Flow, opts: Repla
   let triggerSkipped = false;
 
   // A saved flow starts at its startUrl even when the first step isn't an explicit goto.
-  if (flow.steps[0]?.kind !== "goto") {
+  if (!opts.here && flow.steps[0]?.kind !== "goto") {
     try {
       await gotoUrl(session, flow.startUrl, params, stepTimeout);
     } catch (e) {

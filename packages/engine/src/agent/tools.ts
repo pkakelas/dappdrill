@@ -75,18 +75,7 @@ export class Recorder {
     const a = this.active;
     if (!a) return undefined;
     this.active = undefined;
-    const addr = this.session.wallet.address();
-    const full = new RegExp(addr, "gi");
-    const short = new RegExp(`${addr.slice(0, 6)}(…|\\.\\.\\.)${addr.slice(-4)}`, "gi");
-    const generic = (s: string) => s.replace(full, "{{account}}").replace(short, "{{account-head}}$1{{account-tail}}");
-    for (const s of a.steps) {
-      if (s.kind === "fill") s.value = generic(s.value);
-      if (s.kind === "goto") s.url = generic(s.url);
-      if (s.kind === "wait" && s.text) s.text = generic(s.text);
-      if (s.kind !== "expect") continue;
-      if (s.assert.type === "url") s.assert.contains = generic(s.assert.contains);
-      else s.assert.text = generic(s.assert.text);
-    }
+    this.generic(a.steps);
     const params: Flow["params"] = [];
     const amountStep = a.steps.find((s) => s.kind === "wallet" && s.expect?.amountMustEqual && !s.expect.amountMustEqual.includes("{{"));
     if (amountStep?.kind === "wallet" && amountStep.expect?.amountMustEqual) {
@@ -100,8 +89,32 @@ export class Recorder {
     return { name: a.name, startUrl: a.startUrl, steps: a.steps, params, chainId: this.session.wallet.chainId() };
   }
 
+  /** Close the recording and return its steps with the wallet's address made generic, without params. */
+  take(): Step[] {
+    const steps = this.active?.steps ?? [];
+    this.active = undefined;
+    this.generic(steps);
+    return steps;
+  }
+
   discard() {
     this.active = undefined;
+  }
+
+  /** The wallet's address becomes {{account}}, so steps replay with any test account. */
+  private generic(steps: Step[]) {
+    const addr = this.session.wallet.address();
+    const full = new RegExp(addr, "gi");
+    const short = new RegExp(`${addr.slice(0, 6)}(…|\\.\\.\\.)${addr.slice(-4)}`, "gi");
+    const generic = (s: string) => s.replace(full, "{{account}}").replace(short, "{{account-head}}$1{{account-tail}}");
+    for (const s of steps) {
+      if (s.kind === "fill") s.value = generic(s.value);
+      if (s.kind === "goto") s.url = generic(s.url);
+      if (s.kind === "wait" && s.text) s.text = generic(s.text);
+      if (s.kind !== "expect") continue;
+      if (s.assert.type === "url") s.assert.contains = generic(s.assert.contains);
+      else s.assert.text = generic(s.assert.text);
+    }
   }
 }
 
@@ -113,6 +126,8 @@ export interface ToolContext {
   onBlocked?: (blocked: Blocked) => void;
   /** Returns a message when the time/flow budget is spent, shown with every tool result. */
   budgetNote?: () => string | undefined;
+  /** Runs before the wallet approves a signing request (the signing review). */
+  beforeApprove?: (request: WalletRequest) => Promise<void>;
 }
 
 /** Tools for looking at and acting on the page; recording happens as a side effect. */
@@ -284,6 +299,7 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
         const expect = { ...decoded.expectation };
         if (match) expect.amountMustEqual = match.typed;
         recorder.add({ kind: "wallet", respond: "approve", expect, note: `Approve ${decoded.summary.split(":")[0]}` });
+        await ctx.beforeApprove?.(pending);
         await session.wallet.approve(pending.id);
         return after(`Approved ${pending.id} (${decoded.summary}).${match ? ` The amount matches what you typed ("${match.typed}").` : ""}`);
       },

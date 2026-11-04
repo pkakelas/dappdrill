@@ -2,8 +2,10 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ScanReport } from "@dappdrill/core";
-import { UsageError, loadReport, parseChain, parseEdgeCases, parseHeaders, parseResponses, parseStorage, parseToken } from "../src/files.js";
+import { TestRunResult } from "@dappdrill/core";
+import { addUnhappyPaths } from "../src/commands/run.js";
+import { UsageError, loadTests, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, type TestsFile } from "../src/files.js";
+import { renderJunit } from "../src/junit.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
@@ -22,16 +24,6 @@ describe("parseChain", () => {
   it("rejects bad ids and unknown chains without an RPC", () => {
     expect(() => parseChain("base")).toThrow(UsageError);
     expect(() => parseChain("999")).toThrow(/pass its RPC/);
-  });
-});
-
-describe("parseEdgeCases", () => {
-  it("accepts known ids, trimming spaces", () => {
-    expect(parseEdgeCases("happy, reject")).toEqual(["happy", "reject"]);
-  });
-
-  it("names the unknown ones", () => {
-    expect(() => parseEdgeCases("happy,nope")).toThrow(/Unknown edge case\(s\): nope/);
   });
 });
 
@@ -84,15 +76,50 @@ describe("parseResponses", () => {
   });
 });
 
-describe("loadReport", () => {
-  it("reads back a saved report whose wallet requests had no params", async () => {
-    const at = "2026-11-03T00:00:00.000Z";
-    const request = { id: "req_1", method: "eth_accounts", params: undefined, chainId: 1, kind: "other", at, outcome: "approved" };
-    const run = { id: "run_1", flowId: "flow_1", edgeCase: "happy", status: "pass", walletRequests: [request], startedAt: at, finishedAt: at };
-    const report = { url: "https://app.example", startedAt: at, finishedAt: at, chains: [], flows: [], runs: [run], issues: [], signingReviews: [] };
-    const path = join(await mkdtemp(join(tmpdir(), "dappdrill-")), "report.json");
-    await writeFile(path, JSON.stringify(report)); // drops the undefined params key, as the CLI's writeJson does
-    const loaded = await loadReport(path, ScanReport);
-    expect(loaded.runs[0]?.walletRequests[0]?.method).toBe("eth_accounts");
+const withdraw = { id: "test_1", name: "Withdraw everything", goal: "Withdraw it all.", expected: "Balance is 0.", startPath: "/", steps: [{ text: "Click Withdraw" }] };
+
+async function saved(value: unknown): Promise<string> {
+  const path = join(await mkdtemp(join(tmpdir(), "dappdrill-")), "tests.json");
+  await writeFile(path, JSON.stringify(value));
+  return path;
+}
+
+describe("loadTests", () => {
+  it("reads a tests file, defaulting what can be left out", async () => {
+    const tests = await loadTests(await saved({ url: "https://app.example", flows: [{ name: "Withdraw", tests: [withdraw] }] }));
+    expect(tests.chains).toEqual([]);
+    expect(tests.flows[0]?.tests[0]?.name).toBe("Withdraw everything");
+  });
+
+  it("says where a bad file is wrong, and refuses duplicate ids", async () => {
+    await expect(loadTests(await saved({ url: "https://app.example", flows: [{ name: "Withdraw", tests: [{ id: "x" }] }] }))).rejects.toThrow(/flows\.0\.tests\.0\.name/);
+    await expect(loadTests(await saved({ url: "https://app.example", flows: [{ name: "W", tests: [withdraw, withdraw] }] }))).rejects.toThrow(/share the id test_1/);
+    await expect(loadTests("/nope/tests.json")).rejects.toThrow(/dappdrill analyze/);
+  });
+});
+
+describe("addUnhappyPaths", () => {
+  it("adds the default conditions after each happy path, once", () => {
+    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+    addUnhappyPaths(tests);
+    const after = tests.flows[0]!.tests;
+    expect(after[0]).toBe(withdraw);
+    expect(after.slice(1).map((t) => [t.condition, t.baseId, t.steps.length])).toEqual([
+      ["reject", "test_1", 0],
+      ["slow-rpc", "test_1", 0],
+      ["wrong-network", "test_1", 0],
+      ["low-gas", "test_1", 0],
+    ]);
+    addUnhappyPaths(tests);
+    expect(tests.flows[0]!.tests).toHaveLength(5);
+  });
+});
+
+describe("renderJunit", () => {
+  it("writes a suite per flow and escapes the failure", () => {
+    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+    const xml = renderJunit(tests, [{ testId: "test_1", status: "fail", result: TestRunResult.parse({ failure: 'Step 1, "Click Withdraw": <disabled>' }) }]);
+    expect(xml).toContain('<testsuite name="Withdraw" tests="1" failures="1"');
+    expect(xml).toContain('<failure message="Step 1, &quot;Click Withdraw&quot;: &lt;disabled&gt;"/>');
   });
 });

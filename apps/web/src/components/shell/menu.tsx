@@ -42,7 +42,10 @@ export function Menu({
       {open && (
         <div
           role="menu"
-          onClick={(e) => (e.target as HTMLElement).closest("a,button") && setOpen(false)}
+          onClick={(e) => {
+            const el = (e.target as HTMLElement).closest("a,button");
+            if (el && !el.hasAttribute("data-keep-open")) setOpen(false);
+          }}
           className={cx(
             "absolute top-[calc(100%+6px)] z-40 flex w-[280px] max-w-[calc(100vw-32px)] flex-col rounded-xl border border-line-strong bg-card py-1.5 shadow-[0_24px_48px_-24px_rgba(20,18,15,0.35)]",
             align === "right" ? "right-0" : "left-0",

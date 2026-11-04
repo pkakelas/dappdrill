@@ -1,28 +1,25 @@
-import { apiTokens, db, domains, integrations, invites, teamMembers, testWallets, user as users } from "@dappdrill/db";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { db, domains, integrations, invites, teamMembers, testWallets, user as users } from "@dappdrill/db";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
   addDomainAction,
   cancelInviteAction,
   createInboxAction,
-  createTokenAction,
   inviteAction,
   removeDomainAction,
   removeInboxAction,
   removeIntegrationAction,
   removeMemberAction,
-  revokeTokenAction,
   saveIntegrationAction,
   setIntegrationEnabledAction,
   verifyDomainAction,
 } from "@/actions/account";
 import { ActionForm } from "@/components/action-form";
-import { CopyButton } from "@/components/report/copy-button";
+import { CopyButton } from "@/components/copy-button";
 import { Addr, cx, List, SettingsSection } from "@/components/ui";
 import { env } from "@/lib/env";
 import { plural, timeAgo } from "@/lib/format";
-import { PLANS, replaysThisMonth, scanAllowance } from "@/lib/plan";
 import { currentTeam, teamApps } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Account" };
@@ -32,14 +29,10 @@ type Integration = typeof integrations.$inferSelect;
 export default async function AccountPage() {
   const { user, team, role } = await currentTeam();
   const apps = await teamApps(team.id);
-  const appIds = apps.map((a) => a.id);
-  const [allowances, replays, [wallets], domainRows, integrationRows, tokenRows, members, pending] = await Promise.all([
-    Promise.all(apps.map((a) => scanAllowance(a.id, team.plan))),
-    replaysThisMonth(appIds),
+  const [[wallets], domainRows, integrationRows, members, pending] = await Promise.all([
     db().select().from(testWallets).where(eq(testWallets.teamId, team.id)),
     db().select().from(domains).where(eq(domains.teamId, team.id)).orderBy(asc(domains.createdAt)),
     db().select().from(integrations).where(eq(integrations.teamId, team.id)),
-    appIds.length ? db().select().from(apiTokens).where(inArray(apiTokens.appId, appIds)).orderBy(asc(apiTokens.createdAt)) : [],
     db()
       .select({ id: users.id, name: users.name, email: users.email, role: teamMembers.role })
       .from(teamMembers)
@@ -48,7 +41,6 @@ export default async function AccountPage() {
       .orderBy(asc(teamMembers.createdAt)),
     db().select().from(invites).where(and(eq(invites.teamId, team.id), isNull(invites.acceptedAt))).orderBy(asc(invites.createdAt)),
   ]);
-  const plan = PLANS[team.plan];
   const integ = new Map(integrationRows.map((i) => [i.kind, i]));
 
   return (
@@ -59,36 +51,6 @@ export default async function AccountPage() {
           {user.name || user.email} · {role === "owner" ? "Owner" : "Member"} of {team.name}
         </p>
       </header>
-
-      <SettingsSection id="plan" title="Plan" hint="Replays are always unlimited. Only discovery scans count.">
-        <div className="card flex flex-col gap-5 p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-lg font-semibold">{plan.name}</span>
-            <span className="text-sm text-muted">{plan.price}</span>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {apps.length === 0 ? (
-              <Meter label="Discovery scans" value="—" />
-            ) : (
-              apps.map((a, i) => {
-                const al = allowances[i]!;
-                return (
-                  <Meter
-                    key={a.id}
-                    label={apps.length > 1 ? `Scans · ${a.name}` : "Discovery scans"}
-                    value={al.unlimited ? `${al.used} (no limit in dev)` : `${al.used} of ${al.limit}`}
-                    fill={al.unlimited ? 0 : al.used / al.limit}
-                  />
-                );
-              })
-            )}
-            <Meter label="Replays this month" value={String(replays)} />
-            <Meter label="Apps" value={String(apps.length)} />
-          </div>
-          {env.dev && <p className="hint m-0">DAPPDRILL_DEV is on: scan limits are lifted.</p>}
-        </div>
-        <p className="hint m-0">Billing isn&apos;t connected in this build. Each app is its own subscription.</p>
-      </SettingsSection>
 
       <SettingsSection id="wallets" title="Test wallets" hint="Created and funded on every fork. They never hold real funds.">
         <List>
@@ -132,17 +94,17 @@ export default async function AccountPage() {
           {apps
             .filter((a) => a.liveKeyAddress)
             .map((a) => (
-              <Row key={a.id} title={`Funded account · ${a.name}`} detail={<Addr value={a.liveKeyAddress} chars={6} />} aside={<Link href={`/new?app=${a.id}`} className="btn-link">Change</Link>} />
+              <Row key={a.id} title={`Funded account · ${a.name}`} detail={<Addr value={a.liveKeyAddress} chars={6} />} aside={<Link href={`/apps/${a.id}/settings`} className="btn-link">Change</Link>} />
             ))}
         </List>
         {apps[0] && (
           <p className="hint m-0">
-            Testing on a chain that can&apos;t be forked? Add a funded testnet key under <Link href={`/new?app=${apps[0].id}`}>New scan → Customize</Link>.
+            Testing on a chain that can&apos;t be forked? Add a funded testnet key in the <Link href={`/apps/${apps[0].id}/settings`}>app&apos;s settings</Link>.
           </p>
         )}
       </SettingsSection>
 
-      <SettingsSection id="domains" title="Domains" hint="Scheduled and CI runs need a verified domain, so DappDrill only drills sites you own.">
+      <SettingsSection id="domains" title="Domains" hint="Scheduled runs need a verified domain, so DappDrill only tests sites you own.">
         {domainRows.length > 0 && (
           <List>
             {domainRows.map((d) => (
@@ -194,11 +156,8 @@ export default async function AccountPage() {
         {env.dev && <p className="hint m-0">In dev mode, localhost counts as verified.</p>}
       </SettingsSection>
 
-      <SettingsSection id="integrations" title="Integrations" hint="Where alerts go when a run finds something new.">
+      <SettingsSection id="integrations" title="Integrations" hint="Where alerts go when a test stops passing.">
         <List>
-          <IntegrationRow kind="github" title="GitHub" row={integ.get("github")} status={(r) => `Issues open in ${r.config.repo}`}>
-            <Field name="repo" label="Repository" placeholder="owner/name" defaultValue={integ.get("github")?.config.repo} mono />
-          </IntegrationRow>
           <IntegrationRow kind="slack" title="Slack" row={integ.get("slack")} status={(r) => `Alerts to ${r.config.channel ?? "your webhook"}`}>
             <Field name="secret" label="Incoming Webhook URL" placeholder={integ.get("slack") ? "Saved. Paste a new one to replace it." : "https://hooks.slack.com/services/…"} type="password" mono />
             <Field name="channel" label="Channel name (for your reference)" placeholder="#qa" defaultValue={integ.get("slack")?.config.channel} />
@@ -213,64 +172,7 @@ export default async function AccountPage() {
         </List>
       </SettingsSection>
 
-      <SettingsSection id="tokens" title="API tokens" hint="For the CLI and the GitHub Action: pull this app's flows and report results. One token per app.">
-        {apps.length === 0 ? (
-          <p className="hint m-0">Add an app first.</p>
-        ) : (
-          apps.map((a) => {
-            const tokens = tokenRows.filter((t) => t.appId === a.id);
-            return (
-              <div key={a.id} className="flex flex-col gap-3">
-                {apps.length > 1 && <h3 className="m-0 text-sm font-semibold">{a.name}</h3>}
-                {tokens.length > 0 && (
-                  <List>
-                    {tokens.map((t) => (
-                      <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-                        <span className="flex flex-col">
-                          <span className="text-sm font-medium">{t.name}</span>
-                          <span className="text-[13px] text-muted">
-                            Created {timeAgo(t.createdAt)} · {t.lastUsedAt ? `last used ${timeAgo(t.lastUsedAt)}` : "never used"}
-                          </span>
-                        </span>
-                        <form action={revokeTokenAction}>
-                          <input type="hidden" name="tokenId" value={t.id} />
-                          <button type="submit" className="btn btn-xs">
-                            Revoke
-                          </button>
-                        </form>
-                      </li>
-                    ))}
-                  </List>
-                )}
-                <ActionForm action={createTokenAction} secretLabel="Add it to your repo as the DAPPDRILL_TOKEN secret.">
-                  <input type="hidden" name="appId" value={a.id} />
-                  <div className="flex gap-2">
-                    <label htmlFor={`tok-${a.id}`} className="sr-only">
-                      Token name
-                    </label>
-                    <input id={`tok-${a.id}`} name="name" required maxLength={60} className="field min-w-0 flex-1" placeholder="GitHub Action" defaultValue="GitHub Action" />
-                    <button type="submit" className="btn">
-                      Create token
-                    </button>
-                  </div>
-                </ActionForm>
-              </div>
-            );
-          })
-        )}
-        <details className="card px-5 py-4">
-          <summary className="btn-link w-fit cursor-pointer">GitHub Action setup</summary>
-          <div className="mt-3 flex flex-col gap-2">
-            <p className="m-0 text-[13px] text-ink-2">
-              Save as <code className="font-mono">.github/workflows/dappdrill.yml</code>. It replays your saved flows on every pull request, comments the result, and reports back here.
-            </p>
-            <pre className="codeblock m-0 overflow-x-auto">{actionSnippet(apps[0]?.url)}</pre>
-            <CopyButton text={actionSnippet(apps[0]?.url)} label="Copy workflow" className="w-fit" />
-          </div>
-        </details>
-      </SettingsSection>
-
-      <SettingsSection id="team" title="Team" hint="Everyone can run flows and change settings. Owners invite and remove people.">
+      <SettingsSection id="team" title="Team" hint="Everyone can run and edit tests. Owners invite and remove people.">
         <List>
           {members.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
@@ -326,41 +228,6 @@ export default async function AccountPage() {
         )}
         <p className="hint m-0">{plural(members.length, "person", "people")} on {team.name}.</p>
       </SettingsSection>
-    </div>
-  );
-}
-
-function actionSnippet(url?: string): string {
-  return `name: DappDrill
-on: pull_request
-
-jobs:
-  dappdrill:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dappdrill/dappdrill/.github/actions/dappdrill@main
-        with:
-          url: ${url ?? "https://your-preview-url"}
-          pull: "true"
-          report-to: ${env.appUrl}
-          token: \${{ secrets.DAPPDRILL_TOKEN }}
-`;
-}
-
-function Meter({ label, value, fill }: { label: string; value: string; fill?: number }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] text-muted">{label}</span>
-      <span className="text-[17px] font-semibold tabular-nums">{value}</span>
-      {fill !== undefined && (
-        <span className="h-1.5 overflow-hidden rounded-full bg-hair">
-          <span className={cx("block h-full rounded-full", fill >= 1 ? "bg-bad" : "bg-ink")} style={{ width: `${Math.min(100, Math.round(fill * 100))}%` }} />
-        </span>
-      )}
     </div>
   );
 }

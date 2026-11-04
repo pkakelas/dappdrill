@@ -32,6 +32,8 @@ export interface Env {
   actLlm(): Llm;
   /** The acting model at low effort, for short yes/no checks. */
   cheapLlm(): Llm;
+  /** Runs test steps and judges results (Haiku by default). */
+  fastLlm(): Llm;
   judge(): RecoveryJudge;
   costUsd(): number;
   /** True for a repeat of an app-wide issue another flow already reported. */
@@ -55,6 +57,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   let think: Llm | undefined;
   let act: Llm | undefined;
   let cheap: Llm | undefined;
+  let fast: Llm | undefined;
   let judge: RecoveryJudge | undefined;
   const costUsd = () => llms.reduce((sum, l) => sum + l.costUsd(), 0);
   const cheapLlm = () => {
@@ -93,7 +96,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
     configs = await detectChains(input.url, { headless, log: (m) => void log(m) });
     const learned = input.learnedChains.filter((l) => !configs.some((c) => c.id === l.id));
     if (learned.length) {
-      await log(`Earlier scans saw the app ask for ${learned.map((c) => c.name ?? `chain ${c.id}`).join(", ")}; starting with ${learned.length === 1 ? "it" : "them"} too`);
+      await log(`Earlier runs saw the app ask for ${learned.map((c) => c.name ?? `chain ${c.id}`).join(", ")}; starting with ${learned.length === 1 ? "it" : "them"} too`);
       configs = [...configs, ...learned.map(({ forkBlock: _, ...c }) => c)];
     }
     if (configs.length === 0) {
@@ -145,6 +148,10 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
       return act;
     },
     cheapLlm,
+    fastLlm() {
+      if (!fast) llms.push((fast = createLlm({ role: "fast", effort: "low" })));
+      return fast;
+    },
     judge() {
       judge ??= createRecoveryJudge(cheapLlm());
       return judge;

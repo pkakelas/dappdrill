@@ -3,7 +3,7 @@
 import { useActionState, type ReactNode } from "react";
 import type { ActionResult } from "@/lib/action-result";
 import { cx } from "@/components/ui";
-import { CopyButton } from "@/components/report/copy-button";
+import { CopyButton } from "@/components/copy-button";
 
 type Action = (prev: ActionResult, form: FormData) => Promise<ActionResult>;
 

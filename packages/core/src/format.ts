@@ -73,6 +73,6 @@ export function missesChain(s: Stalled): boolean {
 
 /** The full sentence reports show when a scan found nothing because the data never loaded. */
 export function stalledLine(s: Stalled): string {
-  if (missesChain(s)) return `The app needs a chain the test wallet couldn't use, so exploring stopped there. ${stallReasons(s).join(" ")} Add it to the app's chains in scan settings with an RPC that answers for it.`;
+  if (missesChain(s)) return `${stallReasons(s).join(" ")} Add it under Settings → Chains with an RPC that answers for it.`;
   return `The app's data didn't load, so there was nothing to test. ${stallReasons(s).join(" ")} How to fix it: ${FORK_GUIDE_URL}`;
 }

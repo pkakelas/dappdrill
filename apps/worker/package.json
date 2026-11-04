@@ -14,7 +14,6 @@
     "smoke": "tsx --env-file=../../.env scripts/smoke.ts"
   },
   "dependencies": {
-    "@dappdrill/cli": "workspace:*",
     "@dappdrill/core": "workspace:*",
     "@dappdrill/db": "workspace:*",
     "@dappdrill/engine": "workspace:*",

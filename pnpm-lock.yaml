@@ -248,9 +248,6 @@ importers:
 
   apps/worker:
     dependencies:
-      '@dappdrill/cli':
-        specifier: workspace:*
-        version: link:../../packages/cli
       '@dappdrill/core':
         specifier: workspace:*
         version: link:../../packages/core

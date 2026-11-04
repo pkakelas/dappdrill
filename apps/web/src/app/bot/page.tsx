@@ -30,7 +30,7 @@ export default function BotPage() {
 
         <Section title="Let it in with a secret header">
           <p className="m-0">
-            In your app&apos;s scan settings, under <strong>Bot protection</strong>, add a header name and a secret value (for example{" "}
+            In your app&apos;s Settings, under <strong>Bot protection</strong>, add a header name and a secret value (for example{" "}
             <Code>x-dappdrill-token</Code>). DappDrill sends it only to your app&apos;s own domain and its subdomains, never to RPCs, analytics or other third
             parties, and stores it encrypted. Then tell your protection to skip requests that carry it:
           </p>
