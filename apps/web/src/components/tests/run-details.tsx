@@ -1,4 +1,5 @@
 import type { SigningReview, TestRunResult } from "@dappdrill/core";
+import { Fragment } from "react";
 import { Addr, cx, SeverityTag, VerdictTag } from "@/components/ui";
 
 const METHOD_LABEL: Record<string, string> = {
@@ -70,16 +71,16 @@ function Review({ review }: { review: SigningReview }) {
           </>
         )}
         {review.simulation?.balanceChanges.map((b, i) => (
-          <span key={i} className="contents">
+          <Fragment key={i}>
             <dt className="text-muted-foreground">{i === 0 ? "Balance" : ""}</dt>
             <dd>{b.display}</dd>
-          </span>
+          </Fragment>
         ))}
         {review.approvals.map((a, i) => (
-          <span key={i} className="contents">
+          <Fragment key={i}>
             <dt className="text-muted-foreground">{i === 0 ? "Grants" : ""}</dt>
             <dd className={cx(a.unlimited && "text-warn")}>{a.display}</dd>
-          </span>
+          </Fragment>
         ))}
       </dl>
       {flagged.length > 0 && (

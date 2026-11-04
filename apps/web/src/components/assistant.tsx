@@ -31,7 +31,7 @@ export function Assistant({ appId }: { appId: string }) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen((o) => !o);
-      } else if (e.key === "Escape") setOpen(false);
+      } else if (e.key === "Escape" && !e.defaultPrevented) setOpen(false); // a popover or menu handled it first
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
