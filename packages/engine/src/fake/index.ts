@@ -129,6 +129,12 @@ const analyze: Engine["analyze"] = async (target, opts, sink, signal) => {
         { path: "/vault", purpose: "Deposit, withdraw and claim; needs a connected wallet" },
       ],
     },
+    setup: {
+      startPath: "/vault",
+      steps: ["Connect the wallet", "Click Get test USDC", "Approve in the wallet", "Check the balance shows 1,000 USDC"],
+      when: "once",
+      why: "The faucet gives test USDC once per account.",
+    },
     flows,
     chains: chainsOf(target),
     costUsd: 0.06,
@@ -195,6 +201,7 @@ function review(request: WalletRequest, testName: string): SigningReview {
 const runTests: Engine["runTests"] = async (target, items, opts, hooks) => {
   const chains = chainsOf(target);
   const outcomes: api.TestOutcome[] = [];
+  let setupRan = false;
   for (const item of items) {
     if (opts.signal?.aborted) break;
     const { spec } = item;
@@ -202,6 +209,16 @@ const runTests: Engine["runTests"] = async (target, items, opts, hooks) => {
     await hooks.onStart?.(spec.id);
     const source = item.base ?? spec;
     const result = TestRunResult.parse({ steps: source.steps.map(() => ({ status: "pending" })) });
+    if (opts.setup) {
+      const reused = opts.setup.when === "once" && setupRan;
+      result.setup = { ok: true, when: opts.setup.when, reused, shared: false, steps: opts.setup.steps.map((s) => ({ status: "pass", via: "cache", did: did(s.actions ?? fakeActions(s.text)), durationMs: 900 })) };
+      if (!reused) {
+        await hooks.onProgress?.(spec.id, result);
+        await beat(signal ?? opts.signal, 4);
+        if (opts.setup.steps.some((s) => !s.actions)) await hooks.onSetupSteps?.(opts.setup.steps.map((s) => ({ text: s.text, actions: s.actions ?? fakeActions(s.text) })));
+      }
+      setupRan = true;
+    }
     const steps: TestStep[] = source.steps.map((s) => ({ ...s }));
     const condition = spec.condition && conditionInfo(spec.condition);
     let status: api.TestOutcome["status"] = "pass";

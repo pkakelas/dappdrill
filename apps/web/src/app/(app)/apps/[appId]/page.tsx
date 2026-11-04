@@ -9,10 +9,12 @@ import { AddTest, NewFlow } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
 import { FlowHeader } from "@/components/tests/flow-header";
 import { RunButton } from "@/components/tests/run-button";
+import { SetupCard } from "@/components/tests/setup-card";
 import { isActive, StateMark, stateOf, type TestState } from "@/components/tests/status";
 import { cx, ListItem, PageHeader } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { ItemActions, ItemContent, ItemGroup, ItemMedia } from "@/components/ui/item";
+import { artifactUrl } from "@/lib/artifacts";
 import { hostFromUrl, plural, timeAgo } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
@@ -86,6 +88,10 @@ export default async function TestsHome({ params }: { params: Promise<{ appId: s
       <div className="flex flex-col gap-6">
         {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} hasFlows={all.length > 0} />}
 
+        {(app.setup || all.length > 0) && (
+          <SetupCard appId={appId} setup={app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...runs.values()]) : undefined} />
+        )}
+
         {all.map((f) => {
           const states = f.tests.map((t) => state.get(t.id)!);
           const flowActive = f.tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
@@ -133,6 +139,22 @@ export default async function TestsHome({ params }: { params: Promise<{ appId: s
   );
 }
 
+/** The setup as it last ran (the run that did it, not one that started from its state). Steps edited since show without results. */
+function lastSetup(texts: string[], runs: TestRunRow[]) {
+  const run = runs.filter((r) => r.result?.setup && !r.result.setup.reused).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  const setup = run?.result?.setup;
+  if (!run || !setup || setup.steps.length !== texts.length) return undefined;
+  const running = setup.steps.some((s) => s.status === "running" || s.status === "pending");
+  const label = running ? (
+    <span className="text-live">running now</span>
+  ) : setup.ok ? (
+    `passed ${run.finishedAt ? timeAgo(run.finishedAt) : ""}`.trim()
+  ) : (
+    <span className="text-warn">didn't finish {run.finishedAt ? timeAgo(run.finishedAt) : ""}</span>
+  );
+  return { label, ok: setup.ok && !running, steps: texts.map((text, i) => ({ text, result: setup.steps[i], shot: artifactUrl("runs", run.batchId, setup.steps[i]?.screenshot) })) };
+}
+
 function flowSummary(states: TestState[]): string {
   if (states.some((s) => s === "running" || s === "queued")) return "running";
   const fail = states.filter((s) => s === "fail").length;
@@ -176,8 +198,16 @@ function TestLine({ appId, test, state, run }: { appId: string; test: TestRow; s
   const unhappy = Boolean(test.baseId);
   const steps = run?.result?.steps ?? [];
   const current = steps.findIndex((s) => s.status === "running");
+  const setupSteps = run?.result?.setup?.steps ?? [];
+  const inSetup = setupSteps.findIndex((s) => s.status === "running");
   let detail: React.ReactNode = null;
   if (state === "drafting") detail = <span className="text-muted-foreground">Writing the steps…</span>;
+  else if (state === "running" && current < 0 && inSetup >= 0)
+    detail = (
+      <span className="text-live">
+        Setup, step {inSetup + 1} of {setupSteps.length}
+      </span>
+    );
   else if (state === "running" && current >= 0)
     detail = (
       <span className="text-live">

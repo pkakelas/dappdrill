@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { keepActions, TestRunResult, type TestRunStatus, type TestStep } from "@dappdrill/core";
-import { flowsWithTests, specOf, testRuns, tests, type Db, type TestRunRow } from "@dappdrill/db";
+import { apps, flowsWithTests, specOf, testRuns, tests, type Db, type TestRunRow } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
@@ -58,7 +58,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
     await engine.runTests(
       await buildTarget(db, app, "tests"),
       items,
-      { artifactsDir: artifactsDir("runs", batchId), map: app.map ?? undefined, signal },
+      { artifactsDir: artifactsDir("runs", batchId), map: app.map ?? undefined, setup: app.setup ?? undefined, signal },
       {
         onStart: async (testId) => void (await setRun(testId, { status: "running", startedAt: new Date() })),
         onProgress: async (testId, result) => void (await setRun(testId, { result })),
@@ -72,6 +72,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
           if (outcome.baseSteps && baseId) await saveSteps(db, baseId, outcome.baseSteps);
           log.info(`${byTest.get(outcome.testId)?.name}: ${outcome.status}`);
         },
+        onSetupSteps: (steps) => saveSetupSteps(db, app.id, steps),
       },
       logEvents(log),
     );
@@ -101,6 +102,16 @@ async function saveSteps(db: Db, testId: string, steps: TestStep[] | undefined, 
       ...(proof ? { proof } : {}),
     })
     .where(eq(tests.id, testId));
+}
+
+/** Same as saveSteps, for the app's setup. */
+async function saveSetupSteps(db: Db, appId: string, steps: TestStep[]): Promise<void> {
+  const [current] = await db.select({ setup: apps.setup }).from(apps).where(eq(apps.id, appId));
+  if (!current?.setup) return;
+  await db
+    .update(apps)
+    .set({ setup: { ...current.setup, steps: keepActions(current.setup.steps.map((s) => s.text), steps) } })
+    .where(eq(apps.id, appId));
 }
 
 /** Runs the engine never finished (a stop of the whole batch, a crash). */

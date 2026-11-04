@@ -5,7 +5,7 @@
  * recorded here, the first run of each test does that.
  */
 import { z } from "zod";
-import { AppMap, FlowDraft, describeBlock, type Blocked } from "@dappdrill/core";
+import { AppMap, FlowDraft, SetupDraft, describeBlock, type Blocked } from "@dappdrill/core";
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, inboxTool, Recorder } from "./tools.js";
@@ -16,7 +16,11 @@ export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a w
 2. Call note with one line each time you learn something that matters (a page and its purpose, what needs the wallet).
 3. Call submit with:
    - a two-sentence summary of the app and the pages that matter,
-   - the 2 or 3 flows users most need to work (the app's core value: trade, swap, deposit, mint, borrow), each with one happy-path test.
+   - setup, only when the app makes a new user do something before the core flows work: sign in, mint or claim test funds from a faucet, make a first deposit. Its steps run before every test, so the tests start already signed in and funded and don't repeat them. Pick when it runs:
+     - once (the default): one time per run. Also pick once when a step can't be repeated often, like a faucet with a limit ("once every 24h") or a sign-in that emails a code.
+     - each: before every test, when the tests use up what setup gives on a live chain and setup is cheap to repeat (a mint button with no limit).
+     Say why in one short sentence. Leave setup out when the core flows work right after connecting the wallet.
+   - the 2 or 3 flows users most need to work (the app's core value: trade, swap, deposit, mint, borrow), each with one happy-path test. A flow's own needs (an open position before closing it) go in its steps; what every flow needs goes in setup.
 
 Tests are read by busy developers. Write them plainly:
 - name: what the user does, e.g. "Market buy on ETH perp".
@@ -30,6 +34,7 @@ Never solve a CAPTCHA or bot check: call report_blocked.`;
 const Submission = z.object({
   summary: AppMap.shape.summary,
   pages: AppMap.shape.pages.describe("The pages that matter, with their purpose"),
+  setup: SetupDraft.optional().describe("Steps every test needs first (sign in, get test funds); leave out when there are none"),
   flows: z.array(FlowDraft).min(1).max(3),
 });
 type Submission = z.infer<typeof Submission>;
@@ -47,6 +52,7 @@ export interface AnalyzeOptions {
 
 export interface AnalyzeResult {
   map?: AppMap;
+  setup?: SetupDraft;
   flows: FlowDraft[];
   blocked?: Blocked;
 }
@@ -90,7 +96,7 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
     },
     {
       name: "submit",
-      description: "Submit the summary, the pages that matter and 2-3 flows with their happy-path tests. Ends the analysis.",
+      description: "Submit the summary, the pages that matter, the setup if any, and 2-3 flows with their happy-path tests. Ends the analysis.",
       schema: Submission,
       handler: async (input) => {
         submitted = input;
@@ -127,5 +133,5 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
       .catch(() => undefined);
   }
   if (!submitted) return { flows: [] };
-  return { map: { summary: submitted.summary, pages: submitted.pages }, flows: submitted.flows };
+  return { map: { summary: submitted.summary, pages: submitted.pages }, setup: submitted.setup, flows: submitted.flows };
 }

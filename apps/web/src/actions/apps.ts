@@ -5,7 +5,9 @@ import {
   MAINNET_CHAIN_IDS,
   newId,
   parseFixedResponse,
+  keepActions,
   parseStorageEntry,
+  SetupWhen,
   WalletProfileId,
   type ChainConfig,
   type FixedResponse,
@@ -201,4 +203,46 @@ export async function deleteAppAction(appId: string): Promise<void> {
   await db().delete(apps).where(eq(apps.id, app.id));
   revalidatePath("/", "layout");
   redirect("/");
+}
+
+// ---------------------------------------------------------------- setup
+
+const SetupEdit = z.object({
+  startPath: z
+    .string()
+    .trim()
+    .transform((p) => (p ? (p.startsWith("/") ? p : `/${p}`) : "/")),
+  steps: z
+    .array(z.string().trim().max(200))
+    .transform((s) => s.filter(Boolean))
+    .pipe(z.array(z.string()).min(1, "Add at least one step.").max(12, "Keep it under 12 steps.")),
+  when: SetupWhen,
+});
+
+/** The steps every test needs first, and when they run. Unchanged steps keep their recorded clicks. */
+export async function updateSetupAction(appId: string, input: z.input<typeof SetupEdit>): Promise<{ error?: string }> {
+  const { app } = await requireApp(appId);
+  const e = SetupEdit.safeParse(input);
+  if (!e.success) return { error: e.error.issues[0]?.message };
+  const old = app.setup;
+  await db()
+    .update(apps)
+    .set({
+      setup: {
+        startPath: e.data.startPath,
+        steps: keepActions(e.data.steps, old?.startPath === e.data.startPath ? (old?.steps ?? []) : []),
+        when: e.data.when,
+        // The analysis's reason was for its own pick.
+        why: old && old.when === e.data.when ? old.why : undefined,
+      },
+    })
+    .where(eq(apps.id, appId));
+  revalidatePath(`/apps/${appId}`, "layout");
+  return {};
+}
+
+export async function removeSetupAction(appId: string): Promise<void> {
+  await requireApp(appId);
+  await db().update(apps).set({ setup: null }).where(eq(apps.id, appId));
+  revalidatePath(`/apps/${appId}`, "layout");
 }

@@ -33,6 +33,8 @@ export interface SessionOptions {
   policy?: Partial<WalletPolicy>;
   /** Used in artifact file names. Generated when missing. */
   runId?: string;
+  /** Browser storage (cookies, localStorage, IndexedDB) saved by an earlier session, e.g. after the app's setup. */
+  storageState?: string;
   /** Live-view frame interval (default 1500ms); 0 disables. */
   frameIntervalMs?: number;
   log?: (message: string) => void;
@@ -87,6 +89,7 @@ export async function createSession(target: DrillTarget, chains: ChainController
     locale: "en-US",
     recordVideo: opts.video === false ? undefined : { dir: dirs.videos, size: VIEWPORT },
     ignoreHTTPSErrors: true,
+    storageState: opts.storageState,
   });
   if (opts.trace !== false) await context.tracing.start({ screenshots: true, snapshots: true });
 

@@ -2,8 +2,8 @@
  * Public engine API. The worker and the CLI only use these functions, so the
  * engine runs the same with or without a database.
  *
- * - analyze: look around the app and propose 2-3 flows with a happy-path test each.
- * - runTests: run tests; cached actions first, the fast model when they break.
+ * - analyze: look around the app and propose 2-3 flows with a happy-path test each, and a setup if every test needs one.
+ * - runTests: run tests (after the app's setup); cached actions first, the fast model when they break.
  * - writeTest: write or fork a test from a sentence.
  * - chatTurn: one answer from the assistant in the side panel.
  */
@@ -16,6 +16,7 @@ import {
   type ChainConfig,
   type DrillEventSink,
   type FlowDraft,
+  type SetupDraft,
   type Stalled,
   type TestDraft,
 } from "@dappdrill/core";
@@ -38,6 +39,8 @@ const debug = (m: string) => {
 
 export interface AnalyzeOutput {
   map?: AppMap;
+  /** Steps every test needs first, when the app has any. */
+  setup?: SetupDraft;
   flows: FlowDraft[];
   /** Chains the app used, including ones it asked the wallet for. */
   chains: ChainConfig[];

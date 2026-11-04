@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
-import { newId, type DrillEvent } from "@dappdrill/core";
+import { newId, type AppSetup, type DrillEvent, type SetupDraft } from "@dappdrill/core";
 import { analyses, apps, flows, nextPosition, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
@@ -15,7 +15,8 @@ const MAX_LOG = 200;
 
 /**
  * analysis.run: look around the app for a couple of minutes, save what it learned,
- * add a flow with a happy-path test for each thing users do, and run those tests.
+ * add a flow with a happy-path test for each thing users do (and the setup they all
+ * need, if any), and run those tests.
  */
 export async function runAnalysis(db: Db, engine: Engine, boss: PgBoss, analysisId: string, signal: AbortSignal): Promise<void> {
   const log = logger(`analysis ${analysisId}`);
@@ -57,7 +58,12 @@ export async function runAnalysis(db: Db, engine: Engine, boss: PgBoss, analysis
     await drain();
     await db
       .update(apps)
-      .set({ ...(out.map ? { map: out.map } : {}), ...(out.chains.length ? { chains: out.chains } : {}) })
+      .set({
+        ...(out.map ? { map: out.map } : {}),
+        ...(out.chains.length ? { chains: out.chains } : {}),
+        // A setup the developer already has (maybe edited) wins over a new proposal.
+        ...(out.setup && !app.setup ? { setup: setupOf(out.setup) } : {}),
+      })
       .where(eq(apps.id, app.id));
     created = await addFlows(db, app.id, out.flows);
     await update({ blocked: out.blocked ?? null, stalled: out.stalled ?? null, costUsd: out.costUsd });
@@ -80,6 +86,10 @@ export async function runAnalysis(db: Db, engine: Engine, boss: PgBoss, analysis
     const batchId = await queueRuns(db, app.id, created, "analysis");
     if (batchId) await boss.send(QUEUES.tests, { batchId } satisfies TestsJob);
   }
+}
+
+function setupOf(draft: SetupDraft): AppSetup {
+  return { startPath: draft.startPath || "/", steps: draft.steps.map((text) => ({ text })), when: draft.when, why: draft.why };
 }
 
 /** A flow per draft, skipping names the app already has. Returns the new test ids. */

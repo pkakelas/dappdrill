@@ -48,8 +48,11 @@ export async function runTests(tests: TestsFile, target: DrillTarget, flags: Run
   const { outcomes } = await engine.runTests(
     target,
     items,
-    { artifactsDir: join(out, "artifacts"), map: tests.map, headless: !flags.headed, signal: interruptSignal() },
+    { artifactsDir: join(out, "artifacts"), map: tests.map, setup: tests.setup, headless: !flags.headed, signal: interruptSignal() },
     {
+      onSetupSteps: async (steps) => {
+        if (tests.setup) tests.setup.steps = steps;
+      },
       onStart: async (id) => void started.set(id, Date.now()),
       onDone: async (o) => {
         const secs = Math.round((Date.now() - (started.get(o.testId) ?? Date.now())) / 1000);

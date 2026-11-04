@@ -1,5 +1,6 @@
 import type {
   AppMap,
+  AppSetup,
   Blocked,
   ChainConfig,
   EdgeCaseId,
@@ -126,6 +127,8 @@ export const apps = pgTable(
     accessHeaderNames: jsonb("access_header_names").$type<string[]>().notNull().default([]),
     /** What the analysis learned: a summary and the main pages. */
     map: jsonb("map").$type<AppMap>(),
+    /** Steps every test needs first (sign in, get test funds), and when they run. */
+    setup: jsonb("setup").$type<AppSetup>(),
     /** Chains the analysis saw the app use (with the fork block), for runs when none are configured. */
     chains: jsonb("chains").$type<ChainConfig[]>().notNull().default([]),
     /** Daily run of every test, "HH:MM" UTC; null = off. */

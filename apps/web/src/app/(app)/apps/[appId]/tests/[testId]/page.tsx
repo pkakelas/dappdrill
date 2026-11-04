@@ -1,4 +1,4 @@
-import { conditionInfo, formatDuration, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { db, flows, latestRuns, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Check, X } from "lucide-react";
@@ -11,6 +11,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { Fork } from "@/components/tests/fork";
 import { RunButton } from "@/components/tests/run-button";
 import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/tests/run-details";
+import { StepList } from "@/components/tests/setup-steps";
 import { SpecEditor } from "@/components/tests/spec-editor";
 import { isActive, STATE_LABEL, STATE_TEXT, StateMark, stateOf } from "@/components/tests/status";
 import { AddUnhappy } from "@/components/tests/unhappy";
@@ -41,6 +42,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const { appId, testId } = await params;
   const { run: runParam } = await searchParams;
   const test = await load(appId, testId);
+  const { app } = await requireApp(appId);
   const [[flow], [base], children, history, [forkedFrom]] = await Promise.all([
     db().select().from(flows).where(eq(flows.id, test.flowId)),
     test.baseId ? db().select().from(tests).where(eq(tests.id, test.baseId)) : Promise.resolve([]),
@@ -167,6 +169,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                     </span>
                   )}
                 </Block>
+                {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
                 <Steps steps={steps} result={result} url={url} />
               </div>
             }
@@ -228,31 +231,36 @@ function Steps({ steps, result, url }: { steps: TestStep[]; result?: TestRunResu
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium text-muted-foreground">Steps</span>
-      <ol className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
-        {steps.map((s, i) => {
-          const r = result?.steps[i];
-          const shot = url(r?.screenshot);
-          return (
-            <li key={i} className={cx("flex gap-3 px-4 py-3", r?.status === "fail" && "bg-bad-soft")}>
-              <span className="flex w-5 shrink-0 justify-center pt-0.5">
-                {r && r.status !== "pending" ? <StateMark state={r.status === "skipped" ? "skipped" : r.status} /> : <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span>}
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className={cx("leading-snug", r?.status === "skipped" && "text-muted-foreground")}>{s.text}</span>
-                {r?.note && <span className={cx("leading-snug", r.status === "fail" ? "text-bad" : "text-muted-foreground")}>{r.note}</span>}
-                {r && r.did.length > 0 && <span className="text-xs leading-snug text-muted-foreground">{r.did.join(" · ")}</span>}
-              </div>
-              {shot && (
-                <a href={shot} target="_blank" rel="noreferrer" className="shrink-0" aria-label={`Screenshot after step ${i + 1}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={shot} alt="" className="h-12 w-20 rounded-md border object-cover object-top" />
-                </a>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+      <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={steps.map((s, i) => ({ text: s.text, result: result?.steps[i], shot: url(result?.steps[i]?.screenshot) }))} />
     </div>
+  );
+}
+
+/** What the app's setup did before this run: folded away unless it's why the test couldn't run. */
+function SetupRun({ appId, run, setup, url }: { appId: string; run: SetupRunResult; setup: AppSetup | null; url: (p?: string | null) => string | null }) {
+  // Steps edited since the run no longer line up with its results.
+  const texts = setup && setup.steps.length === run.steps.length ? setup.steps.map((s) => s.text) : run.steps.map((_, i) => `Step ${i + 1}`);
+  const notes = [
+    run.reused && "ran before an earlier test of this run; this test started from where it left off",
+    run.shared && "on a live chain this test also started from what earlier tests left",
+  ].filter(Boolean);
+  return (
+    <details open={!run.ok} className="group/setup flex flex-col gap-2">
+      <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+        <StateMark state={run.ok ? "pass" : run.steps.some((s) => s.status === "running") ? "running" : "error"} />
+        <span>Setup</span>
+        <span className="font-normal">
+          · {SETUP_WHEN_LABEL[run.when].toLowerCase()} · {run.ok ? "passed" : run.steps.some((s) => s.status === "running") ? "running" : <span className="text-warn">didn't finish</span>}
+        </span>
+      </summary>
+      <div className="mt-2 flex flex-col gap-2">
+        {notes.length > 0 && <p className="text-sm text-muted-foreground">It {notes.join("; ")}.</p>}
+        <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={texts.map((text, i) => ({ text, result: run.steps[i], shot: url(run.steps[i]?.screenshot) }))} />
+        <Link href={`/apps/${appId}`} className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+          Edit the setup
+        </Link>
+      </div>
+    </details>
   );
 }
 

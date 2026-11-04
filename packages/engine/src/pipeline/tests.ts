@@ -7,26 +7,25 @@
 import {
   conditionInfo,
   describeStep,
-  newId,
   TestRunResult,
   type AppMap,
-  type Blocked,
-  type DrillEvent,
-  type Flow,
+  type AppSetup,
   type FlowRun,
   type SigningReview,
   type Step,
   type TestRunStatus,
   type TestSpec,
   type TestStep,
-  type WalletRequest,
 } from "@dappdrill/core";
 import { createRecoveryJudge } from "../agent/index.js";
-import { judgeExpected, runStep } from "../agent/tester.js";
-import { detectBotCheck } from "../browser/access.js";
-import { createSession, replayFlow, runEdgeCases, type EngineSession } from "../runtime.js";
+import { judgeExpected } from "../agent/tester.js";
+import { runEdgeCases } from "../runtime.js";
 import type { Env } from "./env.js";
 import { pin } from "./flows.js";
+import { setupRunner, type Prepared, type SetupRunner } from "./setup.js";
+import { BlockedError, debug, flowOf, landingBotCheck, openSession, plain, walkSteps } from "./steps.js";
+
+export { landingBotCheck };
 
 export interface TestItem {
   spec: TestSpec;
@@ -54,6 +53,8 @@ export interface TestHooks {
   /** A live frame, relative to artifactsDir. */
   onFrame?(testId: string, path: string): Promise<void>;
   onDone?(outcome: TestOutcome): Promise<void>;
+  /** The app's setup steps with the actions that worked, to save. */
+  onSetupSteps?(steps: TestStep[]): Promise<void>;
 }
 
 export interface RunTestsOptions {
@@ -61,106 +62,71 @@ export interface RunTestsOptions {
   map?: AppMap;
   baselines?: Record<string, SigningReview>;
   signal?: AbortSignal;
+  /** Steps every test needs first; see pipeline/setup.ts for when they run. */
+  setup?: AppSetup;
 }
-
-const debug = (m: string) => {
-  if (process.env.DAPPDRILL_DEBUG) console.error(`[engine] ${m}`);
-};
 
 export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOptions, hooks: TestHooks): Promise<TestOutcome[]> {
   const outcomes: TestOutcome[] = [];
   // Steps learned earlier in this batch, so an unhappy path uses its base's fresh actions.
   const fresh = new Map<string, TestStep[]>();
-  for (const item of items) {
-    const signal = item.signal && opts.signal ? AbortSignal.any([item.signal, opts.signal]) : (item.signal ?? opts.signal);
-    if (opts.signal?.aborted) break;
-    await hooks.onStart?.(item.spec.id);
-    const spent = env.costUsd();
-    const base = item.base && fresh.has(item.base.id) ? { ...item.base, steps: fresh.get(item.base.id)! } : item.base;
-    const outcome = signal?.aborted
-      ? { testId: item.spec.id, status: "stopped" as const, result: TestRunResult.parse({}) }
-      : item.spec.condition && base
-        ? await runCondition(env, item.spec, base, opts, hooks, signal)
-        : await runHappy(env, item.spec, opts, hooks, signal);
-    outcome.result.costUsd = Math.round((env.costUsd() - spent) * 1000) / 1000;
-    if (outcome.steps) fresh.set(item.spec.id, outcome.steps);
-    if (outcome.baseSteps && base) fresh.set(base.id, outcome.baseSteps);
-    outcomes.push(outcome);
-    await hooks.onDone?.(outcome);
+  const setup = opts.setup?.steps.length ? setupRunner(env, opts.setup, opts, hooks) : undefined;
+  try {
+    for (const item of items) {
+      const signal = item.signal && opts.signal ? AbortSignal.any([item.signal, opts.signal]) : (item.signal ?? opts.signal);
+      if (opts.signal?.aborted) break;
+      await hooks.onStart?.(item.spec.id);
+      const spent = env.costUsd();
+      const base = item.base && fresh.has(item.base.id) ? { ...item.base, steps: fresh.get(item.base.id)! } : item.base;
+      const outcome: TestOutcome = signal?.aborted
+        ? { testId: item.spec.id, status: "stopped", result: TestRunResult.parse({}) }
+        : await runItem(env, item.spec, base, opts, hooks, setup, signal);
+      outcome.result.costUsd = Math.round((env.costUsd() - spent) * 1000) / 1000;
+      if (outcome.steps) fresh.set(item.spec.id, outcome.steps);
+      if (outcome.baseSteps && base) fresh.set(base.id, outcome.baseSteps);
+      outcomes.push(outcome);
+      await hooks.onDone?.(outcome);
+    }
+  } finally {
+    await setup?.close();
   }
   return outcomes;
 }
 
-/** A session whose live frames go to the given test. */
-function testSession(env: Env, testId: string, artifactsDir: string, hooks: TestHooks): Promise<EngineSession> {
-  return createSession(env.target, env.chains, {
-    artifactsDir,
-    headless: env.headless,
-    runId: newId("run"),
-    log: debug,
-    sink: async (e: DrillEvent) => {
-      if (e.type === "frame") await hooks.onFrame?.(testId, e.path);
-      else if (e.type === "log" && e.level !== "info") await env.sink(e);
-    },
-  });
+/** One test, after the app's setup when it has one. */
+async function runItem(env: Env, spec: TestSpec, base: TestSpec | undefined, opts: RunTestsOptions, hooks: TestHooks, setup: SetupRunner | undefined, signal?: AbortSignal): Promise<TestOutcome> {
+  const run = (pre: Prepared) => (spec.condition && base ? runCondition(env, spec, base, opts, hooks, pre, signal) : runHappy(env, spec, opts, hooks, pre, signal));
+  if (!setup) return run({});
+  // Before each test: the pin also takes back what the setup did on forks.
+  const restore = setup.when() === "each" ? await pin(env) : undefined;
+  try {
+    const p = await setup.prepare(spec, signal);
+    return "outcome" in p ? p.outcome : await run(p.pre);
+  } finally {
+    await restore?.();
+  }
 }
 
-async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: TestHooks, signal?: AbortSignal): Promise<TestOutcome> {
-  const result = TestRunResult.parse({ steps: spec.steps.map(() => ({ status: "pending" })) });
+async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: TestHooks, pre: Prepared, signal?: AbortSignal): Promise<TestOutcome> {
+  const result = TestRunResult.parse({ setup: pre.setup, steps: spec.steps.map(() => ({ status: "pending" })) });
   const steps = spec.steps.map((s) => ({ ...s }));
   const progress = () => hooks.onProgress?.(spec.id, result);
   let status: TestRunStatus = "pass";
   let proof: string | undefined;
 
   const restore = await pin(env);
-  const session = await testSession(env, spec.id, opts.artifactsDir, hooks);
-  const reviews: SigningReview[] = [];
-  const beforeApprove = async (request: WalletRequest) => {
-    const screenshot = await session.screenshot(`sign-${request.id}`);
-    const review = await env.reviewer
-      .review({ request, chains: env.chains, ui: { buttonLabel: session.lastClickedLabel(), pageUrl: session.page.url(), screenshot }, baselines: opts.baselines ?? {}, artifactsDir: opts.artifactsDir })
-      .catch((e) => debug(`signing review failed: ${e instanceof Error ? e.message : e}`));
-    if (review) reviews.push(review);
-  };
-  const replay = async (actions: Step[]) => {
-    const r = await replayFlow(session, flowOf(spec, actions), { here: true, reviewer: env.reviewer, baselines: opts.baselines, inbox: env.inbox, signal, log: debug });
-    reviews.push(...r.signingReviews);
-    return { ok: r.completed, error: r.error };
-  };
+  const session = await openSession(env, opts.artifactsDir, (p) => hooks.onFrame?.(spec.id, p) ?? Promise.resolve(), { storageState: pre.storageState });
+  const reviews: SigningReview[] = [...(pre.reviews ?? [])];
 
   try {
     await session.page.goto(new URL(spec.startPath, env.target.url).href, { waitUntil: "domcontentloaded", timeout: 45_000 });
     const blocked = await landingBotCheck(session);
     if (blocked) throw new BlockedError(blocked);
 
-    for (const [i, step] of spec.steps.entries()) {
-      if (signal?.aborted) throw new Error("stopped");
-      result.steps[i]!.status = "running";
-      await progress();
-      session.touch();
-      const t0 = Date.now();
-      const out = await runStep(
-        { session, fast: env.fastLlm(), strong: env.actLlm(), map: opts.map, inbox: env.inbox, replay, beforeApprove, signal },
-        { ...spec, steps },
-        i,
-      );
-      if (out.blocked) throw new BlockedError(out.blocked);
-      if (out.actions) steps[i] = { text: step.text, actions: out.actions };
-      result.steps[i] = {
-        status: out.ok ? "pass" : "fail",
-        via: out.via,
-        did: out.did,
-        note: out.note,
-        screenshot: await session.screenshot(`step${i + 1}`),
-        durationMs: Date.now() - t0,
-      };
-      if (!out.ok) {
-        status = "fail";
-        result.failure = `Step ${i + 1}, “${step.text}”: ${out.note ?? "didn't work"}`;
-        for (const later of result.steps.slice(i + 1)) later.status = "skipped";
-        break;
-      }
-      await progress();
+    const walk = await walkSteps(env, session, spec, steps, result.steps, reviews, { ...opts, signal, progress });
+    if (walk.failure) {
+      status = "fail";
+      result.failure = walk.failure;
     }
 
     if (status === "pass") {
@@ -178,7 +144,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     for (const s of result.steps) if (s.status === "pending" || s.status === "running") s.status = "skipped";
   } finally {
     result.finalScreenshot = await session.screenshot("final").catch(() => undefined);
-    result.walletRequests = session.wallet.requests();
+    result.walletRequests = [...(pre.walletRequests ?? []), ...session.wallet.requests()];
     result.console = session.console.filter((c) => c.level === "error" || c.level === "pageerror").slice(-50);
     result.signingReviews = reviews;
     result.video = (await session.close().catch(() => ({}) as { video?: string })).video;
@@ -187,17 +153,17 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
   return { testId: spec.id, status, result, steps: status === "stopped" ? undefined : steps, proof };
 }
 
-async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunTestsOptions, hooks: TestHooks, signal?: AbortSignal): Promise<TestOutcome> {
+async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunTestsOptions, hooks: TestHooks, pre: Prepared, signal?: AbortSignal): Promise<TestOutcome> {
   const condition = spec.condition!;
   let source = base;
   let baseSteps: TestStep[] | undefined;
   if (base.steps.some((s) => !s.actions)) {
     // The base never passed in full: run it to learn its actions.
-    const b = await runHappy(env, base, opts, { onFrame: (_id, p) => hooks.onFrame?.(spec.id, p) ?? Promise.resolve() }, signal);
+    const b = await runHappy(env, base, opts, { onFrame: (_id, p) => hooks.onFrame?.(spec.id, p) ?? Promise.resolve() }, pre, signal);
     baseSteps = b.steps;
     if (b.status !== "pass" || !b.steps) {
       const status = b.status === "stopped" ? "stopped" : "error";
-      return { testId: spec.id, status, baseSteps, result: TestRunResult.parse({ failure: `“${base.name}” has to pass first. ${b.result.failure ?? ""}`.trim() }) };
+      return { testId: spec.id, status, baseSteps, result: TestRunResult.parse({ setup: pre.setup, failure: `“${base.name}” has to pass first. ${b.result.failure ?? ""}`.trim() }) };
     }
     source = { ...base, steps: b.steps };
   }
@@ -226,6 +192,7 @@ async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunT
       artifactsDir: opts.artifactsDir,
       baselines: opts.baselines,
       headless: env.headless,
+      storageState: pre.storageState,
       signal,
       log: debug,
     });
@@ -233,11 +200,11 @@ async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunT
     issues = r.issues;
     reviews = r.signingReviews;
   } catch (e) {
-    return { testId: spec.id, status: "error", baseSteps, result: TestRunResult.parse({ failure: plain(e) }) };
+    return { testId: spec.id, status: "error", baseSteps, result: TestRunResult.parse({ setup: pre.setup, failure: plain(e) }) };
   } finally {
     await restore();
   }
-  if (!run) return { testId: spec.id, status: "stopped", baseSteps, result: TestRunResult.parse({}) };
+  if (!run) return { testId: spec.id, status: "stopped", baseSteps, result: TestRunResult.parse({ setup: pre.setup }) };
 
   const ran = run.steps;
   const steps = source.steps.map((_, i) => {
@@ -257,37 +224,16 @@ async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunT
   const status: TestRunStatus = run.status === "pass" ? "pass" : run.status === "issue" || run.status === "fail" ? "fail" : run.status;
   const found = issues.map((i) => i.title).join("; ");
   const result = TestRunResult.parse({
+    setup: pre.setup,
     steps,
     verdict: status === "pass" || status === "fail" ? { ok: status === "pass", reason: found || run.reason || conditionInfo(condition)?.expected || "" } : undefined,
     failure: status === "pass" ? undefined : found || run.reason,
-    walletRequests: run.walletRequests,
-    signingReviews: reviews,
+    walletRequests: [...(pre.walletRequests ?? []), ...run.walletRequests],
+    signingReviews: [...(pre.reviews ?? []), ...reviews],
     issues,
     console: run.console.filter((c) => c.level === "error" || c.level === "pageerror").slice(-50),
     video: run.video,
     finalScreenshot: run.finalScreenshot,
   });
   return { testId: spec.id, status, result, baseSteps };
-}
-
-function flowOf(spec: Pick<TestSpec, "id" | "name" | "startPath">, steps: Step[]): Flow {
-  return { id: spec.id, name: spec.name, origin: "described", startUrl: spec.startPath, params: [], steps };
-}
-
-class BlockedError extends Error {
-  constructor(readonly blocked: Blocked) {
-    super(blocked.reason);
-  }
-}
-
-function plain(e: unknown): string {
-  return (e instanceof Error ? e.message : String(e)).split("\n")[0]!.slice(0, 300);
-}
-
-/** Challenges often load a moment after the page; look twice before calling the page clean. */
-export async function landingBotCheck(session: EngineSession): Promise<Blocked | undefined> {
-  const first = await detectBotCheck(session.page);
-  if (first) return first;
-  await session.page.waitForTimeout(2_500);
-  return detectBotCheck(session.page);
 }

@@ -52,6 +52,8 @@ export interface RunEdgeCasesOptions {
   baselines?: Record<string, SigningReview>;
   headless?: boolean;
   video?: boolean;
+  /** Browser storage to start from (saved after the app's setup). */
+  storageState?: string;
   signal?: AbortSignal;
   stepTimeoutMs?: number;
   log?: (message: string) => void;
@@ -232,6 +234,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
       twoWallets: setup.twoWallets,
       startChainId: setup.startChainId ?? plan.flowChain,
       policy: setup.policy,
+      storageState: opts.storageState,
       runId,
       log,
     });

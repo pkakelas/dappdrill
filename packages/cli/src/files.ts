@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
-import { AppMap, ChainConfig, TestSpec, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget } from "@dappdrill/core";
+import { AppMap, AppSetup, ChainConfig, TestSpec, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget } from "@dappdrill/core";
 
 export class UsageError extends Error {}
 
@@ -17,6 +17,8 @@ export const TestsFile = z.object({
   map: AppMap.optional(),
   /** Chains the app used when it was analyzed; `run` forks these unless --chain says otherwise. */
   chains: z.array(ChainConfig).default([]),
+  /** Steps every test needs first (sign in, get test funds), and when they run. */
+  setup: AppSetup.optional(),
   flows: z.array(z.object({ name: z.string(), tests: z.array(SavedTest) })),
 });
 export type TestsFile = z.infer<typeof TestsFile>;

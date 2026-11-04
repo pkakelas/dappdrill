@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { blockedLine, newId, stalledLine } from "@dappdrill/core";
+import { blockedLine, newId, SETUP_WHEN_LABEL, stalledLine } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
 import { UsageError, writeJson, type TestsFile } from "../files.js";
 import { addUnhappyPaths, runTests, type RunFlags } from "./run.js";
@@ -44,11 +44,13 @@ export async function analyzeCommand(url: string, flags: AnalyzeFlags): Promise<
     url: target.url,
     map: found.map,
     chains: found.chains,
+    setup: found.setup && { startPath: found.setup.startPath || "/", steps: found.setup.steps.map((text) => ({ text })), when: found.setup.when, why: found.setup.why },
     flows: found.flows.map((f) => ({ name: f.name, tests: [{ id: newId("test"), ...f.test, steps: f.test.steps.map((text) => ({ text })) }] })),
   };
   if (flags.unhappy) addUnhappyPaths(tests);
   await writeJson(flags.file, tests);
   console.log(`\nFound ${tests.flows.map((f) => f.name).join(", ")}. Tests: ${flags.file}\n`);
+  if (tests.setup) console.log(`Setup (${SETUP_WHEN_LABEL[tests.setup.when].toLowerCase()}): ${tests.setup.steps.map((s) => s.text).join(" → ")}\n`);
   if (!flags.run) return 0;
 
   const code = await runTests(tests, { ...target, learnedChains: found.chains }, flags);
