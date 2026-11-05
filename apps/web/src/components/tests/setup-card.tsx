@@ -1,16 +1,16 @@
 "use client";
 
 import { SETUP_WHEN_LABEL, type SetupWhen } from "@dappdrill/core";
-import { ChevronRight, Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { removeSetupAction, updateSetupAction } from "@/actions/apps";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { plural } from "@/lib/format";
-import { StepList, type StepWithResult } from "./setup-steps";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import type { StepWithResult } from "./setup-steps";
+import { SetupStrip } from "./setup-strip";
 
 interface Setup {
   startPath: string;
@@ -32,7 +32,7 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
 
   if (!setup)
     return (
-      <p className="px-4 text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Every test needs the same first steps, like signing in or getting test funds?{" "}
         <button type="button" onClick={() => setEditing(true)} className="text-foreground underline underline-offset-4">
           Add a setup
@@ -41,26 +41,21 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
     );
 
   return (
-    <section aria-label="Setup" className="flex flex-col gap-1 px-4">
-      <div className="flex flex-wrap items-center gap-x-2.5">
-        <h2 className="font-medium">Setup</h2>
-        <p className="text-sm text-muted-foreground">
-          {SETUP_WHEN_LABEL[setup.when]}
-          {last && <> · {last.label}</>}
-        </p>
-        <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="text-muted-foreground">
-          Edit
-        </Button>
+    <section aria-label="Setup" className="flex flex-col gap-5 border-t pt-8">
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-x-2.5">
+          <h2 className="font-medium">Setup</h2>
+          <p className="text-sm text-muted-foreground">
+            {SETUP_WHEN_LABEL[setup.when]}
+            {last && <> · {last.label}</>}
+          </p>
+          <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="ml-auto text-muted-foreground">
+            Edit
+          </Button>
+        </div>
+        {setup.why && <p className="text-sm text-pretty text-muted-foreground">{setup.why}</p>}
       </div>
-      {setup.why && <p className="text-sm text-pretty text-muted-foreground">{setup.why}</p>}
-      {/* Folded unless it failed: the tests are what matters otherwise. */}
-      <details open={last?.ok === false} className="group/setup">
-        <summary className="-mx-3 flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60">
-          <span className="min-w-0 truncate">{plural(setup.steps.length, "step")}: {setup.steps.join(" → ")}</span>
-          <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open/setup:rotate-90" />
-        </summary>
-        <StepList steps={last?.steps ?? setup.steps.map((text) => ({ text }))} className="-mx-3 mt-1 [&>li]:rounded-lg [&>li]:border-0 [&>li]:px-3 [&>li]:py-2" />
-      </details>
+      <SetupStrip steps={last?.steps ?? setup.steps.map((text) => ({ text }))} />
     </section>
   );
 }
@@ -109,14 +104,14 @@ function SetupForm({ appId, setup, onDone }: { appId: string; setup: Setup | nul
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <Label htmlFor={whenId}>Runs</Label>
-          <NativeSelect id={whenId} className="w-full" value={draft.when} onChange={(e) => setDraft({ ...draft, when: e.target.value as SetupWhen })}>
+          <Label id={whenId}>Runs</Label>
+          <ToggleGroup type="single" variant="outline" aria-labelledby={whenId} value={draft.when} onValueChange={(when) => when && setDraft({ ...draft, when: when as SetupWhen })}>
             {(["once", "each"] as const).map((w) => (
-              <NativeSelectOption key={w} value={w}>
+              <ToggleGroupItem key={w} value={w} className="px-3">
                 {SETUP_WHEN_LABEL[w]}
-              </NativeSelectOption>
+              </ToggleGroupItem>
             ))}
-          </NativeSelect>
+          </ToggleGroup>
           <p className="text-sm text-muted-foreground">{WHEN_HINT[draft.when]}</p>
         </div>
         <div className="flex flex-col gap-2">
