@@ -1,6 +1,6 @@
 /**
  * Reads a wallet request the way the agent needs it: a one-line summary for
- * the model, a WalletExpectation to record in the flow, and the raw amounts
+ * the model, a WalletExpectation to record in the test, and the raw amounts
  * in it so typed values can be turned into a {{amount}} parameter.
  */
 import { decodeFunctionData, maxUint256, parseAbi, parseUnits, type Hex } from "viem";

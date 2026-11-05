@@ -11,7 +11,7 @@ const Verdict = z.object({
   explanation: z.string().describe("One or two sentences a developer can act on"),
 });
 
-const SYSTEM = `You judge how a web3 dApp's UI handled an edge case. You get a screenshot and the visible text after the event.
+const SYSTEM = `You judge how a web3 dApp's UI handled a condition (a rejected signature, a slow RPC, the wrong network…). You get a screenshot and the visible text after the event.
 Say ok=true only if the app is in a sane state (no spinner stuck forever, no blank screen, no raw error dump) AND the user can tell what happened and what to do next.
 Be concrete: name the text or element that shows the outcome, or what is missing.`;
 
@@ -19,8 +19,8 @@ export function createRecoveryJudge(llm: Llm): RecoveryJudge {
   return {
     async judge({ edgeCase, expected, screenshot, pageText }) {
       const prompt = [
-        `Edge case: ${edgeCase}`,
-        `A good app would: ${expected}`,
+        `Condition: ${edgeCase}`,
+        `The app should: ${expected}`,
         "",
         "Visible page text:",
         pageText.slice(0, 4000),

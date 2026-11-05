@@ -19,9 +19,15 @@ export const TestsFile = z.object({
   chains: z.array(ChainConfig).default([]),
   /** Steps every test needs first (sign in, get test funds), and when they run. */
   setup: AppSetup.optional(),
-  flows: z.array(z.object({ name: z.string(), tests: z.array(SavedTest) })),
+  tests: z.array(SavedTest),
 });
 export type TestsFile = z.infer<typeof TestsFile>;
+
+/** "Test", or "Test · Condition": a condition's name alone can't tell two tests apart. */
+export function testLabels(file: TestsFile): Map<string, string> {
+  const byId = new Map(file.tests.map((t) => [t.id, t]));
+  return new Map(file.tests.map((t) => [t.id, [t.baseId ? byId.get(t.baseId)?.name : undefined, t.name].filter(Boolean).join(" · ")]));
+}
 
 export async function loadTests(path: string): Promise<TestsFile> {
   let raw: unknown;
@@ -36,7 +42,7 @@ export async function loadTests(path: string): Promise<TestsFile> {
     throw new UsageError(`${path} is not valid: ${first ? `${first.path.join(".") || "(root)"}: ${first.message}` : parsed.error.message}`);
   }
   const ids = new Set<string>();
-  for (const t of parsed.data.flows.flatMap((f) => f.tests)) {
+  for (const t of parsed.data.tests) {
     if (ids.has(t.id)) throw new UsageError(`${path}: two tests share the id ${t.id}`);
     ids.add(t.id);
   }
@@ -123,12 +129,14 @@ function readOrExplain(path: string): Promise<string> {
 
 /** --unhappy is the usual unhappy paths; each --condition adds one by id. */
 export function pickConditions(flags: { unhappy?: boolean; condition: string[] }): EdgeCaseId[] {
+  // The happy path is the test itself, not something to add to it.
+  const choices = CONDITIONS.filter((c) => c.id !== "happy");
   const picked = flags.condition.map((id) => {
-    const known = CONDITIONS.find((c) => c.id === id);
-    if (!known) throw new UsageError(`Unknown --condition "${id}". Pick from: ${CONDITIONS.map((c) => c.id).join(", ")}`);
+    const known = choices.find((c) => c.id === id);
+    if (!known) throw new UsageError(`Unknown --condition "${id}". Pick from: ${choices.map((c) => c.id).join(", ")}`);
     return known.id;
   });
-  return [...new Set([...(flags.unhappy ? CONDITIONS.filter((c) => c.default).map((c) => c.id) : []), ...picked])];
+  return [...new Set([...(flags.unhappy ? choices.filter((c) => c.default).map((c) => c.id) : []), ...picked])];
 }
 
 export function collect(value: string, previous: string[] = []): string[] {

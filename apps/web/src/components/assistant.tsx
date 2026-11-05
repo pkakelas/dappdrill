@@ -8,7 +8,7 @@ import { agentMessagesAction, clearAgentAction, sendAgentMessageAction, type Age
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 
-const ON_TEST = ["Why did this fail?", "Fork it with a different amount", "Add unhappy paths and run them"];
+const ON_TEST = ["Why did this fail?", "Duplicate it with a different amount", "Add conditions and run them"];
 const ON_LIST = ["Which tests are failing?", "Add a test for withdrawing everything", "Run every test"];
 
 /** The assistant: a panel on every app page that knows the tests and can change and run them. ⌘K opens it. */
@@ -107,7 +107,7 @@ export function Assistant({ appId }: { appId: string }) {
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         {messages?.length === 0 && (
           <div className="flex flex-col gap-2 pt-2">
-            <p className="text-sm text-muted-foreground">It can read, write, fork and run tests, and look around the app in a browser.</p>
+            <p className="text-sm text-muted-foreground">It can read, write, duplicate and run tests, add conditions, and look around the app in a browser.</p>
             <div className="flex flex-col items-start gap-1.5 pt-2">
               {suggestions.map((s) => (
                 <Button key={s} type="button" variant="outline" size="sm" className="h-auto rounded-full py-1.5 text-left font-normal whitespace-normal" onClick={() => send(s)}>

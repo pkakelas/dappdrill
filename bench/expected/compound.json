@@ -1,4 +1,4 @@
 {
   "about": "What a user comes to app.compound.finance to do. Written before the run, from what the app is for.",
-  "flows": ["Supply USDC or another asset", "Withdraw a supplied asset", "Borrow against collateral", "Repay a borrow"]
+  "tests": ["Supply USDC or another asset", "Withdraw a supplied asset", "Borrow against collateral", "Repay a borrow"]
 }

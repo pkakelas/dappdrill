@@ -35,7 +35,7 @@ export class RpcRouter {
     await context.routeWebSocket("**/*", (ws) => this.handleWs(ws));
   }
 
-  /** First mapping wins: when two configured chains share an endpoint (forks of one node), the first config is the flow's chain. */
+  /** First mapping wins: when two configured chains share an endpoint (forks of one node), the first config is the test's chain. */
   private remember(url: string, chainId: number): void {
     const key = normalise(url);
     if (!this.byUrl.has(key)) this.byUrl.set(key, chainId);

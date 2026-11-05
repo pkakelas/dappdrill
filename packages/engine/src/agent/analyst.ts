@@ -1,11 +1,11 @@
 /**
  * The analysis: a short look around the app to learn what it is, which pages
  * matter, and the three to five things its users most need to work. Each
- * becomes a flow with one happy-path test in plain English; nothing is
- * recorded here, the first run of each test does that.
+ * becomes a happy-path test in plain English; the other things it saw come back
+ * as a name and a goal. Nothing is recorded here, the first run of each test does that.
  */
 import { z } from "zod";
-import { AppMap, FlowDraft, SetupDraft, describeBlock, type Blocked } from "@dappdrill/core";
+import { AppMap, SetupDraft, TestDraft, TestIdea, describeBlock, type Blocked } from "@dappdrill/core";
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, inboxTool, Recorder } from "./tools.js";
@@ -16,13 +16,16 @@ export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a w
 2. Call note with one line each time you learn something that matters (a page and its purpose, what needs the wallet).
 3. Call submit with:
    - a two-sentence summary of the app and the pages that matter,
-   - setup, only when the app makes a new user do something before the core flows work: sign in, mint or claim test funds from a faucet, make a first deposit. Its steps run before every test, so the tests start already signed in and funded and don't repeat them. Pick when it runs:
+   - setup, only when the app makes a new user do something before its core features work: sign in, mint or claim test funds from a faucet, make a first deposit. Its steps run before every test, so the tests start already signed in and funded and don't repeat them. Pick when it runs:
      - once (the default): one time per run. Also pick once when a step can't be repeated often, like a faucet with a limit ("once every 24h") or a sign-in that emails a code.
      - each: before every test, when the tests use up what setup gives on a live chain and setup is cheap to repeat (a mint button with no limit).
-     Say why in one short sentence. Leave setup out when the core flows work right after connecting the wallet.
-   - the 3 to 5 flows users most need to work (the app's core value: trade, swap, deposit, mint, borrow), each with one happy-path test. Where users put something in, include the way back out (withdraw, repay, close, unstake). A flow's own needs (an open position before closing it) go in its steps; what every flow needs goes in setup.
-     When the developer lists flows to test, those come first: find where each one happens and keep their wording in the name. Add your own only if they listed fewer than 3. If a listed flow isn't in the app, leave it out and say so with note.
-     When the developer says what keeps breaking or what just changed, prefer flows that go through it.
+     Say why in one short sentence. Leave setup out when the core features work right after connecting the wallet.
+   - what you found to test. Each one is something a user can go away happy having done: trade, swap, deposit, mint, borrow, claim. "Connect wallet", "Open the markets page" or "Switch network" are not tests of their own, they are steps inside one.
+     tests: a happy-path test for the 3 to 5 things users most need to work (the app's core value), one test each. Where users put something in, include the way back out (withdraw, repay, close, unstake).
+     untested: the other things you saw, with name and goal only, so the developer can see what isn't tested yet.
+     A test's own needs (an open position before closing it) go in its steps; what every test needs goes in setup.
+     When the developer lists what to test, those come first: find where each one happens and keep their wording in the name. Write tests for your own picks only if they listed fewer than 3. If a listed item isn't in the app, leave it out and say so with note.
+     When the developer says what keeps breaking or what just changed, prefer tests that go through it.
      Use the rest of their notes too: leave alone what they say to avoid, use the tokens and amounts they give, and take expected from what they say success looks like.
 
 Tests are read by busy developers. Write them plainly:
@@ -38,7 +41,8 @@ const Submission = z.object({
   summary: AppMap.shape.summary,
   pages: AppMap.shape.pages.describe("The pages that matter, with their purpose"),
   setup: SetupDraft.optional().describe("Steps every test needs first (sign in, get test funds); leave out when there are none"),
-  flows: z.array(FlowDraft).min(1).max(5),
+  tests: z.array(TestDraft).min(1).max(8),
+  untested: z.array(TestIdea).max(8).default([]).describe("Other things users do, seen but not written"),
 });
 type Submission = z.infer<typeof Submission>;
 
@@ -47,6 +51,8 @@ export interface AnalyzeOptions {
   maxMs?: number;
   /** Free-text hints from the user ("the swap page is under /trade"). */
   hints?: string;
+  /** The app's tests so far, so a new analysis adds to them. Unwritten ones say so. */
+  known?: string[];
   inbox?: Inbox;
   signal?: AbortSignal;
   /** A line for the live log. */
@@ -56,7 +62,8 @@ export interface AnalyzeOptions {
 export interface AnalyzeResult {
   map?: AppMap;
   setup?: SetupDraft;
-  flows: FlowDraft[];
+  tests: TestDraft[];
+  untested: TestIdea[];
   blocked?: Blocked;
 }
 
@@ -99,7 +106,7 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
     },
     {
       name: "submit",
-      description: "Submit the summary, the pages that matter, the setup if any, and 3-5 flows with their happy-path tests. Ends the analysis.",
+      description: "Submit the summary, the pages that matter, the setup if any, 3-5 happy-path tests, and the rest under untested with name and goal only. Ends the analysis.",
       schema: Submission,
       handler: async (input) => {
         submitted = input;
@@ -112,6 +119,7 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
   const prompt = [
     `App: ${session.target.url}`,
     opts.hints ? `Hints from the developer: ${opts.hints}` : "",
+    opts.known?.length ? `The app already has these tests, so don't propose them again. You may write one marked not written yet; keep its name exactly:\n${opts.known.map((n) => `- ${n}`).join("\n")}` : "",
     "",
     "The landing page:",
     snap,
@@ -124,8 +132,8 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
   } finally {
     clearTimeout(timer);
   }
-  // A check on a side page only leaves that page out; the flows found elsewhere still stand.
-  if (blocked && !submitted) return { flows: [], blocked };
+  // A check on a side page only leaves that page out; the tests found elsewhere still stand.
+  if (blocked && !submitted) return { tests: [], untested: [], blocked };
   if (!submitted && !opts.signal?.aborted && notes.length) {
     submitted = await llm
       .structured({
@@ -136,6 +144,6 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
       })
       .catch(() => undefined);
   }
-  if (!submitted) return { flows: [] };
-  return { map: { summary: submitted.summary, pages: submitted.pages }, setup: submitted.setup, flows: submitted.flows };
+  if (!submitted) return { tests: [], untested: [] };
+  return { map: { summary: submitted.summary, pages: submitted.pages }, setup: submitted.setup, tests: submitted.tests, untested: submitted.untested };
 }

@@ -1,4 +1,4 @@
-export * from "./flow.js";
+export * from "./script.js";
 export * from "./chains.js";
 export * from "./edge-cases.js";
 export * from "./signing.js";
@@ -9,3 +9,4 @@ export * from "./format.js";
 export * from "./hints.js";
 export * from "./setup.js";
 export * from "./test.js";
+export * from "./rollup.js";

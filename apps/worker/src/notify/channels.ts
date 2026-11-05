@@ -25,13 +25,14 @@ export function sendTelegram(botToken: string, chatId: string, alert: Alert): Pr
   return post(`${base}/bot${botToken}/sendMessage`, { chat_id: chatId, text: alertText(alert), disable_web_page_preview: true });
 }
 
-/** Email over SMTP_URL; without it the message is logged instead. */
-export async function sendEmail(to: string[], alert: Alert): Promise<void> {
+/** Email over SMTP_URL; without it the message is logged instead. Says whether it really went out. */
+export async function sendEmail(to: string[], alert: Alert): Promise<boolean> {
   const text = alertText(alert);
   if (!process.env.SMTP_URL) {
     log.info(`SMTP_URL not set; email to ${to.join(", ")} would say:\n${text}`);
-    return;
+    return false;
   }
   const transport = nodemailer.createTransport(process.env.SMTP_URL);
   await transport.sendMail({ from: process.env.EMAIL_FROM ?? "DappDrill <alerts@dappdrill.com>", to, subject: alert.title, text });
+  return true;
 }

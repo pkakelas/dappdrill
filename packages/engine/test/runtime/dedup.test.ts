@@ -8,9 +8,9 @@ const issue = (patch: Partial<Issue>): Issue =>
 describe("dedupKey", () => {
   const signIn = ["Reject the next wallet request", "1. Go to /trade", "2. Click “Sign in”"];
 
-  it("matches the same finding on a step two flows share", () => {
-    const a = issue({ id: "a", flowId: "f1", edgeCase: "reject", stepIndex: 1, stepsToReproduce: [...signIn, "3. Click “Buy”"] });
-    const b = issue({ id: "b", flowId: "f2", edgeCase: "reject", stepIndex: 1, stepsToReproduce: [...signIn, "3. Click “Deposit”"] });
+  it("matches the same finding on a step two tests share", () => {
+    const a = issue({ id: "a", testId: "f1", edgeCase: "reject", stepIndex: 1, stepsToReproduce: [...signIn, "3. Click “Buy”"] });
+    const b = issue({ id: "b", testId: "f2", edgeCase: "reject", stepIndex: 1, stepsToReproduce: [...signIn, "3. Click “Deposit”"] });
     expect(dedupKey(a)).toBeDefined();
     expect(dedupKey(a)).toBe(dedupKey(b));
   });

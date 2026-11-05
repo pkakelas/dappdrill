@@ -13,7 +13,7 @@ import {
   type ChainConfig,
   type FixedResponse,
 } from "@dappdrill/core";
-import { analyses, apps, db, encrypt, flows, testRuns, type AppSettings } from "@dappdrill/db";
+import { analyses, apps, db, encrypt, testRuns, tests, type AppSettings } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -24,7 +24,8 @@ import { hostOf } from "@/lib/domains";
 import { enqueue } from "@/lib/jobs";
 import { readChainId } from "@/lib/rpc";
 import { looksLikeKey } from "@/lib/secrets";
-import { currentTeam, requireApp } from "@/lib/session";
+import { can, denied } from "@/lib/permissions";
+import { orgAccess, requireApp, requireUser } from "@/lib/session";
 import { readSite, type SiteInfo } from "@/lib/site";
 
 const Url = z
@@ -59,7 +60,7 @@ async function analyze(appId: string): Promise<void> {
 
 /** /new: what the form's preview shows once a URL is in. */
 export async function previewSiteAction(input: string): Promise<SiteInfo | undefined> {
-  await currentTeam();
+  await requireUser();
   const url = Url.safeParse(input);
   return url.success ? readSite(url.data) : undefined;
 }
@@ -80,16 +81,20 @@ const NO_CHAIN = "No chain answered at that URL.";
 
 /** /new: tells the form which chain an RPC belongs to while the user is still typing. */
 export async function checkRpcAction(input: string): Promise<{ chainId?: number; error?: string }> {
-  await currentTeam();
+  await requireUser();
   const url = RpcUrl.safeParse(input);
   if (!url.success) return { error: url.error.issues[0]?.message };
   const chainId = await readChainId(url.data);
   return chainId === undefined ? { error: NO_CHAIN } : { chainId };
 }
 
-/** /new: find or create the app for this URL. A new app (or one with no tests yet) gets analyzed. */
+/**
+ * /new: find or create the app for this URL. A new app (or one with no tests yet) gets analyzed.
+ * Anyone in the organization can add an app; changing one that exists is for admins and owners.
+ */
 export async function createAppAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const { team } = await currentTeam();
+  const a = await orgAccess(form.get("orgId"));
+  if ("error" in a) return a;
   const url = Url.safeParse(form.get("url"));
   if (!url.success) return { error: url.error.issues[0]?.message };
   const customized = form.get("customized") === "1";
@@ -122,7 +127,7 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
   }
   if (chains.some((c) => c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id))) return { error: "Live mode is for testnets only. Mainnet chains always run on a local fork." };
 
-  const [existing] = await db().select().from(apps).where(and(eq(apps.teamId, team.id), eq(apps.url, url.data)));
+  const [existing] = await db().select().from(apps).where(and(eq(apps.organizationId, a.org.id), eq(apps.url, url.data)));
   let liveKey: { liveKeyEnc: string; liveKeyAddress: string } | undefined;
   if (keyIn && chains.some((c) => c.mode === "live")) {
     const key = KeyHex.safeParse(keyIn);
@@ -139,16 +144,16 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
     const host = hostOf(url.data);
     await db()
       .insert(apps)
-      .values({ id: appId, teamId: team.id, name: nameFromHost(host), url: url.data, host, settings: settingsBase, ...liveKey });
-  } else if (customized || hints || funding || liveKey) {
+      .values({ id: appId, organizationId: a.org.id, name: nameFromHost(host), url: url.data, host, settings: settingsBase, ...liveKey });
+  } else if (can(a.role, "apps.manage") && (customized || hints || funding || liveKey)) {
     const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...notes };
     await db()
       .update(apps)
       .set({ settings, ...liveKey })
       .where(eq(apps.id, existing.id));
   }
-  const hasFlows = existing ? (await db().select({ id: flows.id }).from(flows).where(eq(flows.appId, existing.id)).limit(1)).length > 0 : false;
-  if (!hasFlows) await analyze(appId!);
+  const hasTests = existing ? (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, existing.id)).limit(1)).length > 0 : false;
+  if (!hasTests) await analyze(appId!);
   revalidatePath("/", "layout"); // the app switcher lists it
   redirect(`/apps/${appId}`);
 }
@@ -162,7 +167,8 @@ export async function analyzeAction(appId: string): Promise<void> {
 // ---------------------------------------------------------------- settings
 
 export async function saveSettingsAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const { app } = await requireApp(String(form.get("appId")));
+  const { app, role } = await requireApp(String(form.get("appId")));
+  if (!can(role, "apps.manage")) return { error: denied("apps.manage") };
   const name = String(form.get("name") ?? "").trim().slice(0, 60);
   if (!name) return { error: "Give the app a name." };
   const url = Url.safeParse(form.get("url"));
@@ -268,7 +274,8 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
 }
 
 export async function deleteAppAction(appId: string): Promise<void> {
-  const { app } = await requireApp(appId);
+  const { app, role } = await requireApp(appId);
+  if (!can(role, "apps.manage")) return;
   // Stop anything in flight first; the rows go with the app.
   await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.appId, app.id), eq(testRuns.status, "running")));
   await db().update(analyses).set({ stopRequested: true }).where(and(eq(analyses.appId, app.id), eq(analyses.status, "running")));

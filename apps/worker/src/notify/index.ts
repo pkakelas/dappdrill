@@ -1,38 +1,54 @@
 import { and, desc, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
-import { decrypt, flows, integrations, teamMembers, testRuns, tests, user, type Db } from "@dappdrill/db";
+import { alias } from "drizzle-orm/pg-core";
+import { conditionInfo } from "@dappdrill/core";
+import { decrypt, integrations, member, signingAlerts, testRuns, tests, user, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
 import type { AppRow } from "../target.js";
 import { sendEmail, sendSlack, sendTelegram } from "./channels.js";
-import { composeAlert, type Alert, type Regression } from "./compose.js";
+import { composeAlert, newDangerous, type Alert, type Regression } from "./compose.js";
 
 const log = logger("notify");
+const base = alias(tests, "base");
 
-/** After a batch: tell the team about tests that failed now and passed the time before. */
-export async function notifyRegressions(db: Db, app: AppRow, runIds: string[]): Promise<Alert | null> {
+/**
+ * After a batch: tell the organization about tests that failed now and passed the time before,
+ * and about Dangerous signatures it hasn't heard about yet, whatever the test's own status.
+ */
+export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promise<Alert | null> {
   if (runIds.length === 0) return null;
-  const failed = await db
-    .select({ testId: testRuns.testId, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, flowName: flows.name })
+  const results = await db
+    .select({ testId: testRuns.testId, status: testRuns.status, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, baseName: base.name, condition: tests.condition })
     .from(testRuns)
     .innerJoin(tests, eq(tests.id, testRuns.testId))
-    .innerJoin(flows, eq(flows.id, tests.flowId))
-    .where(and(inArray(testRuns.id, runIds), eq(testRuns.status, "fail")));
+    .leftJoin(base, eq(base.id, tests.baseId))
+    .where(inArray(testRuns.id, runIds));
+
+  // A condition row is named "Test · Condition", like everywhere else.
+  const placeOf = (run: (typeof results)[number]) => ({ testName: run.baseName ?? run.testName, condition: run.condition ? conditionInfo(run.condition).name : undefined });
 
   const regressions: Regression[] = [];
-  for (const run of failed) {
+  for (const run of results.filter((r) => r.status === "fail")) {
     const [previous] = await db
       .select({ status: testRuns.status })
       .from(testRuns)
       .where(and(eq(testRuns.testId, run.testId), notInArray(testRuns.id, runIds), lt(testRuns.createdAt, run.createdAt), isNotNull(testRuns.finishedAt), inArray(testRuns.status, ["pass", "fail"])))
       .orderBy(desc(testRuns.createdAt))
       .limit(1);
-    if (previous?.status === "pass") regressions.push({ testName: run.testName, flowName: run.flowName, failure: run.result?.failure });
+    if (previous?.status === "pass") regressions.push({ ...placeOf(run), failure: run.result?.failure });
   }
 
-  const alert = composeAlert({ appName: app.name, regressions, link: `${config.appUrl}/apps/${app.id}` });
+  const told = await db.select({ key: signingAlerts.key }).from(signingAlerts).where(eq(signingAlerts.appId, app.id));
+  const dangerous = newDangerous(
+    results.map((r) => ({ ...placeOf(r), reviews: r.result?.signingReviews ?? [] })),
+    new Set(told.map((t) => t.key)),
+  );
+
+  const alert = composeAlert({ appName: app.name, regressions, dangerous, link: `${config.appUrl}/apps/${app.id}` });
   if (!alert) return null;
 
-  const rows = await db.select().from(integrations).where(and(eq(integrations.teamId, app.teamId), eq(integrations.enabled, true)));
+  let delivered = false;
+  const rows = await db.select().from(integrations).where(and(eq(integrations.organizationId, app.organizationId), eq(integrations.enabled, true)));
   for (const row of rows) {
     try {
       const secret = row.secretEnc ? decrypt(row.secretEnc) : undefined;
@@ -48,26 +64,31 @@ export async function notifyRegressions(db: Db, app: AppRow, runIds: string[]): 
           break;
         }
         case "email": {
-          const to = await emailRecipients(db, app.teamId, row.config);
+          const to = await emailRecipients(db, app.organizationId, row.config);
           if (to.length === 0) throw new Error("no recipients");
-          await sendEmail(to, alert);
+          if (!(await sendEmail(to, alert))) continue;
           break;
         }
         default:
           continue;
       }
+      delivered = true;
       log.info(`${row.kind}: sent "${alert.title}"`);
     } catch (e) {
       log.warn(`${row.kind}: could not send: ${errorMessage(e)}`);
     }
   }
+  // Only once someone was told: with no channel working, the next run tries again.
+  if (delivered && dangerous.length > 0) {
+    await db.insert(signingAlerts).values(dangerous.map((d) => ({ appId: app.id, key: d.key }))).onConflictDoNothing();
+  }
   return alert;
 }
 
-/** config.to (comma-separated), else every member of the team. */
-async function emailRecipients(db: Db, teamId: string, cfg: Record<string, string>): Promise<string[]> {
+/** config.to (comma-separated), else everyone in the organization. */
+async function emailRecipients(db: Db, orgId: string, cfg: Record<string, string>): Promise<string[]> {
   const listed = (cfg.to ?? cfg.recipients ?? "").split(/[,\s]+/).filter(Boolean);
   if (listed.length) return listed;
-  const members = await db.select({ email: user.email }).from(teamMembers).innerJoin(user, eq(user.id, teamMembers.userId)).where(eq(teamMembers.teamId, teamId));
+  const members = await db.select({ email: user.email }).from(member).innerJoin(user, eq(user.id, member.userId)).where(eq(member.organizationId, orgId));
   return members.map((m) => m.email);
 }

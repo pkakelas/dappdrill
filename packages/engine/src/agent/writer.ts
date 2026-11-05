@@ -1,5 +1,5 @@
 /**
- * Writes tests from a sentence: a new test in a flow, a fork of an existing
+ * Writes tests from a sentence: a new test, a fork of an existing
  * one ("the same but a limit sell"), or a rewrite. One structured call; steps
  * whose text stays the same keep their cached actions.
  */
@@ -19,15 +19,12 @@ export interface DraftInput {
   map?: AppMap;
   /** The test to fork or rewrite. */
   base?: { name: string; goal: string; expected: string; startPath: string; steps: { text: string }[] };
-  /** The flow the test goes in. */
-  flowName?: string;
 }
 
 export async function draftTest(llm: Llm, input: DraftInput): Promise<TestDraft> {
   const { base } = input;
   const prompt = [
     input.map ? `About the app: ${input.map.summary}\nPages:\n${input.map.pages.map((p) => `- ${p.path}: ${p.purpose}`).join("\n")}\n` : "",
-    input.flowName ? `Flow: ${input.flowName}` : "",
     base
       ? [
           "The existing test:",

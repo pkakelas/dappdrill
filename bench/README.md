@@ -2,7 +2,7 @@
 
 Measures DappDrill on real dApp frontends by driving the CLI, so it measures what users run. For each dApp:
 
-1. **`analyze`**: finds the flows and writes the tests, with no hints unless you pass `--hints`. The product promise is "paste a URL", and the hints in `dapps.json` spell out the flows.
+1. **`analyze`**: finds what to test and writes the tests, with no hints unless you pass `--hints`. The product promise is "paste a URL", and the hints in `dapps.json` spell out the flows.
 2. **`replay-1..3`**: each runs a fresh copy of what `analyze` wrote, like a CI run from the committed file. `--quick` stops here.
 3. **`unhappy`**: the unhappy paths the injected bugs need, run clean as their control.
 4. **`mutation-<bug>`**: page scripts in `src/mutations.ts` inject a frontend bug between the dApp and the wallet. Each runs on the tests it applies to, scored against the clean run:
@@ -13,7 +13,7 @@ Measures DappDrill on real dApp frontends by driving the CLI, so it measures wha
 
 A dApp with a `buggyUrl` (Harbor Vault) replaces steps 3 and 4 with **`seeded`**: the tests made on the clean build run on the seeded one, unhappy paths included.
 
-`expected/<dapp>.json` lists the flows a user comes for. Write it before the first run, so a review can't just approve what was found. A review agent then reads the runs and writes `results/<date>/<dapp>/review.json`: each flow's usefulness and which expected flow it covers, the expected flows missed, and a label for each test:
+`expected/<dapp>.json` lists what a user comes to do. Write it before the first run, so a review can't just approve what was found. A review agent then reads the runs and writes `results/<date>/<dapp>/review.json`: each flow's usefulness and which expected flow it covers, the expected flows missed, and a label for each test:
 
 `real pass`, `empty pass`, `app bug`, `bad test`, `environment`, `engine bug` or `can't run on a fork`.
 

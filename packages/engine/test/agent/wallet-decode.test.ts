@@ -23,7 +23,7 @@ describe("decodeWalletRequest", () => {
     const data = `0x095ea7b3${pad(VAULT)}${pad(maxUint256)}`;
     const d = decodeWalletRequest(req("eth_sendTransaction", [{ to: "0x22", data }]));
     expect(d.unlimitedApproval).toBe(true);
-    // Recorded as it is, so the flow still replays; the signing review reports it.
+    // Recorded as it is, so the test still replays; the signing review reports it.
     expect(d.expectation.failIfUnlimited).toBeUndefined();
     expect(d.summary).toContain("MAX_UINT256");
   });

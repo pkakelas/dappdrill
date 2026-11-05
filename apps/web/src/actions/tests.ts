@@ -1,7 +1,7 @@
 "use server";
 
-import { CONDITIONS, EdgeCaseId, keepActions, newId, walletUse } from "@dappdrill/core";
-import { addUnhappyPaths, db, flows, nextPosition, queueRuns, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
+import { EdgeCaseId, OFFERED_CONDITIONS, keepActions, newId, walletUse } from "@dappdrill/core";
+import { addConditions, db, nextPosition, notWritten, queueRuns, sentenceName, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -14,13 +14,6 @@ async function ownTest(testId: string) {
   if (!t) throw new Error("That test no longer exists.");
   await requireApp(t.appId);
   return t;
-}
-
-async function ownFlow(flowId: string) {
-  const [f] = await db().select().from(flows).where(eq(flows.id, flowId));
-  if (!f) throw new Error("That flow no longer exists.");
-  await requireApp(f.appId);
-  return f;
 }
 
 async function run(appId: string, testIds: string[], trigger: Trigger = "manual") {
@@ -53,13 +46,6 @@ export async function runTestsAction(appId: string, testIds: string[]): Promise<
   refresh(appId);
 }
 
-export async function runFlowAction(flowId: string): Promise<void> {
-  const f = await ownFlow(flowId);
-  const ids = await db().select({ id: tests.id }).from(tests).where(eq(tests.flowId, f.id));
-  await run(f.appId, ids.map((t) => t.id));
-  refresh(f.appId);
-}
-
 export async function runAllAction(appId: string): Promise<void> {
   await requireApp(appId);
   const ids = await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, appId));
@@ -86,46 +72,45 @@ export async function stopRunsAction(appId: string, testIds?: string[]): Promise
 
 const Sentence = z.string().trim().min(3, "Say what the test should do.").max(1000);
 
-/** A test from one sentence, in an existing flow or a new one. Returns the new test's id. */
-export async function addTestAction(appId: string, flow: { id: string } | { name: string }, request: string): Promise<{ error?: string; testId?: string }> {
+/** A test from one sentence. Returns the new test's id. */
+export async function addTestAction(appId: string, request: string): Promise<{ error?: string; testId?: string }> {
   await requireApp(appId);
   const text = Sentence.safeParse(request);
   if (!text.success) return { error: text.error.issues[0]?.message };
-  let flowId: string;
-  if ("id" in flow) flowId = (await ownFlow(flow.id)).id;
-  else {
-    const name = flow.name.trim().slice(0, 60);
-    if (!name) return { error: "Name the flow." };
-    flowId = newId("flow");
-    await db().insert(flows).values({ id: flowId, appId, name, position: await nextPosition(db(), appId) });
-  }
   const id = newId("test");
   await draft({
     id,
     appId,
-    flowId,
-    name: text.data.length > 60 ? `${text.data.slice(0, 57).trimEnd()}…` : text.data,
+    name: sentenceName(text.data),
     goal: text.data,
     expected: "",
     steps: [],
     drafting: text.data,
-    position: await nextPosition(db(), appId, flowId),
+    position: await nextPosition(db(), appId),
   });
   refresh(appId);
   return { testId: id };
 }
 
+/** Writes the steps of a test that only has a name and a goal; it runs when written. */
+export async function writeTestAction(testId: string): Promise<void> {
+  const t = await ownTest(testId);
+  if (!notWritten(t)) return;
+  await db().update(tests).set({ drafting: t.goal || t.name, ...touched() }).where(eq(tests.id, testId));
+  await enqueue("test-draft.run", { testId });
+  refresh(t.appId);
+}
+
 /** A copy of a test with one change, written by the worker. Opens the copy. */
-export async function forkTestAction(testId: string, change: string): Promise<{ error?: string }> {
+export async function duplicateTestAction(testId: string, change: string): Promise<{ error?: string }> {
   const base = await ownTest(testId);
-  if (base.baseId) return { error: "Fork the happy path instead." };
+  if (base.baseId) return { error: "Duplicate the test itself; a condition row follows its test." };
   const text = Sentence.safeParse(change);
   if (!text.success) return { error: "Say what the copy should do differently." };
   const id = newId("test");
   await draft({
     id,
     appId: base.appId,
-    flowId: base.flowId,
     name: base.name,
     goal: base.goal,
     expected: base.expected,
@@ -133,7 +118,7 @@ export async function forkTestAction(testId: string, change: string): Promise<{ 
     steps: base.steps,
     forkedFrom: base.id,
     drafting: text.data,
-    position: await nextPosition(db(), base.appId, base.flowId),
+    position: base.position,
   });
   refresh(base.appId);
   redirect(`/apps/${base.appId}/tests/${id}`);
@@ -148,6 +133,8 @@ const Edit = z.object({
 
 export async function updateTestAction(testId: string, input: z.input<typeof Edit>): Promise<{ error?: string }> {
   const t = await ownTest(testId);
+  // A condition row has nothing of its own: name and expected come from the condition, goal and steps from its test.
+  if (t.baseId || t.condition) return { error: "A condition can't be edited. Edit the test it runs on." };
   const e = Edit.safeParse(input);
   if (!e.success) return { error: e.error.issues[0]?.message };
   await db()
@@ -156,8 +143,7 @@ export async function updateTestAction(testId: string, input: z.input<typeof Edi
       name: e.data.name,
       goal: e.data.goal,
       expected: e.data.expected,
-      // Unhappy paths run their base's steps.
-      ...(t.baseId ? {} : { steps: keepActions(e.data.steps, t.steps) }),
+      steps: keepActions(e.data.steps, t.steps),
       ...(e.data.expected !== t.expected ? { proof: null } : {}),
       ...touched(),
     })
@@ -166,14 +152,14 @@ export async function updateTestAction(testId: string, input: z.input<typeof Edi
   return {};
 }
 
-/** Unhappy paths of a happy path; they run right away. */
-export async function addUnhappyAction(testId: string, conditions: string[]): Promise<{ error?: string }> {
+/** Conditions on a test (its steps with something going wrong); they run right away. */
+export async function addConditionsAction(testId: string, conditions: string[]): Promise<{ error?: string }> {
   const t = await ownTest(testId);
-  if (t.baseId) return { error: "That is already an unhappy path." };
-  if (walletUse(t.steps) !== "signs") return { error: "Unhappy paths need a test that asks the wallet to sign." };
-  const picked = conditions.map((c) => EdgeCaseId.safeParse(c)).flatMap((r) => (r.success && CONDITIONS.some((c) => c.id === r.data) ? [r.data] : []));
+  if (t.baseId) return { error: "Add conditions on the test, not on a condition." };
+  if (walletUse(t.steps) !== "signs") return { error: "Conditions need a test that asks the wallet to sign." };
+  const picked = conditions.map((c) => EdgeCaseId.safeParse(c)).flatMap((r) => (r.success && OFFERED_CONDITIONS.some((c) => c.id === r.data) ? [r.data] : []));
   if (picked.length === 0) return { error: "Pick at least one." };
-  const ids = await addUnhappyPaths(db(), testId, picked);
+  const ids = await addConditions(db(), testId, picked);
   await run(t.appId, ids);
   refresh(t.appId);
   return {};
@@ -183,24 +169,6 @@ export async function deleteTestAction(testId: string): Promise<void> {
   const t = await ownTest(testId);
   await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.testId, testId), eq(testRuns.status, "running")));
   await db().delete(tests).where(eq(tests.id, testId));
-  // The last test of a flow takes the flow with it.
-  const left = await db().select({ id: tests.id }).from(tests).where(eq(tests.flowId, t.flowId)).limit(1);
-  if (left.length === 0) await db().delete(flows).where(eq(flows.id, t.flowId));
   refresh(t.appId);
   redirect(`/apps/${t.appId}`);
-}
-
-export async function renameFlowAction(flowId: string, name: string): Promise<void> {
-  const f = await ownFlow(flowId);
-  const clean = name.trim().slice(0, 60);
-  if (!clean) return;
-  await db().update(flows).set({ name: clean }).where(eq(flows.id, f.id));
-  refresh(f.appId);
-}
-
-export async function deleteFlowAction(flowId: string): Promise<void> {
-  const f = await ownFlow(flowId);
-  await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.status, "running"), inArray(testRuns.testId, db().select({ id: tests.id }).from(tests).where(eq(tests.flowId, f.id)))));
-  await db().delete(flows).where(eq(flows.id, f.id));
-  refresh(f.appId);
 }

@@ -152,10 +152,10 @@ describe("signing reviewer", () => {
 
   it("baseline diff: the spender changed since the accepted run", async () => {
     const rv = reviewer();
-    const first = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.PERMIT2_ADDRESS, F.usdc(250))), { buttonLabel: "Approve 250 USDC" }, { flow: { id: "flw_1", name: "Deposit", stepIndex: 2, params: {} } }));
+    const first = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.PERMIT2_ADDRESS, F.usdc(250))), { buttonLabel: "Approve 250 USDC" }, { script: { id: "test_1", name: "Deposit", stepIndex: 2, params: {} } }));
     expect(first.verdict).toBe("consistent");
     const second = await rv.review(
-      input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(250))), { buttonLabel: "Approve 250 USDC" }, { flow: { id: "flw_1", name: "Deposit", stepIndex: 2, params: {} }, baselines: { [first.fingerprint]: first } }),
+      input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(250))), { buttonLabel: "Approve 250 USDC" }, { script: { id: "test_1", name: "Deposit", stepIndex: 2, params: {} }, baselines: { [first.fingerprint]: first } }),
     );
     expect(second.fingerprint).toBe(first.fingerprint);
     expect(second.verdict).toBe("check");
@@ -165,29 +165,29 @@ describe("signing reviewer", () => {
     expect(second.explanation).toContain("Different spender from the last run");
   });
 
-  it("flow expectation: amounts with params, unlimited, spender, and Permit2 acceptance", async () => {
-    const flow = (expectation: NonNullable<SigningInput["flow"]>["expectation"], params = { amount: "100" }) => ({ id: "flw_2", name: "Deposit", stepIndex: 1, expectation, params });
+  it("test expectation: amounts with params, unlimited, spender, and Permit2 acceptance", async () => {
+    const script = (expectation: NonNullable<SigningInput["script"]>["expectation"], params = { amount: "100" }) => ({ id: "test_2", name: "Deposit", stepIndex: 1, expectation, params });
     const rv = reviewer();
-    const ok = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { flow: flow({ functionName: "approve", spenderMustBe: F.VAULT, amountMustEqual: "{{amount}}", failIfUnlimited: true }) }));
+    const ok = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { script: script({ functionName: "approve", spenderMustBe: F.VAULT, amountMustEqual: "{{amount}}", failIfUnlimited: true }) }));
     expect(check(ok, "expectation")).toMatchObject({ status: "pass" });
     expect(ok.verdict).toBe("consistent");
 
-    const wrongAmount = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(250))), { buttonLabel: "Approve" }, { flow: flow({ amountMustEqual: "{{amount}}" }) }));
+    const wrongAmount = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(250))), { buttonLabel: "Approve" }, { script: script({ amountMustEqual: "{{amount}}" }) }));
     expect(check(wrongAmount, "expectation").detail).toMatch(/expected amount 100, got 250/);
     expect(wrongAmount.verdict).toBe("check");
 
-    const unlimited = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.UNLIMITED)), { buttonLabel: "Approve" }, { flow: flow({ failIfUnlimited: true }) }));
+    const unlimited = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.UNLIMITED)), { buttonLabel: "Approve" }, { script: script({ failIfUnlimited: true }) }));
     expect(check(unlimited, "expectation").detail).toMatch(/unlimited/);
 
     const permit2 = await rv.review(
-      input(F.signRequest("eth_signTypedData_v4", [F.WALLET, F.permit2Single(F.USDC_MAINNET, F.VAULT, F.usdc(100), 1_900_000_000)]), { buttonLabel: "Approve 100 USDC" }, { flow: flow({ kind: "transaction", functionName: "approve", spenderMustBe: F.VAULT, amountMustEqual: "100", alsoAcceptPermit2: true }) }),
+      input(F.signRequest("eth_signTypedData_v4", [F.WALLET, F.permit2Single(F.USDC_MAINNET, F.VAULT, F.usdc(100), 1_900_000_000)]), { buttonLabel: "Approve 100 USDC" }, { script: script({ kind: "transaction", functionName: "approve", spenderMustBe: F.VAULT, amountMustEqual: "100", alsoAcceptPermit2: true }) }),
     );
     expect(check(permit2, "expectation")).toMatchObject({ status: "pass" });
 
     // Recorded without an ABI for the call, so the expectation holds the selector.
-    const bySelector = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { flow: flow({ functionName: "0x095EA7B3" }) }));
+    const bySelector = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { script: script({ functionName: "0x095EA7B3" }) }));
     expect(check(bySelector, "expectation")).toMatchObject({ status: "pass" });
-    const otherSelector = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { flow: flow({ functionName: "0xa1903eab" }) }));
+    const otherSelector = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { script: script({ functionName: "0xa1903eab" }) }));
     expect(check(otherSelector, "expectation").detail).toMatch(/expected 0xa1903eab\(\), got approve\(\)/);
   });
 

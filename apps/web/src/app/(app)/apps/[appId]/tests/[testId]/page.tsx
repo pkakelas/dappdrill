@@ -1,5 +1,5 @@
-import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
-import { db, flows, latestRuns, testRuns, tests, type TestRunRow } from "@dappdrill/db";
+import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { db, latestRuns, notWritten, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Check, Wallet, X } from "lucide-react";
 import type { Metadata } from "next";
@@ -8,14 +8,16 @@ import { notFound } from "next/navigation";
 import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ConfirmButton } from "@/components/confirm-button";
-import { Fork } from "@/components/tests/fork";
-import { PathPills } from "@/components/tests/path-pills";
+import { ConditionFork } from "@/components/tests/condition-branches";
+import { AddConditions } from "@/components/tests/conditions";
+import { Duplicate } from "@/components/tests/duplicate";
 import { RunButton } from "@/components/tests/run-button";
 import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/tests/run-details";
 import { StepList } from "@/components/tests/setup-steps";
+import { SigningFlag } from "@/components/tests/signing-flag";
 import { SpecEditor } from "@/components/tests/spec-editor";
-import { isActive, STATE_LABEL, STATE_TEXT, StateMark, stateOf } from "@/components/tests/status";
-import { AddUnhappy } from "@/components/tests/unhappy";
+import { isActive, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
+import { WriteTest } from "@/components/tests/write-test";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,7 +39,7 @@ async function load(appId: string, testId: string) {
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { appId, testId } = await params;
-  return { title: (await load(appId, testId)).name };
+  return { title: specOf(await load(appId, testId)).name };
 }
 
 export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string; add?: string }> }) {
@@ -45,32 +47,34 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const { run: runParam, add } = await searchParams;
   const test = await load(appId, testId);
   const { app } = await requireApp(appId);
-  const [[flow], [base], children, history, [forkedFrom]] = await Promise.all([
-    db().select().from(flows).where(eq(flows.id, test.flowId)),
+  const [[base], children, history, [forkedFrom]] = await Promise.all([
     test.baseId ? db().select().from(tests).where(eq(tests.id, test.baseId)) : Promise.resolve([]),
     test.baseId ? Promise.resolve([]) : db().select().from(tests).where(eq(tests.baseId, test.id)).orderBy(asc(tests.position)),
     db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15),
     test.forkedFrom ? db().select({ id: tests.id, name: tests.name }).from(tests).where(eq(tests.id, test.forkedFrom)) : Promise.resolve([]),
   ]);
-  const childRuns = await latestRuns(
-    db(),
-    children.map((c) => c.id),
-  );
+  const childIds = children.map((c) => c.id);
+  const [childLatest, childSettled] = await Promise.all([latestRuns(db(), childIds), settledRuns(db(), childIds)]);
+  const childReads = new Map(children.map((c) => [c.id, readTest(c, childLatest.get(c.id), childSettled.get(c.id))]));
 
+  const spec = specOf(test);
   const latest = history[0];
-  const run = (runParam && history.find((r) => r.id === runParam)) || latest;
-  const viewingOld = run && latest && run.id !== latest.id;
-  const state = stateOf(test, latest);
+  // The status reads from the latest finished result; a queued, running or stopped run shows beside it.
+  const settled = history.find((r) => r.status === "pass" || r.status === "fail" || r.status === "error" || r.status === "skipped");
+  const run = (runParam && history.find((r) => r.id === runParam)) || settled || latest;
+  const viewingOld = run && settled && run.id !== settled.id && run.id !== latest?.id;
+  const state = readTest(test, latest, settled);
   const runState = run ? run.status : "never";
   const result = run?.result ?? undefined;
   const steps: TestStep[] = base ? base.steps : test.steps;
-  const childActive = children.some((c) => isActive(stateOf(c, childRuns.get(c.id))));
+  const childActive = children.some((c) => isActive(childReads.get(c.id)!));
   const condition = test.condition ? conditionInfo(test.condition) : undefined;
+  const signing = signingOf(result?.signingReviews.map((r) => r.verdict) ?? []);
   const wallet = walletUse(test.steps);
-  const paths = !test.baseId && (
-    <PathPills appId={appId} tests={children} states={new Map(children.map((c) => [c.id, stateOf(c, childRuns.get(c.id))]))} runs={childRuns}>
-      {wallet === "signs" && <AddUnhappy testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} startOpen={add === "unhappy"} />}
-    </PathPills>
+  const forks = !test.baseId && (
+    <ConditionFork appId={appId} tests={children} reads={childReads} runs={childSettled}>
+      {wallet === "signs" && <AddConditions testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} startOpen={add === "conditions"} />}
+    </ConditionFork>
   );
   const url = (path?: string | null) => (run ? artifactUrl("runs", run.batchId, path) : null);
 
@@ -83,8 +87,6 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           <Link href={`/apps/${appId}`} className="hover:text-foreground">
             Tests
           </Link>
-          <span aria-hidden="true">/</span>
-          <span>{flow?.name}</span>
           {base && (
             <>
               <span aria-hidden="true">/</span>
@@ -96,15 +98,16 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </nav>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{test.name}</h1>
-            <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state])}>
-              <StateMark state={state} />
-              <span>{STATE_LABEL[state]}</span>
-              {latest?.finishedAt && state !== "running" && state !== "queued" && <span className="text-muted-foreground">· {timeAgo(latest.finishedAt)}</span>}
-              {latest?.startedAt && latest.finishedAt && <span className="text-muted-foreground">· took {formatDuration(latest.finishedAt.getTime() - latest.startedAt.getTime())}</span>}
+            <h1 className="text-2xl font-semibold tracking-tight">{spec.name}</h1>
+            <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state.mark])}>
+              <StateMark state={state.mark} />
+              <span>{notWritten(test) ? "Not tested yet" : readLabel(state)}</span>
+              {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
+              {settled?.startedAt && settled.finishedAt && <span className="text-muted-foreground">· took {formatDuration(settled.finishedAt.getTime() - settled.startedAt.getTime())}</span>}
+              <SigningFlag signing={signing} className="before:mr-2 before:content-['·'] before:text-muted-foreground" />
               {forkedFrom && (
                 <span className="text-muted-foreground">
-                  · forked from{" "}
+                  · duplicated from{" "}
                   <Link href={`/apps/${appId}/tests/${forkedFrom.id}`} className="underline underline-offset-4 hover:text-foreground">
                     {forkedFrom.name}
                   </Link>
@@ -113,8 +116,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <RunButton target={{ appId, testIds: [test.id] }} active={state === "running" || state === "queued"} stopIds={[test.id]} label="Run" size="md" primary disabled={state === "drafting"} />
-            {!test.baseId && state !== "drafting" && <Fork testId={test.id} />}
+            {notWritten(test) ? <WriteTest testId={test.id} primary /> : <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />}
+            {!test.baseId && !state.drafting && <Duplicate testId={test.id} />}
             <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
             </ConfirmButton>
@@ -125,14 +128,14 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       {test.drafting && (
         <div className="flex items-center gap-3 rounded-xl border border-dashed bg-card px-5 py-4">
           <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/50" />
-          <p className="text-muted-foreground">Writing this test from “{test.drafting}”. It runs as soon as the steps are ready.</p>
+          <p className="text-muted-foreground">Writing this test from “{test.drafting.replace(/\.$/, "")}”. It runs as soon as the steps are ready.</p>
         </div>
       )}
 
       {viewingOld && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-5 py-3 text-muted-foreground">
           <span>
-            Showing the run from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
+            Showing the result from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
           </span>
           <Button asChild variant="link" size="sm" className="h-auto p-0">
             <Link href={`/apps/${appId}/tests/${test.id}`}>Back to the latest</Link>
@@ -148,42 +151,51 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           {result.failure}
         </div>
       )}
+      {runState === "skipped" && (
+        <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
+          <strong className="font-medium text-foreground">Doesn&apos;t apply here.</strong> {result?.failure ?? "This condition can't be set up for this test."} It is left out of the counts.
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-6">
+          {condition && base ? (
+            // A condition row has nothing of its own to edit: steps and goal are the test's, name and expected the condition's.
+            <div className="flex flex-col gap-6">
+              <p className="rounded-xl bg-fork-bg/50 px-4 py-3 text-muted-foreground">
+                Runs the steps of{" "}
+                <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
+                  {base.name}
+                </Link>{" "}
+                under the condition <strong className="font-semibold text-foreground">{condition.name}</strong>. Edit the test to change what runs.
+              </p>
+              <Block label="Goal">{base.goal}</Block>
+              <Block label="Expected result">
+                {condition.expected}
+                <Verdict result={result} />
+              </Block>
+              {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
+              <Steps steps={steps} result={result} url={url} />
+            </div>
+          ) : (
           <SpecEditor
             testId={test.id}
             spec={{ name: test.name, goal: test.goal, expected: test.expected, steps: test.steps.map((s) => s.text) }}
-            stepsFixed={Boolean(test.baseId)}
+            stepsFixed={false}
             disabled={Boolean(test.drafting)}
             view={
               <div className="flex flex-col gap-6">
-                {condition && base && (
-                  <p className="rounded-xl bg-muted px-4 py-3 text-muted-foreground">
-                    Runs the steps of{" "}
-                    <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
-                      {base.name}
-                    </Link>{" "}
-                    with this condition: <strong className="font-semibold text-foreground">{condition.name}</strong>.
-                  </p>
-                )}
                 <Block label="Goal">{test.goal || <span className="text-muted-foreground">Not written yet</span>}</Block>
                 <Block label="Expected result">
                   {test.expected || <span className="text-muted-foreground">Not written yet</span>}
-                  {result?.verdict && (
-                    <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
-                      {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
-                      <span>{result.verdict.reason}</span>
-                    </span>
-                  )}
+                  <Verdict result={result} />
                 </Block>
                 {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-                <TooltipProvider>
-                  <Steps steps={steps} result={result} url={url} paths={paths} wallet={test.baseId ? undefined : wallet} hasPaths={children.length > 0} />
-                </TooltipProvider>
+                <Steps steps={steps} result={result} url={url} forks={forks} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
               </div>
             }
           />
+          )}
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5">
@@ -196,6 +208,17 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </aside>
       </div>
     </div>
+  );
+}
+
+/** What the judge or the proof check said about the expected result, under it. */
+function Verdict({ result }: { result?: TestRunResult }) {
+  if (!result?.verdict) return null;
+  return (
+    <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
+      {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
+      <span>{result.verdict.reason}</span>
+    </span>
   );
 }
 
@@ -212,49 +235,51 @@ function Steps({
   steps,
   result,
   url,
-  paths,
+  forks,
   wallet,
-  hasPaths,
+  hasConditions,
 }: {
   steps: TestStep[];
   result?: TestRunResult;
   url: (p?: string | null) => string | null;
-  paths: React.ReactNode;
+  forks?: React.ReactNode;
   wallet?: ReturnType<typeof walletUse>;
-  hasPaths: boolean;
+  hasConditions?: boolean;
 }) {
   if (steps.length === 0)
     return (
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-muted-foreground">Steps</span>
-        <p className="text-muted-foreground">No steps yet. The first run works them out from the goal.</p>
+        <p className="text-muted-foreground">Not written yet.</p>
       </div>
     );
   // Conditions bite on the main transaction, the last thing signed (the deposit, not the approval before it).
   const branchAt = steps.findLastIndex(stepSigns);
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-muted-foreground">Steps</span>
-      <StepList
-        className="overflow-hidden rounded-xl border bg-card shadow-xs"
-        steps={steps.map((s, i) => ({
-          text: s.text,
-          result: result?.steps[i],
-          shot: url(result?.steps[i]?.screenshot),
-          signs: stepSigns(s),
-          after: wallet === "signs" && i === branchAt ? <div id="unhappy-paths" className="ml-[7px] scroll-mt-24 border-l py-0.5 pl-3">{paths}</div> : undefined,
-        }))}
-      />
-      {wallet && wallet !== "signs" && (
-        <div className="flex flex-col gap-2 px-1 pt-1">
-          {hasPaths && paths}
-          <p className="flex gap-2 text-sm text-muted-foreground">
-            <Wallet className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            {wallet === "none" ? "This test never asks the wallet to sign, so unhappy paths have nothing to change." : "Unhappy paths unlock once a run of this test reaches the wallet."}
-          </p>
-        </div>
-      )}
-    </div>
+    <TooltipProvider>
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-muted-foreground">Steps</span>
+        <StepList
+          className="overflow-hidden rounded-xl border bg-card shadow-xs"
+          steps={steps.map((s, i) => ({
+            text: s.text,
+            result: result?.steps[i],
+            shot: url(result?.steps[i]?.screenshot),
+            signs: stepSigns(s),
+            after: wallet === "signs" && i === branchAt ? <div id="conditions" className="scroll-mt-24">{forks}</div> : undefined,
+          }))}
+        />
+        {wallet && wallet !== "signs" && (
+          <div className="flex flex-col gap-2 px-1 pt-1">
+            {hasConditions && forks}
+            <p className="flex gap-2 text-sm text-muted-foreground">
+              <Wallet className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              {wallet === "none" ? "This test never asks the wallet to sign, so conditions have nothing to change." : "Conditions unlock once a run of this test reaches the wallet."}
+            </p>
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -312,9 +337,10 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
   );
 }
 
+/** Every result of this test, newest first. Each belongs to a run (a batch), which the Runs page lists. */
 function History({ appId, testId, runs, selected }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string }) {
   return (
-    <Panel title="Runs" count={runs.length}>
+    <Panel title="Results" count={runs.length}>
       <ul className="divide-y">
         {runs.map((r, i) => (
           <li key={r.id}>

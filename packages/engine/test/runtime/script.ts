@@ -1,9 +1,9 @@
-import { Flow } from "@dappdrill/core";
+import { ReplayScript } from "@dappdrill/core";
 
-/** The test dApp's deposit flow: connect MetaMask, approve TUSD, deposit, see the confirmation. */
-export function depositFlow(startUrl: string, token: string, vault: string, overrides: Partial<Flow> = {}): Flow {
-  return Flow.parse({
-    id: "flow_deposit",
+/** The test dApp's deposit script: connect MetaMask, approve TUSD, deposit, see the confirmation. */
+export function depositScript(startUrl: string, token: string, vault: string, overrides: Partial<ReplayScript> = {}): ReplayScript {
+  return ReplayScript.parse({
+    id: "test_deposit",
     name: "Deposit TUSD",
     origin: "recorded",
     startUrl,

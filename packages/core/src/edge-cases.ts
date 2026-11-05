@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+/**
+ * A condition: something going wrong on a test's route (the wallet rejects, the RPC is slow).
+ * The id is what the engine's replay switches on; the rest is the one place its name and
+ * expected result are written, so the UI, the judge and the CLI read the same words.
+ */
 export const EdgeCaseId = z.enum([
   "happy",
   "reject",
@@ -10,43 +15,49 @@ export const EdgeCaseId = z.enum([
   "low-gas",
   "slow-rpc",
   "failing-rpc",
-  "reload-mid-flow",
+  "reload-while-pending",
   "speed-up",
   "existing-approval",
   "revoked-approval",
 ]);
 export type EdgeCaseId = z.infer<typeof EdgeCaseId>;
 
-export interface EdgeCaseInfo {
+export interface ConditionInfo {
   id: EdgeCaseId;
-  /** Column header in the report matrix. */
-  label: string;
-  /** One-line plain description for the scan setup screen. */
-  description: string;
-  /** Needs fork control (balances, mining, RPC proxy); unavailable in live mode. */
+  /** What users read: "Rejected in wallet". */
+  name: string;
+  /** What a well-behaved app does; shown to users and given to the judge. */
+  expected: string;
+  /** Needs fork control (balances, mining, RPC proxy); doesn't apply in live mode. */
   needsFork: boolean;
-  /** On by default for new scans. */
+  /** Offered as a condition on a test. Engine-only cases (the happy path itself, approval states) are not. */
+  offered: boolean;
+  /** Pre-selected when adding conditions; what --unhappy and the assistant add. */
   default: boolean;
 }
 
-export const EDGE_CASES: EdgeCaseInfo[] = [
-  { id: "happy", label: "Happy path", description: "Approve everything, like a normal user.", needsFork: false, default: true },
-  { id: "reject", label: "Reject", description: "Reject the request in the wallet (error 4001).", needsFork: false, default: true },
-  { id: "wrong-network", label: "Wrong network", description: "Start the wallet on a different network.", needsFork: false, default: true },
-  { id: "unknown-chain", label: "Unknown chain", description: "Wallet doesn't know the chain yet (error 4902).", needsFork: false, default: false },
-  { id: "switch-account", label: "Switch account", description: "Switch to another account in the middle of the flow.", needsFork: false, default: true },
-  { id: "two-wallets", label: "Two wallets", description: "Two browser wallets installed at once (EIP-6963).", needsFork: false, default: true },
-  { id: "low-gas", label: "Low gas", description: "Not enough ETH to pay for gas.", needsFork: true, default: true },
-  { id: "slow-rpc", label: "Slow RPC", description: "Every RPC call takes several seconds.", needsFork: true, default: true },
-  { id: "failing-rpc", label: "Failing RPC", description: "Some RPC calls fail.", needsFork: true, default: false },
-  { id: "reload-mid-flow", label: "Reload", description: "Reload the page while a transaction is pending.", needsFork: true, default: false },
-  { id: "speed-up", label: "Speed up", description: "Replace a pending transaction with a faster one.", needsFork: true, default: false },
-  { id: "existing-approval", label: "Already approved", description: "Token already approved before the flow starts.", needsFork: true, default: false },
-  { id: "revoked-approval", label: "Revoked approval", description: "Approval revoked before the flow starts.", needsFork: true, default: false },
+/** Every condition the replay knows, in the order they are shown and run. */
+export const CONDITIONS: ConditionInfo[] = [
+  { id: "happy", name: "Happy path", expected: "The test completes as written.", needsFork: false, offered: false, default: false },
+  { id: "reject", name: "Rejected in wallet", expected: "The app shows that the request was rejected and lets the user try again.", needsFork: false, offered: true, default: true },
+  { id: "slow-rpc", name: "Slow RPC", expected: "The app keeps working, just slower, and shows that it is loading.", needsFork: true, offered: true, default: true },
+  { id: "wrong-network", name: "Wrong network", expected: "The app notices the wrong network and asks the wallet to switch before sending anything.", needsFork: false, offered: true, default: true },
+  { id: "low-gas", name: "Not enough gas", expected: "The app tells the user there isn't enough ETH for gas and lets them try again.", needsFork: true, offered: true, default: true },
+  { id: "switch-account", name: "Account switched", expected: "The app uses the newly selected account for everything that follows.", needsFork: false, offered: true, default: false },
+  { id: "failing-rpc", name: "Failing RPC", expected: "The app retries, or shows a clear error, when an RPC call fails.", needsFork: true, offered: true, default: false },
+  { id: "reload-while-pending", name: "Reload while pending", expected: "After a reload the app shows the pending transaction and then its confirmation.", needsFork: true, offered: true, default: false },
+  { id: "two-wallets", name: "Two wallets installed", expected: "The app uses the wallet the user picked when two are installed.", needsFork: false, offered: true, default: false },
+  { id: "unknown-chain", name: "Chain unknown to wallet", expected: "The app adds the chain to the wallet when the wallet doesn't know it yet.", needsFork: false, offered: true, default: false },
+  { id: "speed-up", name: "Sped-up transaction", expected: "The app notices the replaced transaction and shows it as confirmed.", needsFork: true, offered: true, default: false },
+  { id: "existing-approval", name: "Already approved", expected: "The app reads the current allowance and skips the approval when it is enough.", needsFork: true, offered: false, default: false },
+  { id: "revoked-approval", name: "Approval revoked", expected: "The app asks for a new approval when the old one is gone.", needsFork: true, offered: false, default: false },
 ];
 
-export function edgeCaseInfo(id: EdgeCaseId): EdgeCaseInfo {
-  return EDGE_CASES.find((e) => e.id === id)!;
+/** The conditions a test can be given. */
+export const OFFERED_CONDITIONS = CONDITIONS.filter((c) => c.offered);
+
+export function conditionInfo(id: EdgeCaseId): ConditionInfo {
+  return CONDITIONS.find((c) => c.id === id)!;
 }
 
-export const DEFAULT_EDGE_CASES: EdgeCaseId[] = EDGE_CASES.filter((e) => e.default).map((e) => e.id);
+export const DEFAULT_EDGE_CASES: EdgeCaseId[] = CONDITIONS.filter((c) => c.default || c.id === "happy").map((c) => c.id);

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -20,27 +20,29 @@ export interface ShellProps {
   apps: ShellApp[];
   lastAppId?: string;
   user: { name: string; email: string };
-  team: { id: string; name: string };
-  teams: { id: string; name: string }[];
-  switchTeam: (teamId: string) => Promise<void>;
+  org: { id: string; name: string };
+  orgs: { id: string; name: string }[];
+  switchOrg: (orgId: string) => Promise<void>;
 }
 
 const NAV = [
   { label: "Tests", path: "" },
+  { label: "Runs", path: "/runs" },
   { label: "Settings", path: "/settings" },
 ];
 
-export function Header({ apps, lastAppId, user, team, teams, switchTeam }: ShellProps) {
+export function Header({ apps, lastAppId, user, org, orgs, switchOrg }: ShellProps) {
   const params = useParams<{ appId?: string }>();
   const pathname = usePathname();
-  const app = apps.find((a) => a.id === params.appId) ?? apps.find((a) => a.id === lastAppId) ?? apps[0];
+  // On an app's page that app is the one shown, even for the moment it isn't in this organization's list yet.
+  const app = params.appId ? apps.find((a) => a.id === params.appId) : (apps.find((a) => a.id === lastAppId) ?? apps[0]);
 
   // Remember the app last looked at, for "/".
   useEffect(() => {
     if (params.appId) document.cookie = `dd_app=${params.appId}; path=/; max-age=31536000; samesite=lax`;
   }, [params.appId]);
 
-  const base = app ? `/apps/${app.id}` : null;
+  const base = params.appId ? `/apps/${params.appId}` : app ? `/apps/${app.id}` : null;
   const active = (path: string) => {
     if (!base) return false;
     if (path === "") return pathname === base || pathname.startsWith(`${base}/tests`);
@@ -73,9 +75,42 @@ export function Header({ apps, lastAppId, user, team, teams, switchTeam }: Shell
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="max-w-56 gap-1.5 px-2" aria-label="Switch app">
+            <Button variant="ghost" size="sm" className="max-w-32 gap-1.5 px-2 sm:max-w-48" aria-label="Switch organization">
+              <span className="truncate">{org.name}</span>
+              <ChevronsUpDown className="text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Organizations</DropdownMenuLabel>
+            {orgs.map((o) => (
+              <DropdownMenuItem key={o.id} onSelect={() => o.id !== org.id && switchOrg(o.id)}>
+                <span className="truncate">{o.name}</span>
+                {o.id === org.id && <Check className="ml-auto" aria-label="Current" />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/organization">
+                <Settings /> Organization settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/organizations/new">
+                <Plus /> Create organization
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <span aria-hidden="true" className="-mx-2 text-muted-foreground/50 sm:-mx-4">
+          /
+        </span>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="max-w-32 gap-1.5 px-2 sm:max-w-56" aria-label="Switch app">
               <span className="truncate" title={app?.host}>
-                {app ? app.name : "No apps yet"}
+                {app ? app.name : params.appId ? "…" : "No apps yet"}
               </span>
               <ChevronsUpDown className="text-muted-foreground" />
             </Button>
@@ -114,19 +149,9 @@ export function Header({ apps, lastAppId, user, team, teams, switchTeam }: Shell
                 <span className="font-medium">{user.name || user.email}</span>
                 <span className="text-xs text-muted-foreground">{user.email}</span>
               </DropdownMenuLabel>
-              {teams.length > 1 && (
-                <>
-                  <DropdownMenuSeparator />
-                  {teams.map((t) => (
-                    <DropdownMenuItem key={t.id} className={cx(t.id === team.id && "font-medium")} onSelect={() => switchTeam(t.id)}>
-                      {t.name}
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/account">Account</Link>
+                <Link href="/organization">Organization settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={async () => {

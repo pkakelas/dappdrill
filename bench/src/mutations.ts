@@ -15,7 +15,7 @@ export interface Mutation {
   edgeCases: EdgeCaseId[];
   /** Issue categories that count as naming the bug ("signing" also counts a worse signing review). */
   catches: IssueCategory[];
-  /** Whether a flow can hit the bug, judged from the wallet requests of its clean run. */
+  /** Whether a test can hit the bug, judged from the wallet requests of its clean run. */
   relevant: (requests: WalletRequest[]) => boolean;
   /** Page script; logs FIRED_MARK when it changed something, so untriggered runs don't count. */
   script: string;

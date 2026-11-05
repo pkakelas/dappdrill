@@ -3,8 +3,9 @@
  * no chain, but paces itself and writes frames and screenshots like the real one,
  * so the worker and the web app can be built and tested without either.
  *
- * The fake app is a small USDC vault. "Withdraw" tests fail at their withdraw
- * step; the slow-RPC and low-gas unhappy paths find a problem; everything else passes.
+ * The fake app is a small USDC vault. "Withdraw" tests fail at their withdraw step and their
+ * conditions can't run until it passes; the slow-RPC and low-gas conditions find a problem;
+ * "Claim rewards" signs something dangerous; everything else passes.
  *
  * Selected with DAPPDRILL_FAKE_ENGINE=1. DAPPDRILL_FAKE_DELAY_MS sets the pace (default 100).
  */
@@ -37,6 +38,7 @@ export interface Engine {
 
 const ACCOUNT = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
 const VAULT = "0x9f3a6c1e0b7d4e2a8c5f1b3d7e9a2c4f6b8dc2e1";
+const USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const COLOURS: [number, number, number][] = [
   [240, 240, 236],
   [220, 226, 240],
@@ -87,40 +89,33 @@ const analyze: Engine["analyze"] = async (target, opts, sink, signal) => {
     }
   } catch (e) {
     if (!isAbort(e)) throw e;
-    return { flows: [], chains: chainsOf(target), costUsd: 0.04 };
+    return { tests: [], untested: [], chains: chainsOf(target), costUsd: 0.04 };
   }
-  const flows = [
+  const tests = [
     {
-      name: "Deposit",
-      test: {
-        name: "Deposit USDC",
-        goal: "Deposit a small amount of USDC into the vault and see it counted.",
-        expected: "Deposited shows 5.00 USDC and the wallet balance drops by 5.",
-        startPath: "/vault",
-        steps: ["Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet", "Check Deposited shows 5.00"],
-      },
+      name: "Deposit USDC",
+      goal: "Deposit a small amount of USDC into the vault and see it counted.",
+      expected: "Deposited shows 5.00 USDC and the wallet balance drops by 5.",
+      startPath: "/vault",
+      steps: ["Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet", "Check Deposited shows 5.00"],
     },
     {
-      name: "Withdraw",
-      test: {
-        name: "Withdraw everything",
-        goal: "Withdraw the whole deposit back to the wallet.",
-        expected: "Deposited shows 0.00 and the balance is back to 1,000 USDC.",
-        startPath: "/vault",
-        steps: ["Connect the wallet", "Deposit 5 USDC first", "Click Withdraw", "Approve in the wallet", "Check Deposited shows 0.00"],
-      },
+      name: "Withdraw everything",
+      goal: "Withdraw the whole deposit back to the wallet.",
+      expected: "Deposited shows 0.00 and the balance is back to 1,000 USDC.",
+      startPath: "/vault",
+      steps: ["Connect the wallet", "Deposit 5 USDC first", "Click Withdraw", "Approve in the wallet", "Check Deposited shows 0.00"],
     },
     {
       name: "Claim rewards",
-      test: {
-        name: "Claim rewards",
-        goal: "Claim the accrued rewards into the wallet.",
-        expected: "Claimable rewards shows 0.00 and a success message appears.",
-        startPath: "/vault",
-        steps: ["Connect the wallet", "Click Claim rewards", "Approve in the wallet", "Check rewards show 0.00"],
-      },
+      goal: "Claim the accrued rewards into the wallet.",
+      expected: "Claimable rewards shows 0.00 and a success message appears.",
+      startPath: "/vault",
+      steps: ["Connect the wallet", "Click Claim rewards", "Approve in the wallet", "Check rewards show 0.00"],
     },
   ];
+  // Seen while exploring, nothing written: shows under Not tested yet.
+  const untested = [{ name: "Borrow against the deposit", goal: "Take a USDC loan against what is in the vault." }];
   return {
     map: {
       summary: "Harbor is a USDC vault on Base. Users connect a wallet, deposit USDC to earn rewards, withdraw, and claim rewards.",
@@ -135,7 +130,8 @@ const analyze: Engine["analyze"] = async (target, opts, sink, signal) => {
       when: "once",
       why: "The faucet gives test USDC once per account.",
     },
-    flows,
+    tests,
+    untested,
     chains: chainsOf(target),
     costUsd: 0.06,
   };
@@ -177,10 +173,11 @@ function signRequest(chainId: number, rejected: boolean): WalletRequest {
 }
 
 function review(request: WalletRequest, testName: string): SigningReview {
+  if (/claim/i.test(testName)) return dangerousReview(request, testName);
   return {
     id: newId("sig"),
     requestId: request.id,
-    flowId: "fake",
+    testId: "fake",
     stepIndex: 0,
     chainId: request.chainId ?? 8453,
     method: "eth_sendTransaction",
@@ -194,6 +191,34 @@ function review(request: WalletRequest, testName: string): SigningReview {
     approvals: [],
     checks: [{ id: "verified-source", label: "Verified source", status: "pass", detail: "Verified on Sourcify." }],
     explanation: "Target, function and amount match what the page showed.",
+    createdAt: nowIso(),
+  };
+}
+
+/** The claim button sends an unlimited approval to an unverified contract: Dangerous. */
+function dangerousReview(request: WalletRequest, testName: string): SigningReview {
+  const spender = "0x9f3a2c7bd5e1f4a6c8b0d2e4f6a8c0b2d4e6f8a1";
+  return {
+    id: newId("sig"),
+    requestId: request.id,
+    testId: "fake",
+    stepIndex: 0,
+    chainId: request.chainId ?? 8453,
+    method: "eth_sendTransaction",
+    fingerprint: `fake-${testName}`,
+    verdict: "dangerous",
+    title: "Unlimited USDC approval to an unverified contract",
+    summary: "The Claim button asks for an unlimited USDC approval to a contract with no verified source, not a claim.",
+    ui: { buttonLabel: "Claim rewards", pageUrl: "/vault" },
+    decoded: { kind: "transaction", to: USDC, contractName: "USDC", functionName: "approve", signature: "approve(address,uint256)", args: [{ name: "spender", type: "address", value: spender, display: spender }, { name: "amount", type: "uint256", value: "115792089237316195423570985008687907853269984665640564039457584007913129639935", display: "unlimited" }], abiSource: "sourcify" },
+    simulation: { status: "ok", balanceChanges: [] },
+    approvals: [{ standard: "erc20", token: USDC, symbol: "USDC", spender, amount: "", display: "unlimited USDC", unlimited: true }],
+    checks: [
+      { id: "ui-match", label: "Matches the button", status: "fail", detail: "The button says Claim rewards; the request is an approval." },
+      { id: "approval", label: "Approval", status: "fail", detail: "Approves unlimited USDC for a spender that is not the vault." },
+      { id: "verified-source", label: "Verified source", status: "fail", detail: "The spender has no verified source." },
+    ],
+    explanation: "An unlimited approval to an unknown, unverified spender behind a button labelled Claim rewards.",
     createdAt: nowIso(),
   };
 }
@@ -226,6 +251,12 @@ const runTests: Engine["runTests"] = async (target, items, opts, hooks) => {
       if (condition && !source.steps.some((s) => walletWords.test(s.text)) && !["slow-rpc", "failing-rpc"].includes(spec.condition!)) {
         status = "skipped";
         result.failure = "The test has no wallet step.";
+        for (const s of result.steps) s.status = "skipped";
+      } else if (condition && /withdraw/i.test(source.name)) {
+        // The condition replays the base's steps; a base that fails can't lend them.
+        await beat(signal ?? opts.signal, 3);
+        status = "error";
+        result.failure = `“${source.name}” has to pass before its conditions can run.`;
         for (const s of result.steps) s.status = "skipped";
       } else {
         for (const [i, step] of source.steps.entries()) {
@@ -334,19 +365,18 @@ const chatTurn: Engine["chatTurn"] = async (_target, input) => {
     const detail = await call("get_test", { testId });
     const failure = /^Latest run: fail(?:ed)?\. (.+)$/m.exec(detail)?.[1];
     text = failure ? `It failed at ${failure.replace(/^Step/, "step")} Nothing was sent to the wallet after that.` : "Its latest run didn't fail.";
-  } else if (testId && /unhappy|edge|reject/i.test(msg)) {
-    await call("add_unhappy_paths", { testId });
-    text = "Added the usual unhappy paths and started them.";
-  } else if (testId && /fork|same|instead|but /i.test(msg)) {
-    await call("fork_test", { testId, change: msg });
-    text = "Forked it. The copy runs as soon as it's written.";
+  } else if (testId && /condition|unhappy|edge|reject/i.test(msg)) {
+    await call("add_conditions", { testId });
+    text = "Added the usual conditions and started them.";
+  } else if (testId && /duplicate|fork|same|instead|but /i.test(msg)) {
+    await call("duplicate_test", { testId, change: msg });
+    text = "Duplicated it. The copy runs as soon as it's written.";
   } else if (/\brun\b/i.test(msg)) {
     if (testId) await call("run_tests", { testIds: [testId] });
     text = testId ? "Running it now." : "Which test? Open it and ask again, or use Run all.";
   } else if (/\b(add|new|write|create)\b/i.test(msg)) {
-    const flow = /^(.+?) \(flow /m.exec(await call("list_tests", {}))?.[1] ?? "Deposit";
-    await call("create_test", { flow, request: msg });
-    text = `Writing it in ${flow}. It runs as soon as it's written.`;
+    await call("create_test", { request: msg });
+    text = "Writing it. It runs as soon as it's written.";
   } else {
     const list = await call("list_tests", {});
     const count = list.split("\n").filter((l) => l.startsWith("- ")).length;

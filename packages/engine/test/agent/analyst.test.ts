@@ -15,20 +15,20 @@ afterAll(async () => {
 const submission = {
   summary: "A vault.",
   pages: [{ path: "/vault.html", purpose: "Deposit" }],
-  flows: [{ name: "Deposit", test: { name: "Deposit USDC", goal: "Deposit a little.", expected: "The vault shows it.", startPath: "/vault.html", steps: ["Connect the wallet", "Click Deposit", "Approve in the wallet"] } }],
+  tests: [{ name: "Deposit USDC", goal: "Deposit a little.", expected: "The vault shows it.", startPath: "/vault.html", steps: ["Connect the wallet", "Click Deposit", "Approve in the wallet"] }],
 };
 const blocked = { tool: "report_blocked", input: { reason: "The /swap widget shows a human check" } };
 
 describe("analyzeApp", () => {
-  it("keeps the flows found elsewhere when a side page is blocked", async () => {
+  it("keeps the tests found elsewhere when a side page is blocked", async () => {
     const out = await analyzeApp(session, scriptedRuns([[blocked, { tool: "submit", input: submission }]]));
     expect(out.blocked).toBeUndefined();
-    expect(out.flows.map((f) => f.name)).toEqual(["Deposit"]);
+    expect(out.tests.map((t) => t.name)).toEqual(["Deposit USDC"]);
   });
 
   it("reports the block when nothing could be submitted", async () => {
     const out = await analyzeApp(session, scriptedRuns([[blocked]]));
-    expect(out.flows).toEqual([]);
+    expect(out.tests).toEqual([]);
     expect(out.blocked?.reason).toContain("human check");
   });
 });

@@ -1,12 +1,12 @@
 # DappDrill
 
-Tests for web3 dApp frontends. Paste a URL: in a minute or two DappDrill finds the app's main
-flows and writes a test for each one, with a goal, an expected result and short steps. It runs
+Tests for web3 dApp frontends. Paste a URL: in a minute or two DappDrill finds what users do
+in the app and writes a test for the main things, with a goal, an expected result and short steps. It runs
 them with its own test wallet on local Anvil forks, adds unhappy paths (rejected in wallet, slow
 RPC, wrong network, low gas) and reviews every signature request. Nothing touches mainnet.
 
 ```
-apps/web          Next.js app: accounts, apps, flows and tests, runs, settings, the assistant
+apps/web          Next.js app: accounts, apps, tests, runs, settings, the assistant
 apps/worker       pg-boss jobs that run the engine and store results in Postgres
 packages/engine   The drilling backend (Playwright + Anvil + Claude). No database
 packages/cli      `dappdrill` CLI: the engine on its own, for CI or local runs
@@ -46,20 +46,28 @@ corepack pnpm cli analyze http://localhost:5173
 The engine runs without the web app or a database:
 
 ```bash
-dappdrill analyze <url>                 # find the flows, write .dappdrill/tests.json, run it
+dappdrill analyze <url>                 # find what to test, write .dappdrill/tests.json, run it
 dappdrill run                           # run .dappdrill/tests.json
-dappdrill run --url <url> --only deposit --unhappy --condition failing-rpc --junit junit.xml
+dappdrill run --url <url> --only deposit --conditions --condition failing-rpc --junit junit.xml
 ```
 
-`run` exits 0 when the tests passed, 1 when one failed, and 2 when one couldn't run, the run was
-stopped or nothing ran. `--unhappy` adds the usual unhappy paths and `--condition <id>` adds any
-other, but only to tests that ask the wallet to sign. A test that hasn't reached the wallet yet
-runs first and gets its unhappy paths in the same run if it does.
+`--conditions` adds the usual conditions (rejected in wallet, slow RPC…) and `--condition <id>` adds
+any other, but only to tests that ask the wallet to sign. A test that hasn't reached the wallet yet
+runs first and gets its conditions in the same run if it does. `--unhappy` still works and means the
+same as `--conditions`.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Everything passed |
+| 1 | A test failed, or a signature was Dangerous, even on a test that passed |
+| 2 | The only problem is a test that couldn't run, a run that was stopped (Ctrl-C), a run where nothing ran, or DappDrill itself (bad flags, blocked, no tests found) |
 
 Every signature request is reviewed. Dangerous and Check this reviews show under their test and in
-`summary.md`, all of them are in the JUnit output, and `results.json` has the full detail. A
-review doesn't change the exit code unless you pass `--fail-on-dangerous`, which exits 1 on a
-Dangerous review even if the tests passed.
+`summary.md`, all of them are in the JUnit output, and `results.json` has the full detail.
+
+In JUnit output a case is named "Test · Condition", and a test with a Dangerous signature
+is a failure, whatever its own result. A signing verdict never changes a test's own status in
+`results.json`.
 
 The tests file is plain JSON: edit a test's goal, expected result or steps by hand and commit it.
 Runs save the browser actions that worked back into it, so the next run is fast. Results go to

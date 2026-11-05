@@ -21,7 +21,7 @@ export async function scheduleTick(db: Db, boss: PgBoss, at = utcMinute()): Prom
   const due = await db.select().from(apps).where(eq(apps.scheduleTime, at));
   const started: string[] = [];
   for (const app of due) {
-    if (!(await mayRunUnattended(db, app.teamId, app.host))) {
+    if (!(await mayRunUnattended(db, app.organizationId, app.host))) {
       log.warn(`${app.name}: ${app.host} is not a verified domain; skipping the scheduled run`);
       continue;
     }
@@ -46,13 +46,13 @@ export async function scheduleTick(db: Db, boss: PgBoss, at = utcMinute()): Prom
   return started;
 }
 
-async function mayRunUnattended(db: Db, teamId: string, host: string): Promise<boolean> {
+async function mayRunUnattended(db: Db, orgId: string, host: string): Promise<boolean> {
   const hostname = host.replace(/:\d+$/, "").toLowerCase();
   if (config.dev && LOCAL_HOSTS.has(hostname)) return true;
   const [verified] = await db
     .select({ id: domains.id })
     .from(domains)
-    .where(and(eq(domains.teamId, teamId), eq(domains.host, hostname), isNotNull(domains.verifiedAt)))
+    .where(and(eq(domains.organizationId, orgId), eq(domains.host, hostname), isNotNull(domains.verifiedAt)))
     .limit(1);
   return Boolean(verified);
 }

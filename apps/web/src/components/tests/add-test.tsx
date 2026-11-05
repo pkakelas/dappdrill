@@ -1,113 +1,82 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useId, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { addTestAction } from "@/actions/tests";
+import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 /** One sentence; the worker writes the steps and runs it. */
-export function AddTest({ appId, flowId, flowName, onClose }: { appId: string; flowId: string; flowName: string; onClose: () => void }) {
+export function AddTest({ appId, placeholder = "e.g. Withdraw half and check the balance", onAdded, className }: { appId: string; placeholder?: string; onAdded?: () => void; className?: string }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
-
-  const submit = () =>
-    start(async () => {
-      const r = await addTestAction(appId, { id: flowId }, text);
-      if (r.error) return setError(r.error);
-      setText("");
-      setError(undefined);
-      onClose();
-    });
+  const ready = text.trim().length >= 3;
 
   return (
     <form
-      className="flex flex-col gap-2 pb-3"
+      className={cx("flex flex-col gap-1", className)}
       onSubmit={(e) => {
         e.preventDefault();
-        submit();
+        if (!ready) return;
+        start(async () => {
+          const r = await addTestAction(appId, text);
+          if (r.error) return setError(r.error);
+          setText("");
+          setError(undefined);
+          onAdded?.();
+        });
       }}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <Label htmlFor={`add-${flowId}`} className="sr-only">
-          New test in {flowName}
-        </Label>
+      <div className="relative">
+        <Plus aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-sky-600" />
         <Input
-          id={`add-${flowId}`}
-          autoFocus
+          aria-label="Add a test"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && onClose()}
           disabled={pending}
-          placeholder="Describe it in a sentence, e.g. withdraw half and check the balance"
-          className="sm:w-auto sm:flex-1"
+          placeholder={placeholder}
+          className={cx("h-9 bg-background pl-9 transition-colors placeholder:text-muted-foreground/80 hover:border-foreground/25", ready && "pr-28")}
         />
-        <Button type="submit" size="sm" disabled={pending || text.trim().length < 3}>
-          {pending ? "Adding…" : "Add"}
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={onClose}>
-          Cancel
-        </Button>
+        {ready && (
+          <Button type="submit" size="xs" disabled={pending} className="absolute top-1/2 right-1.5 -translate-y-1/2">
+            {pending ? "Adding…" : "Write and run"}
+          </Button>
+        )}
       </div>
-      {error ? <p className="text-sm text-bad">{error}</p> : <p className="text-sm text-muted-foreground">It writes the steps from your sentence and runs it.</p>}
+      {error && <p className="text-sm text-bad">{error}</p>}
     </form>
   );
 }
 
-/** A new flow with its first test. */
-export function NewFlow({ appId, first }: { appId: string; first?: boolean }) {
-  const [open, setOpen] = useState(Boolean(first));
-  const [name, setName] = useState("");
-  const [text, setText] = useState("");
-  const [error, setError] = useState<string>();
-  const [pending, start] = useTransition();
-  const id = useId();
-
-  if (!open)
-    return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} className="w-fit">
-        <Plus aria-hidden="true" />
-        New flow
-      </Button>
-    );
+/** Sits beside Run all. A new test lands on the Tests tab, so that's where this ends up from the other tabs. */
+export function AddTestButton({ appId }: { appId: string }) {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
   return (
-    <form
-      className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs"
-      onSubmit={(e) => {
-        e.preventDefault();
-        start(async () => {
-          const r = await addTestAction(appId, { name }, text);
-          if (r.error) return setError(r.error);
-          setName("");
-          setText("");
-          setError(undefined);
-          setOpen(Boolean(first));
-        });
-      }}
-    >
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`${id}-flow`}>Flow</Label>
-          <Input id={`${id}-flow`} autoFocus={!first} value={name} onChange={(e) => setName(e.target.value)} disabled={pending} placeholder="Borrow" maxLength={60} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`${id}-test`}>First test</Label>
-          <Input id={`${id}-test`} value={text} onChange={(e) => setText(e.target.value)} disabled={pending} placeholder="Borrow 100 USDC against ETH and see the debt" />
-        </div>
-      </div>
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={pending || !name.trim() || text.trim().length < 3}>
-          {pending ? "Adding…" : "Add flow"}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline">
+          <Plus aria-hidden="true" />
+          Add test
         </Button>
-        {!first && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-        )}
-      </div>
-    </form>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>What else should we test?</DialogTitle>
+          <DialogDescription>One sentence is enough. DappDrill writes the steps and runs it.</DialogDescription>
+        </DialogHeader>
+        <AddTest
+          appId={appId}
+          onAdded={() => {
+            setOpen(false);
+            router.push(`/apps/${appId}`);
+          }}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

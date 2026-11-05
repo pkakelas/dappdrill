@@ -31,7 +31,7 @@ export function Addr({ value, chars = 4, className }: { value?: string | null; c
   );
 }
 
-/** Only problems get colour: bad for Critical / Dangerous, warn for Medium / Check this. */
+/** bad for Critical / Dangerous, warn for Medium / Check this. */
 const TONE = {
   bad: "bg-bad-bg text-bad-ink",
   high: "bg-bad-soft text-bad",

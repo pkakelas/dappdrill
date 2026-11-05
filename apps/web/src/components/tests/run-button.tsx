@@ -2,11 +2,11 @@
 
 import { Play, Square } from "lucide-react";
 import { useTransition } from "react";
-import { runAllAction, runFlowAction, runTestsAction, stopRunsAction } from "@/actions/tests";
+import { runAllAction, runTestsAction, stopRunsAction } from "@/actions/tests";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 
-export type RunTarget = { appId: string } & ({ testIds: string[] } | { flowId: string } | { all: true });
+export type RunTarget = { appId: string } & ({ testIds: string[] } | { all: true });
 
 /**
  * Play, or stop while any of the target's tests is queued or running.
@@ -35,7 +35,6 @@ export function RunButton({
     start(async () => {
       if (active) return stopRunsAction(target.appId, "all" in target ? undefined : stopIds);
       if ("testIds" in target) return runTestsAction(target.appId, target.testIds);
-      if ("flowId" in target) return runFlowAction(target.flowId);
       return runAllAction(target.appId);
     });
   };

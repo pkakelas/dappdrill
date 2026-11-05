@@ -38,11 +38,13 @@ since the last run. Self-serve, €100/month per app.
 
 ## UX direction for v2 (proposed, not yet built)
 
-1. Navigation: Overview · Flows · Runs. "Scan" is a header button; Account sits under the avatar.
+The model is now App > Test > Condition: there is no Flow entity. "Flow" elsewhere in this document means what a user does, which is a test.
+
+1. Navigation: Overview · Tests · Runs. "Scan" is a header button; Account sits under the avatar.
 2. Home answers "is my dApp OK?" with one status line, then what needs attention.
-3. One status vocabulary everywhere: Broken / Review / OK. Only problems get colour; OK is quiet grey.
+3. One status vocabulary everywhere: Broken / Review / OK. Each status has its own soft tint: green for OK, rose for Broken, amber for Review.
 4. Scan setup is URL + Start. Detect chains and wallets from the site; put the rest behind "Customize".
-5. Flow page: Variations replace both the forks list and the across-wallets list.
+5. Test page: Variations replace both the forks list and the across-wallets list.
 6. Issue, grid-cell and signing details open in a side panel instead of a new page.
 7. One "Describe a change…" bar under the steps; Record and Code are secondary links.
 8. Signing review leads with the verdict and the button-vs-calldata comparison; passed

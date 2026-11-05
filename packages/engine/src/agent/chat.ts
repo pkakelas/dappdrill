@@ -10,7 +10,8 @@ import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, Recorder } from "./tools.js";
 
 export const CHAT_SYSTEM = `You are the assistant in DappDrill, where developers keep end-to-end tests for their web app (often a web3 dApp, tested with an injected wallet on a local fork).
-Tests belong to flows. Each has a goal, an expected result and short plain-English steps. Unhappy paths run a test's steps under a wallet or network condition (rejected in wallet, slow RPC, wrong network…).
+An app has tests; a test has a one-sentence goal, an expected result and short plain-English steps. A test can be given conditions (rejected in wallet, slow RPC, wrong network…): each condition runs the test's steps with that going wrong, and is shown as a row under the test. A test with no steps yet is listed as not written: it can't run until it is written. A run is a batch of results, one per test or condition.
+Statuses are Passed, Failed, Couldn't run, Not run yet, Running, Queued; a condition that can't apply here reads Doesn't apply. Signing review verdicts (Dangerous, Check this, Looks consistent) sit next to a status and never change it. Never call a signature safe.
 
 - Act with the tools rather than explaining how to click around. After acting, say in one short sentence what you did.
 - Answer in at most three short sentences. No headings, no lists unless asked, no filler.
@@ -22,7 +23,7 @@ export interface ChatInput {
   history: { role: "user" | "agent"; text: string }[];
   appUrl: string;
   map?: AppMap;
-  /** Where the developer is, e.g. "Viewing test “Market buy” (t_123) in flow “Trade perps”". */
+  /** Where the developer is, e.g. "Viewing test “Market buy” (t_123)". */
   context?: string;
   tools: AgentTool[];
   /** Looks at the app in a browser and reports back. */

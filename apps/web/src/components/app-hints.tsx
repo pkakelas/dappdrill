@@ -12,8 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { looksLikeKey } from "@/lib/secrets";
 import { cn } from "@/lib/utils";
 
-const MAX_FLOWS = 3;
-const FLOW_EXAMPLES = ["e.g. Swap ETH for USDC", "e.g. Add liquidity to a pool", "e.g. Claim rewards"];
+const MAX_TESTS = 3;
+const TEST_EXAMPLES = ["e.g. Swap ETH for USDC", "e.g. Add liquidity to a pool", "e.g. Claim rewards"];
 const TINT = {
   sky: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
   violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
@@ -27,17 +27,17 @@ const CORE_TIPS = [
   { id: "notes", label: HINT_LABELS.notes, question: "Additional notes", detail: "Anything that gets in the way of exploring.", placeholder: "e.g. A popup covers every page. Prices take a minute to load.", icon: NotebookPen, tint: TINT.amber },
 ] as const;
 const MORE_TIPS = [
-  { id: "success", label: HINT_LABELS.success, question: "How do you know it worked?", detail: "What users see after the main flows.", placeholder: "e.g. The swap shows up in History", icon: BadgeCheck, tint: TINT.emerald },
+  { id: "success", label: HINT_LABELS.success, question: "How do you know it worked?", detail: "What users see when it went right.", placeholder: "e.g. The swap shows up in History", icon: BadgeCheck, tint: TINT.emerald },
   { id: "tokens", label: HINT_LABELS.tokens, question: "Which tokens and amounts?", detail: "What the tests should use.", placeholder: "e.g. USDC on Base, under 10 at a time", icon: CircleDollarSign, tint: TINT.sky },
   { id: "pages", label: HINT_LABELS.pages, question: "Any pages that are hard to find?", detail: "Not in the menu, or only behind a link.", placeholder: "e.g. /vaults/new", icon: MapPin, tint: TINT.violet },
   { id: "changed", label: HINT_LABELS.changed, question: "What did you just change?", detail: "New or reworked parts of the app.", placeholder: "e.g. The new bridge page", icon: History, tint: TINT.amber },
   { id: "breaks", label: HINT_LABELS.breaks, question: "What keeps breaking?", detail: "Bugs that came back.", placeholder: "e.g. Approvals on Arbitrum", icon: Bug, tint: TINT.pink },
-  { id: "avoid", label: HINT_LABELS.avoid, question: "What should we leave alone?", detail: "Pages or actions to skip.", placeholder: "e.g. The referral flow", icon: Ban, tint: TINT.pink },
+  { id: "avoid", label: HINT_LABELS.avoid, question: "What should we leave alone?", detail: "Pages or actions to skip.", placeholder: "e.g. The referral page", icon: Ban, tint: TINT.pink },
 ] as const;
 const TIPS = [...CORE_TIPS, ...MORE_TIPS];
 type Tip = (typeof TIPS)[number];
 type TipId = Tip["id"];
-/** The flows and funds rows, plus every tip. */
+/** The tests and funds rows, plus every tip. */
 const QUESTIONS = TIPS.length + 2;
 // All answers together have to fit the 4,000 characters saved as hints.
 const TIP_MAX = 350;
@@ -95,39 +95,39 @@ function RemoveButton({ label, onClick }: { label: string; onClick: () => void }
   );
 }
 
-/** The flows the developer wants tested, one per row. Enter moves on to the next row. */
-function FlowList({ flows, onChange }: { flows: string[]; onChange: (flows: string[]) => void }) {
-  const canAdd = flows.length < MAX_FLOWS;
-  const add = () => onChange([...flows, ""]);
-  const onLoad = useRef(flows.length);
+/** What the developer wants tested, one per row. Enter moves on to the next row. */
+function TestList({ tests, onChange }: { tests: string[]; onChange: (tests: string[]) => void }) {
+  const canAdd = tests.length < MAX_TESTS;
+  const add = () => onChange([...tests, ""]);
+  const onLoad = useRef(tests.length);
   return (
     <>
-      {flows.map((flow, index) => (
+      {tests.map((test, index) => (
         <div key={index} className="relative">
           <Input
-            id={index === 0 ? "flow-0" : undefined}
-            aria-label={`Flow ${index + 1}`}
+            id={index === 0 ? "test-0" : undefined}
+            aria-label={`Test ${index + 1}`}
             // Only rows added by hand: saved ones shouldn't scroll the page on load, or take focus from the URL.
             autoFocus={index >= onLoad.current}
             maxLength={200}
-            placeholder={FLOW_EXAMPLES[index]}
-            value={flow}
-            onChange={(event) => onChange(flows.map((current, i) => (i === index ? event.target.value : current)))}
+            placeholder={TEST_EXAMPLES[index]}
+            value={test}
+            onChange={(event) => onChange(tests.map((current, i) => (i === index ? event.target.value : current)))}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
-              if (canAdd && index === flows.length - 1 && flow.trim()) add();
+              if (canAdd && index === tests.length - 1 && test.trim()) add();
             }}
-            className={cn("h-11 px-3.5", flows.length > 1 && "pr-10", HINT_FIELD)}
+            className={cn("h-11 px-3.5", tests.length > 1 && "pr-10", HINT_FIELD)}
           />
-          {flows.length > 1 && <RemoveButton label={`Remove flow ${index + 1}`} onClick={() => onChange(flows.filter((_, i) => i !== index))} />}
+          {tests.length > 1 && <RemoveButton label={`Remove test ${index + 1}`} onClick={() => onChange(tests.filter((_, i) => i !== index))} />}
         </div>
       ))}
-      {flows.some((flow) => looksLikeKey(flow)) && <KeyWarning />}
+      {tests.some((test) => looksLikeKey(test)) && <KeyWarning />}
       {canAdd && (
         <Button type="button" variant="ghost" size="sm" onClick={add} className="-ml-2 self-start text-muted-foreground">
           <Plus />
-          Add another flow
+          Add another
         </Button>
       )}
     </>
@@ -157,16 +157,16 @@ function TipRow({ tip, value, onChange, onRemove, focus, ...row }: TipRowProps) 
 /** The answers to the questions, from the saved hints when there are any. */
 export function useHints(saved?: { hints: string; funding: string }) {
   const [start] = useState(() => parseHints(saved?.hints ?? ""));
-  const [flows, setFlows] = useState(start.flows.length ? start.flows : [""]);
+  const [tests, setTests] = useState(start.tests.length ? start.tests : [""]);
   const [funding, setFunding] = useState(saved?.funding ?? "");
   const [tips, setTips] = useState(() => Object.fromEntries(TIPS.map((tip) => [tip.id, start.tips[tip.id] ?? ""])) as Record<TipId, string>);
   const [unlocked, setUnlocked] = useState<TipId[]>(() => MORE_TIPS.filter((tip) => start.tips[tip.id]).map((tip) => tip.id));
   const filledTips = TIPS.filter((tip) => tips[tip.id].trim());
-  const filledFlows = flows.filter((flow) => flow.trim());
-  const text = formatHints({ flows, tips });
+  const filledTests = tests.filter((test) => test.trim());
+  const text = formatHints({ tests, tips });
   return {
-    flows,
-    setFlows,
+    tests,
+    setTests,
     funding,
     setFunding,
     tips,
@@ -174,8 +174,8 @@ export function useHints(saved?: { hints: string; funding: string }) {
     unlocked,
     setUnlocked,
     text,
-    /** Tips and flows count one each; funds are counted by the rows, which know about the key. */
-    answered: filledTips.length + (filledFlows.length ? 1 : 0),
+    /** Tips and tests count one each; funds are counted by the rows, which know about the key. */
+    answered: filledTips.length + (filledTests.length ? 1 : 0),
     started: Boolean(funding.trim() || text || unlocked.length),
   };
 }
@@ -193,7 +193,7 @@ type HintRowsProps = {
 
 /** Every question, posted as `hints` and `funding`. */
 export function HintRows({ hints, keyField, hasKey, shown = true, split = false, rowClassName, className }: HintRowsProps) {
-  const { flows, setFlows, funding, setFunding, tips, setTip, unlocked, setUnlocked } = hints;
+  const { tests, setTests, funding, setFunding, tips, setTip, unlocked, setUnlocked } = hints;
   const row = { shown, split, className: rowClassName };
   const answered = hints.answered + (funding.trim() || hasKey ? 1 : 0);
   const locked = MORE_TIPS.filter((tip) => !unlocked.includes(tip.id));
@@ -201,8 +201,8 @@ export function HintRows({ hints, keyField, hasKey, shown = true, split = false,
   return (
     <div className={cn("flex flex-col gap-7", className)}>
       <input type="hidden" name="hints" value={hints.text} readOnly />
-      <HintRow icon={Route} tint={TINT.sky} title="Which flows should we test?" detail="What users do in your app. We'll start with these." htmlFor="flow-0" index={0} {...row}>
-        <FlowList flows={flows} onChange={setFlows} />
+      <HintRow icon={Route} tint={TINT.sky} title="What should we test?" detail="What users do in your app. We'll start with these." htmlFor="test-0" index={0} {...row}>
+        <TestList tests={tests} onChange={setTests} />
       </HintRow>
       <HintRow icon={Coins} tint={TINT.emerald} title="How do we get test funds?" detail="We'll look for a way ourselves, but a hint helps." htmlFor="funding" index={1} {...row}>
         <Textarea

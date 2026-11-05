@@ -1,4 +1,4 @@
-// Walks Harbor Vault's flows in Chromium with a minimal injected wallet backed by anvil's
+// Walks Harbor Vault's main actions in Chromium with a minimal injected wallet backed by anvil's
 // unlocked accounts, reproduces each seeded bug, and checks ?bugs=none behaves correctly.
 // Needs `pnpm start` first. Screenshots go to verify-output/.
 import { mkdirSync } from 'node:fs'
@@ -438,7 +438,7 @@ async function happyPath(): Promise<string> {
 
   await goto(s.page, 'Overview')
   const deposited = await s.page.getByTestId('deposited').innerText()
-  const flow = s.txs().map((t) => {
+  const sent = s.txs().map((t) => {
     if (t.functionName === 'approve') return `approve(${t.args[0] === addresses.HarborVault ? 'vault' : t.args[0]}, ${Number(t.args[1]) / 1e6})`
     if (t.functionName === 'claim') return `claim -> ${t.to === addresses.RewardsDistributor ? 'distributor' : t.to}`
     return t.functionName
@@ -446,7 +446,7 @@ async function happyPath(): Promise<string> {
   const signs = s.requests.filter((r) => r.method.includes('sign')).map((r) => r.method)
   if (s.pageErrors.length) throw new Error(`page errors: ${s.pageErrors.join('; ')}`)
   await s.close()
-  return `${flow.join(', ')}; ${signs.join(', ')}; deposited now ${deposited}`
+  return `${sent.join(', ')}; ${signs.join(', ')}; deposited now ${deposited}`
 }
 
 // ---- main -----------------------------------------------------------------------------------

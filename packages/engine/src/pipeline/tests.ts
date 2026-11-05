@@ -10,7 +10,7 @@ import {
   TestRunResult,
   type AppMap,
   type AppSetup,
-  type FlowRun,
+  type ConditionRun,
   type SigningReview,
   type Step,
   type TestRunStatus,
@@ -20,9 +20,9 @@ import { createRecoveryJudge } from "../agent/index.js";
 import { judgeExpected } from "../agent/tester.js";
 import { runEdgeCases } from "../runtime.js";
 import type { Env } from "./env.js";
-import { pin } from "./flows.js";
+import { pin } from "./pin.js";
 import { setupRunner, type Prepared, type SetupRunner } from "./setup.js";
-import { BlockedError, debug, flowOf, landingBotCheck, openSession, plain, walkSteps } from "./steps.js";
+import { BlockedError, debug, scriptOf, landingBotCheck, openSession, plain, walkSteps } from "./steps.js";
 
 export { landingBotCheck };
 
@@ -170,14 +170,14 @@ async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunT
   source.steps.forEach((s, i) => s.actions?.forEach((a) => (actions.push(a), owner.push(i))));
 
   const restore = await pin(env);
-  let run: FlowRun | undefined;
+  let run: ConditionRun | undefined;
   let issues: TestRunResult["issues"] = [];
   let reviews: SigningReview[] = [];
   try {
     const r = await runEdgeCases({
       target: env.target,
       chains: env.chains,
-      flow: flowOf(source, actions),
+      script: scriptOf(source, actions),
       edgeCases: [condition],
       reviewer: env.reviewer,
       judge: createRecoveryJudge(env.fastLlm()),

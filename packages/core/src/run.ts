@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ChainConfig } from "./chains.js";
 import { EdgeCaseId, DEFAULT_EDGE_CASES } from "./edge-cases.js";
-import { Flow, Variation, WalletProfileId } from "./flow.js";
+import { ReplayScript, Variation, WalletProfileId } from "./script.js";
 import { ConsoleEntry, Issue, RpcLogEntry } from "./issues.js";
 import { SigningReview, WalletRequest } from "./signing.js";
 
@@ -88,13 +88,13 @@ export const Stalled = z.object({
 export type Stalled = z.infer<typeof Stalled>;
 
 /**
- * Why a planned flow couldn't be recorded: the app misbehaved, the test setup can't do it
+ * Why a planned test couldn't be recorded: the app misbehaved, the test setup can't do it
  * (no funds, a rate limit, no key for the chain), or the agent couldn't work out how.
  */
 export const FailCause = z.enum(["app", "setup", "unsure"]);
 export type FailCause = z.infer<typeof FailCause>;
 
-/** A flow the explorer planned, and what became of it. */
+/** A test the explorer planned, and what became of it. */
 export const PlanItem = z.object({
   name: z.string(),
   /** 1 happy path, 2 variant, 3 unusual case. */
@@ -107,11 +107,11 @@ export const PlanItem = z.object({
   /** Why it failed or wasn't recorded. */
   note: z.string().optional(),
   cause: FailCause.optional(),
-  flowId: z.string().optional(),
+  testId: z.string().optional(),
 });
 export type PlanItem = z.infer<typeof PlanItem>;
 
-/** What the explorer understood about the app and the flows it planned, up to the scan's depth. */
+/** What the explorer understood about the app and the tests it planned, up to the scan's depth. */
 export const ScanPlan = z.object({
   profile: z.string(),
   persona: z.string(),
@@ -121,15 +121,15 @@ export type ScanPlan = z.infer<typeof ScanPlan>;
 
 export const ScanOptions = z.object({
   maxMinutes: z.number().default(60),
-  maxFlows: z.number().int().default(20),
+  maxTests: z.number().int().default(20),
   /** How deep the explorer goes: 1 happy paths, 2 variants, 3 unusual cases. Shallower levels are recorded first. */
   depth: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
-  /** Extra plain-English hints for the explorer ("there's a referral flow at /invite"). */
+  /** Extra plain-English hints for the explorer ("there's a referral page at /invite"). */
   hints: z.string().optional(),
-  /** Planned flows the user doesn't want tested, by name. */
-  skipFlows: z.array(z.string()).default([]),
-  /** Flows saved by earlier scans: re-recording one under its name updates it instead of adding a copy. */
-  knownFlows: z.array(z.object({ id: z.string(), name: z.string() })).default([]),
+  /** Planned tests the user doesn't want tested, by name. */
+  skipTests: z.array(z.string()).default([]),
+  /** Tests saved by earlier scans: re-recording one under its name updates it instead of adding a copy. */
+  knownTests: z.array(z.object({ id: z.string(), name: z.string() })).default([]),
   headless: z.boolean().default(true),
   /** Directory the engine writes videos, screenshots and traces into. */
   artifactsDir: z.string(),
@@ -162,13 +162,13 @@ export type StepResult = z.infer<typeof StepResult>;
 export const RunStatus = z.enum(["pass", "issue", "fail", "error", "skipped"]);
 export type RunStatus = z.infer<typeof RunStatus>;
 
-/** One flow under one edge case (one cell of the report matrix). */
-export const FlowRun = z.object({
+/** One test under one edge case (one cell of the report matrix). */
+export const ConditionRun = z.object({
   id: z.string(),
-  flowId: z.string(),
+  testId: z.string(),
   edgeCase: EdgeCaseId,
   variationId: z.string().optional(),
-  /** pass: worked; issue: worked but we found problems; fail: flow broke; error: our side failed; skipped: not applicable. */
+  /** pass: worked; issue: worked but we found problems; fail: test broke; error: our side failed; skipped: not applicable. */
   status: RunStatus,
   /** Why it was skipped / what failed, plainly. */
   reason: z.string().optional(),
@@ -186,14 +186,14 @@ export const FlowRun = z.object({
   startedAt: z.string(),
   finishedAt: z.string(),
 });
-export type FlowRun = z.infer<typeof FlowRun>;
+export type ConditionRun = z.infer<typeof ConditionRun>;
 
-export const ScanStage = z.enum(["map", "flows", "edge-cases", "signing"]);
+export const ScanStage = z.enum(["map", "tests", "edge-cases", "signing"]);
 export type ScanStage = z.infer<typeof ScanStage>;
 
 export const SCAN_STAGE_LABEL: Record<ScanStage, string> = {
   map: "Map pages",
-  flows: "Find and run flows",
+  tests: "Find and run tests",
   "edge-cases": "Wallet edge cases",
   signing: "Signing review",
 };
@@ -204,8 +204,8 @@ export const ScanReport = z.object({
   finishedAt: z.string(),
   chains: z.array(ChainConfig),
   pages: z.array(z.object({ url: z.string(), title: z.string().optional() })).default([]),
-  flows: z.array(Flow),
-  runs: z.array(FlowRun),
+  scripts: z.array(ReplayScript),
+  runs: z.array(ConditionRun),
   issues: z.array(Issue),
   signingReviews: z.array(SigningReview),
   /** Model usage cost for this scan (USD, estimated). */
@@ -213,13 +213,13 @@ export const ScanReport = z.object({
   stoppedEarly: z.boolean().default(false),
   /** Set when a bot check stopped the exploration. */
   blocked: Blocked.optional(),
-  /** Set when no flows were found because the app's data never loaded. */
+  /** Set when no tests were found because the app's data never loaded. */
   stalled: Stalled.optional(),
   plan: ScanPlan.optional(),
 });
 export type ScanReport = z.infer<typeof ScanReport>;
 
-export type FlowLiveStatus = "queued" | "running" | "tested" | "issue" | "failed";
+export type TestLiveStatus = "queued" | "running" | "tested" | "issue" | "failed";
 
 /** Streamed while a scan or replay runs. The worker stores them; the CLI prints them. */
 export type DrillEvent =
@@ -228,12 +228,12 @@ export type DrillEvent =
   | { type: "frame"; path: string; url: string; at: string }
   | { type: "chains"; chains: ChainConfig[] }
   | { type: "page"; url: string; title?: string }
-  | { type: "flow"; flow: Flow }
-  | { type: "flow-status"; flowId: string; status: FlowLiveStatus }
+  | { type: "script"; script: ReplayScript }
+  | { type: "test-status"; testId: string; status: TestLiveStatus }
   | { type: "wallet-request"; request: WalletRequest }
   | { type: "signing-review"; review: SigningReview }
   | { type: "issue"; issue: Issue }
-  | { type: "run"; run: FlowRun }
+  | { type: "run"; run: ConditionRun }
   | { type: "cost"; usd: number }
   | { type: "blocked"; blocked: Blocked }
   | { type: "stalled"; stalled: Stalled }

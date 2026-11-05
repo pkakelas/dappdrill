@@ -1,17 +1,17 @@
 "use client";
 
-import { CONDITIONS, type EdgeCaseId } from "@dappdrill/core";
+import { OFFERED_CONDITIONS, type EdgeCaseId } from "@dappdrill/core";
 import { Check, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
-import { addUnhappyAction } from "@/actions/tests";
+import { addConditionsAction } from "@/actions/tests";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 
 const CHIP = "inline-flex h-7 items-center gap-1 rounded-full text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/** Pick what goes wrong at this signature, as chips; the new tests run right away. */
-export function AddUnhappy({ testId, existing, startOpen = false }: { testId: string; existing: EdgeCaseId[]; startOpen?: boolean }) {
-  const available = CONDITIONS.filter((c) => !existing.includes(c.id));
+/** Pick what goes wrong at this signature, as chips; the new conditions run right away. */
+export function AddConditions({ testId, existing, startOpen = false }: { testId: string; existing: EdgeCaseId[]; startOpen?: boolean }) {
+  const available = OFFERED_CONDITIONS.filter((c) => !existing.includes(c.id));
   const usual = available.filter((c) => c.default);
   const [open, setOpen] = useState(startOpen);
   const [more, setMore] = useState(false);
@@ -37,7 +37,7 @@ export function AddUnhappy({ testId, existing, startOpen = false }: { testId: st
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const r = await addUnhappyAction(testId, chosen);
+          const r = await addConditionsAction(testId, chosen);
           if (r.error) return setError(r.error);
           setOpen(false);
         });

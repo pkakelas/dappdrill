@@ -18,56 +18,26 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth.js";
+import { organization, user } from "./auth.js";
 
 const id = () => text("id").primaryKey();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
-// ---------------------------------------------------------------- teams
-
-export type Plan = "free" | "builder";
-
-/** Every user gets a personal team on sign-up; apps, wallets and integrations belong to teams. */
-export const teams = pgTable("teams", {
-  id: id(),
-  name: text("name").notNull(),
-  plan: text("plan").$type<Plan>().notNull().default("builder"),
-  createdAt: createdAt(),
-});
-
-export const teamMembers = pgTable(
-  "team_members",
-  {
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    role: text("role").$type<"owner" | "member">().notNull().default("member"),
-    createdAt: createdAt(),
-  },
-  (t) => [uniqueIndex("team_members_pk").on(t.teamId, t.userId)],
-);
-
-export const invites = pgTable("invites", {
-  id: id(),
-  teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  email: text("email").notNull(),
-  token: text("token").notNull().unique(),
-  invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
-  acceptedAt: ts("accepted_at"),
-  createdAt: createdAt(),
-});
+// ---------------------------------------------------------------- organization resources
 
 /**
- * Test wallets are per team: accounts A and B (keys encrypted), an optional
- * funded live-mode key, and a disposable inbox for email-code logins.
+ * Test wallets are per organization: accounts A and B (keys encrypted) and a
+ * disposable inbox for email-code logins.
  */
 export const testWallets = pgTable("test_wallets", {
-  teamId: text("team_id").primaryKey().references(() => teams.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id").primaryKey().references(() => organization.id, { onDelete: "cascade" }),
   accountAKeyEnc: text("account_a_key_enc").notNull(),
   accountAAddress: text("account_a_address").notNull(),
   accountBKeyEnc: text("account_b_key_enc").notNull(),
@@ -81,7 +51,7 @@ export const integrations = pgTable(
   "integrations",
   {
     id: id(),
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
     kind: text("kind").$type<"slack" | "telegram" | "email" | "github">().notNull(),
     /** Non-secret settings (channel name, chat id, recipients, repo). */
     config: jsonb("config").$type<Record<string, string>>().notNull().default({}),
@@ -90,7 +60,7 @@ export const integrations = pgTable(
     enabled: boolean("enabled").notNull().default(true),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("integrations_team_kind").on(t.teamId, t.kind)],
+  (t) => [uniqueIndex("integrations_org_kind").on(t.organizationId, t.kind)],
 );
 
 // ---------------------------------------------------------------- apps
@@ -114,7 +84,7 @@ export const apps = pgTable(
   "apps",
   {
     id: id(),
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     url: text("url").notNull(),
     /** Hostname, used for domain verification. */
@@ -137,21 +107,21 @@ export const apps = pgTable(
     scheduleTime: text("schedule_time"),
     createdAt: createdAt(),
   },
-  (t) => [index("apps_team_idx").on(t.teamId)],
+  (t) => [index("apps_org_idx").on(t.organizationId)],
 );
 
 export const domains = pgTable(
   "domains",
   {
     id: id(),
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
     host: text("host").notNull(),
     token: text("token").notNull(),
     method: text("method").$type<"file" | "dns">(),
     verifiedAt: ts("verified_at"),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("domains_team_host").on(t.teamId, t.host)],
+  (t) => [uniqueIndex("domains_org_host").on(t.organizationId, t.host)],
 );
 
 
@@ -182,33 +152,23 @@ export const analyses = pgTable(
   (t) => [index("analyses_app_idx").on(t.appId, t.createdAt)],
 );
 
-// ---------------------------------------------------------------- flows & tests
+// ---------------------------------------------------------------- tests
 
-/** A thing users do (trade, deposit); groups its happy path with the tests forked or derived from it. */
-export const flows = pgTable(
-  "flows",
-  {
-    id: id(),
-    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    position: integer("position").notNull().default(0),
-    createdAt: createdAt(),
-  },
-  (t) => [index("flows_app_idx").on(t.appId)],
-);
-
+/**
+ * A test: a goal, an expected result and steps. With no steps it is something users do that
+ * nobody wrote yet (see `notWritten`). A condition row runs its base's steps under a condition.
+ */
 export const tests = pgTable(
   "tests",
   {
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    flowId: text("flow_id").notNull().references(() => flows.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     goal: text("goal").notNull(),
     expected: text("expected").notNull(),
     startPath: text("start_path").notNull().default("/"),
     steps: jsonb("steps").$type<TestStep[]>().notNull(),
-    /** Unhappy path: runs `baseId`'s steps under this condition. */
+    /** Condition row: runs `baseId`'s steps under this condition. Name and expected come from CONDITIONS. */
     condition: text("condition").$type<EdgeCaseId>(),
     baseId: text("base_id").references((): AnyPgColumn => tests.id, { onDelete: "cascade" }),
     /** The test this one was forked from. */
@@ -221,12 +181,12 @@ export const tests = pgTable(
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("tests_flow_idx").on(t.flowId), index("tests_app_idx").on(t.appId)],
+  (t) => [index("tests_app_idx").on(t.appId)],
 );
 
 export type Trigger = "manual" | "analysis" | "schedule" | "agent";
 
-/** One run of one test. Runs started together (a flow's play button) share a batch id. */
+/** One result: one execution of one test. Results started together share a batch id, which is what the Runs page calls a run. */
 export const testRuns = pgTable(
   "test_runs",
   {
@@ -244,6 +204,18 @@ export const testRuns = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("test_runs_test_idx").on(t.testId, t.createdAt), index("test_runs_batch_idx").on(t.batchId)],
+);
+
+/** Dangerous signatures the organization was told about, so later runs don't repeat the alert. */
+export const signingAlerts = pgTable(
+  "signing_alerts",
+  {
+    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
+    /** What was signed, not where: see `signatureKey` in the worker. */
+    key: text("key").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.appId, t.key] })],
 );
 
 // ---------------------------------------------------------------- agent
@@ -265,7 +237,7 @@ export const agentMessages = pgTable(
     /** Agent replies: pending while the worker answers. */
     status: text("status").$type<"pending" | "done" | "failed">().notNull().default("done"),
     /** The page the user was on: what "this test" means. */
-    context: jsonb("context").$type<{ testId?: string; flowId?: string }>().notNull().default({}),
+    context: jsonb("context").$type<{ testId?: string }>().notNull().default({}),
     /** What the agent changed, as links. */
     links: jsonb("links").$type<AgentLink[]>().notNull().default([]),
     createdAt: createdAt(),

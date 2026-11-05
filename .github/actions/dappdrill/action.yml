@@ -17,9 +17,6 @@ inputs:
   conditions:
     description: More unhappy paths to run, as condition ids separated by spaces, e.g. "failing-rpc reload-mid-flow".
     required: false
-  fail-on-dangerous:
-    description: Fail the job when a signing request is Dangerous, even if the tests passed ("true"/"false").
-    default: "false"
   comment:
     description: Post (and keep updating) a summary comment on the pull request ("true"/"false").
     default: "true"
@@ -29,7 +26,7 @@ inputs:
 
 outputs:
   exit-code:
-    description: The CLI's exit code (0 all passed, 1 a test failed or fail-on-dangerous tripped, 2 a test couldn't run, the run stopped, or nothing ran).
+    description: The CLI's exit code (0 all passed, 1 a test failed or a signature was Dangerous, 2 the only problem is that a test or DappDrill couldn't run, the run was stopped, or nothing ran).
     value: ${{ steps.run.outputs.exit-code }}
 
 runs:
@@ -62,13 +59,11 @@ runs:
         IN_FILE: ${{ inputs.file }}
         IN_UNHAPPY: ${{ inputs.unhappy }}
         IN_CONDITIONS: ${{ inputs.conditions }}
-        IN_FAIL_ON_DANGEROUS: ${{ inputs.fail-on-dangerous }}
       run: |
         args=(run "$IN_FILE" --out dappdrill-out --junit dappdrill-out/junit.xml)
         [ -n "$IN_URL" ] && args+=(--url "$IN_URL")
         [ "$IN_UNHAPPY" = "true" ] && args+=(--unhappy)
         for c in $IN_CONDITIONS; do args+=(--condition "$c"); done
-        [ "$IN_FAIL_ON_DANGEROUS" = "true" ] && args+=(--fail-on-dangerous)
         set +e
         node "$DAPPDRILL_BIN" "${args[@]}"
         code=$?

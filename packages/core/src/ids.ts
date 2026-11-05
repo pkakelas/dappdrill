@@ -1,6 +1,6 @@
 const ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-/** Short, URL-safe random id with a readable prefix: "flw_8k2j…". */
+/** Short, URL-safe random id with a readable prefix: "test_8k2j…". */
 export function newId(prefix: string): string {
   const bytes = crypto.getRandomValues(new Uint8Array(14));
   let out = "";

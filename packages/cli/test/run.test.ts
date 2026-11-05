@@ -20,15 +20,15 @@ vi.mock("@dappdrill/engine/fake", () => ({
   }),
 }));
 
-describe("--fail-on-dangerous", () => {
+describe("a Dangerous signature", () => {
   const tests = (): TestsFile => ({
     url: "https://app.example",
     chains: [],
-    flows: [{ name: "Deposit", tests: [{ id: "test_1", name: "Deposit", goal: "Deposit.", expected: "Done.", startPath: "/", steps: [{ text: "Click Deposit" }] }] }],
+    tests: [{ id: "test_1", name: "Deposit", goal: "Deposit.", expected: "Done.", startPath: "/", steps: [{ text: "Click Deposit" }] }],
   });
-  const run = async (failOnDangerous: boolean) => {
+  const run = async () => {
     const out = await mkdtemp(join(tmpdir(), "dappdrill-"));
-    const flags = { out, condition: [], chain: [], token: [], initScript: [], header: [], storage: [], respond: [], failOnDangerous };
+    const flags = { out, condition: [], chain: [], token: [], initScript: [], header: [], storage: [], respond: [] };
     const code = await runTests(tests(), { url: "https://app.example" } as never, flags);
     return { code, summary: await readFile(join(out, "summary.md"), "utf8") };
   };
@@ -38,15 +38,14 @@ describe("--fail-on-dangerous", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
-  it("fails a passing run on a Dangerous review and says why", async () => {
-    const { code, summary } = await run(true);
+  it("fails a passing run and says why", async () => {
+    const { code, summary } = await run();
     expect(code).toBe(1);
-    expect(summary).toContain("This run fails because a signing request is Dangerous.");
+    expect(summary).toContain("Dangerous signature: Approve USDC");
   });
 
-  it("leaves the exit code alone without the flag, or for a lesser verdict", async () => {
-    expect((await run(false)).code).toBe(0);
+  it("leaves a lesser verdict alone", async () => {
     verdict.current = "check";
-    expect((await run(true)).code).toBe(0);
+    expect((await run()).code).toBe(0);
   });
 });

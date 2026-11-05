@@ -44,7 +44,7 @@ function useWide(): boolean {
   );
 }
 
-export function NewAppForm({ children }: { children: ReactNode }) {
+export function NewAppForm({ orgId, children }: { orgId: string; children: ReactNode }) {
   const [state, act, pending] = useActionState<ActionResult, FormData>(createAppAction, undefined);
   const [url, setUrl] = useState("");
   const [wallet, setWallet] = useState<WalletProfileId>(DEFAULT_WALLET);
@@ -101,6 +101,7 @@ export function NewAppForm({ children }: { children: ReactNode }) {
 
   return (
     <form onSubmit={submit} aria-busy={pending} className="mx-auto flex w-full max-w-xl flex-col gap-8 lg:max-w-none">
+      <input type="hidden" name="orgId" value={orgId} readOnly />
       <input type="hidden" name="customized" value={customized ? "1" : ""} readOnly />
       {picked && <input type="hidden" name="chain" value={picked.id} readOnly />}
 

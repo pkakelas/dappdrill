@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
-import { agentMessages, analyses, apps, db, teamMembers, testRuns } from "@dappdrill/db";
+import { agentMessages, analyses, apps, db, member, testRuns } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
 import { env } from "@/lib/env";
 import { getSession } from "@/lib/session";
@@ -36,12 +36,12 @@ async function allowed(appId: string): Promise<boolean> {
   const [row] = await db()
     .select({ id: apps.id })
     .from(apps)
-    .innerJoin(teamMembers, and(eq(teamMembers.teamId, apps.teamId), eq(teamMembers.userId, session.user.id)))
+    .innerJoin(member, and(eq(member.organizationId, apps.organizationId), eq(member.userId, session.user.id)))
     .where(eq(apps.id, appId));
   return Boolean(row);
 }
 
-/** Serves ARTIFACTS_DIR/<kind>/<id>/<path> to members of the app's team. */
+/** Serves ARTIFACTS_DIR/<kind>/<id>/<path> to members of the app's organization. */
 export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const [kind, id, ...rest] = path;

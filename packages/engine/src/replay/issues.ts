@@ -5,13 +5,13 @@
 import type { Page } from "playwright";
 import {
   describeStep,
-  edgeCaseInfo,
+  conditionInfo,
   fingerprint,
   newId,
   nowIso,
   type ConsoleEntry,
   type EdgeCaseId,
-  type Flow,
+  type ReplayScript,
   type Issue,
   type IssueCategory,
   type RpcLogEntry,
@@ -33,7 +33,7 @@ export interface IssueDraft {
 }
 
 export interface IssueContext {
-  flow: Flow;
+  script: ReplayScript;
   edgeCase: EdgeCaseId;
   runId: string;
   /** How this edge case was set up, in plain words, prepended to the steps. */
@@ -44,17 +44,17 @@ export interface IssueContext {
 export function makeIssue(ctx: IssueContext, draft: IssueDraft): Issue {
   return {
     id: newId("iss"),
-    fingerprint: fingerprint(ctx.flow.id, ctx.edgeCase, draft.kind),
+    fingerprint: fingerprint(ctx.script.id, ctx.edgeCase, draft.kind),
     severity: draft.severity,
     category: draft.category,
     title: draft.title,
     summary: draft.summary,
-    flowId: ctx.flow.id,
-    flowName: ctx.flow.name,
+    testId: ctx.script.id,
+    testName: ctx.script.name,
     edgeCase: ctx.edgeCase,
     runId: ctx.runId,
     stepIndex: draft.stepIndex,
-    stepsToReproduce: [...ctx.setup, ...ctx.flow.steps.map((s, i) => `${i + 1}. ${describeStep(s)}`)],
+    stepsToReproduce: [...ctx.setup, ...ctx.script.steps.map((s, i) => `${i + 1}. ${describeStep(s)}`)],
     expected: draft.expected,
     actual: draft.actual,
     evidence: { ...ctx.evidence, ...draft.evidence },
@@ -108,7 +108,7 @@ export function feedbackMessage(pageText: string): string | undefined {
 }
 
 export function edgeLabel(id: EdgeCaseId): string {
-  return edgeCaseInfo(id).label.toLowerCase();
+  return conditionInfo(id).name.toLowerCase();
 }
 
 export function pickConsole(entries: ConsoleEntry[]): ConsoleEntry[] {

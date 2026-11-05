@@ -2,14 +2,14 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DrillTarget, EDGE_CASES, chainName, type DrillEvent, type EdgeCaseId, type Flow, type Issue } from "@dappdrill/core";
+import { DrillTarget, CONDITIONS, chainName, type DrillEvent, type EdgeCaseId, type ReplayScript, type Issue } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { startChains } from "../../src/chain/controller.js";
 import { runEdgeCases, type RunEdgeCasesResult } from "../../src/replay/edge-cases.js";
 import { privateKeyToAccount } from "viem/accounts";
 import { VAULT_ABI } from "./contracts.js";
 import { ACCOUNTS, CHAIN_ID, startFixture, type Fixture } from "./fixture.js";
-import { depositFlow } from "./flow.js";
+import { depositScript } from "./script.js";
 
 const OTHER_CHAIN = 31338;
 
@@ -19,7 +19,7 @@ let artifactsDir: string;
 
 beforeAll(async () => {
   fx = await startFixture();
-  // Two forks of the same anvil: the flow's chain and a "wrong" one for the network edge cases.
+  // Two forks of the same anvil: the test's chain and a "wrong" one for the network edge cases.
   chains = await startChains(
     [
       { id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" },
@@ -35,14 +35,14 @@ afterAll(async () => {
   await fx?.close();
 });
 
-async function matrix(bugs: string[], edgeCases: EdgeCaseId[], flow?: (url: string) => Flow): Promise<RunEdgeCasesResult & { events: DrillEvent[] }> {
+async function matrix(bugs: string[], edgeCases: EdgeCaseId[], script?: (url: string) => ReplayScript): Promise<RunEdgeCasesResult & { events: DrillEvent[] }> {
   const url = fx.pageUrl(bugs);
   const target = DrillTarget.parse({ url, chains: [{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }, { id: OTHER_CHAIN, rpcUrl: fx.rpcUrl }], accounts: ACCOUNTS });
   const events: DrillEvent[] = [];
   const result = await runEdgeCases({
     target,
     chains,
-    flow: flow?.(url) ?? depositFlow(url, fx.token, fx.vault),
+    script: script?.(url) ?? depositScript(url, fx.token, fx.vault),
     edgeCases,
     sink: async (e) => void events.push(e),
     artifactsDir,
@@ -57,9 +57,9 @@ const titles = (issues: Issue[]) => issues.map((i) => `${i.severity}: ${i.title}
 
 describe("runEdgeCases", () => {
   it("passes every edge case on the well-behaved dApp", async () => {
-    const r = await matrix([], EDGE_CASES.map((e) => e.id));
+    const r = await matrix([], CONDITIONS.map((e) => e.id));
     expect(titles(r.issues)).toEqual([]);
-    expect(r.runs).toHaveLength(EDGE_CASES.length);
+    expect(r.runs).toHaveLength(CONDITIONS.length);
     expect(r.runs.map((x) => x.status)).toEqual(r.runs.map(() => "pass"));
     expect(r.runs.every((x) => x.forkBlocks[String(CHAIN_ID)] !== undefined && x.mode === "fork")).toBe(true);
     // artifacts and events
@@ -68,9 +68,9 @@ describe("runEdgeCases", () => {
     expect(happy.trace).toMatch(/\.zip$/);
     expect(happy.walletRequests.filter((w) => w.kind === "sign")).toHaveLength(2);
     expect(happy.rpc.length).toBeGreaterThan(0);
-    const statuses = r.events.filter((e) => e.type === "flow-status").map((e) => (e as { status: string }).status);
+    const statuses = r.events.filter((e) => e.type === "test-status").map((e) => (e as { status: string }).status);
     expect(statuses).toEqual(["running", "tested"]);
-    expect(r.events.filter((e) => e.type === "run")).toHaveLength(EDGE_CASES.length);
+    expect(r.events.filter((e) => e.type === "run")).toHaveLength(CONDITIONS.length);
     // every case ran on pristine state: the vault only holds what the last run left, and that was reverted
     const shares = await chains.client(CHAIN_ID).readContract({ address: fx.vault, abi: VAULT_ABI, functionName: "shares", args: [privateKeyToAccount(ACCOUNTS.A).address] });
     expect(shares).toBe(0n);
@@ -81,7 +81,7 @@ describe("runEdgeCases", () => {
     expect(titles(stuck.issues)).toEqual(["high: Rejecting 'Deposit' leaves the button stuck on 'Confirming…'"]);
     expect(stuck.runs[0]!.status).toBe("issue");
     const issue = stuck.issues[0]!;
-    expect(issue.stepsToReproduce[0]).toBe("Reject the flow's main request in the wallet (error 4001).");
+    expect(issue.stepsToReproduce[0]).toBe("Reject the test's main request in the wallet (error 4001).");
     expect(issue.stepsToReproduce).toContain('4. Click "Deposit"');
     expect(issue.evidence?.walletAsked).toMatch(/^approve\(/);
     expect(issue.evidence?.screenshot).toMatch(/\.png$/);
@@ -92,10 +92,10 @@ describe("runEdgeCases", () => {
     expect(titles(silent.issues)).toEqual(["medium: No message after rejecting 'Deposit'"]);
   }, 180_000);
 
-  it("doesn't blame the rejection when the flow broke before anything was rejected", async () => {
+  it("doesn't blame the rejection when the test broke before anything was rejected", async () => {
     const broken = (url: string) => {
-      const flow = depositFlow(url, fx.token, fx.vault);
-      return { ...flow, steps: flow.steps.map((s, i) => (i === 3 ? { kind: "click" as const, target: { role: "button", name: "Stake" } } : s)) };
+      const script = depositScript(url, fx.token, fx.vault);
+      return { ...script, steps: script.steps.map((s, i) => (i === 3 ? { kind: "click" as const, target: { role: "button", name: "Stake" } } : s)) };
     };
     const r = await matrix(["silent"], ["reject"], broken);
     expect(r.runs[0]!.status).toBe("fail");
@@ -130,7 +130,7 @@ describe("runEdgeCases", () => {
     const always = await matrix(["alwaysapprove"], ["happy", "existing-approval"]);
     expect(titles(always.issues)).toEqual(["medium: Asks for a token approval that was already granted"]);
 
-    const reload = await matrix(["reloadloss"], ["happy", "reload-mid-flow"]);
+    const reload = await matrix(["reloadloss"], ["happy", "reload-while-pending"]);
     expect(titles(reload.issues)).toEqual(["medium: Reloading while a transaction is pending loses track of it"]);
 
     const noreplace = await matrix(["noreplace"], ["happy", "speed-up"]);
@@ -143,7 +143,7 @@ describe("runEdgeCases", () => {
     expect(dbl.runs[0]!.status).toBe("issue");
 
     const crash = await matrix(["crash"], ["happy"]);
-    expect(titles(crash.issues)).toEqual(["medium: Uncaught error on the page during the flow"]);
+    expect(titles(crash.issues)).toEqual(["medium: Uncaught error on the page during the test"]);
     expect(crash.issues[0]!.actual).toMatch(/seeded uncaught error/);
   }, 180_000);
 
@@ -152,19 +152,19 @@ describe("runEdgeCases", () => {
     // cases run in the matrix's own order, whatever order they were asked in
     expect(r.runs.map((x) => [x.edgeCase, x.status, x.reason])).toEqual([
       ["speed-up", "pass", undefined],
-      ["existing-approval", "skipped", "needs the happy path first to learn the flow's approval"],
+      ["existing-approval", "skipped", "needs the happy path first to learn the test's approval"],
     ]);
 
-    // A transaction the flow rejects is never sent: no gas to run out of, nothing to speed up.
+    // A transaction the test rejects is never sent: no gas to run out of, nothing to speed up.
     const rejecting = (url: string) => {
-      const f = depositFlow(url, fx.token, fx.vault);
-      return { ...f, id: "flow_reject", steps: [...f.steps.slice(0, 4), { kind: "wallet" as const, respond: "reject" as const }] };
+      const f = depositScript(url, fx.token, fx.vault);
+      return { ...f, id: "test_reject", steps: [...f.steps.slice(0, 4), { kind: "wallet" as const, respond: "reject" as const }] };
     };
     const rr = await matrix([], ["happy", "speed-up", "low-gas"], rejecting);
     expect(rr.runs.map((x) => [x.edgeCase, x.status, x.reason])).toEqual([
       ["happy", "pass", undefined],
-      ["low-gas", "skipped", "the flow sends no transaction"],
-      ["speed-up", "skipped", "the flow sends no transaction"],
+      ["low-gas", "skipped", "the test sends no transaction"],
+      ["speed-up", "skipped", "the test sends no transaction"],
     ]);
   }, 180_000);
 });

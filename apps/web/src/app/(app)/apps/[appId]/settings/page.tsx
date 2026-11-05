@@ -11,6 +11,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
 import { isHostVerified } from "@/lib/domains";
 import { timeAgo } from "@/lib/format";
+import { can } from "@/lib/permissions";
 import { requireApp } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -20,9 +21,10 @@ const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337 && c.forkable);
 
 export default async function SettingsPage({ params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
-  const { app } = await requireApp(appId);
+  const { app, role } = await requireApp(appId);
+  const manage = can(role, "apps.manage");
   const [verified, [seen]] = await Promise.all([
-    isHostVerified(app.teamId, app.host),
+    isHostVerified(app.organizationId, app.host),
     db()
       .select()
       .from(analyses)
@@ -38,6 +40,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
 
       <SettingsForm
         appId={app.id}
+        readOnly={!manage}
         defaults={{
           name: app.name,
           url: app.url,
@@ -59,7 +62,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
         seen={seen ? `Last explored ${timeAgo(seen.finishedAt ?? seen.createdAt)}` : "Not explored yet"}
       />
 
-      <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds flows it hasn't seen. Your tests stay as they are.">
+      <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds what it hasn't seen. Your tests stay as they are.">
         <form action={analyzeAction.bind(null, app.id)}>
           <Button type="submit" variant="outline" size="sm" className="w-fit">
             Explore again
@@ -67,16 +70,18 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
         </form>
       </SettingsSection>
 
-      <SettingsSection id="danger" title="Delete app" hint="Deletes its tests and every run. This can't be undone.">
-        <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm", className: "w-fit" })} confirm="Click again to delete the app" onConfirm={deleteAppAction.bind(null, app.id)}>
-          Delete {app.name}
-        </ConfirmButton>
-      </SettingsSection>
+      {manage && (
+        <SettingsSection id="danger" title="Delete app" hint="Deletes its tests and every run. This can't be undone.">
+          <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm", className: "w-fit max-w-full" })} confirm="Click again to delete the app" onConfirm={deleteAppAction.bind(null, app.id)}>
+            <span className="truncate">Delete {app.name}</span>
+          </ConfirmButton>
+        </SettingsSection>
+      )}
 
       <p className="pt-4 text-sm text-muted-foreground">
-        Test wallets, domains and alerts are shared by the team:{" "}
-        <Link href="/account" className="underline underline-offset-4 hover:text-foreground">
-          Account
+        Test wallets, domains and alerts are shared by the organization:{" "}
+        <Link href="/organization" className="underline underline-offset-4 hover:text-foreground">
+          Organization settings
         </Link>
         .
       </p>

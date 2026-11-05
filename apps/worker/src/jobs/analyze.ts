@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
-import { newId, type AppSetup, type DrillEvent, type SetupDraft } from "@dappdrill/core";
-import { analyses, apps, flows, nextPosition, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
+import { newId, type AppSetup, type DrillEvent, type SetupDraft, type TestDraft, type TestIdea } from "@dappdrill/core";
+import { analyses, apps, nextPosition, notWritten, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
@@ -15,8 +15,8 @@ const MAX_LOG = 200;
 
 /**
  * analysis.run: look around the app for a couple of minutes, save what it learned,
- * add a flow with a happy-path test for each thing users do (and the setup they all
- * need, if any), and run those tests.
+ * add a happy-path test for the things users most need (and the setup they all need,
+ * if any), list the rest under Not tested yet, and run the new tests.
  */
 export async function runAnalysis(db: Db, engine: Engine, boss: PgBoss, analysisId: string, signal: AbortSignal): Promise<void> {
   const log = logger(`analysis ${analysisId}`);
@@ -54,7 +54,8 @@ export async function runAnalysis(db: Db, engine: Engine, boss: PgBoss, analysis
   let error: string | null = null;
   let created: string[] = [];
   try {
-    const out = await engine.analyze(await buildTarget(db, app, "analysis"), { artifactsDir: artifactsDir("analyses", analysisId), hints: targetHints(app.settings) }, sink, abort);
+    const known = (await rootTests(db, app.id)).map((t) => (notWritten(t) ? `${t.name} (not written yet)` : t.name));
+    const out = await engine.analyze(await buildTarget(db, app, "analysis"), { artifactsDir: artifactsDir("analyses", analysisId), hints: targetHints(app.settings), known }, sink, abort);
     await drain();
     await db
       .update(apps)
@@ -65,7 +66,7 @@ export async function runAnalysis(db: Db, engine: Engine, boss: PgBoss, analysis
         ...(out.setup && !app.setup ? { setup: setupOf(out.setup) } : {}),
       })
       .where(eq(apps.id, app.id));
-    created = await addFlows(db, app.id, out.flows);
+    created = await addTests(db, app.id, out.tests, out.untested);
     await update({ blocked: out.blocked ?? null, stalled: out.stalled ?? null, costUsd: out.costUsd });
   } catch (e) {
     await drain();
@@ -92,28 +93,38 @@ function setupOf(draft: SetupDraft): AppSetup {
   return { startPath: draft.startPath || "/", steps: draft.steps.map((text) => ({ text })), when: draft.when, why: draft.why };
 }
 
-/** A flow per draft, skipping names the app already has. Returns the new test ids. */
-async function addFlows(db: Db, appId: string, drafts: Awaited<ReturnType<Engine["analyze"]>>["flows"]): Promise<string[]> {
-  const have = new Set((await db.select({ name: flows.name }).from(flows).where(eq(flows.appId, appId))).map((f) => f.name.toLowerCase()));
+const rootTests = (db: Db, appId: string) => db.select().from(tests).where(and(eq(tests.appId, appId), isNull(tests.baseId)));
+
+/**
+ * Adds what the analysis found, matching on name. A draft fills in a test nobody wrote yet and
+ * leaves a written one alone; an idea only adds a name the app doesn't have. Returns the tests to run.
+ */
+async function addTests(db: Db, appId: string, drafts: TestDraft[], ideas: TestIdea[]): Promise<string[]> {
+  const existing = await rootTests(db, appId);
+  const names = new Set(existing.map((t) => t.name.toLowerCase()));
+  const unwritten = new Map(existing.filter(notWritten).map((t) => [t.name.toLowerCase(), t.id]));
   let position = await nextPosition(db, appId);
   const ids: string[] = [];
-  for (const draft of drafts) {
-    if (have.has(draft.name.toLowerCase())) continue;
-    have.add(draft.name.toLowerCase());
-    const flowId = newId("flow");
-    const testId = newId("test");
-    await db.insert(flows).values({ id: flowId, appId, name: draft.name, position: position++ });
-    await db.insert(tests).values({
-      id: testId,
-      appId,
-      flowId,
-      name: draft.test.name,
-      goal: draft.test.goal,
-      expected: draft.test.expected,
-      startPath: draft.test.startPath,
-      steps: draft.test.steps.map((text) => ({ text })),
-    });
-    ids.push(testId);
+  for (const { steps, ...draft } of drafts) {
+    const key = draft.name.toLowerCase();
+    const row = { ...draft, steps: steps.map((text) => ({ text })) };
+    const stub = unwritten.get(key);
+    if (stub) {
+      unwritten.delete(key);
+      await db.update(tests).set(row).where(eq(tests.id, stub));
+      ids.push(stub);
+    } else if (!names.has(key)) {
+      names.add(key);
+      const id = newId("test");
+      await db.insert(tests).values({ id, appId, position: position++, ...row });
+      ids.push(id);
+    }
+  }
+  for (const idea of ideas) {
+    const key = idea.name.toLowerCase();
+    if (names.has(key)) continue;
+    names.add(key);
+    await db.insert(tests).values({ id: newId("test"), appId, position: position++, ...idea, expected: "", steps: [] });
   }
   return ids;
 }

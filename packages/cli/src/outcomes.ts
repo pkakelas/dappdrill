@@ -1,37 +1,28 @@
-import { VERDICT_LABEL, type SigningReview } from "@dappdrill/core";
+import { TestRunResult, VERDICT_LABEL, applicable, count, countsText, readOf, signingOf, signingText, type SigningReview } from "@dappdrill/core";
 import type { TestOutcome } from "@dappdrill/engine";
 
-export interface Tally {
-  passed: number;
-  failed: number;
-  couldntRun: number;
-  /** Stopped before it ran, or never reached: the run is incomplete. */
-  stopped: number;
-  /** The engine found the test doesn't apply here, e.g. it needs a fork. */
-  skipped: number;
+export function dangerous(o: TestOutcome): SigningReview[] {
+  return o.result.signingReviews.filter((r) => r.verdict === "dangerous");
 }
 
-/** `total` is how many tests were asked for: a stopped run has no outcome for the ones it never reached. */
-export function tally(outcomes: TestOutcome[], total = outcomes.length): Tally {
-  const count = (s: TestOutcome["status"]) => outcomes.filter((o) => o.status === s).length;
-  return { passed: count("pass"), failed: count("fail"), couldntRun: count("error"), stopped: count("stopped") + total - outcomes.length, skipped: count("skipped") };
+/** An interrupted run never reaches the tests after it: they count as stopped, so a partial run can't read as finished. */
+export function withStopped(testIds: string[], outcomes: TestOutcome[]): TestOutcome[] {
+  const ran = new Set(outcomes.map((o) => o.testId));
+  return [...outcomes, ...testIds.filter((id) => !ran.has(id)).map((testId): TestOutcome => ({ testId, status: "stopped", result: TestRunResult.parse({}) }))];
 }
 
-/**
- * 0 all passed, 1 a test failed or a Dangerous review counts as failing, 2 we couldn't tell:
- * something couldn't run, the run stopped, or nothing ran.
- */
-export function exitCode(t: Tally, dangerous = false): number {
-  if (t.failed || dangerous) return 1;
-  return t.couldntRun || t.stopped || !t.passed ? 2 : 0;
+/** 1 for Failed or a Dangerous signature, even on a test that passed; 2 when the only problem is Couldn't run, a stopped run, or that nothing ran. */
+export function exitCode(outcomes: TestOutcome[]): 0 | 1 | 2 {
+  if (outcomes.some((o) => o.status === "fail" || dangerous(o).length > 0)) return 1;
+  return outcomes.some((o) => o.status === "error" || o.status === "stopped") || !outcomes.some((o) => o.status === "pass") ? 2 : 0;
 }
 
-export function tallyLine(t: Tally): string {
-  const notRun = t.stopped + t.skipped;
-  return [`${t.passed} passed`, t.failed && `${t.failed} failed`, t.couldntRun && `${t.couldntRun} couldn't run`, notRun && `${notRun} not run`].filter(Boolean).join(", ");
+/** "4 of 6 passed, 1 failed, 1 couldn't run · 1 dangerous signature" */
+export function summaryText(outcomes: TestOutcome[]): string {
+  const counts = countsText(count(applicable(outcomes.map((o) => readOf(o, o)))));
+  const signing = signingText(signingOf(outcomes.flatMap((o) => o.result.signingReviews.map((r) => r.verdict))));
+  return signing ? `${counts} · ${signing}` : counts;
 }
-
-export const DANGEROUS_FAILS = "This run fails because a signing request is Dangerous.";
 
 export function reviewLine(r: SigningReview): string {
   return `${VERDICT_LABEL[r.verdict]}: ${r.title}. ${r.summary}`;
@@ -51,8 +42,8 @@ export function distinctReviews<T extends { review: SigningReview }>(items: T[])
 /** "8 signing requests reviewed: 1 dangerous, 2 to check." */
 export function reviewsLine(reviews: SigningReview[]): string | undefined {
   if (reviews.length === 0) return undefined;
-  const count = (v: SigningReview["verdict"]) => reviews.filter((r) => r.verdict === v).length;
-  const flagged = [count("dangerous") && `${count("dangerous")} dangerous`, count("check") && `${count("check")} to check`].filter(Boolean).join(", ");
+  const having = (v: SigningReview["verdict"]) => reviews.filter((r) => r.verdict === v).length;
+  const flagged = [having("dangerous") && `${having("dangerous")} dangerous`, having("check") && `${having("check")} to check`].filter(Boolean).join(", ");
   const head = `${reviews.length} signing ${reviews.length === 1 ? "request" : "requests"} reviewed`;
   return flagged ? `${head}: ${flagged}.` : `${head}, all look consistent.`;
 }

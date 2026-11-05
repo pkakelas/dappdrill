@@ -64,6 +64,41 @@
       "when": 1793793852133,
       "tag": "0008_app_setup",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793876515010,
+      "tag": "0009_flow_goal",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793877054735,
+      "tag": "0010_organizations",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793886140512,
+      "tag": "0011_signing_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793894495497,
+      "tag": "0012_tests_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793895543503,
+      "tag": "0013_reload_while_pending",
+      "breakpoints": true
     }
   ]
 }

@@ -1,22 +1,25 @@
-import { walletUse } from "@dappdrill/core";
-import { analyses, db, flowsWithTests, latestRuns, runHistory, type RunSummary, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { appRollup, signingOf, walletUse } from "@dappdrill/core";
+import { analyses, appTests, db, latestRuns, notWritten, runHistory, settledRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
-import { Wallet } from "lucide-react";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { NewFlow } from "@/components/tests/add-test";
+import { AddTest, AddTestButton } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
-import { AppStats, HISTORY_DAYS, RunTicks } from "@/components/tests/app-stats";
-import { FlowSection } from "@/components/tests/flow-section";
-import { failureParts, PathPills } from "@/components/tests/path-pills";
+import { AppHero } from "@/components/tests/app-hero";
+import { HISTORY_DAYS } from "@/components/tests/app-stats";
+import { ConditionGrid } from "@/components/tests/condition-grid";
+import { ConditionBranches } from "@/components/tests/condition-branches";
 import { RunButton } from "@/components/tests/run-button";
 import { SetupCard } from "@/components/tests/setup-card";
-import { isActive, REVEAL, STATE_LABEL, StateMark, stateOf, type TestState } from "@/components/tests/status";
-import { cx, PageHeader } from "@/components/ui";
+import { readTest } from "@/components/tests/status";
+import { DraftLine, TestLine, TestList, type TestCardProps } from "@/components/tests/test-card";
+import { Tile } from "@/components/tests/tile";
+import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
 import { hostFromUrl, timeAgo } from "@/lib/format";
 import { requireApp } from "@/lib/session";
@@ -26,108 +29,196 @@ export async function generateMetadata({ params }: { params: Promise<{ appId: st
   return { title: app.name };
 }
 
-export default async function TestsHome({ params }: { params: Promise<{ appId: string }> }) {
+type Tab = "tests" | "conditions" | "setup";
+type Show = "all" | "attention" | "passed" | "waiting";
+
+export default async function TestsPage({ params, searchParams }: { params: Promise<{ appId: string }>; searchParams: Promise<{ view?: string; show?: string }> }) {
   const { appId } = await params;
+  const { view, show } = await searchParams;
   const { app } = await requireApp(appId);
-  const [[analysis], all] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), flowsWithTests(db(), appId)]);
-  const tests = all.flatMap((f) => f.tests);
-  const [runs, history] = await Promise.all([
-    latestRuns(
-      db(),
-      tests.map((t) => t.id),
-    ),
-    runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000)),
-  ]);
-  const state = new Map(tests.map((t) => [t.id, stateOf(t, runs.get(t.id))]));
+  const [[analysis], tests] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), appTests(db(), appId)]);
+  const ids = tests.map((t) => t.id);
+  const [latest, settled, history] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000))]);
+  const reads = new Map(tests.map((t) => [t.id, readTest(t, latest.get(t.id), settled.get(t.id))]));
+  const untested = tests.filter(notWritten);
+  const roots = tests.filter((t) => !t.baseId && !notWritten(t));
+  const conditionsOf = (t: TestRow) => tests.filter((c) => c.baseId === t.id);
+  // A row flags its conditions' signatures too: they only show as pills otherwise.
+  const signingFor = (t: TestRow) => signingOf([t, ...conditionsOf(t)].flatMap((row) => settled.get(row.id)?.result?.signingReviews.map((r) => r.verdict) ?? []));
+  const overall = appRollup(
+    roots.map((t) => ({ read: reads.get(t.id)!, conditions: conditionsOf(t).map((c) => reads.get(c.id)!), signing: signingFor(t) })),
+    untested.length,
+  );
+  // Worst first. A passed test can still need a look: a condition failed, or it signed something dangerous.
+  const rank = (t: TestRow) => ["fail", "error"].indexOf(reads.get(t.id)!.settled) + 1 || 3;
+  const needsLook = (t: TestRow) => rank(t) < 3 || signingFor(t).dangerous > 0 || conditionsOf(t).some((c) => reads.get(c.id)!.settled === "fail");
+  const attention = roots.filter(needsLook).sort((a, b) => rank(a) - rank(b));
+  // What's happening now comes first, conditions included.
+  const liveRank = (t: TestRow) => {
+    const all = [t, ...conditionsOf(t)].map((row) => reads.get(row.id)!);
+    return all.some((r) => r.active === "running") ? 0 : all.some((r) => r.active === "queued") ? 1 : all.some((r) => r.drafting) ? 2 : 3;
+  };
+  const others = roots.filter((t) => !needsLook(t)).sort((a, b) => liveRank(a) - liveRank(b));
+  const all = [...attention, ...others];
+  // The same counts as the top of the page, so a test that passed with a problem is under both Passed and Needs attention.
+  const passed = all.filter((t) => reads.get(t.id)!.settled === "pass");
+  const waiting = all.filter((t) => reads.get(t.id)!.settled === "never");
+  const counts: Record<Show, number> = { all: roots.length + untested.length, attention: attention.length, passed: passed.length, waiting: waiting.length + untested.length };
+  // A filter that has emptied since the link was made falls back to everything.
+  const showing: Show = show === "attention" || show === "passed" || show === "waiting" ? (counts[show] > 0 ? show : "all") : "all";
+  const listed = { all, attention, passed, waiting }[showing];
   const host = hostFromUrl(app.url);
 
   const exploring = analysis && (analysis.status === "queued" || analysis.status === "running");
-  const anyActive = [...state.values()].some(isActive);
-  const activeIds = tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
-  const lastRun = [...runs.values()]
+  const activeIds = tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
+  const anyActive = activeIds.length > 0 || tests.some((t) => reads.get(t.id)!.drafting);
+  const lastRun = [...latest.values()]
     .map((r) => r.finishedAt)
     .filter((d) => d !== null)
     .sort((a, b) => b.getTime() - a.getTime())[0];
+  const tab: Tab = view === "grid" ? "conditions" : view === "setup" ? "setup" : "tests";
+  const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
+  const setupRun = app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()]) : undefined;
+  const cardProps = (t: TestRow): TestCardProps => ({ appId, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0 });
+  const branches = (t: TestRow) => conditionsOf(t).length > 0 && <ConditionBranches appId={appId} tests={conditionsOf(t)} reads={reads} runs={settled} className="relative z-10" />;
 
   return (
     <div className="page">
       {(exploring || anyActive) && <AutoRefresh every={2000} />}
 
-      <PageHeader
-        title={app.name}
-        description={
-          <p className="flex flex-wrap items-center gap-x-2 text-sm">
-            <a href={app.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
-              {host}
-            </a>
-            {lastRun && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>last run {timeAgo(lastRun)}</span>
-              </>
-            )}
-          </p>
-        }
-        actions={tests.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
-      />
-
       <TooltipProvider>
-        <div className="flex flex-col gap-10">
-          {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasFlows={all.length > 0} />}
+        <div className="flex flex-col gap-12">
+          <AppHero
+            appId={appId}
+            name={app.name}
+            url={app.url}
+            lastRun={lastRun}
+            wallet={app.settings.wallets[0]}
+            chainId={(app.settings.chains[0] ?? app.chains[0])?.id}
+            rollup={roots.length > 0 ? overall : undefined}
+            running={activeIds.length}
+            runs={history}
+            action={
+              tests.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <AddTestButton appId={appId} />
+                  {roots.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
+                </div>
+              )
+            }
+          />
 
-          {tests.length > 0 && <AppStats states={[...state.values()]} runs={history} />}
+          {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasTests={tests.length > 0} />}
 
-          {app.setup && (
-            <SetupCard appId={appId} setup={app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...runs.values()]) : undefined} />
-          )}
-
-          {all.map((f) => {
-            const states = f.tests.map((t) => state.get(t.id)!);
-            const flowActive = f.tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
-            return (
-              <FlowSection key={f.id} appId={appId} flow={f} states={states} summary={flowSummary(states)} activeIds={flowActive}>
-                <ul className="flex flex-col gap-1">
-                  {f.tests
-                    .filter((t) => !t.baseId)
-                    .map((t) => {
-                      const paths = f.tests.filter((c) => c.baseId === t.id);
-                      const signs = walletUse(t.steps) === "signs";
-                      return (
-                        <li key={t.id}>
-                          <TestLine appId={appId} test={t} state={state.get(t.id)!} run={runs.get(t.id)} history={history} signs={signs} hasPaths={paths.length > 0} />
-                          {paths.length > 0 && <PathPills appId={appId} tests={paths} states={state} runs={runs} className="ml-7 pb-3" />}
-                        </li>
-                      );
-                    })}
-                </ul>
-              </FlowSection>
-            );
-          })}
-
-          {all.length > 0 ? (
-            <div className="flex flex-col gap-4 md:px-5">
-              <NewFlow appId={appId} />
-              {!app.setup && <SetupCard appId={appId} setup={null} />}
-            </div>
-          ) : !exploring ? (
-            <div className="flex flex-col gap-4">
-              {!analysis && (
-                <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-6 shadow-xs">
-                  <div className="flex flex-col gap-1">
-                    <h2 className="text-base font-semibold">No tests yet</h2>
-                    <p className="text-sm text-muted-foreground">Let DappDrill explore {host} and write the first ones, or add a flow yourself.</p>
-                  </div>
-                  <form action={analyzeAction.bind(null, appId)}>
-                    <Button type="submit">Explore the app</Button>
-                  </form>
-                </section>
+          {tests.length > 0 ? (
+            <div className="flex flex-col gap-6">
+              <ViewSwitch appId={appId} tab={tab} tests={roots.length} setupSteps={app.setup?.steps.length} setupFailed={setupRun?.failed} />
+              {tab === "conditions" && <ConditionGrid appId={appId} tests={tests.filter((t) => !notWritten(t))} reads={reads} settled={settled} />}
+              {tab === "setup" && <SetupCard appId={appId} setup={setup ?? null} last={setupRun} />}
+              {tab === "tests" && (
+                <div className="flex flex-col gap-10">
+                  {/* A setup that failed is why these results can't be trusted, so it can't wait behind its tab. */}
+                  {setupRun?.failed && <SetupWarning appId={appId} />}
+                  <TestList filter={<TestFilter appId={appId} showing={showing} counts={counts} />}>
+                    {listed.map((t) => (
+                      <TestLine key={t.id} {...cardProps(t)}>
+                        {branches(t)}
+                      </TestLine>
+                    ))}
+                    {(showing === "all" || showing === "waiting") && untested.map((t) => <DraftLine key={t.id} appId={appId} test={t} />)}
+                  </TestList>
+                </div>
               )}
-              <NewFlow appId={appId} first />
             </div>
-          ) : null}
+          ) : (
+            !exploring && (
+              <div className="flex flex-col gap-8">
+                {!analysis && (
+                  <section className="flex flex-col items-start gap-4">
+                    <div className="flex flex-col gap-2">
+                      <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">No tests yet</h2>
+                      <p className="text-base text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a test yourself.</p>
+                    </div>
+                    <form action={analyzeAction.bind(null, appId)}>
+                      <Button type="submit">Explore the app</Button>
+                    </form>
+                  </section>
+                )}
+                <AddTest appId={appId} placeholder="What should we test?" className="w-full max-w-md" />
+              </div>
+            )
+          )}
         </div>
       </TooltipProvider>
     </div>
+  );
+}
+
+function SetupWarning({ appId }: { appId: string }) {
+  return (
+    <Link href={`/apps/${appId}?view=setup`} className="flex items-center gap-3 rounded-xl border border-warn-line bg-warn-soft p-3 shadow-sm transition-colors outline-none hover:border-warn-bar focus-visible:ring-2 focus-visible:ring-ring">
+      <Tile icon={TriangleAlert} tint="warn" />
+      <span className="min-w-0 flex-1 text-pretty">Setup didn&apos;t finish, so these results can&apos;t be trusted.</span>
+      <span className="flex shrink-0 items-center gap-1 pr-1 font-medium">
+        See setup
+        <ArrowRight className="size-4" aria-hidden="true" />
+      </span>
+    </Link>
+  );
+}
+
+const FILTERS: { show: Show; label: string }[] = [
+  { show: "all", label: "All" },
+  { show: "attention", label: "Needs attention" },
+  { show: "passed", label: "Passed" },
+  { show: "waiting", label: "Not run yet" },
+];
+
+/** The list's own header. Worst comes first anyway, so this is for narrowing down, and it only offers what's there. */
+function TestFilter({ appId, showing, counts }: { appId: string; showing: Show; counts: Record<Show, number> }) {
+  return (
+    <nav aria-label="Filter tests" className="flex flex-wrap items-center gap-0.5 p-1.5">
+      {FILTERS.filter((f) => counts[f.show] > 0).map(({ show, label }) => (
+        <Link
+          key={show}
+          href={show === "all" ? `/apps/${appId}` : `/apps/${appId}?show=${show}`}
+          scroll={false}
+          aria-current={show === showing ? "true" : undefined}
+          className={cx("flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", show === showing ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
+        >
+          {label}
+          {show !== "all" && <span className={cx("font-normal tabular-nums", show === "attention" ? "text-bad" : "text-muted-foreground")}>{counts[show]}</span>}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function ViewSwitch({ appId, tab, tests, setupSteps, setupFailed }: { appId: string; tab: Tab; tests: number; setupSteps?: number; setupFailed?: boolean }) {
+  const item = (href: string, label: React.ReactNode, on: boolean) => (
+    <Link href={href} aria-current={on ? "page" : undefined} className={cx("flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
+      {label}
+    </Link>
+  );
+  const count = (n: number) => <span className="font-normal text-muted-foreground tabular-nums">{n}</span>;
+  return (
+    <nav aria-label="View" className="flex w-fit items-center gap-0.5 rounded-lg bg-muted p-0.5">
+      {item(
+        `/apps/${appId}`,
+        <>
+          Tests {count(tests)}
+        </>,
+        tab === "tests",
+      )}
+      {item(`/apps/${appId}?view=grid`, "Conditions", tab === "conditions")}
+      {item(
+        `/apps/${appId}?view=setup`,
+        <>
+          Setup {setupFailed ? <span role="img" aria-label="Didn't finish" className="size-2 rounded-full bg-warn-bar" /> : setupSteps !== undefined && count(setupSteps)}
+        </>,
+        tab === "setup",
+      )}
+    </nav>
   );
 }
 
@@ -144,89 +235,5 @@ function lastSetup(texts: string[], runs: TestRunRow[]) {
   ) : (
     <span className="text-warn">didn't finish {run.finishedAt ? timeAgo(run.finishedAt) : ""}</span>
   );
-  return { label, ok: setup.ok && !running, steps: texts.map((text, i) => ({ text, result: setup.steps[i], shot: artifactUrl("runs", run.batchId, setup.steps[i]?.screenshot) })) };
-}
-
-function flowSummary(states: TestState[]): string {
-  if (states.some((s) => s === "running" || s === "queued")) return "running";
-  const fail = states.filter((s) => s === "fail").length;
-  if (fail) return `${fail} failing`;
-  if (states.length && states.every((s) => s === "pass")) return "all passing";
-  if (states.every((s) => s === "never" || s === "drafting")) return "not run yet";
-  return `${states.filter((s) => s === "pass").length} passing`;
-}
-
-/** Says the test signs. With no unhappy paths yet it's also the way to add them, in words on hover. */
-function WalletMark({ href }: { href?: string }) {
-  const icon = <Wallet className="size-3.5 shrink-0" aria-hidden="true" />;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {href ? (
-          <Link href={href} className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-            {icon}
-            <span className={cx("max-sm:sr-only", REVEAL, "group-hover/test:opacity-100")}>Add unhappy paths</span>
-          </Link>
-        ) : (
-          <span role="img" aria-label="Asks the wallet to sign" className="relative z-10 shrink-0 text-muted-foreground">
-            {icon}
-          </span>
-        )}
-      </TooltipTrigger>
-      <TooltipContent>Asks the wallet to sign</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function TestLine({ appId, test, state, run, history, signs, hasPaths }: { appId: string; test: TestRow; state: TestState; run?: TestRunRow; history: RunSummary[]; signs: boolean; hasPaths: boolean }) {
-  const steps = run?.result?.steps ?? [];
-  const current = steps.findIndex((s) => s.status === "running");
-  const setupSteps = run?.result?.setup?.steps ?? [];
-  const inSetup = setupSteps.findIndex((s) => s.status === "running");
-  let detail: React.ReactNode = null;
-  if (state === "drafting") detail = <span className="text-muted-foreground">Writing the steps…</span>;
-  else if (state === "running" && current < 0 && inSetup >= 0)
-    detail = (
-      <span className="text-live">
-        Setup, step {inSetup + 1} of {setupSteps.length}
-      </span>
-    );
-  else if (state === "running" && current >= 0)
-    detail = (
-      <span className="text-live">
-        Step {current + 1} of {steps.length}
-      </span>
-    );
-  else if (state === "queued") detail = <span className="text-live">Queued</span>;
-  else if ((state === "fail" || state === "error") && run?.result?.failure) {
-    const { where, why } = failureParts(run.result.failure);
-    detail = (
-      <span title={run.result.failure}>
-        <span className={cx("font-medium", state === "fail" ? "text-bad" : "text-warn")}>{where ?? STATE_LABEL[state]}</span>
-        <span className="text-muted-foreground"> · {why}</span>
-      </span>
-    );
-  }
-
-  return (
-    <div className="group/test relative -mx-3 flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/60">
-      <StateMark state={state} className="mt-0.5" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <Link href={`/apps/${appId}/tests/${test.id}`} className="truncate font-medium outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
-            {test.name}
-          </Link>
-          {signs && <WalletMark href={hasPaths ? undefined : `/apps/${appId}/tests/${test.id}?add=unhappy#unhappy-paths`} />}
-        </div>
-        {detail && <p className="mt-0.5 line-clamp-2 text-sm sm:line-clamp-1">{detail}</p>}
-      </div>
-      <span className={cx("relative z-10 -my-1", state !== "running" && state !== "queued" && REVEAL, "group-hover/test:opacity-100")}>
-        <RunButton target={{ appId, testIds: [test.id] }} active={state === "running" || state === "queued"} stopIds={[test.id]} label="Run test" disabled={state === "drafting"} />
-      </span>
-      <span className="mt-1 hidden shrink-0 items-center gap-3 text-xs text-muted-foreground tabular-nums sm:flex">
-        <RunTicks runs={history.filter((r) => r.testId === test.id)} />
-        <span className="w-16 text-right">{run?.finishedAt && state !== "running" && state !== "queued" ? timeAgo(run.finishedAt) : ""}</span>
-      </span>
-    </div>
-  );
+  return { label, ok: setup.ok && !running, failed: !setup.ok && !running, steps: texts.map((text, i) => ({ text, result: setup.steps[i], shot: artifactUrl("runs", run.batchId, setup.steps[i]?.screenshot) })) };
 }

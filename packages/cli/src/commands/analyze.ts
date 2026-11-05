@@ -15,7 +15,7 @@ export interface AnalyzeFlags extends RunFlags {
   run: boolean;
 }
 
-/** `dappdrill analyze <url>`: find the app's main flows, write a test for each, then run them. */
+/** `dappdrill analyze <url>`: find what users do in the app, write tests for the main things, then run them. */
 export async function analyzeCommand(url: string, flags: AnalyzeFlags): Promise<number> {
   if (existsSync(flags.file) && !flags.force) throw new UsageError(`${flags.file} already exists. Run it with: dappdrill run. To start over, pass --force.`);
   if (pickConditions(flags).length > 0 && !flags.run) throw new UsageError("Unhappy paths are added once a run reaches the wallet, so they can't be used with --no-run.");
@@ -36,7 +36,7 @@ export async function analyzeCommand(url: string, flags: AnalyzeFlags): Promise<
     ? blockedLine(found.blocked)
     : found.stalled
       ? stalledLine(found.stalled)
-      : found.flows.length === 0 && "No flows found. Say where things are with --hints.";
+      : found.tests.length === 0 && "No tests found. Say where things are with --hints.";
   if (problem) {
     console.log(red(`\n${problem}`));
     return 2;
@@ -47,10 +47,11 @@ export async function analyzeCommand(url: string, flags: AnalyzeFlags): Promise<
     map: found.map,
     chains: found.chains,
     setup: found.setup && { startPath: found.setup.startPath || "/", steps: found.setup.steps.map((text) => ({ text })), when: found.setup.when, why: found.setup.why },
-    flows: found.flows.map((f) => ({ name: f.name, tests: [{ id: newId("test"), ...f.test, steps: f.test.steps.map((text) => ({ text })) }] })),
+    tests: found.tests.map((t) => ({ id: newId("test"), ...t, steps: t.steps.map((text) => ({ text })) })),
   };
   await writeJson(flags.file, tests);
-  console.log(`\nFound ${tests.flows.map((f) => f.name).join(", ")}. Tests: ${flags.file}\n`);
+  console.log(`\nFound ${found.tests.map((t) => t.name).join(", ")}. Tests: ${flags.file}\n`);
+  if (found.untested.length) console.log(`Seen but not tested: ${found.untested.map((t) => t.name).join(", ")}\n`);
   if (tests.setup) console.log(`Setup (${SETUP_WHEN_LABEL[tests.setup.when].toLowerCase()}): ${tests.setup.steps.map((s) => s.text).join(" → ")}\n`);
   if (!flags.run) return 0;
 

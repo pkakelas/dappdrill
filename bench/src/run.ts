@@ -48,7 +48,7 @@ interface SavedTest {
   steps: TestStep[];
 }
 interface TestsFile {
-  flows: { name: string; tests: SavedTest[] }[];
+  tests: SavedTest[];
 }
 interface Outcome {
   testId: string;
@@ -56,7 +56,7 @@ interface Outcome {
   result: TestRunResult;
 }
 interface Analysis {
-  flows: { name: string }[];
+  tests: { name: string }[];
   blocked?: unknown;
   stalled?: unknown;
   costUsd: number;
@@ -67,7 +67,7 @@ interface StepMeta {
 }
 /** What a review agent wrote to results/<date>/<id>/review.json after reading the runs. */
 interface Review {
-  flows: { name: string; useful: boolean; expected?: string; note?: string }[];
+  found: { name: string; useful: boolean; expected?: string; note?: string }[];
   missed: string[];
   tests: { test: string; label: "real pass" | "empty pass" | "app bug" | "bad test" | "environment" | "engine bug" | "can't run on a fork"; note: string }[];
   summary: string;
@@ -157,7 +157,7 @@ async function drillDapp(d: Dapp): Promise<void> {
   const saved = JSON.parse(await readFile(control, "utf8")) as TestsFile;
   for (const m of MUTATIONS) {
     const only = applicable(m, saved, outcomes);
-    if (only.flows.length === 0) continue;
+    if (only.tests.length === 0) continue;
     const script = path.join(root, "scripts", `${m.id}.js`);
     await mkdir(path.dirname(script), { recursive: true });
     await writeFile(script, m.script);
@@ -170,12 +170,8 @@ async function drillDapp(d: Dapp): Promise<void> {
 function applicable(m: Mutation, saved: TestsFile, outcomes: Outcome[]): TestsFile {
   const requests = (id: string) => outcomes.find((o) => o.testId === id)?.result.walletRequests ?? [];
   const wanted = (t: SavedTest) => m.edgeCases.includes(t.condition ?? "happy") && m.relevant(requests(t.baseId ?? t.id));
-  const flows = saved.flows.map((f) => {
-    const hit = f.tests.filter(wanted);
-    const bases = new Set(hit.map((t) => t.baseId));
-    return { ...f, tests: f.tests.filter((t) => wanted(t) || bases.has(t.id)) };
-  });
-  return { ...saved, flows: flows.filter((f) => f.tests.length > 0) };
+  const bases = new Set(saved.tests.filter(wanted).map((t) => t.baseId));
+  return { ...saved, tests: saved.tests.filter((t) => wanted(t) || bases.has(t.id)) };
 }
 
 /** One `run` over its own copy of a tests file, so steps never learn from each other. */
@@ -226,14 +222,13 @@ const worst = (o?: Outcome) => Math.max(-1, ...(o?.result.signingReviews ?? []).
 const signed = (o?: Outcome) => (o?.result.walletRequests ?? []).filter((r) => r.kind === "sign" && r.outcome === "approved").length;
 
 function scoreMutation(m: Mutation, mutated: Outcome[], control: Outcome[], tests: TestsFile) {
-  const all = tests.flows.flatMap((f) => f.tests.map((t) => ({ ...t, flow: f.name })));
-  return all
+  return tests.tests
     .filter((t) => m.edgeCases.includes(t.condition ?? "happy"))
     .flatMap((t) => {
       const o = mutated.find((x) => x.testId === t.id);
       if (!o) return [];
       const c = control.find((x) => x.testId === t.id);
-      const base = { mutation: m.id, test: `${t.flow} · ${t.name}`, status: o.status };
+      const base = { mutation: m.id, test: t.name, status: o.status };
       if (!o.result.console.some((l) => l.text.includes(FIRED_MARK))) return [{ ...base, outcome: "not-fired", why: o.result.failure ?? "" }];
       const escalated = o.result.signingReviews.find((r) => RANK[r.verdict] > worst(c));
       if (escalated) return [{ ...base, outcome: "diagnosed", why: `${escalated.verdict}: ${escalated.title}` }];
@@ -247,7 +242,7 @@ function scoreMutation(m: Mutation, mutated: Outcome[], control: Outcome[], test
 interface AppScore {
   id: string;
   outcome: string;
-  flows: string[];
+  tests: string[];
   expected?: string[];
   rows: { test: string; first: string; replays: string[]; signed: number; agentSteps: number; steps: number; failure?: string }[];
   mutations: { mutation: string; test: string; status: string; outcome: string; why: string }[];
@@ -267,25 +262,23 @@ async function report(dapps: Dapp[]): Promise<void> {
     const tests = await readJson<TestsFile>(path.join(root, "analyze", "tests.json"));
     const first = (await readOutcomes(path.join(root, "analyze"))) ?? [];
     const replays = (await Promise.all(Array.from({ length: REPLAYS }, (_, i) => readOutcomes(path.join(root, `replay-${i + 1}`))))).flatMap((r) => (r ? [r] : []));
-    const expected = (await readJson<{ flows: string[] }>(path.join(BENCH, "expected", `${d.id}.json`)))?.flows;
+    const expected = (await readJson<{ tests: string[] }>(path.join(BENCH, "expected", `${d.id}.json`)))?.tests;
     const review = await readJson<Review>(path.join(root, "review.json"));
 
-    const rows = (tests?.flows ?? []).flatMap((f) =>
-      f.tests.map((t) => {
-        const runs = replays.map((r) => r.find((o) => o.testId === t.id));
-        const steps = runs.flatMap((o) => o?.result.steps ?? []);
-        const lastBad = [...runs].reverse().find((o) => o && o.status !== "pass");
-        return {
-          test: `${f.name} · ${t.name}`,
-          first: first.find((o) => o.testId === t.id)?.status ?? "–",
-          replays: runs.map((o) => o?.status ?? "–"),
-          signed: Math.max(0, ...runs.map(signed)),
-          agentSteps: steps.filter((s) => s.via === "agent").length,
-          steps: steps.length,
-          failure: lastBad?.result.failure ?? first.find((o) => o.testId === t.id)?.result.failure,
-        };
-      }),
-    );
+    const rows = (tests?.tests ?? []).map((t) => {
+      const runs = replays.map((r) => r.find((o) => o.testId === t.id));
+      const steps = runs.flatMap((o) => o?.result.steps ?? []);
+      const lastBad = [...runs].reverse().find((o) => o && o.status !== "pass");
+      return {
+        test: t.name,
+        first: first.find((o) => o.testId === t.id)?.status ?? "–",
+        replays: runs.map((o) => o?.status ?? "–"),
+        signed: Math.max(0, ...runs.map(signed)),
+        agentSteps: steps.filter((s) => s.via === "agent").length,
+        steps: steps.length,
+        failure: lastBad?.result.failure ?? first.find((o) => o.testId === t.id)?.result.failure,
+      };
+    });
 
     const control = (await readOutcomes(path.join(root, "unhappy"))) ?? [];
     const mutations = [];
@@ -302,8 +295,8 @@ async function report(dapps: Dapp[]): Promise<void> {
     const seeded = await readOutcomes(path.join(root, "seeded"));
     apps.push({
       id: d.id,
-      outcome: analysis?.blocked ? "blocked" : analysis?.stalled ? "stalled" : !analysis ? `no analysis (exit ${meta.exitCode})` : analysis.flows.length ? "ok" : "no flows",
-      flows: tests?.flows.map((f) => f.name) ?? [],
+      outcome: analysis?.blocked ? "blocked" : analysis?.stalled ? "stalled" : !analysis ? `no analysis (exit ${meta.exitCode})` : analysis.tests.length ? "ok" : "no tests",
+      tests: tests?.tests.map((t) => t.name) ?? [],
       expected,
       rows,
       mutations,
@@ -319,17 +312,17 @@ async function report(dapps: Dapp[]): Promise<void> {
 }
 
 function renderReport(apps: AppScore[]): string {
-  const lines = [`# DappDrill real-dApp benchmark, ${date}`, "", "| dApp | Analysis | Flows | Expected found | Useful | First run | Passed every replay | Signed something | Steps on the model | Min | Cost |", "|---|---|---|---|---|---|---|---|---|---|---|"];
+  const lines = [`# DappDrill real-dApp benchmark, ${date}`, "", "| dApp | Analysis | Tests | Expected found | Useful | First run | Passed every replay | Signed something | Steps on the model | Min | Cost |", "|---|---|---|---|---|---|---|---|---|---|---|"];
   for (const a of apps) {
     const stable = a.rows.filter((r) => r.replays.length === REPLAYS && r.replays.every((s) => s === "pass"));
-    const found = a.review ? new Set(a.review.flows.flatMap((f) => (f.expected ? [f.expected] : []))).size : undefined;
+    const found = a.review ? new Set(a.review.found.flatMap((f) => (f.expected ? [f.expected] : []))).size : undefined;
     const steps = a.rows.reduce((s, r) => s + r.steps, 0);
     const cells = [
       a.id,
       a.outcome,
-      a.flows.length,
+      a.tests.length,
       found === undefined ? "not reviewed" : `${found}/${a.expected?.length ?? "?"}`,
-      a.review ? `${a.review.flows.filter((f) => f.useful).length}/${a.review.flows.length}` : "not reviewed",
+      a.review ? `${a.review.found.filter((f) => f.useful).length}/${a.review.found.length}` : "not reviewed",
       `${a.rows.filter((r) => r.first === "pass").length}/${a.rows.length}`,
       `${stable.length}/${a.rows.length}`,
       `${stable.filter((r) => r.signed > 0).length}/${stable.length}`,

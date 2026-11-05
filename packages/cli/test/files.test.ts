@@ -8,7 +8,7 @@ import { addUnhappyPaths, printOutcome } from "../src/commands/run.js";
 import { UsageError, loadTests, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, pickConditions, type TestsFile } from "../src/files.js";
 import { renderJunit } from "../src/junit.js";
 import { renderMarkdown } from "../src/markdown.js";
-import { exitCode, reviewsLine, tally, tallyLine } from "../src/outcomes.js";
+import { reviewsLine, withStopped } from "../src/outcomes.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
@@ -89,14 +89,14 @@ async function saved(value: unknown): Promise<string> {
 
 describe("loadTests", () => {
   it("reads a tests file, defaulting what can be left out", async () => {
-    const tests = await loadTests(await saved({ url: "https://app.example", flows: [{ name: "Withdraw", tests: [withdraw] }] }));
+    const tests = await loadTests(await saved({ url: "https://app.example", tests: [withdraw] }));
     expect(tests.chains).toEqual([]);
-    expect(tests.flows[0]?.tests[0]?.name).toBe("Withdraw everything");
+    expect(tests.tests[0]?.name).toBe("Withdraw everything");
   });
 
   it("says where a bad file is wrong, and refuses duplicate ids", async () => {
-    await expect(loadTests(await saved({ url: "https://app.example", flows: [{ name: "Withdraw", tests: [{ id: "x" }] }] }))).rejects.toThrow(/flows\.0\.tests\.0\.name/);
-    await expect(loadTests(await saved({ url: "https://app.example", flows: [{ name: "W", tests: [withdraw, withdraw] }] }))).rejects.toThrow(/share the id test_1/);
+    await expect(loadTests(await saved({ url: "https://app.example", tests: [{ id: "x" }] }))).rejects.toThrow(/tests\.0\.name/);
+    await expect(loadTests(await saved({ url: "https://app.example", tests: [withdraw, withdraw] }))).rejects.toThrow(/share the id test_1/);
     await expect(loadTests("/nope/tests.json")).rejects.toThrow(/dappdrill analyze/);
   });
 });
@@ -106,9 +106,9 @@ const usual = pickConditions({ unhappy: true, condition: [] });
 
 describe("addUnhappyPaths", () => {
   it("adds the conditions after each happy path that signs, once", () => {
-    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [signs] }] };
+    const tests: TestsFile = { url: "https://app.example", chains: [], tests: [signs] };
     expect(addUnhappyPaths(tests, usual)).toHaveLength(4);
-    const after = tests.flows[0]!.tests;
+    const after = tests.tests;
     expect(after[0]).toBe(signs);
     expect(after.slice(1).map((t) => [t.condition, t.baseId, t.steps.length])).toEqual([
       ["reject", "test_1", 0],
@@ -117,13 +117,13 @@ describe("addUnhappyPaths", () => {
       ["low-gas", "test_1", 0],
     ]);
     expect(addUnhappyPaths(tests, usual)).toEqual([]);
-    expect(tests.flows[0]!.tests).toHaveLength(5);
+    expect(tests.tests).toHaveLength(5);
   });
 
   it("leaves tests alone until a run has seen them sign", () => {
     const neverRan = withdraw;
     const noWallet = { ...withdraw, id: "test_2", steps: [{ text: "Read the balance", actions: [] }] };
-    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [neverRan, noWallet] }] };
+    const tests: TestsFile = { url: "https://app.example", chains: [], tests: [neverRan, noWallet] };
     expect(addUnhappyPaths(tests, usual)).toEqual([]);
   });
 });
@@ -143,39 +143,6 @@ describe("pickConditions", () => {
 });
 
 const outcome = (testId: string, status: TestOutcome["status"], result: object = {}): TestOutcome => ({ testId, status, result: TestRunResult.parse(result) });
-
-describe("exitCode", () => {
-  const code = (statuses: TestOutcome["status"][], total?: number) => exitCode(tally(statuses.map((s, i) => outcome(`t${i}`, s)), total));
-
-  it("is 0 when tests passed, even beside one that doesn't apply here", () => {
-    expect(code(["pass", "pass"])).toBe(0);
-    expect(code(["pass", "skipped"])).toBe(0);
-  });
-
-  it("is 1 when a test failed, whatever else happened", () => {
-    expect(code(["pass", "fail"])).toBe(1);
-    expect(code(["fail", "error", "stopped"])).toBe(1);
-  });
-
-  it("is 2 when a test couldn't run, the run stopped, or nothing ran", () => {
-    expect(code(["pass", "error"])).toBe(2);
-    expect(code(["pass", "stopped"])).toBe(2);
-    expect(code(["pass"], 3)).toBe(2);
-    expect(code(["skipped", "skipped"])).toBe(2);
-    expect(code([], 2)).toBe(2);
-  });
-
-  it("is 1 for a Dangerous review only when asked", () => {
-    const t = (statuses: TestOutcome["status"][]) => tally(statuses.map((s, i) => outcome(`t${i}`, s)));
-    expect(exitCode(t(["pass"]), true)).toBe(1);
-    expect(exitCode(t(["pass", "error"]), true)).toBe(1);
-    expect(exitCode(t(["pass"]), false)).toBe(0);
-  });
-
-  it("uses the status words", () => {
-    expect(tallyLine(tally([outcome("a", "pass"), outcome("b", "fail"), outcome("c", "error"), outcome("d", "skipped")], 5))).toBe("1 passed, 1 failed, 1 couldn't run, 2 not run");
-  });
-});
 
 const review = (verdict: "dangerous" | "check" | "consistent", title: string) => ({ verdict, title, summary: "It spends USDC." }) as never;
 
@@ -209,52 +176,35 @@ describe("printOutcome", () => {
 });
 
 describe("renderMarkdown", () => {
-  const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+  const tests: TestsFile = { url: "https://app.example", chains: [], tests: [withdraw] };
 
   it("doesn't call an empty run a pass", () => {
-    expect(renderMarkdown(tests, [], 1)).toContain("**No tests ran** on https://app.example");
-    expect(renderMarkdown(tests, [outcome("test_1", "skipped", { failure: "Needs a fork." })])).toContain("**No tests ran**");
-    expect(renderMarkdown(tests, [outcome("test_1", "skipped", { failure: "Needs a fork." })])).toContain("Not run. Needs a fork.");
+    expect(renderMarkdown(tests, withStopped(["test_1"], []))).toContain("**No tests ran** on https://app.example");
+    const skipped = renderMarkdown(tests, [outcome("test_1", "skipped", { failure: "Needs a fork." })]);
+    expect(skipped).toContain("**No tests ran**");
+    expect(skipped).toContain("Not run. Needs a fork.");
   });
 
-  it("keeps couldn't run apart from failed, and counts tests a stopped run never reached", () => {
-    const md = renderMarkdown(tests, [outcome("test_1", "error", { failure: "The RPC is down." })], 2);
-    expect(md).toContain("**0 passed, 1 couldn't run, 1 not run**");
-    expect(md).toContain("Couldn't run. The RPC is down.");
-  });
-
-  it("says all passed only when all did", () => {
-    expect(renderMarkdown(tests, [outcome("test_1", "pass")])).toContain("**All 1 tests passed**");
-    expect(renderMarkdown(tests, [outcome("test_1", "pass")], 2)).toContain("**1 passed, 1 not run**");
-  });
-
-  it("says why a run with passing tests failed", () => {
-    const dangerous = { testId: "test_1", status: "pass" as const, result: { ...TestRunResult.parse({}), signingReviews: [review("dangerous", "Approve USDC")] } };
-    expect(renderMarkdown(tests, [dangerous], 1, true)).toContain("**This run fails because a signing request is Dangerous.**");
-    expect(renderMarkdown(tests, [dangerous], 1, false)).not.toContain("This run fails");
-    expect(renderMarkdown(tests, [outcome("test_1", "pass")], 1, true)).not.toContain("This run fails");
-  });
-
-  it("lists flagged signing requests once, the worst first", () => {
+  it("lists signing requests to check once, and counts them all", () => {
     const signingReviews = [review("check", "Sign in"), review("dangerous", "Approve USDC"), review("consistent", "Deposit"), review("check", "Sign in")];
     const md = renderMarkdown(tests, [{ testId: "test_1", status: "pass", result: { ...TestRunResult.parse({}), signingReviews } }]);
     expect(md).toContain("3 signing requests reviewed: 1 dangerous, 1 to check.");
-    expect(md.indexOf("Dangerous: Approve USDC")).toBeLessThan(md.indexOf("Check this: Sign in"));
+    expect(md).toContain("Dangerous signature: Approve USDC");
     expect(md.match(/Check this: Sign in/g)).toHaveLength(1);
     expect(md).not.toContain("Deposit.");
   });
 });
 
 describe("renderJunit", () => {
-  it("writes a suite per flow and escapes the failure", () => {
-    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+  it("writes one suite for the app and escapes the failure", () => {
+    const tests: TestsFile = { url: "https://app.example", chains: [], tests: [withdraw] };
     const xml = renderJunit(tests, [{ testId: "test_1", status: "fail", result: TestRunResult.parse({ failure: 'Step 1, "Click Withdraw": <disabled>' }) }]);
-    expect(xml).toContain('<testsuite name="Withdraw" tests="1" failures="1"');
+    expect(xml).toContain('<testsuite name="app.example" tests="1" failures="1"');
     expect(xml).toContain('<failure message="Step 1, &quot;Click Withdraw&quot;: &lt;disabled&gt;"/>');
   });
 
   it("gives the reason a test was skipped, and the signing requests a test made", () => {
-    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+    const tests: TestsFile = { url: "https://app.example", chains: [], tests: [withdraw] };
     expect(renderJunit(tests, [outcome("test_1", "skipped", { failure: "Needs a fork." })])).toContain('<skipped message="Needs a fork."/>');
     const xml = renderJunit(tests, [{ testId: "test_1", status: "pass", result: { ...TestRunResult.parse({}), signingReviews: [review("dangerous", "Approve <all> USDC")] } }]);
     expect(xml).toContain("<system-out>Dangerous: Approve &lt;all&gt; USDC. It spends USDC.</system-out>");
