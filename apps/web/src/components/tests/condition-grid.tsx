@@ -3,77 +3,85 @@ import type { TestRow, TestRunRow } from "@dappdrill/db";
 import Link from "next/link";
 import { readLabel, StateMark, type TestRead } from "@/components/tests/status";
 import { cx } from "@/components/ui";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { plural } from "@/lib/format";
 
 /**
- * Tests × conditions, from the same rows as the list: one row per test, one column per
- * condition we offer. A cell says not added, Not run yet, Passed, Failed,
- * Couldn't run or Doesn't apply (with why), so the gaps are as visible as the failures.
+ * What each condition found: a tile per condition in use, with the tests it runs on and how they
+ * went, worst first. The conditions nobody added stay in one line under them, so the gaps still show.
  */
 export function ConditionGrid({ appId, tests, reads, settled }: { appId: string; tests: TestRow[]; reads: Map<string, TestRead>; settled: Map<string, TestRunRow> }) {
   const bases = tests.filter((t) => !t.baseId);
-  const cell = (base: TestRow, conditionId: string) => tests.find((t) => t.baseId === base.id && t.condition === conditionId);
-  const totals = OFFERED_CONDITIONS.map((c) => {
-    const rows = bases.map((test) => cell(test, c.id)).filter((t): t is TestRow => Boolean(t));
-    return { added: rows.length, ...count(applicable(rows.map((t) => reads.get(t.id)!))) };
-  });
-
   if (bases.length === 0) return <p className="text-sm text-muted-foreground">No tests yet, so nothing to run conditions on.</p>;
 
+  const all = OFFERED_CONDITIONS.map((condition) => {
+    const added = bases.flatMap((base) => tests.filter((t) => t.baseId === base.id && t.condition === condition.id).map((test) => ({ base, test })));
+    return { condition, added, counts: count(applicable(added.map(({ test }) => reads.get(test.id)!))) };
+  });
+  const rank = ({ counts: c }: (typeof all)[number]) => (c.failed > 0 ? 0 : c.couldntRun > 0 ? 1 : 2);
+  const used = all.filter((c) => c.added.length > 0).sort((a, b) => rank(a) - rank(b));
+  const unused = all.filter((c) => c.added.length === 0);
+
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card shadow-xs">
-      <Table className="min-w-max">
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="sticky left-0 z-10 bg-card pl-5">Test</TableHead>
-            <TableHead>Result</TableHead>
-            {OFFERED_CONDITIONS.map((c) => (
-              <TableHead key={c.id} className="whitespace-nowrap" title={c.expected}>
-                {c.name}
-              </TableHead>
+    <div className="flex flex-col gap-8">
+      {used.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {used.map(({ condition, added, counts: c }) => {
+            const missing = bases.length - added.length;
+            return (
+              <Card key={condition.id} className={cx("gap-3 p-4 shadow-xs", c.failed > 0 && "border-bad-line bg-bad-soft")}>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="font-medium">{condition.name}</h3>
+                    <span className={cx("shrink-0 text-xs tabular-nums", c.failed > 0 ? "text-bad" : c.couldntRun > 0 ? "text-warn" : "text-muted-foreground")}>{summary(added.length, c)}</span>
+                  </div>
+                  <p className="text-sm text-pretty text-muted-foreground">{condition.expected}</p>
+                </div>
+                <ul className="flex flex-col gap-1">
+                  {added.map(({ base, test }) => (
+                    <li key={test.id}>
+                      <Result appId={appId} name={base.name} test={test} read={reads.get(test.id)!} run={settled.get(test.id)} />
+                    </li>
+                  ))}
+                </ul>
+                {missing > 0 && <p className="mt-auto text-xs text-muted-foreground">Not added to {plural(missing, "other test")}</p>}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      {unused.length > 0 && (
+        <section aria-label="Not added yet" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="font-medium">Not added yet</h2>
+            <p className="text-sm text-muted-foreground">Add these from a test&apos;s page.</p>
+          </div>
+          <ul className="flex flex-wrap gap-1.5">
+            {unused.map(({ condition }) => (
+              <li key={condition.id} title={condition.expected} className="rounded-full bg-muted/70 px-3 py-1 text-xs text-muted-foreground">
+                {condition.name}
+              </li>
             ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {bases.map((test) => (
-            <TableRow key={test.id}>
-              <TableCell className="sticky left-0 z-10 bg-card pl-5 font-medium">
-                <Link href={`/apps/${appId}/tests/${test.id}`} className="hover:underline">
-                  {test.name}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Cell appId={appId} test={test} read={reads.get(test.id)!} run={settled.get(test.id)} />
-              </TableCell>
-              {OFFERED_CONDITIONS.map((c) => {
-                const row = cell(test, c.id);
-                return <TableCell key={c.id}>{row ? <Cell appId={appId} test={row} read={reads.get(row.id)!} run={settled.get(row.id)} /> : <span className="text-xs text-muted-foreground/60">not added</span>}</TableCell>;
-              })}
-            </TableRow>
-          ))}
-          <TableRow className="hover:bg-transparent">
-            <TableCell className="sticky left-0 z-10 bg-card pl-5 text-xs text-muted-foreground" colSpan={2}>
-              Per condition
-            </TableCell>
-            {totals.map((t, i) => (
-              <TableCell key={OFFERED_CONDITIONS[i]!.id} className="text-xs text-muted-foreground tabular-nums">
-                {t.added === 0 ? "—" : <span className={cx(t.failed > 0 && "text-warn")}>{t.total === 0 ? `${t.added} added, none apply` : `${t.passed}/${t.total} passed${t.failed ? `, ${t.failed} failed` : ""}${t.couldntRun ? `, ${t.couldntRun} couldn't run` : ""}`}</span>}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableBody>
-      </Table>
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
 
-function Cell({ appId, test, read, run }: { appId: string; test: TestRow; read: TestRead; run?: TestRunRow }) {
+function summary(added: number, c: ReturnType<typeof count>) {
+  if (c.total === 0) return `${added} added, none apply`;
+  return [`${c.passed} of ${c.total} passed`, c.failed > 0 && `${c.failed} failed`, c.couldntRun > 0 && `${c.couldntRun} couldn't run`].filter(Boolean).join(", ");
+}
+
+function Result({ appId, name, test, read, run }: { appId: string; name: string; test: TestRow; read: TestRead; run?: TestRunRow }) {
   const why = read.settled === "skipped" || read.settled === "error" || read.settled === "fail" ? run?.result?.failure : undefined;
   const tone = read.settled === "fail" ? "text-bad" : read.settled === "error" ? "text-warn" : read.active ? "text-live" : "text-muted-foreground";
   return (
-    <Link href={`/apps/${appId}/tests/${test.id}`} title={why ? `${SETTLED_LABEL[read.settled]}: ${why}` : undefined} className={cx("inline-flex items-center gap-1.5 whitespace-nowrap text-xs hover:underline", tone)}>
-      <StateMark state={read.mark} className="size-3.5" />
-      {readLabel(read)}
+    <Link href={`/apps/${appId}/tests/${test.id}`} title={why ? `${SETTLED_LABEL[read.settled]}: ${why}` : undefined} className="-mx-1.5 flex items-center gap-2 rounded-md px-1.5 py-1 text-sm outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
+      <StateMark state={read.mark} />
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      <span className={cx("shrink-0 text-xs", tone)}>{readLabel(read)}</span>
     </Link>
   );
 }

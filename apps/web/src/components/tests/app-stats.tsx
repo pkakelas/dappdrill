@@ -85,21 +85,3 @@ export function RunHistory({ runs }: { runs: RunSummary[] }) {
     </section>
   );
 }
-
-/** A test's recent runs, oldest first, so a flaky test looks flaky at a glance. */
-export function RunTicks({ runs, slots = 8 }: { runs: RunSummary[]; slots?: number }) {
-  const recent = runs.slice(0, slots).reverse();
-  if (recent.length === 0) return null;
-  const count = (status: TestRunStatus) => recent.filter((r) => r.status === status).length;
-  const label = `Last ${plural(recent.length, "run")}: ${[`${count("pass")} passed`, `${count("fail")} failed`, `${count("error")} couldn't run`].filter((t) => !t.startsWith("0 ")).join(", ")}`;
-  return (
-    <span role="img" aria-label={label} title={label} className="flex h-3.5 items-end gap-0.5">
-      {Array.from({ length: slots - recent.length }, (_, i) => (
-        <span key={i} className="h-1 w-1 rounded-full bg-muted" />
-      ))}
-      {recent.map((r) => (
-        <span key={r.id} className={cx("h-full w-1 rounded-full", r.status === "fail" ? "bg-bad" : r.status === "error" ? "bg-warn-bar" : PASS)} />
-      ))}
-    </span>
-  );
-}

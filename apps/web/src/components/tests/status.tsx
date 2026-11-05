@@ -116,14 +116,3 @@ export function StateMark({ state, className }: { state: TestState; className?: 
       );
   }
 }
-
-/** The small live dot shown beside a finished result while a new run is queued or running. */
-export function ActiveDot({ active }: { active?: Active }) {
-  if (!active) return null;
-  return (
-    <span className="inline-flex items-center gap-1 text-xs text-live">
-      <StateMark state={active} className="size-3" />
-      {ACTIVE_LABEL[active]}
-    </span>
-  );
-}

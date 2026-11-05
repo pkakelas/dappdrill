@@ -1,11 +1,10 @@
-import { signingText, type AppRollup } from "@dappdrill/core";
+import type { AppRollup } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { hostFromUrl, plural, timeAgo } from "@/lib/format";
 import { RunHistory } from "./app-stats";
-import { SigningFlag } from "./signing-flag";
 import { StateMark } from "./status";
 
 /** The answer to "is my app OK?", as big as the page gets. The problem takes the colour, the rest of the line stays quiet. */
@@ -37,9 +36,12 @@ function Verdict({ rollup }: { rollup: AppRollup }) {
   );
 }
 
-/** Whatever the headline left out. */
+/** Whatever the headline left out. A dangerous signature outranks the rest, so it gets a line of its own. */
 function Notes({ rollup, running }: { rollup: AppRollup; running: number }) {
-  const { failed, couldntRun, notRun } = rollup.tests;
+  const { failed, couldntRun, notRun, total } = rollup.tests;
+  const { dangerous, check } = rollup.signing;
+  // When nothing has run, the headline already says so.
+  const waiting = notRun < total ? notRun + rollup.untested : 0;
   const notes: ReactNode[] = [];
   if (running > 0)
     notes.push(
@@ -50,14 +52,19 @@ function Notes({ rollup, running }: { rollup: AppRollup; running: number }) {
     );
   if (failed > 0 && couldntRun > 0) notes.push(<span key="error" className="text-warn">{couldntRun} couldn&apos;t run</span>);
   if ((failed > 0 || couldntRun > 0) && rollup.conditionsFailed > 0) notes.push(<span key="conditions" className="text-bad">{plural(rollup.conditionsFailed, "condition")} failed</span>);
-  if (signingText(rollup.signing)) notes.push(<SigningFlag key="signing" signing={rollup.signing} />);
-  if (notRun > 0 && notRun < rollup.tests.total) notes.push(<span key="not-run">{notRun} not run yet</span>);
-  if (rollup.untested > 0) notes.push(<span key="untested">{rollup.untested} not tested yet</span>);
-  if (notes.length === 0) return null;
+  if (check > 0) notes.push(<span key="check" className="text-warn">{plural(check, "signature")} to check</span>);
+  if (waiting > 0) notes.push(<span key="waiting">{waiting} not run yet</span>);
+  if (dangerous === 0 && notes.length === 0) return null;
   return (
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-muted-foreground">
-      {notes.flatMap((n, i) => (i === 0 ? [n] : [<span key={`dot-${i}`} aria-hidden="true">·</span>, n]))}
-    </p>
+    <>
+      {dangerous > 0 && (
+        <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-bad-bg py-1 pr-3 pl-2 text-sm font-medium text-bad-ink">
+          <TriangleAlert aria-hidden="true" className="size-4" />
+          {plural(dangerous, "dangerous signature")}
+        </p>
+      )}
+      {notes.length > 0 && <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">{notes}</p>}
+    </>
   );
 }
 
