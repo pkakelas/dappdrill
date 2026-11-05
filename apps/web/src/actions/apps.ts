@@ -68,7 +68,7 @@ const KeyHex = z
   .string()
   .trim()
   .transform((s) => (s.startsWith("0x") ? s : `0x${s}`))
-  .pipe(z.string().regex(/^0x[0-9a-fA-F]{64}$/, "The funded key is 64 hex characters."));
+  .pipe(z.string().regex(/^0x[0-9a-fA-F]{64}$/, "The private key is 64 hex characters."));
 
 const RpcUrl = z
   .string()
@@ -161,17 +161,6 @@ export async function analyzeAction(appId: string): Promise<void> {
 
 // ---------------------------------------------------------------- settings
 
-/** "<chain id> <rpc url> [live]" per line. */
-function parseCustomChains(text: string): ChainConfig[] | string {
-  const out: ChainConfig[] = [];
-  for (const line of text.split("\n").map((l) => l.trim()).filter(Boolean)) {
-    const m = /^(\d+)\s+(https?:\/\/\S+)(?:\s+(live|fork))?$/i.exec(line);
-    if (!m) return `Write other chains as "<chain id> <rpc url>", adding "live" for a testnet that can't be forked. This line didn't parse: ${line}`;
-    out.push({ id: Number(m[1]), rpcUrl: m[2]!, mode: m[3]?.toLowerCase() === "live" ? "live" : "fork" });
-  }
-  return out;
-}
-
 export async function saveSettingsAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
   const { app } = await requireApp(String(form.get("appId")));
   const name = String(form.get("name") ?? "").trim().slice(0, 60);
@@ -179,24 +168,47 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
   const url = Url.safeParse(form.get("url"));
   if (!url.success) return { error: url.error.issues[0]?.message };
 
+  const hints = String(form.get("hints") ?? "").trim().slice(0, 4000);
+  const funding = String(form.get("funding") ?? "").trim().slice(0, 1000);
+  if (looksLikeKey(hints) || looksLikeKey(funding)) return { error: "That looks like a private key. Text boxes aren't encrypted, so take it out." };
+
+  const keyIn = String(form.get("liveKey") ?? "").trim();
+  const removeKey = form.get("removeLiveKey") === "1";
+  // As on /new, a key is what opts a testnet into running live.
+  const hasKey = !removeKey && Boolean(keyIn || app.liveKeyAddress);
+
   const known = form
     .getAll("chain")
     .map(Number)
     .map((id) => KNOWN_CHAINS.find((c) => c.id === id))
     .filter((c) => c !== undefined)
-    .map((c): ChainConfig => ({ id: c.id, name: c.name, rpcUrl: c.rpcUrl, mode: c.forkable ? "fork" : "live" }));
-  const custom = parseCustomChains(String(form.get("customChains") ?? ""));
-  if (typeof custom === "string") return { error: custom };
-  // Keep fork blocks already pinned for chains that stay.
-  const chains = [...known, ...custom].map((c) => ({ ...c, forkBlock: app.settings.chains.find((o) => o.id === c.id && o.rpcUrl === c.rpcUrl)?.forkBlock }));
+    .map((c): ChainConfig => ({ id: c.id, name: c.name, rpcUrl: c.rpcUrl, mode: !c.forkable || (c.testnet && hasKey) ? "live" : "fork" }));
+
+  const ticked = new Set(form.getAll("testnetRpc"));
+  const others: ChainConfig[] = [];
+  for (const input of form.getAll("rpcUrl").map(String).filter((s) => s.trim())) {
+    const rpc = RpcUrl.safeParse(input);
+    if (!rpc.success) return { error: rpc.error.issues[0]?.message };
+    // A saved chain doesn't have to answer right now for the rest of the page to save.
+    const saved = app.settings.chains.find((c) => c.rpcUrl === rpc.data);
+    const id = saved?.id ?? (await readChainId(rpc.data));
+    if (id === undefined) return { error: `${NO_CHAIN} ${rpc.data}` };
+    const info = chainInfo(id);
+    const testnet = info ? info.testnet : ticked.has(input) && !MAINNET_CHAIN_IDS.has(id);
+    const live = info?.forkable === false || (testnet && (hasKey || (!info && saved?.mode === "live")));
+    others.push({ id, name: info?.name ?? saved?.name, rpcUrl: rpc.data, mode: live ? "live" : "fork" });
+  }
+
+  // One entry per chain, and an RPC the user gave beats ours. Keep fork blocks already pinned for chains that stay.
+  const picked = new Map([...known, ...others].map((c) => [c.id, c]));
+  const chains = [...picked.values()].map((c) => ({ ...c, forkBlock: app.settings.chains.find((o) => o.id === c.id && o.rpcUrl === c.rpcUrl)?.forkBlock }));
   if (chains.some((c) => c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id))) return { error: "Live mode is for testnets only. Mainnet chains always run on a local fork." };
 
   const wallets = form.getAll("wallet").map((w) => WalletProfileId.safeParse(w)).flatMap((r) => (r.success ? [r.data] : []));
   if (wallets.length === 0) return { error: "Pick at least one wallet." };
 
   let liveKey: { enc: string | null; address: string | null } | undefined;
-  const keyIn = String(form.get("liveKey") ?? "").trim();
-  if (form.get("removeLiveKey") === "1") liveKey = { enc: null, address: null };
+  if (removeKey) liveKey = { enc: null, address: null };
   else if (keyIn) {
     const k = KeyHex.safeParse(keyIn);
     if (!k.success) return { error: k.error.issues[0]?.message };
@@ -233,7 +245,8 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
     ...app.settings,
     wallets,
     chains,
-    hints: String(form.get("hints") ?? "").trim().slice(0, 4000) || undefined,
+    hints: hints || undefined,
+    funding: funding || undefined,
     allowMainnetLive: false,
     storage,
     responses,

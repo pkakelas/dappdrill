@@ -93,7 +93,6 @@ export function createAgentSdkLlm(opts: { model: string; effort: Effort }): Llm 
     async structured({ system, prompt, images, schema }) {
       const options: Options = {
         ...baseOptions(system),
-        effort: "low",
         maxTurns: 1,
         outputFormat: { type: "json_schema", schema: jsonSchema(schema) },
       };

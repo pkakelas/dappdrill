@@ -209,9 +209,15 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
 
   // Hidden subtrees are skipped entirely; a zero-size element is skipped itself
   // but its children may still render (fixed-position dialogs in an empty wrapper).
+  // Apps also keep invisible copies of real UI for measuring, like Uniswap's wallet
+  // list at opacity 1e-08 in a 1px box. Screen-reader-only controls have no children
+  // here, so they stay listed.
   const hidden = (el: Element): boolean => {
     const style = getComputedStyle(el);
-    return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
+    if (style.display === "none" || style.visibility === "hidden" || parseFloat(style.opacity) < 0.01) return true;
+    if (style.overflow === "visible" || !el.children.length) return false;
+    const box = el.getBoundingClientRect();
+    return box.width <= 1 && box.height <= 1;
   };
   const hasBox = (el: Element): boolean => {
     const r = el.getBoundingClientRect();

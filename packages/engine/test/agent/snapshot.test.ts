@@ -103,6 +103,35 @@ describe("takeSnapshot", () => {
   });
 });
 
+describe("takeSnapshot with invisible copies", () => {
+  it("skips a measuring copy of a list and keeps the real one", async () => {
+    await s.page.setContent(`
+      <div style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:1e-08;pointer-events:none">
+        <div id="copy" style="width:300px;cursor:pointer">MetaMask</div>
+      </div>
+      <div id="real" style="width:300px;cursor:pointer">MetaMask</div>`);
+    const snap = await takeSnapshot(s.page);
+    expect(snap.nodes.filter((n) => n.name === "MetaMask")).toHaveLength(1);
+    expect(await s.page.locator("#real").getAttribute("data-dd-ref")).toBeTruthy();
+    expect(await s.page.locator("#copy").getAttribute("data-dd-ref")).toBeNull();
+  });
+
+  it("skips what a 1px clipping box hides, whatever its opacity", async () => {
+    await s.page.setContent(`
+      <div style="position:absolute;width:1px;height:1px;overflow:hidden">
+        <button style="width:200px">Clipped</button>
+      </div>`);
+    const snap = await takeSnapshot(s.page);
+    expect(snap.nodes.map((n) => n.name)).not.toContain("Clipped");
+  });
+
+  it("keeps a screen-reader-only checkbox", async () => {
+    await s.page.setContent(`<label>Agree<input type="checkbox" style="position:absolute;width:1px;height:1px;overflow:hidden"></label>`);
+    const snap = await takeSnapshot(s.page);
+    expect(snap.nodes.map((n) => n.role)).toContain("checkbox");
+  });
+});
+
 describe("locatorFor", () => {
   it("prefers role+name, then label, and scopes to dialogs", async () => {
     await s.page.goto(`${s.baseUrl}/vault.html`);

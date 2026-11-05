@@ -101,14 +101,15 @@ export function createApiLlm(opts: { model: string; apiKey?: string; effort: Eff
     async structured({ system, prompt, images, schema }) {
       const res = await call({
         model: opts.model,
-        max_tokens: 4096,
+        max_tokens: MAX_TOKENS,
         system,
         thinking: { type: "adaptive" },
-        output_config: { effort: "low", format: zodOutputFormat(schema as unknown as z.ZodType) },
+        output_config: { effort: opts.effort, format: zodOutputFormat(schema as unknown as z.ZodType) },
         messages: [{ role: "user", content: [...(images ?? []).map(imageBlock), { type: "text", text: prompt }] }],
       });
       track(res.usage);
       if (res.stop_reason === "refusal") throw new LlmError("refusal", res.stop_details?.explanation ?? "The model declined");
+      if (res.stop_reason === "max_tokens") throw new LlmError("max_tokens", "The reply hit the output token limit");
       const text = res.content.find((b) => b.type === "text")?.text ?? "";
       const parsed = schema.safeParse(JSON.parse(text));
       if (!parsed.success) throw new LlmError("invalid_output", parsed.error.message);

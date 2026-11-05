@@ -125,7 +125,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
 
     const walk = await walkSteps(env, session, spec, steps, result.steps, reviews, { ...opts, signal, progress });
     if (walk.failure) {
-      status = "fail";
+      status = walk.stuck ? "error" : "fail";
       result.failure = walk.failure;
     }
 
