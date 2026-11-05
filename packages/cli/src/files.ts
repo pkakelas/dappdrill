@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
-import { AppMap, AppSetup, ChainConfig, TestSpec, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget } from "@dappdrill/core";
+import { AppMap, AppSetup, CONDITIONS, ChainConfig, TestSpec, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget, type EdgeCaseId } from "@dappdrill/core";
 
 export class UsageError extends Error {}
 
@@ -119,6 +119,16 @@ function readOrExplain(path: string): Promise<string> {
   return readFile(path, "utf8").catch((e: Error) => {
     throw new UsageError(`Can't read ${path}: ${e.message}`);
   });
+}
+
+/** --unhappy is the usual unhappy paths; each --condition adds one by id. */
+export function pickConditions(flags: { unhappy?: boolean; condition: string[] }): EdgeCaseId[] {
+  const picked = flags.condition.map((id) => {
+    const known = CONDITIONS.find((c) => c.id === id);
+    if (!known) throw new UsageError(`Unknown --condition "${id}". Pick from: ${CONDITIONS.map((c) => c.id).join(", ")}`);
+    return known.id;
+  });
+  return [...new Set([...(flags.unhappy ? CONDITIONS.filter((c) => c.default).map((c) => c.id) : []), ...picked])];
 }
 
 export function collect(value: string, previous: string[] = []): string[] {

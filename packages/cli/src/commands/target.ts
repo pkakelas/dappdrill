@@ -49,6 +49,7 @@ export async function buildTarget(url: string, flags: TargetFlags, learnedChains
 const useColour = process.stdout.isTTY && !process.env.NO_COLOR;
 /** Only problems get colour. */
 export const red = (s: string) => (useColour ? `\x1b[31m${s}\x1b[0m` : s);
+export const yellow = (s: string) => (useColour ? `\x1b[33m${s}\x1b[0m` : s);
 export const dim = (s: string) => (useColour ? `\x1b[2m${s}\x1b[0m` : s);
 
 /** The engine's log lines; frames and wallet chatter are left out. */

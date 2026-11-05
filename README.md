@@ -47,9 +47,19 @@ The engine runs without the web app or a database:
 
 ```bash
 dappdrill analyze <url>                 # find the flows, write .dappdrill/tests.json, run it
-dappdrill run                           # run .dappdrill/tests.json; exits 1 when a test fails
-dappdrill run --url <url> --only deposit --unhappy --junit junit.xml
+dappdrill run                           # run .dappdrill/tests.json
+dappdrill run --url <url> --only deposit --unhappy --condition failing-rpc --junit junit.xml
 ```
+
+`run` exits 0 when the tests passed, 1 when one failed, and 2 when one couldn't run, the run was
+stopped or nothing ran. `--unhappy` adds the usual unhappy paths and `--condition <id>` adds any
+other, but only to tests that ask the wallet to sign. A test that hasn't reached the wallet yet
+runs first and gets its unhappy paths in the same run if it does.
+
+Every signature request is reviewed. Dangerous and Check this reviews show under their test and in
+`summary.md`, all of them are in the JUnit output, and `results.json` has the full detail. A
+review doesn't change the exit code unless you pass `--fail-on-dangerous`, which exits 1 on a
+Dangerous review even if the tests passed.
 
 The tests file is plain JSON: edit a test's goal, expected result or steps by hand and commit it.
 Runs save the browser actions that worked back into it, so the next run is fast. Results go to

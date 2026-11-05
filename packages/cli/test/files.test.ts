@@ -1,11 +1,14 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TestRunResult } from "@dappdrill/core";
-import { addUnhappyPaths } from "../src/commands/run.js";
-import { UsageError, loadTests, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, type TestsFile } from "../src/files.js";
+import type { TestOutcome } from "@dappdrill/engine";
+import { addUnhappyPaths, printOutcome } from "../src/commands/run.js";
+import { UsageError, loadTests, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, pickConditions, type TestsFile } from "../src/files.js";
 import { renderJunit } from "../src/junit.js";
+import { renderMarkdown } from "../src/markdown.js";
+import { exitCode, reviewsLine, tally, tallyLine } from "../src/outcomes.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
@@ -98,20 +101,147 @@ describe("loadTests", () => {
   });
 });
 
+const signs = { ...withdraw, steps: [{ text: "Approve in the wallet", actions: [{ kind: "wallet", respond: "approve" } as never] }] };
+const usual = pickConditions({ unhappy: true, condition: [] });
+
 describe("addUnhappyPaths", () => {
-  it("adds the default conditions after each happy path, once", () => {
-    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
-    addUnhappyPaths(tests);
+  it("adds the conditions after each happy path that signs, once", () => {
+    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [signs] }] };
+    expect(addUnhappyPaths(tests, usual)).toHaveLength(4);
     const after = tests.flows[0]!.tests;
-    expect(after[0]).toBe(withdraw);
+    expect(after[0]).toBe(signs);
     expect(after.slice(1).map((t) => [t.condition, t.baseId, t.steps.length])).toEqual([
       ["reject", "test_1", 0],
       ["slow-rpc", "test_1", 0],
       ["wrong-network", "test_1", 0],
       ["low-gas", "test_1", 0],
     ]);
-    addUnhappyPaths(tests);
+    expect(addUnhappyPaths(tests, usual)).toEqual([]);
     expect(tests.flows[0]!.tests).toHaveLength(5);
+  });
+
+  it("leaves tests alone until a run has seen them sign", () => {
+    const neverRan = withdraw;
+    const noWallet = { ...withdraw, id: "test_2", steps: [{ text: "Read the balance", actions: [] }] };
+    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [neverRan, noWallet] }] };
+    expect(addUnhappyPaths(tests, usual)).toEqual([]);
+  });
+});
+
+describe("pickConditions", () => {
+  it("is the usual ones, plus any named, without repeats", () => {
+    expect(usual).toEqual(["reject", "slow-rpc", "wrong-network", "low-gas"]);
+    expect(pickConditions({ condition: ["failing-rpc"] })).toEqual(["failing-rpc"]);
+    expect(pickConditions({ unhappy: true, condition: ["reject", "failing-rpc"] })).toEqual([...usual, "failing-rpc"]);
+    expect(pickConditions({ condition: [] })).toEqual([]);
+  });
+
+  it("names the choices on a typo", () => {
+    expect(() => pickConditions({ condition: ["rejct"] })).toThrow(/Pick from: reject, /);
+    expect(() => pickConditions({ condition: ["happy"] })).toThrow(UsageError);
+  });
+});
+
+const outcome = (testId: string, status: TestOutcome["status"], result: object = {}): TestOutcome => ({ testId, status, result: TestRunResult.parse(result) });
+
+describe("exitCode", () => {
+  const code = (statuses: TestOutcome["status"][], total?: number) => exitCode(tally(statuses.map((s, i) => outcome(`t${i}`, s)), total));
+
+  it("is 0 when tests passed, even beside one that doesn't apply here", () => {
+    expect(code(["pass", "pass"])).toBe(0);
+    expect(code(["pass", "skipped"])).toBe(0);
+  });
+
+  it("is 1 when a test failed, whatever else happened", () => {
+    expect(code(["pass", "fail"])).toBe(1);
+    expect(code(["fail", "error", "stopped"])).toBe(1);
+  });
+
+  it("is 2 when a test couldn't run, the run stopped, or nothing ran", () => {
+    expect(code(["pass", "error"])).toBe(2);
+    expect(code(["pass", "stopped"])).toBe(2);
+    expect(code(["pass"], 3)).toBe(2);
+    expect(code(["skipped", "skipped"])).toBe(2);
+    expect(code([], 2)).toBe(2);
+  });
+
+  it("is 1 for a Dangerous review only when asked", () => {
+    const t = (statuses: TestOutcome["status"][]) => tally(statuses.map((s, i) => outcome(`t${i}`, s)));
+    expect(exitCode(t(["pass"]), true)).toBe(1);
+    expect(exitCode(t(["pass", "error"]), true)).toBe(1);
+    expect(exitCode(t(["pass"]), false)).toBe(0);
+  });
+
+  it("uses the status words", () => {
+    expect(tallyLine(tally([outcome("a", "pass"), outcome("b", "fail"), outcome("c", "error"), outcome("d", "skipped")], 5))).toBe("1 passed, 1 failed, 1 couldn't run, 2 not run");
+  });
+});
+
+const review = (verdict: "dangerous" | "check" | "consistent", title: string) => ({ verdict, title, summary: "It spends USDC." }) as never;
+
+describe("reviewsLine", () => {
+  it("counts what needs a look and never says safe", () => {
+    expect(reviewsLine([])).toBeUndefined();
+    expect(reviewsLine([review("consistent", "Deposit")])).toBe("1 signing request reviewed, all look consistent.");
+    expect(reviewsLine([review("dangerous", "A"), review("check", "B"), review("consistent", "C")])).toBe("3 signing requests reviewed: 1 dangerous, 1 to check.");
+  });
+});
+
+describe("printOutcome", () => {
+  const printed = (o: TestOutcome) => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    printOutcome("Deposit", 3, o);
+    const lines = log.mock.calls.map((c) => String(c[0]));
+    log.mockRestore();
+    return lines;
+  };
+
+  it("shows dangerous and check reviews under a test that passed, not consistent ones", () => {
+    const signingReviews = [review("dangerous", "Approve USDC"), review("check", "Sign in"), review("consistent", "Deposit")];
+    const lines = printed({ testId: "a", status: "pass", result: { ...TestRunResult.parse({}), signingReviews } });
+    expect(lines.slice(1)).toEqual(["      Dangerous: Approve USDC. It spends USDC.", "      Check this: Sign in. It spends USDC."]);
+  });
+
+  it("says couldn't run and not run, with the reason", () => {
+    expect(printed(outcome("a", "error", { failure: "The RPC is down." }))).toEqual(["  ! Deposit  couldn't run", "      The RPC is down."]);
+    expect(printed(outcome("a", "skipped", { failure: "Needs a fork." }))).toEqual(["  - Deposit  not run", "      Needs a fork."]);
+  });
+});
+
+describe("renderMarkdown", () => {
+  const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+
+  it("doesn't call an empty run a pass", () => {
+    expect(renderMarkdown(tests, [], 1)).toContain("**No tests ran** on https://app.example");
+    expect(renderMarkdown(tests, [outcome("test_1", "skipped", { failure: "Needs a fork." })])).toContain("**No tests ran**");
+    expect(renderMarkdown(tests, [outcome("test_1", "skipped", { failure: "Needs a fork." })])).toContain("Not run. Needs a fork.");
+  });
+
+  it("keeps couldn't run apart from failed, and counts tests a stopped run never reached", () => {
+    const md = renderMarkdown(tests, [outcome("test_1", "error", { failure: "The RPC is down." })], 2);
+    expect(md).toContain("**0 passed, 1 couldn't run, 1 not run**");
+    expect(md).toContain("Couldn't run. The RPC is down.");
+  });
+
+  it("says all passed only when all did", () => {
+    expect(renderMarkdown(tests, [outcome("test_1", "pass")])).toContain("**All 1 tests passed**");
+    expect(renderMarkdown(tests, [outcome("test_1", "pass")], 2)).toContain("**1 passed, 1 not run**");
+  });
+
+  it("says why a run with passing tests failed", () => {
+    const dangerous = { testId: "test_1", status: "pass" as const, result: { ...TestRunResult.parse({}), signingReviews: [review("dangerous", "Approve USDC")] } };
+    expect(renderMarkdown(tests, [dangerous], 1, true)).toContain("**This run fails because a signing request is Dangerous.**");
+    expect(renderMarkdown(tests, [dangerous], 1, false)).not.toContain("This run fails");
+    expect(renderMarkdown(tests, [outcome("test_1", "pass")], 1, true)).not.toContain("This run fails");
+  });
+
+  it("lists flagged signing requests once, the worst first", () => {
+    const signingReviews = [review("check", "Sign in"), review("dangerous", "Approve USDC"), review("consistent", "Deposit"), review("check", "Sign in")];
+    const md = renderMarkdown(tests, [{ testId: "test_1", status: "pass", result: { ...TestRunResult.parse({}), signingReviews } }]);
+    expect(md).toContain("3 signing requests reviewed: 1 dangerous, 1 to check.");
+    expect(md.indexOf("Dangerous: Approve USDC")).toBeLessThan(md.indexOf("Check this: Sign in"));
+    expect(md.match(/Check this: Sign in/g)).toHaveLength(1);
+    expect(md).not.toContain("Deposit.");
   });
 });
 
@@ -121,5 +251,12 @@ describe("renderJunit", () => {
     const xml = renderJunit(tests, [{ testId: "test_1", status: "fail", result: TestRunResult.parse({ failure: 'Step 1, "Click Withdraw": <disabled>' }) }]);
     expect(xml).toContain('<testsuite name="Withdraw" tests="1" failures="1"');
     expect(xml).toContain('<failure message="Step 1, &quot;Click Withdraw&quot;: &lt;disabled&gt;"/>');
+  });
+
+  it("gives the reason a test was skipped, and the signing requests a test made", () => {
+    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+    expect(renderJunit(tests, [outcome("test_1", "skipped", { failure: "Needs a fork." })])).toContain('<skipped message="Needs a fork."/>');
+    const xml = renderJunit(tests, [{ testId: "test_1", status: "pass", result: { ...TestRunResult.parse({}), signingReviews: [review("dangerous", "Approve <all> USDC")] } }]);
+    expect(xml).toContain("<system-out>Dangerous: Approve &lt;all&gt; USDC. It spends USDC.</system-out>");
   });
 });

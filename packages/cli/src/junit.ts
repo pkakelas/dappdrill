@@ -1,5 +1,6 @@
 import type { TestOutcome } from "@dappdrill/engine";
 import type { TestsFile } from "./files.js";
+import { reviewLine } from "./outcomes.js";
 
 /** JUnit XML: one suite per flow, one case per test that ran. */
 export function renderJunit(tests: TestsFile, outcomes: TestOutcome[], seconds: Map<string, number> = new Map()): string {
@@ -24,8 +25,10 @@ export function renderJunit(tests: TestsFile, outcomes: TestOutcome[], seconds: 
         body = `<error message="${message}"/>`;
       } else if (o.status !== "pass") {
         s.skipped++;
-        body = `<skipped message="${o.status}"/>`;
+        body = `<skipped message="${message || o.status}"/>`;
       }
+      const reviews = o.result.signingReviews.map(reviewLine);
+      if (reviews.length) body += `<system-out>${esc(reviews.join("\n"))}</system-out>`;
       return `    <testcase classname="${esc(flow.name)}" name="${esc(t.name)}" time="${time}">${body}</testcase>`;
     });
     for (const k of ["tests", "failures", "errors", "skipped"] as const) totals[k] += s[k];
