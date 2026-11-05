@@ -83,6 +83,58 @@ describe("runStep", () => {
     expect(strong.results).toHaveLength(1);
   });
 
+  describe("when a click never lands", () => {
+    // In the snapshot, but something sits on top of it, so Playwright's click times out.
+    async function blockedButton() {
+      await session.page.setContent(`
+        <button id="go" style="position:fixed;top:0;left:0;width:100px;height:40px">Go</button>
+        <div style="position:fixed;top:0;left:0;width:100px;height:40px;z-index:9"></div>
+        <button id="ok" style="margin-top:100px">Other</button>`);
+    }
+    const clickGo = (_l: string, page: string) => ({ tool: "click", input: { ref: refOf(page, "button", "Go") } });
+    const blame = { tool: "step_done", input: { ok: false, cause: "app", reason: "An overlay covers the button." } };
+
+    it("doesn't take the fast model's word that the app is at fault", async () => {
+      await blockedButton();
+      const fast = scriptedRuns([[{ tool: "look" }, clickGo, blame]]);
+      const strong = scriptedRuns([[{ tool: "step_done", input: { ok: false, cause: "unsure", reason: "Can't reach it." } }]]);
+      const out = await runStep(deps({ fast, strong }), spec([{ text: "Press Go" }]), 0);
+      expect(strong.results).toHaveLength(1);
+      expect(out).toMatchObject({ ok: false, stuck: true, note: "Couldn't click “Go”, so this step didn't finish." });
+    }, 20_000);
+
+    it("explains the failed click to the model", async () => {
+      await blockedButton();
+      const fast = scriptedRuns([[{ tool: "look" }, clickGo, blame]]);
+      await runStep(deps({ fast }), spec([{ text: "Press Go" }]), 0);
+      expect(fast.results[1]).toContain("This says nothing about the app");
+    }, 20_000);
+
+    it("trusts the acting model when it sees the app in the way", async () => {
+      await blockedButton();
+      const fast = scriptedRuns([[{ tool: "look" }, clickGo, blame]]);
+      const strong = scriptedRuns([[{ tool: "step_done", input: { ok: false, cause: "app", reason: "A banner stays over the button." } }]]);
+      const out = await runStep(deps({ fast, strong }), spec([{ text: "Press Go" }]), 0);
+      expect(out).toMatchObject({ ok: false, note: "A banner stays over the button." });
+      expect(out.stuck).toBeUndefined();
+    }, 20_000);
+
+    it("clears once a later click lands", async () => {
+      await blockedButton();
+      const fast = scriptedRuns([
+        [
+          { tool: "look" },
+          clickGo,
+          (_l, page) => ({ tool: "click", input: { ref: refOf(page, "button", "Other") } }),
+          { tool: "step_done", input: { ok: false, cause: "app", reason: "Nothing happened." } },
+        ],
+      ]);
+      const out = await runStep(deps({ fast }), spec([{ text: "Press Go" }]), 0);
+      expect(out).toMatchObject({ ok: false, note: "Nothing happened." });
+      expect(out.stuck).toBeUndefined();
+    }, 20_000);
+  });
+
   it("refuses an expect_text that isn't on the page", async () => {
     await open();
     const fast = scriptedRuns([

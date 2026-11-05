@@ -128,6 +128,8 @@ export interface ToolContext {
   budgetNote?: () => string | undefined;
   /** Runs before the wallet approves a signing request (the signing review). */
   beforeApprove?: (request: WalletRequest) => Promise<void>;
+  /** After each click: undefined when it landed, otherwise what we failed to click. */
+  onClick?: (failed?: string) => void;
 }
 
 /** Tools for looking at and acting on the page; recording happens as a side effect. */
@@ -197,7 +199,14 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
       handler: async ({ ref, why, optional }) => {
         const { locator, el } = await target(ref);
         const label = (await el.textContent().catch(() => null))?.trim().slice(0, 60);
-        await el.click({ timeout: 5_000 });
+        try {
+          await el.click({ timeout: 5_000 });
+        } catch (e) {
+          ctx.onClick?.(label || ref);
+          const cause = (e instanceof Error ? e.message : String(e)).split("\n")[0];
+          return `The click never reached ${ref} (${cause}). This says nothing about the app: the element may be a hidden copy, or covered for a moment. Look again with screenshot=true, and if another element has the same name, try that one.`;
+        }
+        ctx.onClick?.();
         recorder.add({ kind: "click", target: locator, note: why ?? (label ? `Click "${label}"` : undefined), ...(optional ? { optional } : {}) });
         return after(`Clicked ${ref}.`);
       },
@@ -359,6 +368,7 @@ export function pendingSign(session: DrillSession): WalletRequest | undefined {
 }
 
 export function describeRequest(r: WalletRequest): string {
+  if (r.kind === "other" && r.outcome === "approved") return `- ${r.id} ${r.method} → returned ${JSON.stringify(r.result ?? null).slice(0, 120)}`;
   if (r.kind !== "sign") return `- ${r.id} ${r.method} → ${r.outcome}`;
   return `- ${r.id} ${decodeWalletRequest(r).summary} → ${r.outcome}${r.error ? ` (${r.error})` : ""}`;
 }

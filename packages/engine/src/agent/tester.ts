@@ -21,7 +21,9 @@ You get the test's goal, all its steps, and the one step to do now. Do only that
 - Wallet requests show up in tool results. Approve them with wallet_approve unless the step says to reject.
 - When the step asks to check something, confirm it on the page and call expect_text with a short exact text that proves it.
 - Never solve a CAPTCHA or bot check. Call report_blocked.
-- Finish with step_done. ok=false with cause "app" when the app itself is in the way (an error, a disabled button, missing content); cause "unsure" when you couldn't work out how to do the step.`;
+- A click that fails tells you nothing about the app. Look again with a screenshot and try another element with the same name.
+- Only report what you saw. A wallet request that returned an empty list means nothing is connected.
+- Finish with step_done. ok=false with cause "app" when a user would see the app in the way (an error, a disabled button, missing content); cause "unsure" when you couldn't work out how to do the step.`;
 
 export interface StepDeps {
   session: DrillSession;
@@ -45,6 +47,8 @@ export interface StepOutcome {
   /** The actions to cache for next time; set when the agent passed the step. */
   actions?: Step[];
   blocked?: Blocked;
+  /** We couldn't click our way through, so the step says nothing about the app: the run is Couldn't run, not Failed. */
+  stuck?: boolean;
 }
 
 export async function runStep(deps: StepDeps, test: TestSpec, index: number): Promise<StepOutcome> {
@@ -59,15 +63,21 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   const recorder = new Recorder(deps.session);
   recorder.start(step.text);
   let blocked: Blocked | undefined;
-  const fast = await attempt(deps.fast, FAST_TURNS, deps, test, index, recorder, (b) => (blocked = b), broke);
+  /** What the latest click failed to reach, until a later click lands. */
+  let stuckOn: string | undefined;
+  const hooks: AttemptHooks = { onBlocked: (b) => (blocked = b), onClick: (failed) => (stuckOn = failed) };
+  const fast = await attempt(deps.fast, FAST_TURNS, deps, test, index, recorder, hooks, broke);
   let done = fast.done;
+  // The fast model tends to blame the app for a click of ours that failed, so that goes to the acting model too.
+  if (done && !done.ok && stuckOn) done.cause = "unsure";
   if (!blocked && deps.strong && (!done || (!done.ok && done.cause === "unsure"))) {
     const hint = done ? `A quicker attempt gave up: ${done.reason}` : "A quicker attempt ran out of actions before finishing.";
-    done = (await attempt(deps.strong, STRONG_TURNS, deps, test, index, recorder, (b) => (blocked = b), broke, hint)).done;
+    done = (await attempt(deps.strong, STRONG_TURNS, deps, test, index, recorder, hooks, broke, hint)).done;
   }
   const actions = recorder.take();
   const did = actions.map(describeStep);
   if (blocked) return { ok: false, via: "agent", did, note: `Blocked: ${blocked.reason}`, blocked };
+  if (stuckOn && !done?.ok && done?.cause !== "app") return { ok: false, via: "agent", did, note: `Couldn't click “${stuckOn}”, so this step didn't finish.`, stuck: true };
   if (!done) return { ok: false, via: "agent", did, note: "Couldn't finish this step." };
   return { ok: done.ok, via: "agent", did, note: done.reason || undefined, actions: done.ok ? actions : undefined };
 }
@@ -78,6 +88,11 @@ interface Done {
   reason: string;
 }
 
+interface AttemptHooks {
+  onBlocked: (b: Blocked) => void;
+  onClick: (failed?: string) => void;
+}
+
 async function attempt(
   llm: Llm,
   maxTurns: number,
@@ -85,14 +100,14 @@ async function attempt(
   test: TestSpec,
   index: number,
   recorder: Recorder,
-  onBlocked: (b: Blocked) => void,
+  hooks: AttemptHooks,
   broke?: string,
   hint?: string,
 ): Promise<{ done?: Done }> {
   const { session } = deps;
   let done: Done | undefined;
   const tools: AgentTool[] = [
-    ...browserTools({ session, recorder, inbox: deps.inbox, onBlocked, beforeApprove: deps.beforeApprove }),
+    ...browserTools({ session, recorder, inbox: deps.inbox, ...hooks, beforeApprove: deps.beforeApprove }),
     {
       name: "expect_text",
       description: "Check that a short exact text is visible on the page now. Records it as a check that later runs repeat.",
