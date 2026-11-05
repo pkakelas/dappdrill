@@ -1,5 +1,5 @@
-import type { SigningReview, TestRunResult } from "@dappdrill/core";
-import { Fragment } from "react";
+import type { SigningReview, TestRunResult, WalletRequest } from "@dappdrill/core";
+import { ChevronDown } from "lucide-react";
 import { Addr, cx, SeverityTag, VerdictTag } from "@/components/ui";
 
 const METHOD_LABEL: Record<string, string> = {
@@ -13,6 +13,8 @@ const METHOD_LABEL: Record<string, string> = {
   wallet_sendCalls: "Send calls",
 };
 
+const OUTCOME_LABEL: Record<WalletRequest["outcome"], string> = { approved: "Approved", rejected: "Rejected", errored: "Errored", pending: "Pending" };
+
 /** What the app asked the wallet for, with the signing review of each signature. */
 export function WalletActivity({ result }: { result: TestRunResult }) {
   const asked = result.walletRequests.filter((r) => r.kind !== "other");
@@ -23,13 +25,18 @@ export function WalletActivity({ result }: { result: TestRunResult }) {
       <ul className="divide-y">
         {asked.map((r) => {
           const review = reviews.get(r.id);
+          const refused = r.outcome === "rejected" || r.outcome === "errored";
+          const outcome = <span className={cx("text-xs", refused ? "text-warn" : "text-muted-foreground")}>{OUTCOME_LABEL[r.outcome]}</span>;
           return (
-            <li key={r.id} className="flex flex-col gap-2 px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <span>{review?.title ?? METHOD_LABEL[r.method] ?? r.method}</span>
-                <span className={cx("text-xs", r.outcome === "rejected" || r.outcome === "errored" ? "text-warn" : "text-muted-foreground")}>{r.outcome}</span>
-              </div>
-              {review && <Review review={review} />}
+            <li key={r.id}>
+              {review ? (
+                <Review review={review} outcome={r.outcome === "approved" ? null : outcome} />
+              ) : (
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span>{METHOD_LABEL[r.method] ?? r.method}</span>
+                  {outcome}
+                </div>
+              )}
             </li>
           );
         })}
@@ -38,61 +45,70 @@ export function WalletActivity({ result }: { result: TestRunResult }) {
   );
 }
 
-function Review({ review }: { review: SigningReview }) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0">{children}</dd>
+    </>
+  );
+}
+
+/** A signature: the verdict at a glance, the evidence folded away. Approved is the norm, so only another outcome shows. */
+function Review({ review, outcome }: { review: SigningReview; outcome: React.ReactNode }) {
   const d = review.decoded;
   const flagged = review.checks.filter((c) => c.status === "fail" || c.status === "warn");
   return (
     <details className="group">
-      <summary className="flex list-none items-start gap-2">
-        <VerdictTag verdict={review.verdict} />
-        <span className="leading-snug text-muted-foreground">{review.summary}</span>
+      <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-4 py-3 outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 [&::-webkit-details-marker]:hidden">
+        <span className="leading-snug font-medium">{review.title}</span>
+        <span className="flex items-center gap-2">
+          {outcome}
+          <VerdictTag verdict={review.verdict} />
+        </span>
+        <span className="text-sm leading-snug text-muted-foreground">{review.summary}</span>
+        <ChevronDown className="size-4 self-end justify-self-end text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>
-      <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5">
-        {d.to && (
-          <>
-            <dt className="text-muted-foreground">Contract</dt>
-            <dd>
-              <Addr value={d.to} /> {d.contractName && <span className="text-muted-foreground">({d.contractName})</span>}
-            </dd>
-          </>
-        )}
-        {d.functionName && (
-          <>
-            <dt className="text-muted-foreground">Call</dt>
-            <dd className="font-mono text-xs break-all">
-              {d.functionName}({d.args.map((a) => a.display ?? a.value).join(", ")})
-            </dd>
-          </>
-        )}
-        {d.message && (
-          <>
-            <dt className="text-muted-foreground">Message</dt>
-            <dd className="font-mono text-xs break-all whitespace-pre-wrap">{d.message}</dd>
-          </>
-        )}
-        {review.simulation?.balanceChanges.map((b, i) => (
-          <Fragment key={i}>
-            <dt className="text-muted-foreground">{i === 0 ? "Balance" : ""}</dt>
-            <dd>{b.display}</dd>
-          </Fragment>
-        ))}
-        {review.approvals.map((a, i) => (
-          <Fragment key={i}>
-            <dt className="text-muted-foreground">{i === 0 ? "Grants" : ""}</dt>
-            <dd className={cx(a.unlimited && "text-warn")}>{a.display}</dd>
-          </Fragment>
-        ))}
-      </dl>
-      {flagged.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1">
-          {flagged.map((c) => (
-            <li key={c.id} className={c.status === "fail" ? "text-bad" : "text-warn"}>
-              {c.label}: <span className="text-muted-foreground">{c.detail}</span>
-            </li>
+      <div className="px-4 pb-4">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 rounded-lg bg-muted/50 p-3 text-sm">
+          {d.to && (
+            <Row label="Contract">
+              {d.contractName && <span className="mr-2">{d.contractName}</span>}
+              <Addr value={d.to} className="text-xs text-muted-foreground" />
+            </Row>
+          )}
+          {d.functionName && (
+            <Row label="Call">
+              <span className="font-mono text-xs break-all">
+                {d.functionName}({d.args.map((a) => a.display ?? a.value).join(", ")})
+              </span>
+            </Row>
+          )}
+          {d.message && (
+            <Row label="Message">
+              <span className="font-mono text-xs break-all whitespace-pre-wrap">{d.message}</span>
+            </Row>
+          )}
+          {review.simulation?.balanceChanges.map((b, i) => (
+            <Row key={i} label={i === 0 ? "Balance" : ""}>
+              {b.display}
+            </Row>
           ))}
-        </ul>
-      )}
-      <p className="mt-2 text-muted-foreground">{review.explanation}</p>
+          {review.approvals.map((a, i) => (
+            <Row key={i} label={i === 0 ? "Grants" : ""}>
+              <span className={cx(a.unlimited && "text-warn")}>{a.display}</span>
+            </Row>
+          ))}
+          {flagged.map((c) => (
+            <Row key={c.id} label={c.label}>
+              <span className={c.status === "fail" ? "text-bad" : "text-warn"}>{c.detail}</span>
+            </Row>
+          ))}
+          <Row label="Why">
+            <span className="leading-snug text-muted-foreground">{review.explanation}</span>
+          </Row>
+        </dl>
+      </div>
     </details>
   );
 }

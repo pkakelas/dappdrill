@@ -24,7 +24,7 @@ export function AddTest({ appId, flowId, flowName, onClose }: { appId: string; f
 
   return (
     <form
-      className="flex flex-col gap-2 border-b bg-muted/30 px-5 py-3"
+      className="flex flex-col gap-2 pb-3"
       onSubmit={(e) => {
         e.preventDefault();
         submit();

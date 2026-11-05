@@ -9,7 +9,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { plural } from "@/lib/format";
 import { StepList, type StepWithResult } from "./setup-steps";
+import { RAIL } from "./status";
 
 interface Setup {
   startPath: string;
@@ -40,28 +42,28 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
     );
 
   return (
-    <section aria-label="Setup" className="overflow-hidden rounded-xl border bg-card shadow-xs">
-      <div className="flex items-start gap-3 border-b px-5 py-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h2 className="font-semibold">Setup</h2>
-          <p className="text-sm text-muted-foreground">
-            {SETUP_WHEN_LABEL[setup.when]}
-            {setup.why ? ` · ${setup.why}` : ""}
-            {last && <> · {last.label}</>}
-          </p>
-        </div>
-        <Button type="button" variant="outline" size="xs" onClick={() => setEditing(true)}>
+    <section aria-label="Setup" className={RAIL}>
+      <div className="min-w-0 self-start md:pt-2.5">
+        <h2 className="font-semibold tracking-tight">Setup</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {SETUP_WHEN_LABEL[setup.when]}
+          {last && <> · {last.label}</>}
+        </p>
+        <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="mt-1.5 -ml-2 text-muted-foreground">
           Edit
         </Button>
       </div>
-      {/* Folded unless it failed: the tests below are what matters otherwise. */}
-      <details open={last?.ok === false} className="group/setup">
-        <summary className="flex cursor-pointer items-center gap-1.5 px-5 py-2 text-sm text-muted-foreground hover:bg-accent/40 group-open/setup:border-b">
-          <span className="min-w-0 truncate">{setup.steps.join(" → ")}</span>
-          <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open/setup:rotate-90" />
-        </summary>
-        <StepList steps={last?.steps ?? setup.steps.map((text) => ({ text }))} />
-      </details>
+      <div className="min-w-0 md:pt-2.5">
+        {setup.why && <p className="text-sm leading-relaxed text-pretty text-muted-foreground">{setup.why}</p>}
+        {/* Folded unless it failed: the tests below are what matters otherwise. */}
+        <details open={last?.ok === false} className="group/setup mt-1">
+          <summary className="-mx-3 flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60">
+            <span className="min-w-0 truncate">{plural(setup.steps.length, "step")}: {setup.steps.join(" → ")}</span>
+            <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open/setup:rotate-90" />
+          </summary>
+          <StepList steps={last?.steps ?? setup.steps.map((text) => ({ text }))} className="-mx-3 mt-1 [&>li]:rounded-lg [&>li]:border-0 [&>li]:px-3 [&>li]:py-2" />
+        </details>
+      </div>
     </section>
   );
 }

@@ -1,7 +1,7 @@
-import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { db, flows, latestRuns, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { Check, X } from "lucide-react";
+import { Check, Wallet, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,7 @@ import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Fork } from "@/components/tests/fork";
+import { PathPills } from "@/components/tests/path-pills";
 import { RunButton } from "@/components/tests/run-button";
 import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/tests/run-details";
 import { StepList } from "@/components/tests/setup-steps";
@@ -17,6 +18,7 @@ import { isActive, STATE_LABEL, STATE_TEXT, StateMark, stateOf } from "@/compone
 import { AddUnhappy } from "@/components/tests/unhappy";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
@@ -38,9 +40,9 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   return { title: (await load(appId, testId)).name };
 }
 
-export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string }> }) {
+export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string; add?: string }> }) {
   const { appId, testId } = await params;
-  const { run: runParam } = await searchParams;
+  const { run: runParam, add } = await searchParams;
   const test = await load(appId, testId);
   const { app } = await requireApp(appId);
   const [[flow], [base], children, history, [forkedFrom]] = await Promise.all([
@@ -64,6 +66,12 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const steps: TestStep[] = base ? base.steps : test.steps;
   const childActive = children.some((c) => isActive(stateOf(c, childRuns.get(c.id))));
   const condition = test.condition ? conditionInfo(test.condition) : undefined;
+  const wallet = walletUse(test.steps);
+  const paths = !test.baseId && (
+    <PathPills appId={appId} tests={children} states={new Map(children.map((c) => [c.id, stateOf(c, childRuns.get(c.id))]))} runs={childRuns}>
+      {wallet === "signs" && <AddUnhappy testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} startOpen={add === "unhappy"} />}
+    </PathPills>
+  );
   const url = (path?: string | null) => (run ? artifactUrl("runs", run.batchId, path) : null);
 
   return (
@@ -170,7 +178,9 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                   )}
                 </Block>
                 {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-                <Steps steps={steps} result={result} url={url} />
+                <TooltipProvider>
+                  <Steps steps={steps} result={result} url={url} paths={paths} wallet={test.baseId ? undefined : wallet} hasPaths={children.length > 0} />
+                </TooltipProvider>
               </div>
             }
           />
@@ -181,28 +191,6 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           {result && <IssueList result={result} />}
           {result && <WalletActivity result={result} />}
           {result && <ConsoleErrors result={result} />}
-
-          {!test.baseId && (
-            <Panel title="Unhappy paths" count={children.length || undefined}>
-              {children.length > 0 && (
-                <ul className="divide-y border-b">
-                  {children.map((c) => {
-                    const s = stateOf(c, childRuns.get(c.id));
-                    return (
-                      <li key={c.id}>
-                        <Link href={`/apps/${appId}/tests/${c.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50">
-                          <StateMark state={s} />
-                          <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                          <span className={cx("text-xs", STATE_TEXT[s])}>{STATE_LABEL[s]}</span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              <AddUnhappy testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} />
-            </Panel>
-          )}
 
           {history.length > 1 && <History appId={appId} testId={test.id} runs={history} selected={run?.id} />}
         </aside>
@@ -220,7 +208,21 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Steps({ steps, result, url }: { steps: TestStep[]; result?: TestRunResult; url: (p?: string | null) => string | null }) {
+function Steps({
+  steps,
+  result,
+  url,
+  paths,
+  wallet,
+  hasPaths,
+}: {
+  steps: TestStep[];
+  result?: TestRunResult;
+  url: (p?: string | null) => string | null;
+  paths: React.ReactNode;
+  wallet?: ReturnType<typeof walletUse>;
+  hasPaths: boolean;
+}) {
   if (steps.length === 0)
     return (
       <div className="flex flex-col gap-1.5">
@@ -228,10 +230,30 @@ function Steps({ steps, result, url }: { steps: TestStep[]; result?: TestRunResu
         <p className="text-muted-foreground">No steps yet. The first run works them out from the goal.</p>
       </div>
     );
+  // Conditions bite on the main transaction, the last thing signed (the deposit, not the approval before it).
+  const branchAt = steps.findLastIndex(stepSigns);
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium text-muted-foreground">Steps</span>
-      <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={steps.map((s, i) => ({ text: s.text, result: result?.steps[i], shot: url(result?.steps[i]?.screenshot) }))} />
+      <StepList
+        className="overflow-hidden rounded-xl border bg-card shadow-xs"
+        steps={steps.map((s, i) => ({
+          text: s.text,
+          result: result?.steps[i],
+          shot: url(result?.steps[i]?.screenshot),
+          signs: stepSigns(s),
+          after: wallet === "signs" && i === branchAt ? <div id="unhappy-paths" className="ml-[7px] scroll-mt-24 border-l py-0.5 pl-3">{paths}</div> : undefined,
+        }))}
+      />
+      {wallet && wallet !== "signs" && (
+        <div className="flex flex-col gap-2 px-1 pt-1">
+          {hasPaths && paths}
+          <p className="flex gap-2 text-sm text-muted-foreground">
+            <Wallet className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            {wallet === "none" ? "This test never asks the wallet to sign, so unhappy paths have nothing to change." : "Unhappy paths unlock once a run of this test reaches the wallet."}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
