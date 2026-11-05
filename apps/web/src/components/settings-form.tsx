@@ -110,7 +110,7 @@ function OtherChainRow({ row, onChange, onRemove }: { row: OtherChain; onChange:
 }
 
 /** One form, one Save, sections in the order people need them. */
-export function SettingsForm({ appId, defaults: d, frame, seen }: { appId: string; defaults: SettingsDefaults; frame: string | null; seen: string }) {
+export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { appId: string; defaults: SettingsDefaults; frame: string | null; seen: string; readOnly?: boolean }) {
   const [state, act, pending] = useActionState<ActionResult, FormData>(saveSettingsAction, undefined);
   const [chains, setChains] = useState(d.chains);
   const [others, setOthers] = useState(() => d.otherChains.map((row, key) => ({ ...row, key })));
@@ -164,193 +164,198 @@ export function SettingsForm({ appId, defaults: d, frame, seen }: { appId: strin
   return (
     <form onSubmit={submit} onChange={() => setEdited(true)} aria-busy={pending} className="flex flex-col">
       <input type="hidden" name="appId" value={appId} />
+      {/* People who can only look get every field disabled. */}
+      <fieldset disabled={readOnly} className="contents">
 
-      <section aria-labelledby="app" className="grid gap-8 border-t py-8 lg:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-5">
-          <h2 id="app" className="text-base font-semibold">
-            App
-          </h2>
-          <Field label="Name">
-            <Input name="name" defaultValue={d.name} required maxLength={60} className="h-11" />
-          </Field>
-          <Field label="App URL">
-            <InputGroup className="h-11">
-              <InputGroupAddon>
-                <Globe />
-              </InputGroupAddon>
-              <InputGroupInput name="url" defaultValue={d.url} required autoComplete="url" inputMode="url" spellCheck={false} placeholder="app.example.com" />
-            </InputGroup>
-          </Field>
-          <div id="wallets" className="flex flex-col gap-2">
-            <p className="text-sm leading-none font-medium">Wallets</p>
-            <div className="flex flex-wrap gap-2">
-              {WALLETS.map((w) => (
-                <label key={w.id} className={CHIP}>
-                  <input type="checkbox" name="wallet" value={w.id} checked={wallets.includes(w.id)} onChange={(event) => setWallets(toggle(wallets, w.id, event.target.checked))} className="sr-only" />
-                  <WalletIcon wallet={w.id} />
-                  {w.name}
-                </label>
-              ))}
-            </div>
-            <p className="text-sm text-muted-foreground">Your app sees these as installed browser wallets.</p>
-          </div>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-2">
-          <BrowserWindow
-            url={d.url}
-            toolbar={
-              <>
-                {pickedIds.slice(0, MAX_TOOLBAR_CHAINS).map((id) => (
-                  <span key={id} className="flex animate-in duration-300 zoom-in-50">
-                    <ChainIcon chain={{ id }} />
-                  </span>
-                ))}
-                {WALLETS.filter((w) => wallets.includes(w.id)).map((w) => (
-                  <span key={w.id} className="flex animate-in duration-300 zoom-in-50">
+        <section aria-labelledby="app" className="grid gap-8 border-t py-8 lg:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-5">
+            <h2 id="app" className="text-base font-semibold">
+              App
+            </h2>
+            <Field label="Name">
+              <Input name="name" defaultValue={d.name} required maxLength={60} className="h-11" />
+            </Field>
+            <Field label="App URL">
+              <InputGroup className="h-11">
+                <InputGroupAddon>
+                  <Globe />
+                </InputGroupAddon>
+                <InputGroupInput name="url" defaultValue={d.url} required autoComplete="url" inputMode="url" spellCheck={false} placeholder="app.example.com" />
+              </InputGroup>
+            </Field>
+            <div id="wallets" className="flex flex-col gap-2">
+              <p className="text-sm leading-none font-medium">Wallets</p>
+              <div className="flex flex-wrap gap-2">
+                {WALLETS.map((w) => (
+                  <label key={w.id} className={CHIP}>
+                    <input type="checkbox" name="wallet" value={w.id} checked={wallets.includes(w.id)} onChange={(event) => setWallets(toggle(wallets, w.id, event.target.checked))} className="sr-only" />
                     <WalletIcon wallet={w.id} />
-                  </span>
+                    {w.name}
+                  </label>
                 ))}
-              </>
-            }
-          >
-            <LastFrame src={frame} alt={`What DappDrill last saw on ${d.name}`} />
-          </BrowserWindow>
-          <p className="text-sm text-muted-foreground">{seen}</p>
-        </div>
-      </section>
-
-      <SettingsSection id="chains" title="Chains" hint="Where your tests run.">
-        <label className={cx(CHIP, "w-fit")}>
-          <input type="checkbox" checked={detect} onChange={() => (setChains([]), setOthers([]))} className="sr-only" />
-          <ScanSearch className="size-[18px]" />
-          Detect automatically
-        </label>
-        {CHAIN_GROUPS.map((group) => (
-          <div key={group.label} className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">{group.label}</p>
-            <div className="flex flex-wrap gap-2">
-              {group.chains.map((c) => (
-                <label key={c.id} className={CHIP}>
-                  <input type="checkbox" name="chain" value={c.id} checked={chains.includes(c.id)} onChange={(event) => setChains(toggle(chains, c.id, event.target.checked))} className="sr-only" />
-                  <ChainIcon chain={c} />
-                  {c.name}
-                </label>
-              ))}
+              </div>
+              <p className="text-sm text-muted-foreground">Your app sees these as installed browser wallets.</p>
             </div>
           </div>
-        ))}
-        {others.map((row) => (
-          <OtherChainRow
-            key={row.key}
-            row={row}
-            onChange={(change) => setOthers((rows) => rows.map((r) => (r.key === row.key ? { ...r, ...change } : r)))}
-            onRemove={() => setOthers((rows) => rows.filter((r) => r.key !== row.key))}
+
+          <div className="flex min-w-0 flex-col gap-2">
+            <BrowserWindow
+              url={d.url}
+              toolbar={
+                <>
+                  {pickedIds.slice(0, MAX_TOOLBAR_CHAINS).map((id) => (
+                    <span key={id} className="flex animate-in duration-300 zoom-in-50">
+                      <ChainIcon chain={{ id }} />
+                    </span>
+                  ))}
+                  {WALLETS.filter((w) => wallets.includes(w.id)).map((w) => (
+                    <span key={w.id} className="flex animate-in duration-300 zoom-in-50">
+                      <WalletIcon wallet={w.id} />
+                    </span>
+                  ))}
+                </>
+              }
+            >
+              <LastFrame src={frame} alt={`What DappDrill last saw on ${d.name}`} />
+            </BrowserWindow>
+            <p className="text-sm text-muted-foreground">{seen}</p>
+          </div>
+        </section>
+
+        <SettingsSection id="chains" title="Chains" hint="Where your tests run.">
+          <label className={cx(CHIP, "w-fit")}>
+            <input type="checkbox" checked={detect} onChange={() => (setChains([]), setOthers([]))} className="sr-only" />
+            <ScanSearch className="size-[18px]" />
+            Detect automatically
+          </label>
+          {CHAIN_GROUPS.map((group) => (
+            <div key={group.label} className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">{group.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {group.chains.map((c) => (
+                  <label key={c.id} className={CHIP}>
+                    <input type="checkbox" name="chain" value={c.id} checked={chains.includes(c.id)} onChange={(event) => setChains(toggle(chains, c.id, event.target.checked))} className="sr-only" />
+                    <ChainIcon chain={c} />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+          {others.map((row) => (
+            <OtherChainRow
+              key={row.key}
+              row={row}
+              onChange={(change) => setOthers((rows) => rows.map((r) => (r.key === row.key ? { ...r, ...change } : r)))}
+              onRemove={() => setOthers((rows) => rows.filter((r) => r.key !== row.key))}
+            />
+          ))}
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOthers((rows) => [...rows, { key: nextKey.current++, rpcUrl: "", testnet: false }])} className="-ml-2 self-start text-muted-foreground">
+            <Plus />
+            Other chain
+          </Button>
+          <FieldDescription>{chainsNote(picks, others.length > 0, hasKey)}</FieldDescription>
+        </SettingsSection>
+
+        <section aria-labelledby="context" className="flex flex-col gap-7 border-t py-8">
+          <div className="flex flex-col gap-1.5">
+            <h2 id="context" className="text-base font-semibold">
+              What DappDrill should know
+            </h2>
+            <p className="text-sm text-muted-foreground">It reads these each time it explores the app.</p>
+          </div>
+          <HintRows
+            hints={hints}
+            hasKey={hasKey}
+            rowClassName={SECTION_ROW}
+            keyField={
+              (picks.some((p) => p.testnet) || d.liveKeyAddress) && (
+                <>
+                  <LiveKeyField value={liveKey} onChange={setLiveKey} saved={d.liveKeyAddress} />
+                  {d.liveKeyAddress && (
+                    <Check name="removeLiveKey" checked={removeKey} onChange={setRemoveKey}>
+                      Remove the saved key
+                    </Check>
+                  )}
+                </>
+              )
+            }
           />
-        ))}
-        <Button type="button" variant="ghost" size="sm" onClick={() => setOthers((rows) => [...rows, { key: nextKey.current++, rpcUrl: "", testnet: false }])} className="-ml-2 self-start text-muted-foreground">
-          <Plus />
-          Other chain
-        </Button>
-        <FieldDescription>{chainsNote(picks, others.length > 0, hasKey)}</FieldDescription>
-      </SettingsSection>
+        </section>
 
-      <section aria-labelledby="context" className="flex flex-col gap-7 border-t py-8">
-        <div className="flex flex-col gap-1.5">
-          <h2 id="context" className="text-base font-semibold">
-            What DappDrill should know
-          </h2>
-          <p className="text-sm text-muted-foreground">It reads these each time it explores the app.</p>
-        </div>
-        <HintRows
-          hints={hints}
-          hasKey={hasKey}
-          rowClassName={SECTION_ROW}
-          keyField={
-            (picks.some((p) => p.testnet) || d.liveKeyAddress) && (
-              <>
-                <LiveKeyField value={liveKey} onChange={setLiveKey} saved={d.liveKeyAddress} />
-                {d.liveKeyAddress && (
-                  <Check name="removeLiveKey" checked={removeKey} onChange={setRemoveKey}>
-                    Remove the saved key
-                  </Check>
-                )}
-              </>
-            )
+        <SettingsSection id="schedule" title="Daily run" hint="Runs every test once a day and alerts the organization when one stops passing.">
+          <Field label="Time (UTC)">
+            <NativeSelect name="schedule" defaultValue={d.schedule}>
+              <NativeSelectOption value="">Off</NativeSelectOption>
+              {TIMES.map((t) => (
+                <NativeSelectOption key={t} value={t}>
+                  {t}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+          {!d.verified && (
+            <p className="text-sm text-muted-foreground">
+              Needs the app&apos;s domain verified first, in{" "}
+              <Link href="/organization#domains" className="underline underline-offset-4 hover:text-foreground">
+                Organization settings
+              </Link>
+              .
+            </p>
+          )}
+        </SettingsSection>
+
+        {/* Remounted after a save, which clears the secret that was just stored. */}
+        <SettingsSection
+          key={saves}
+          id="access"
+          title="Bot protection"
+          hint={
+            <>
+              DappDrill never solves CAPTCHAs. If your site has a bot check, let it in with a header your firewall allows.{" "}
+              <a href={BOT_GUIDE_URL} className="underline underline-offset-4 hover:text-foreground">
+                How
+              </a>
+            </>
           }
-        />
-      </section>
+        >
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+            <Field label="Header name">
+              <Input name="headerName" className="font-mono" placeholder={d.headerNames[0] ?? "x-dappdrill-key"} autoComplete="off" spellCheck={false} />
+            </Field>
+            <Field label="Value">
+              <Input name="headerValue" type="password" className="font-mono" placeholder={d.headerNames.length ? "Saved. Paste a new one to replace it." : ""} autoComplete="off" />
+            </Field>
+          </div>
+          <p className="text-sm text-muted-foreground">Sent only to your own domain, never to RPCs or other sites.</p>
+          {d.headerNames.length > 0 && <Check name="removeHeaders">Remove the saved header ({d.headerNames.join(", ")})</Check>}
+        </SettingsSection>
 
-      <SettingsSection id="schedule" title="Daily run" hint="Runs every test once a day and alerts the team when one stops passing.">
-        <Field label="Time (UTC)">
-          <NativeSelect name="schedule" defaultValue={d.schedule}>
-            <NativeSelectOption value="">Off</NativeSelectOption>
-            {TIMES.map((t) => (
-              <NativeSelectOption key={t} value={t}>
-                {t}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </Field>
-        {!d.verified && (
-          <p className="text-sm text-muted-foreground">
-            Needs the app&apos;s domain verified first, in{" "}
-            <Link href="/account#domains" className="underline underline-offset-4 hover:text-foreground">
-              Account
-            </Link>
-            .
-          </p>
-        )}
-      </SettingsSection>
-
-      {/* Remounted after a save, which clears the secret that was just stored. */}
-      <SettingsSection
-        key={saves}
-        id="access"
-        title="Bot protection"
-        hint={
-          <>
-            DappDrill never solves CAPTCHAs. If your site has a bot check, let it in with a header your firewall allows.{" "}
-            <a href={BOT_GUIDE_URL} className="underline underline-offset-4 hover:text-foreground">
-              How
-            </a>
-          </>
-        }
-      >
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-          <Field label="Header name">
-            <Input name="headerName" className="font-mono" placeholder={d.headerNames[0] ?? "x-dappdrill-key"} autoComplete="off" spellCheck={false} />
+        <SettingsSection
+          id="setup"
+          title="Fork setup"
+          hint={
+            <>
+              For apps that need a flag to work on a fork, or a backend that disagrees with it.{" "}
+              <a href={FORK_GUIDE_URL} className="underline underline-offset-4 hover:text-foreground">
+                How
+              </a>
+            </>
+          }
+        >
+          <Field label="localStorage" hint="key=value, one per line. Set before the app loads.">
+            <Textarea name="storage" defaultValue={d.storage} rows={2} className="font-mono" placeholder="forkMode=true" spellCheck={false} />
           </Field>
-          <Field label="Value">
-            <Input name="headerValue" type="password" className="font-mono" placeholder={d.headerNames.length ? "Saved. Paste a new one to replace it." : ""} autoComplete="off" />
+          <Field label="Fixed responses" hint='"<url> [status] <body>", one per line. * matches anything.'>
+            <Textarea name="responses" defaultValue={d.responses} rows={2} className="font-mono" placeholder='https://api.example.com/health {"ok":true}' spellCheck={false} />
           </Field>
-        </div>
-        <p className="text-sm text-muted-foreground">Sent only to your own domain, never to RPCs or other sites.</p>
-        {d.headerNames.length > 0 && <Check name="removeHeaders">Remove the saved header ({d.headerNames.join(", ")})</Check>}
-      </SettingsSection>
+        </SettingsSection>
+      </fieldset>
 
-      <SettingsSection
-        id="setup"
-        title="Fork setup"
-        hint={
-          <>
-            For apps that need a flag to work on a fork, or a backend that disagrees with it.{" "}
-            <a href={FORK_GUIDE_URL} className="underline underline-offset-4 hover:text-foreground">
-              How
-            </a>
-          </>
-        }
-      >
-        <Field label="localStorage" hint="key=value, one per line. Set before the app loads.">
-          <Textarea name="storage" defaultValue={d.storage} rows={2} className="font-mono" placeholder="forkMode=true" spellCheck={false} />
-        </Field>
-        <Field label="Fixed responses" hint='"<url> [status] <body>", one per line. * matches anything.'>
-          <Textarea name="responses" defaultValue={d.responses} rows={2} className="font-mono" placeholder='https://api.example.com/health {"ok":true}' spellCheck={false} />
-        </Field>
-      </SettingsSection>
+      {readOnly && <p className="border-t py-4 text-sm text-muted-foreground">Only admins and owners can change an app&apos;s settings.</p>}
 
       {/* Sticks to the bottom only while there is something to save, and briefly to say it saved. */}
-      <div className={cx("bottom-0 z-10 flex items-center gap-4 border-t bg-background py-4", (dirty || saved || state?.error) && "sticky")}>
+      <div className={cx("bottom-0 z-10 flex items-center gap-4 border-t bg-background py-4", (dirty || saved || state?.error) && "sticky", readOnly && "hidden")}>
         <Button type="submit" disabled={pending || !dirty}>
           {pending ? "Saving…" : "Save settings"}
         </Button>

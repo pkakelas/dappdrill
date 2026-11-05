@@ -28,13 +28,18 @@ packages/engine   The backend that drills a dApp. No DB. Public API in src/api.t
   src/signing/      Signing review: decode, simulate, approvals, source/proxy/age, known-bad, UI match, baseline diff
 packages/cli      `dappdrill analyze` / `dappdrill run` over a committed tests file (JSON + Markdown + JUnit output)
 apps/worker       pg-boss jobs: analysis, test runs, test drafts, assistant turns, scheduled runs. Engine events → DB
-apps/web          Next.js app: auth (Better Auth, email/password + Google), all product pages
+apps/web          Next.js app: auth (Better Auth, email/password + Google), organizations, all product pages
 fixtures/harbor-vault  Local test dApp with seeded bugs, used to measure what we catch
 ```
 
 Engine contract: the worker and CLI call only `analyze`, `runTests`, `writeTest`, `chatTurn`
 (via `loadEngine()` from `@dappdrill/engine/fake`). Events stream through a `DrillEventSink`. Artifacts (videos,
 screenshots, traces) are files under an `artifactsDir`; paths in results are relative to it.
+
+Organizations: apps, test wallets, domains and integrations belong to an organization (Better Auth's
+organization plugin; tables `organization`, `member`, `invitation`). Roles are owner / admin / member, and
+what each may do is in `apps/web/src/lib/permissions.ts`. Server actions check with `orgAccess(orgId, permission)`
+or `requireApp(appId)` from `apps/web/src/lib/session.ts`; forms send their `orgId` rather than trusting the cookie.
 
 ## Rules
 

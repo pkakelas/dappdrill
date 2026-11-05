@@ -1,6 +1,7 @@
 import { Compass, Link2, ListChecks, Play } from "lucide-react";
 import type { Metadata } from "next";
 import { NewAppForm } from "@/components/new-app-form";
+import { currentOrg } from "@/lib/session";
 
 export const metadata: Metadata = { title: "New app" };
 
@@ -11,7 +12,8 @@ const STEPS = [
   { icon: Play, tint: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", title: "We run them", detail: "On local forks, never mainnet" },
 ];
 
-export default function NewAppPage() {
+export default async function NewAppPage() {
+  const { org } = await currentOrg();
   return (
     <div className="page pt-10 sm:pt-16">
       <div className="flex flex-col gap-8">
@@ -19,7 +21,7 @@ export default function NewAppPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Add your dApp</h1>
           <p className="text-base text-balance text-muted-foreground">Paste its URL and DappDrill turns the main flows into tests.</p>
         </header>
-        <NewAppForm>
+        <NewAppForm orgId={org.id}>
           <ol className="grid gap-5 pt-2 sm:grid-cols-4 sm:gap-4">
             {STEPS.map(({ icon: Icon, tint, title, detail }, index) => (
               <li

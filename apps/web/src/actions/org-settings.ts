@@ -1,30 +1,32 @@
 "use server";
 
 import { newId } from "@dappdrill/core";
-import { db, domains, encrypt, integrations, invites, teamMembers, testWallets } from "@dappdrill/db";
+import { db, domains, encrypt, integrations, testWallets } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { checkDomain, HOST_RE } from "@/lib/domains";
-import { sendEmail } from "@/lib/email";
-import { env } from "@/lib/env";
-import { currentTeam } from "@/lib/session";
+import { orgAccess } from "@/lib/session";
 
 const Id = z.string().min(1).max(100);
 const done = (ok: string): ActionResult => {
-  revalidatePath("/account");
+  revalidatePath("/organization");
   return { ok };
 };
+
+/** The organization the form names (a hidden orgId field), for people who may change its settings. */
+const access = (form: FormData) => orgAccess(form.get("orgId"), "org.manage");
 
 // ---------------------------------------------------------------- test inbox
 
 const MAILTM = "https://api.mail.tm";
 
 /** Creates a disposable mail.tm inbox for embedded-wallet email-code logins. */
-export async function createInboxAction(_prev?: ActionResult, _form?: FormData): Promise<ActionResult> {
-  const { team } = await currentTeam();
+export async function createInboxAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
+  const a = await access(form);
+  if ("error" in a) return a;
   try {
     const res = await fetch(`${MAILTM}/domains`, { signal: AbortSignal.timeout(10_000), cache: "no-store" });
     const body = (await res.json()) as { "hydra:member"?: { domain: string; isActive?: boolean }[] } | { domain: string }[];
@@ -40,23 +42,25 @@ export async function createInboxAction(_prev?: ActionResult, _form?: FormData):
       signal: AbortSignal.timeout(10_000),
     });
     if (!created.ok) return { error: `The inbox service said no (${created.status}). Try again in a minute.` };
-    await db().update(testWallets).set({ inboxAddress: address, inboxPasswordEnc: encrypt(password) }).where(eq(testWallets.teamId, team.id));
+    await db().update(testWallets).set({ inboxAddress: address, inboxPasswordEnc: encrypt(password) }).where(eq(testWallets.organizationId, a.org.id));
   } catch {
     return { error: "Couldn't reach the inbox service. Try again in a minute." };
   }
   return done("Inbox created.");
 }
 
-export async function removeInboxAction(): Promise<void> {
-  const { team } = await currentTeam();
-  await db().update(testWallets).set({ inboxAddress: null, inboxPasswordEnc: null }).where(eq(testWallets.teamId, team.id));
-  revalidatePath("/account");
+export async function removeInboxAction(form: FormData): Promise<void> {
+  const a = await access(form);
+  if ("error" in a) return;
+  await db().update(testWallets).set({ inboxAddress: null, inboxPasswordEnc: null }).where(eq(testWallets.organizationId, a.org.id));
+  revalidatePath("/organization");
 }
 
 // ---------------------------------------------------------------- domains
 
 export async function addDomainAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const { team } = await currentTeam();
+  const a = await access(form);
+  if ("error" in a) return a;
   let host = String(form.get("host") ?? "").trim().toLowerCase();
   try {
     if (host.includes("/")) host = new URL(host.includes("://") ? host : `https://${host}`).hostname;
@@ -64,20 +68,21 @@ export async function addDomainAction(_prev: ActionResult, form: FormData): Prom
     // validated below
   }
   if (!HOST_RE.test(host)) return { error: "Enter a hostname, like app.example.com." };
-  const [existing] = await db().select({ id: domains.id }).from(domains).where(and(eq(domains.teamId, team.id), eq(domains.host, host)));
+  const [existing] = await db().select({ id: domains.id }).from(domains).where(and(eq(domains.organizationId, a.org.id), eq(domains.host, host)));
   if (existing) return { error: `${host} is already on the list.` };
-  await db().insert(domains).values({ id: newId("dom"), teamId: team.id, host, token: randomBytes(12).toString("hex") });
+  await db().insert(domains).values({ id: newId("dom"), organizationId: a.org.id, host, token: randomBytes(12).toString("hex") });
   return done(`Added ${host}. Publish the token below, then press Verify.`);
 }
 
-async function teamDomain(domainId: string) {
-  const { team } = await currentTeam();
-  const [row] = await db().select().from(domains).where(and(eq(domains.id, Id.parse(domainId)), eq(domains.teamId, team.id)));
+async function orgDomain(form: FormData) {
+  const a = await access(form);
+  if ("error" in a) return undefined;
+  const [row] = await db().select().from(domains).where(and(eq(domains.id, Id.parse(form.get("domainId"))), eq(domains.organizationId, a.org.id)));
   return row;
 }
 
 export async function verifyDomainAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const row = await teamDomain(String(form.get("domainId")));
+  const row = await orgDomain(form);
   if (!row) return { error: "Domain not found." };
   const method = await checkDomain(row.host, row.token);
   if (!method) return { error: `Didn't find the token at https://${row.host}/.well-known/dappdrill.txt or in a TXT record yet. DNS can take a few minutes.` };
@@ -86,9 +91,9 @@ export async function verifyDomainAction(_prev: ActionResult, form: FormData): P
 }
 
 export async function removeDomainAction(form: FormData): Promise<void> {
-  const row = await teamDomain(String(form.get("domainId")));
+  const row = await orgDomain(form);
   if (row) await db().delete(domains).where(eq(domains.id, row.id));
-  revalidatePath("/account");
+  revalidatePath("/organization");
 }
 
 // ---------------------------------------------------------------- integrations
@@ -103,9 +108,10 @@ const emails = z
   .pipe(z.array(z.string().email("One of those isn't an email address.")).min(1, "Add at least one email address.").max(20));
 
 export async function saveIntegrationAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const { team } = await currentTeam();
+  const a = await access(form);
+  if ("error" in a) return a;
   const kind = Kind.parse(form.get("kind"));
-  const [existing] = await db().select().from(integrations).where(and(eq(integrations.teamId, team.id), eq(integrations.kind, kind)));
+  const [existing] = await db().select().from(integrations).where(and(eq(integrations.organizationId, a.org.id), eq(integrations.kind, kind)));
   const secretIn = String(form.get("secret") ?? "").trim();
   let config: Record<string, string> = {};
   let secret: string | null | undefined; // undefined = keep the stored one
@@ -134,57 +140,25 @@ export async function saveIntegrationAction(_prev: ActionResult, form: FormData)
 
   const values = { config, enabled: true, ...(secret !== undefined ? { secretEnc: secret ? encrypt(secret) : null } : {}) };
   if (existing) await db().update(integrations).set(values).where(eq(integrations.id, existing.id));
-  else await db().insert(integrations).values({ id: newId("int"), teamId: team.id, kind, ...values });
+  else await db().insert(integrations).values({ id: newId("int"), organizationId: a.org.id, kind, ...values });
   return done("Saved.");
 }
 
 export async function setIntegrationEnabledAction(form: FormData): Promise<void> {
-  const { team } = await currentTeam();
+  const a = await access(form);
+  if ("error" in a) return;
   const kind = Kind.parse(form.get("kind"));
   await db()
     .update(integrations)
     .set({ enabled: form.get("enabled") === "1" })
-    .where(and(eq(integrations.teamId, team.id), eq(integrations.kind, kind)));
-  revalidatePath("/account");
+    .where(and(eq(integrations.organizationId, a.org.id), eq(integrations.kind, kind)));
+  revalidatePath("/organization");
 }
 
 export async function removeIntegrationAction(form: FormData): Promise<void> {
-  const { team } = await currentTeam();
+  const a = await access(form);
+  if ("error" in a) return;
   const kind = Kind.parse(form.get("kind"));
-  await db().delete(integrations).where(and(eq(integrations.teamId, team.id), eq(integrations.kind, kind)));
-  revalidatePath("/account");
-}
-
-// ---------------------------------------------------------------- team
-
-export async function inviteAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const { team, role, user } = await currentTeam();
-  if (role !== "owner") return { error: "Only owners can invite people." };
-  const email = z.string().trim().toLowerCase().email().safeParse(form.get("email"));
-  if (!email.success) return { error: "Enter an email address." };
-  const token = randomBytes(24).toString("base64url");
-  await db().insert(invites).values({ id: newId("inv"), teamId: team.id, email: email.data, token, invitedBy: user.id });
-  const link = `${env.appUrl}/invite/${token}`;
-  await sendEmail({
-    to: email.data,
-    subject: `${user.name || user.email} invited you to ${team.name} on DappDrill`,
-    text: `${user.name || user.email} invited you to join ${team.name} on DappDrill.\n\nAccept the invite: ${link}\n`,
-  });
-  revalidatePath("/account");
-  return { ok: `Invite sent to ${email.data}. You can also share this link:`, secret: link };
-}
-
-export async function cancelInviteAction(form: FormData): Promise<void> {
-  const { team, role } = await currentTeam();
-  if (role !== "owner") return;
-  await db().delete(invites).where(and(eq(invites.id, Id.parse(form.get("inviteId"))), eq(invites.teamId, team.id)));
-  revalidatePath("/account");
-}
-
-export async function removeMemberAction(form: FormData): Promise<void> {
-  const { team, role, user } = await currentTeam();
-  const userId = Id.parse(form.get("userId"));
-  if (role !== "owner" || userId === user.id) return;
-  await db().delete(teamMembers).where(and(eq(teamMembers.teamId, team.id), eq(teamMembers.userId, userId)));
-  revalidatePath("/account");
+  await db().delete(integrations).where(and(eq(integrations.organizationId, a.org.id), eq(integrations.kind, kind)));
+  revalidatePath("/organization");
 }

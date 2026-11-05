@@ -10,13 +10,13 @@ export function hostOf(url: string): string {
   return new URL(url).hostname.toLowerCase();
 }
 
-/** Scheduled and CI runs need the app's host verified by the team. */
-export async function isHostVerified(teamId: string, host: string): Promise<boolean> {
+/** Scheduled and CI runs need the app's host verified by its organization. */
+export async function isHostVerified(orgId: string, host: string): Promise<boolean> {
   if (env.dev && LOCAL_HOSTS.has(host)) return true;
   const [row] = await db()
     .select({ id: domains.id })
     .from(domains)
-    .where(and(eq(domains.teamId, teamId), eq(domains.host, host), isNotNull(domains.verifiedAt)));
+    .where(and(eq(domains.organizationId, orgId), eq(domains.host, host), isNotNull(domains.verifiedAt)));
   return Boolean(row);
 }
 

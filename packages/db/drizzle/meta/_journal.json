@@ -71,6 +71,13 @@
       "when": 1793876515010,
       "tag": "0009_flow_goal",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793877054735,
+      "tag": "0010_organizations",
+      "breakpoints": true
     }
   ]
 }
