@@ -1,4 +1,6 @@
 import { formatFixedResponse, KNOWN_CHAINS } from "@dappdrill/core";
+import { analyses, db } from "@dappdrill/db";
+import { desc, eq, isNotNull, and } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction, deleteAppAction } from "@/actions/apps";
@@ -6,21 +8,33 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { SettingsForm } from "@/components/settings-form";
 import { PageHeader, SettingsSection } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { artifactUrl } from "@/lib/artifacts";
 import { isHostVerified } from "@/lib/domains";
+import { timeAgo } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Settings" };
 
+/** The ones with a chip. Any other chain shows with its RPC URL. */
+const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337 && c.forkable);
+
 export default async function SettingsPage({ params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
   const { app } = await requireApp(appId);
-  const verified = await isHostVerified(app.teamId, app.host);
-  const known = new Set(KNOWN_CHAINS.map((c) => c.id));
-  const custom = app.settings.chains.filter((c) => !KNOWN_CHAINS.some((k) => k.id === c.id && k.rpcUrl === c.rpcUrl));
+  const [verified, [seen]] = await Promise.all([
+    isHostVerified(app.teamId, app.host),
+    db()
+      .select()
+      .from(analyses)
+      .where(and(eq(analyses.appId, app.id), isNotNull(analyses.liveFrame)))
+      .orderBy(desc(analyses.createdAt))
+      .limit(1),
+  ]);
+  const others = app.settings.chains.filter((c) => !CHAINS.some((k) => k.id === c.id && k.rpcUrl === c.rpcUrl));
 
   return (
     <div className="page flex flex-col">
-      <PageHeader title="Settings" description={`How DappDrill opens ${app.name}. Most apps need none of this.`} />
+      <PageHeader title="Settings" description={`How DappDrill opens and tests ${app.name}.`} />
 
       <SettingsForm
         appId={app.id}
@@ -28,8 +42,9 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
           name: app.name,
           url: app.url,
           hints: app.settings.hints ?? "",
-          chains: app.settings.chains.filter((c) => known.has(c.id) && !custom.includes(c)).map((c) => c.id),
-          customChains: custom.map((c) => `${c.id} ${c.rpcUrl}${c.mode === "live" ? " live" : ""}`).join("\n"),
+          funding: app.settings.funding ?? "",
+          chains: app.settings.chains.filter((c) => !others.includes(c)).map((c) => c.id),
+          otherChains: others.map((c) => ({ rpcUrl: c.rpcUrl, chainId: c.id, testnet: c.mode === "live" })),
           wallets: app.settings.wallets,
           liveKeyAddress: app.liveKeyAddress,
           headerNames: app.accessHeaderNames,
@@ -40,6 +55,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
           schedule: app.scheduleTime ?? "",
           verified,
         }}
+        frame={seen ? artifactUrl("analyses", seen.id, seen.liveFrame) : null}
+        seen={seen ? `Last explored ${timeAgo(seen.finishedAt ?? seen.createdAt)}` : "Not explored yet"}
       />
 
       <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds flows it hasn't seen. Your tests stay as they are.">

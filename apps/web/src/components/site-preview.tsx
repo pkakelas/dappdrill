@@ -146,6 +146,16 @@ export function BrowserWindow({ url, toolbar, children }: { url: string; toolbar
   );
 }
 
+/** What the browser last saw in the app, in the explorer's window; its stand-in until it has looked. */
+export function LastFrame({ src, alt }: { src: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="relative aspect-[16/10] overflow-hidden bg-card">
+      {src && !failed ? <img src={src} alt={alt} onError={() => setFailed(true)} className="absolute inset-0 size-full object-cover object-top" /> : <SiteLoading />}
+    </div>
+  );
+}
+
 /**
  * A small browser showing the app the user just pasted. A grey wash quiets the site down to its
  * shape, and a band of real colour passes through it. The toolbar shows the wallet and chain picked in the form.
