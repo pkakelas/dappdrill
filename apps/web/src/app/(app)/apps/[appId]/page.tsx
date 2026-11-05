@@ -86,7 +86,7 @@ export default async function TestsHome({ params }: { params: Promise<{ appId: s
       />
 
       <div className="flex flex-col gap-6">
-        {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} hasFlows={all.length > 0} />}
+        {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasFlows={all.length > 0} />}
 
         {(app.setup || all.length > 0) && (
           <SetupCard appId={appId} setup={app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...runs.values()]) : undefined} />

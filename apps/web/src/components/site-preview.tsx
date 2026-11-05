@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const LOOKS_LIKE_HOST = /^(https?:\/\/)?[^\s/]+(\.[a-z]{2,}|:\d+)(\/\S*)?$/i;
 const FRAME_WIDTH = 1280;
 const FRAME_HEIGHT = 800;
+const NEUTRAL_SITE = "color-mix(in oklab, var(--foreground) 45%, transparent)";
 
 /** Looks the site up once typing pauses. The last site stays around so the preview can animate out with it. */
 export function useSite(input: string) {
@@ -106,10 +107,43 @@ function Wireframe() {
   );
 }
 
+/** A site that hasn't drawn yet: its stand-in, with the band from the New app preview passing through. */
+export function SiteLoading() {
+  return (
+    <div className="absolute inset-0" style={{ "--site": NEUTRAL_SITE } as CSSProperties}>
+      <Wireframe />
+      <div className="site-wash absolute -inset-px" />
+      <div className="site-beam absolute inset-0" />
+    </div>
+  );
+}
+
 function SiteIcon({ src }: { src?: string }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <Globe className="size-5 text-muted-foreground" />;
   return <img src={src} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="size-full object-contain" />;
+}
+
+/** The window a site is shown in, here and on the app page while it's explored. */
+export function BrowserWindow({ url, toolbar, children }: { url: string; toolbar?: ReactNode; children: ReactNode }) {
+  const { host, protocol } = new URL(url);
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-card shadow-lg">
+      <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
+        <div className="flex gap-1.5">
+          <span className="size-2.5 rounded-full bg-foreground/15" />
+          <span className="size-2.5 rounded-full bg-foreground/15" />
+          <span className="size-2.5 rounded-full bg-foreground/15" />
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-background px-2.5 py-1 text-xs text-muted-foreground">
+          {protocol === "https:" ? <Lock className="size-3 shrink-0" /> : <Globe className="size-3 shrink-0" />}
+          <span className="truncate">{host}</span>
+        </div>
+        {toolbar && <div className="flex shrink-0 items-center gap-2">{toolbar}</div>}
+      </div>
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -117,29 +151,16 @@ function SiteIcon({ src }: { src?: string }) {
  * shape, and a band of real colour passes through it. The toolbar shows the wallet and chain picked in the form.
  */
 export function SitePreview({ site, open, toolbar }: { site: SiteInfo; open: boolean; toolbar: ReactNode }) {
-  const { host, protocol } = new URL(site.url);
+  const { host } = new URL(site.url);
   return (
     <div
       aria-hidden
       data-open={open}
-      style={{ "--site": site.color ?? "color-mix(in oklab, var(--foreground) 45%, transparent)" } as CSSProperties}
+      style={{ "--site": site.color ?? NEUTRAL_SITE } as CSSProperties}
       className="relative h-full transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none data-[open=false]:pointer-events-none data-[open=false]:[transform:perspective(1400px)_translateX(-3rem)_rotateY(14deg)_scale(0.94)] data-[open=false]:opacity-0 data-[open=true]:delay-150"
     >
       {site.color && <div className="absolute -inset-4 -z-10 rounded-3xl bg-(--site) opacity-20 blur-3xl" />}
-      <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-card shadow-lg">
-        <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
-          <div className="flex gap-1.5">
-            <span className="size-2.5 rounded-full bg-foreground/15" />
-            <span className="size-2.5 rounded-full bg-foreground/15" />
-            <span className="size-2.5 rounded-full bg-foreground/15" />
-          </div>
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-background px-2.5 py-1 text-xs text-muted-foreground">
-            {protocol === "https:" ? <Lock className="size-3 shrink-0" /> : <Globe className="size-3 shrink-0" />}
-            <span className="truncate">{host}</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">{toolbar}</div>
-        </div>
-
+      <BrowserWindow url={site.url} toolbar={toolbar}>
         <div key={site.url} className="relative aspect-[16/10] min-h-0 overflow-hidden bg-card lg:aspect-auto lg:flex-1">
           <Wireframe />
           {site.image && <SiteImage src={site.image} />}
@@ -156,7 +177,7 @@ export function SitePreview({ site, open, toolbar }: { site: SiteInfo; open: boo
             </span>
           </div>
         </div>
-      </div>
+      </BrowserWindow>
     </div>
   );
 }

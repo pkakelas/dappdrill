@@ -14,7 +14,7 @@ import {
   type FixedResponse,
 } from "@dappdrill/core";
 import { analyses, apps, db, encrypt, flows, testRuns, type AppSettings } from "@dappdrill/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { privateKeyToAccount } from "viem/accounts";
@@ -156,15 +156,6 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
 export async function analyzeAction(appId: string): Promise<void> {
   await requireApp(appId);
   await analyze(appId);
-  revalidatePath(`/apps/${appId}`);
-}
-
-export async function stopAnalysisAction(appId: string): Promise<void> {
-  await requireApp(appId);
-  const [latest] = await db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1);
-  if (!latest) return;
-  if (latest.status === "queued") await db().update(analyses).set({ status: "stopped", finishedAt: new Date() }).where(eq(analyses.id, latest.id));
-  else if (latest.status === "running") await db().update(analyses).set({ stopRequested: true }).where(eq(analyses.id, latest.id));
   revalidatePath(`/apps/${appId}`);
 }
 

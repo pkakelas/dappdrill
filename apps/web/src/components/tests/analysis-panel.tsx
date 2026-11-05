@@ -1,62 +1,86 @@
 import { BOT_GUIDE_URL, describeBlock, stalledLine } from "@dappdrill/core";
 import type { analyses } from "@dappdrill/db";
 import Link from "next/link";
-import { analyzeAction, stopAnalysisAction } from "@/actions/apps";
+import { analyzeAction } from "@/actions/apps";
 import { Elapsed } from "@/components/elapsed";
+import { BrowserWindow, SiteLoading } from "@/components/site-preview";
+import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { artifactUrl } from "@/lib/artifacts";
 
 type Analysis = typeof analyses.$inferSelect;
 
-/** The first look at the app, live; or why it found nothing. */
-export function AnalysisPanel({ analysis, appId, host, hasFlows }: { analysis: Analysis; appId: string; host: string; hasFlows: boolean }) {
-  const live = analysis.status === "queued" || analysis.status === "running";
-  if (live) {
-    const frame = artifactUrl("analyses", analysis.id, analysis.liveFrame);
-    const lines = analysis.log.slice(-5);
-    return (
-      <section aria-label="Exploring the app" className="grid overflow-hidden rounded-xl border bg-card shadow-xs md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div className="relative aspect-[16/10] border-b bg-muted md:border-r md:border-b-0">
+/** Notes meant for the logs (endpoint counts, fork ports), not for the person watching. */
+const ENGINE_NOTE = /^(detect:|chain \d+:)/;
+
+/** The first look at the app as it happens: what the browser sees, and what it's working out. */
+function Exploring({ analysis, host, url }: { analysis: Analysis; host: string; url: string }) {
+  const frame = artifactUrl("analyses", analysis.id, analysis.liveFrame);
+  const lines = analysis.log.filter((l) => !ENGINE_NOTE.test(l.text)).slice(-6);
+  const queued = analysis.status === "queued";
+  return (
+    <section aria-label="Exploring the app" className="grid gap-8 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-10">
+      <BrowserWindow url={url}>
+        <div className="relative aspect-[16/10] overflow-hidden bg-card">
           {frame ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={frame} alt={`What DappDrill sees on ${host} right now`} className="absolute inset-0 h-full w-full object-cover object-top" />
+            <img src={frame} alt={`What DappDrill sees on ${host} right now`} className="absolute inset-0 size-full object-cover object-top" />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">{analysis.status === "queued" ? "Waiting for a browser…" : "Opening the app…"}</div>
+            <>
+              <SiteLoading />
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg border bg-background/85 px-3 py-2 text-sm shadow-md backdrop-blur-md">
+                <Spinner className="size-3.5 text-muted-foreground" />
+                {queued ? "Waiting for a browser…" : "Opening the app…"}
+              </div>
+            </>
           )}
         </div>
-        <div className="flex flex-col gap-4 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="flex items-center gap-2 text-sm font-medium text-live-ink">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-50" />
-                  <span className="relative inline-flex size-2 rounded-full bg-live" />
-                </span>
-                Exploring
-              </span>
-              <h2 className="text-base font-semibold">Finding the main flows</h2>
-            </div>
-            <span className="text-sm text-muted-foreground tabular-nums">{analysis.startedAt ? <Elapsed since={analysis.startedAt.toISOString()} /> : "0:00"}</span>
+      </BrowserWindow>
+
+      {/* On wide screens the browser sets the height; old lines fade out of the top instead of growing the page. */}
+      <div className="flex flex-col gap-6 md:h-0 md:min-h-full md:py-1">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <LiveDot />
+              {queued ? "Queued" : "Exploring"}
+            </span>
+            {analysis.startedAt ? <Elapsed since={analysis.startedAt.toISOString()} /> : <span className="tabular-nums">0:00</span>}
           </div>
+          <h2 className="text-xl font-semibold tracking-tight">Finding the main flows</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">Takes 5–7 minutes. Tests for what it finds show up below and run right away.</p>
-          {lines.length > 0 && (
-            <ol className="flex flex-col gap-1.5 border-t pt-4">
-              {lines.map((l, i) => (
-                <li key={`${l.at}-${i}`} className={i === lines.length - 1 ? "text-sm" : "text-sm text-muted-foreground"}>
-                  {l.text}
-                </li>
-              ))}
-            </ol>
-          )}
-          <form action={stopAnalysisAction.bind(null, appId)} className="mt-auto">
-            <Button type="submit" variant="outline" size="sm" disabled={analysis.stopRequested}>
-              {analysis.stopRequested ? "Stopping…" : "Stop"}
-            </Button>
-          </form>
         </div>
-      </section>
-    );
-  }
+
+        <ol aria-live="polite" className="flex min-h-0 flex-1 flex-col justify-end gap-3 overflow-hidden text-sm max-md:[&>li:nth-last-child(n+4)]:hidden md:[mask-image:linear-gradient(to_bottom,transparent,#000_3rem)]">
+          {lines.map((l, i) => {
+            const last = i === lines.length - 1;
+            return (
+              <li key={`${l.at}-${l.text}`} className="relative shrink-0 animate-in pl-5 duration-500 fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none">
+                {!last && <span aria-hidden="true" className="absolute top-3.5 -bottom-4 left-[3px] w-px bg-border" />}
+                <span aria-hidden="true" className={cx("absolute top-[7px] left-0 size-[7px] rounded-full", last ? "bg-foreground" : "bg-border")} />
+                <span className={cx("line-clamp-3 leading-snug break-words", !last && "text-muted-foreground")}>{l.text}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function LiveDot() {
+  return (
+    <span className="relative flex size-2">
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-50 motion-reduce:animate-none" />
+      <span className="relative inline-flex size-2 rounded-full bg-live" />
+    </span>
+  );
+}
+
+/** The first look at the app, live; or why it found nothing. */
+export function AnalysisPanel({ analysis, appId, host, url, hasFlows }: { analysis: Analysis; appId: string; host: string; url: string; hasFlows: boolean }) {
+  if (analysis.status === "queued" || analysis.status === "running") return <Exploring analysis={analysis} host={host} url={url} />;
 
   if (hasFlows) return null;
 
