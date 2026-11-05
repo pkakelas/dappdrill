@@ -23,7 +23,7 @@ inputs:
 
 outputs:
   exit-code:
-    description: The CLI's exit code (0 all passed, 1 a test failed or a signature was Dangerous, 2 the only problem is that a test or DappDrill couldn't run).
+    description: The CLI's exit code (0 all passed, 1 a test failed or a signature was Dangerous, 2 the only problem is that a test or DappDrill couldn't run, or the run was stopped).
     value: ${{ steps.run.outputs.exit-code }}
 
 runs:

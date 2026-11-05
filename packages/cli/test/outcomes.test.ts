@@ -4,7 +4,7 @@ import type { TestOutcome } from "@dappdrill/engine";
 import { testLabels, type SavedTest, type TestsFile } from "../src/files.js";
 import { renderJunit } from "../src/junit.js";
 import { renderMarkdown } from "../src/markdown.js";
-import { exitCode, summaryText } from "../src/outcomes.js";
+import { exitCode, summaryText, withStopped } from "../src/outcomes.js";
 
 const review = (verdict: Verdict, title = "Unlimited USDC approval") =>
   SigningReview.parse({ id: "s", requestId: "r", chainId: 1, method: "eth_sendTransaction", verdict, title, summary: "", decoded: { kind: "transaction" }, explanation: "", fingerprint: "f", createdAt: "2026-11-05T00:00:00Z" });
@@ -34,8 +34,25 @@ describe("exitCode", () => {
     ["Failed beats Couldn't run", [outcome("a", "error"), outcome("b", "fail")], 1],
     ["Dangerous beats Couldn't run", [outcome("a", "error"), outcome("b", "pass", ["dangerous"])], 1],
     ["only Couldn't run", [outcome("a", "pass"), outcome("b", "error")], 2],
+    ["a stopped run", [outcome("a", "pass"), outcome("b", "stopped")], 2],
+    ["Failed beats a stopped run", [outcome("a", "fail"), outcome("b", "stopped")], 1],
   ])("%s", (_, outcomes, code) => {
     expect(exitCode(outcomes)).toBe(code);
+  });
+});
+
+describe("withStopped", () => {
+  it("adds the tests an interrupted run never reached", () => {
+    const outcomes = withStopped(["a", "b", "c"], [outcome("a", "pass")]);
+    expect(outcomes.map((o) => [o.testId, o.status])).toEqual([["a", "pass"], ["b", "stopped"], ["c", "stopped"]]);
+    expect(exitCode(outcomes)).toBe(2);
+    expect(summaryText(outcomes)).toBe("1 of 3 passed, 2 not run yet");
+  });
+
+  it("leaves a finished run alone", () => {
+    const outcomes = [outcome("a", "pass"), outcome("b", "skipped")];
+    expect(withStopped(["a", "b"], outcomes)).toEqual(outcomes);
+    expect(exitCode(outcomes)).toBe(0);
   });
 });
 
@@ -93,6 +110,11 @@ describe("renderMarkdown", () => {
     expect(md).not.toContain("All 1 tests passed");
     expect(md).toContain("**1 of 1 passed · 1 dangerous signature** on https://app.example");
     expect(md).toContain("- **Trade · Open a long**: Dangerous signature: Unlimited USDC approval");
+  });
+
+  it("never reads as all passed after an interrupted run", () => {
+    const md = renderMarkdown(file, withStopped(["a", "c"], [outcome("a", "pass")]));
+    expect(md).toContain("**1 of 2 passed, 1 not run yet**");
   });
 
   it("says Couldn't run rather than failed", () => {

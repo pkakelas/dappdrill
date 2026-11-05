@@ -58,7 +58,7 @@ and means the same.
 |---|---|
 | 0 | Everything passed |
 | 1 | A test failed, or a signature was Dangerous, even on a test that passed |
-| 2 | The only problem is a test that couldn't run, or DappDrill itself couldn't (bad flags, blocked, no flows found) |
+| 2 | The only problem is a test that couldn't run, a run that was stopped (Ctrl-C), or DappDrill itself (bad flags, blocked, no flows found) |
 
 In JUnit output a case is named "Flow · Test · Condition", and a test with a Dangerous signature
 is a failure, whatever its own result. A signing verdict never changes a test's own status in

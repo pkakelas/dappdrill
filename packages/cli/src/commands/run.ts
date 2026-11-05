@@ -5,7 +5,7 @@ import type { TestItem, TestOutcome } from "@dappdrill/engine";
 import { UsageError, loadTests, testLabels, writeJson, writeText, type SavedTest, type TestsFile } from "../files.js";
 import { renderJunit } from "../junit.js";
 import { renderMarkdown } from "../markdown.js";
-import { dangerous, exitCode, summaryText } from "../outcomes.js";
+import { dangerous, exitCode, summaryText, withStopped } from "../outcomes.js";
 import { buildTarget, dim, red, type TargetFlags } from "./target.js";
 import { interruptSignal } from "./util.js";
 
@@ -46,7 +46,7 @@ export async function runTests(tests: TestsFile, target: DrillTarget, flags: Run
 
   console.log(`Running ${picked.length} ${picked.length === 1 ? "test" : "tests"} on ${target.url}\n`);
   const engine = await loadEngine();
-  const { outcomes } = await engine.runTests(
+  const { outcomes: finished } = await engine.runTests(
     target,
     items,
     { artifactsDir: join(out, "artifacts"), map: tests.map, setup: tests.setup, headless: !flags.headed, signal: interruptSignal() },
@@ -70,6 +70,7 @@ export async function runTests(tests: TestsFile, target: DrillTarget, flags: Run
     },
   );
 
+  const outcomes = withStopped(items.map((i) => i.spec.id), finished);
   await writeJson(join(out, "results.json"), outcomes);
   await writeText(join(out, "summary.md"), renderMarkdown(tests, outcomes));
   if (flags.junit) await writeText(flags.junit, renderJunit(tests, outcomes, seconds));

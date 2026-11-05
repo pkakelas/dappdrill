@@ -10,7 +10,7 @@ const EXIT_CODES = `
 Exit codes:
   0  everything passed
   1  a test failed, or a signature was Dangerous (even on a test that passed)
-  2  the only problem is a test that couldn't run, or DappDrill itself couldn't (bad flags, blocked, no flows found)`;
+  2  the only problem is a test that couldn't run, a run that was stopped, or DappDrill itself (bad flags, blocked, no flows found)`;
 
 function action<A extends unknown[]>(fn: (...args: A) => Promise<number>) {
   return async (...args: A) => {
