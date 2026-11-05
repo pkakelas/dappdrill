@@ -31,12 +31,12 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
 
   if (!setup)
     return (
-      <section aria-label="Setup" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-5 py-3">
-        <p className="text-sm text-muted-foreground">No setup. Add one when every test needs the same steps first, like signing in or getting test funds.</p>
-        <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
-          <Plus /> Add setup
-        </Button>
-      </section>
+      <p className="text-sm text-muted-foreground">
+        Every test needs the same first steps, like signing in or getting test funds?{" "}
+        <button type="button" onClick={() => setEditing(true)} className="text-foreground underline underline-offset-4">
+          Add a setup
+        </button>
+      </p>
     );
 
   return (
@@ -54,8 +54,8 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
           Edit
         </Button>
       </div>
-      {/* Folded once it passed: the tests below are what matters then. */}
-      <details open={!last?.ok} className="group/setup">
+      {/* Folded unless it failed: the tests below are what matters otherwise. */}
+      <details open={last?.ok === false} className="group/setup">
         <summary className="flex cursor-pointer items-center gap-1.5 px-5 py-2 text-sm text-muted-foreground hover:bg-accent/40 group-open/setup:border-b">
           <span className="min-w-0 truncate">{setup.steps.join(" → ")}</span>
           <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open/setup:rotate-90" />

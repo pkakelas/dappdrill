@@ -2,8 +2,8 @@
  * Test operations shared by the web app and the worker's assistant tools.
  * Anything that needs a job returns ids; the caller sends the job.
  */
-import { and, asc, desc, eq, inArray, max, sql } from "drizzle-orm";
-import { conditionInfo, newId, type EdgeCaseId, type TestSpec } from "@dappdrill/core";
+import { and, asc, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
+import { conditionInfo, newId, type EdgeCaseId, type TestSpec, type Verdict } from "@dappdrill/core";
 import type { Db } from "./client.js";
 import { flows, testRuns, tests, type Trigger } from "./schema/app.js";
 
@@ -49,6 +49,25 @@ export async function latestRuns(db: Db, testIds: string[]): Promise<Map<string,
     .where(inArray(testRuns.testId, testIds))
     .orderBy(testRuns.testId, desc(testRuns.createdAt));
   return new Map(rows.map((r) => [r.testId, r]));
+}
+
+export type RunSummary = Awaited<ReturnType<typeof runHistory>>[number];
+
+/** An app's finished runs since `since`, newest first, without the heavy result. */
+export async function runHistory(db: Db, appId: string, since: Date) {
+  return db
+    .select({
+      id: testRuns.id,
+      testId: testRuns.testId,
+      status: testRuns.status,
+      createdAt: testRuns.createdAt,
+      startedAt: testRuns.startedAt,
+      finishedAt: testRuns.finishedAt,
+      verdicts: sql<Verdict[]>`coalesce((select jsonb_agg(r->>'verdict') from jsonb_array_elements(${testRuns.result}->'signingReviews') r), '[]'::jsonb)`,
+    })
+    .from(testRuns)
+    .where(and(eq(testRuns.appId, appId), gte(testRuns.createdAt, since), inArray(testRuns.status, ["pass", "fail", "error"])))
+    .orderBy(desc(testRuns.createdAt));
 }
 
 /**

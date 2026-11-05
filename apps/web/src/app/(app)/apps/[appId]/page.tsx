@@ -1,16 +1,17 @@
-import { analyses, db, flowsWithTests, latestRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { analyses, db, flowsWithTests, latestRuns, runHistory, type RunSummary, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
 import { ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { AddTest, NewFlow } from "@/components/tests/add-test";
+import { NewFlow } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
+import { AppStats, HISTORY_DAYS, RunTicks } from "@/components/tests/app-stats";
 import { FlowHeader } from "@/components/tests/flow-header";
 import { RunButton } from "@/components/tests/run-button";
 import { SetupCard } from "@/components/tests/setup-card";
-import { isActive, StateMark, stateOf, type TestState } from "@/components/tests/status";
+import { isActive, STATE_LABEL, StateMark, stateOf, type TestState } from "@/components/tests/status";
 import { cx, ListItem, PageHeader } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { ItemActions, ItemContent, ItemGroup, ItemMedia } from "@/components/ui/item";
@@ -28,18 +29,19 @@ export default async function TestsHome({ params }: { params: Promise<{ appId: s
   const { app } = await requireApp(appId);
   const [[analysis], all] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), flowsWithTests(db(), appId)]);
   const tests = all.flatMap((f) => f.tests);
-  const runs = await latestRuns(
-    db(),
-    tests.map((t) => t.id),
-  );
+  const [runs, history] = await Promise.all([
+    latestRuns(
+      db(),
+      tests.map((t) => t.id),
+    ),
+    runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000)),
+  ]);
   const state = new Map(tests.map((t) => [t.id, stateOf(t, runs.get(t.id))]));
   const host = hostFromUrl(app.url);
 
   const exploring = analysis && (analysis.status === "queued" || analysis.status === "running");
   const anyActive = [...state.values()].some(isActive);
   const activeIds = tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
-  const passing = tests.filter((t) => state.get(t.id) === "pass").length;
-  const failing = tests.filter((t) => state.get(t.id) === "fail").length;
   const lastRun = [...runs.values()]
     .map((r) => r.finishedAt)
     .filter((d) => d !== null)
@@ -56,28 +58,10 @@ export default async function TestsHome({ params }: { params: Promise<{ appId: s
             <a href={app.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
               {host}
             </a>
-            {tests.length > 0 && (
+            {lastRun && (
               <>
                 <span aria-hidden="true">·</span>
-                <span>{plural(tests.length, "test")}</span>
-                {failing > 0 && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span className="text-bad">{failing} failing</span>
-                  </>
-                )}
-                {passing > 0 && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span>{passing} passing</span>
-                  </>
-                )}
-                {lastRun && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span>last run {timeAgo(lastRun)}</span>
-                  </>
-                )}
+                <span>last run {timeAgo(lastRun)}</span>
               </>
             )}
           </p>
@@ -85,10 +69,12 @@ export default async function TestsHome({ params }: { params: Promise<{ appId: s
         actions={tests.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
       />
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasFlows={all.length > 0} />}
 
-        {(app.setup || all.length > 0) && (
+        {tests.length > 0 && <AppStats states={[...state.values()]} runs={history} />}
+
+        {app.setup && (
           <SetupCard appId={appId} setup={app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...runs.values()]) : undefined} />
         )}
 
@@ -104,20 +90,20 @@ export default async function TestsHome({ params }: { params: Promise<{ appId: s
                   .map((t) => {
                     const children = f.tests.filter((c) => c.baseId === t.id);
                     return [
-                      <TestLine key={t.id} appId={appId} test={t} state={state.get(t.id)!} run={runs.get(t.id)} />,
-                      children.length > 0 && <UnhappyGroup key={`${t.id}-unhappy`} appId={appId} tests={children} state={state} runs={runs} />,
+                      <TestLine key={t.id} appId={appId} test={t} state={state.get(t.id)!} run={runs.get(t.id)} history={history} />,
+                      children.length > 0 && <UnhappyGroup key={`${t.id}-unhappy`} appId={appId} tests={children} state={state} runs={runs} history={history} />,
                     ];
                   })}
               </ItemGroup>
-              <div className="border-t">
-                <AddTest appId={appId} flowId={f.id} flowName={f.name} />
-              </div>
             </section>
           );
         })}
 
         {all.length > 0 ? (
-          <NewFlow appId={appId} />
+          <div className="flex flex-col gap-4">
+            <NewFlow appId={appId} />
+            {!app.setup && <SetupCard appId={appId} setup={null} />}
+          </div>
         ) : !exploring ? (
           <div className="flex flex-col gap-4">
             {!analysis && (
@@ -167,26 +153,29 @@ function flowSummary(states: TestState[]): string {
 const branch = <span aria-hidden="true" className="-mt-0.5 ml-1.5 h-4 w-3 shrink-0 self-start border-b border-l border-muted-foreground/30" />;
 
 /** A test's unhappy paths: one quiet row, opened when one of them fails or is running. */
-function UnhappyGroup({ appId, tests, state, runs }: { appId: string; tests: TestRow[]; state: Map<string, TestState>; runs: Map<string, TestRunRow> }) {
+/** Row actions wait for the pointer, but stay put on touch screens and for the keyboard. */
+const REVEAL = "transition-opacity focus-within:opacity-100 [@media(hover:hover)]:opacity-0";
+
+function UnhappyGroup({ appId, tests, state, runs, history }: { appId: string; tests: TestRow[]; state: Map<string, TestState>; runs: Map<string, TestRunRow>; history: RunSummary[] }) {
   const states = tests.map((t) => state.get(t.id)!);
   const open = states.some((s) => s === "fail" || s === "error" || isActive(s));
   const active = tests.filter((t) => isActive(state.get(t.id)!) && state.get(t.id) !== "drafting").map((t) => t.id);
   return (
     <div role="listitem">
       <details open={open} className="group/unhappy">
-        <summary className="flex items-center gap-2.5 px-4 py-2 hover:bg-accent/40">
+        <summary className="group/paths flex items-center gap-2.5 px-5 py-2 hover:bg-accent/40">
           {branch}
           <span className="flex flex-1 items-center gap-1.5 text-sm text-muted-foreground">
             {plural(tests.length, "unhappy path")} · {flowSummary(states)}
             <ChevronRight aria-hidden="true" className="size-3.5 transition-transform group-open/unhappy:rotate-90" />
           </span>
-          <span className="relative z-10">
+          <span className={cx("relative z-10", active.length === 0 && REVEAL, "group-hover/paths:opacity-100")}>
             <RunButton target={{ appId, testIds: tests.map((t) => t.id) }} active={active.length > 0} stopIds={active} label="Run unhappy paths" />
           </span>
         </summary>
         <ItemGroup className="divide-y border-t">
           {tests.map((t) => (
-            <TestLine key={t.id} appId={appId} test={t} state={state.get(t.id)!} run={runs.get(t.id)} />
+            <TestLine key={t.id} appId={appId} test={t} state={state.get(t.id)!} run={runs.get(t.id)} history={history} />
           ))}
         </ItemGroup>
       </details>
@@ -194,7 +183,13 @@ function UnhappyGroup({ appId, tests, state, runs }: { appId: string; tests: Tes
   );
 }
 
-function TestLine({ appId, test, state, run }: { appId: string; test: TestRow; state: TestState; run?: TestRunRow }) {
+/** "Step 1, “Connect the wallet”: why" as the step and the why, so only the step needs colour. */
+function failureParts(failure: string) {
+  const m = /^Step (\d+), “(.+?)”: (.*)$/s.exec(failure);
+  return m ? { where: `Step ${m[1]}: ${m[2]}`, why: m[3]! } : { where: null, why: failure };
+}
+
+function TestLine({ appId, test, state, run, history }: { appId: string; test: TestRow; state: TestState; run?: TestRunRow; history: RunSummary[] }) {
   const unhappy = Boolean(test.baseId);
   const steps = run?.result?.steps ?? [];
   const current = steps.findIndex((s) => s.status === "running");
@@ -215,10 +210,18 @@ function TestLine({ appId, test, state, run }: { appId: string; test: TestRow; s
       </span>
     );
   else if (state === "queued") detail = <span className="text-live">Queued</span>;
-  else if ((state === "fail" || state === "error") && run?.result?.failure) detail = <span className={state === "fail" ? "text-bad" : "text-warn"}>{run.result.failure}</span>;
+  else if ((state === "fail" || state === "error") && run?.result?.failure) {
+    const { where, why } = failureParts(run.result.failure);
+    detail = (
+      <span title={run.result.failure}>
+        <span className={cx("font-medium", state === "fail" ? "text-bad" : "text-warn")}>{where ?? STATE_LABEL[state]}</span>
+        <span className="text-muted-foreground"> · {why}</span>
+      </span>
+    );
+  }
 
   return (
-    <ListItem className="flex-nowrap">
+    <ListItem className="flex-nowrap px-5">
       {unhappy && branch}
       <ItemMedia>
         <StateMark state={state} />
@@ -227,10 +230,13 @@ function TestLine({ appId, test, state, run }: { appId: string; test: TestRow; s
         <Link href={`/apps/${appId}/tests/${test.id}`} className={cx("truncate outline-none after:absolute after:inset-0 focus-visible:underline", unhappy ? "text-muted-foreground" : "font-medium")}>
           {test.name}
         </Link>
-        {detail && <span className="truncate text-sm">{detail}</span>}
+        {detail && <span className="line-clamp-2 text-sm sm:line-clamp-1">{detail}</span>}
       </ItemContent>
-      <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">{run?.finishedAt && state !== "running" && state !== "queued" ? timeAgo(run.finishedAt) : ""}</span>
-      <ItemActions>
+      <span className="hidden shrink-0 items-center gap-3 text-xs text-muted-foreground tabular-nums sm:flex">
+        <RunTicks runs={history.filter((r) => r.testId === test.id)} />
+        {run?.finishedAt && state !== "running" && state !== "queued" ? timeAgo(run.finishedAt) : ""}
+      </span>
+      <ItemActions className={cx(state !== "running" && state !== "queued" && REVEAL, "group-hover/item:opacity-100")}>
         <RunButton target={{ appId, testIds: [test.id] }} active={state === "running" || state === "queued"} stopIds={[test.id]} label="Run test" disabled={state === "drafting"} />
       </ItemActions>
     </ListItem>
