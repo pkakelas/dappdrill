@@ -8,11 +8,12 @@ import { cx } from "@/components/ui";
 export function SigningFlag({ signing, short, className }: { signing: Flag; short?: boolean; className?: string }) {
   const text = signingText(signing);
   if (!text) return null;
-  const tone = signing.dangerous > 0 ? "text-bad" : "text-warn";
+  const dangerous = signing.dangerous > 0;
+  const tone = dangerous ? "text-bad" : "text-warn";
   if (short) {
-    const label = signing.dangerous > 0 ? `${signing.dangerous} dangerous` : `${signing.check} to check`;
+    const label = dangerous ? `${signing.dangerous} dangerous` : `${signing.check} to check`;
     return (
-      <span className={cx("shrink-0 text-xs font-medium", tone, className)} title={text}>
+      <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", dangerous ? "bg-bad-bg text-bad-ink" : "bg-warn-bg text-warn-ink", className)} title={text}>
         {label}
       </span>
     );

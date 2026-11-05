@@ -1,11 +1,12 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { addTestAction } from "@/actions/tests";
+import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-/** One sentence; the worker writes the steps and runs it. Sits as the last line of the tests list. */
+/** One sentence; the worker writes the steps and runs it. */
 export function AddTest({ appId }: { appId: string }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
@@ -26,23 +27,22 @@ export function AddTest({ appId }: { appId: string }) {
         });
       }}
     >
-      <div className="flex items-center gap-3">
-        <Plus aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-        <input
+      <div className="relative">
+        <Input
           aria-label="Add a test"
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={pending}
-          placeholder="Add a test in a sentence, e.g. withdraw half and check the balance"
-          className="h-8 min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground disabled:opacity-50"
+          placeholder="e.g. Withdraw half and check the balance"
+          className={cx("h-11 bg-background px-3.5 transition-colors placeholder:text-muted-foreground/80 hover:border-foreground/25", ready && "pr-32")}
         />
         {ready && (
-          <Button type="submit" size="sm" disabled={pending}>
+          <Button type="submit" size="sm" disabled={pending} className="absolute top-1/2 right-1.5 -translate-y-1/2">
             {pending ? "Adding…" : "Write and run"}
           </Button>
         )}
       </div>
-      {error && <p className="pl-7 text-sm text-bad">{error}</p>}
+      {error && <p className="text-sm text-bad">{error}</p>}
     </form>
   );
 }

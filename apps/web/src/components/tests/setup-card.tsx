@@ -1,7 +1,7 @@
 "use client";
 
 import { SETUP_WHEN_LABEL, type SetupWhen } from "@dappdrill/core";
-import { X } from "lucide-react";
+import { LogIn, X } from "lucide-react";
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { removeSetupAction, updateSetupAction } from "@/actions/apps";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { StepWithResult } from "./setup-steps";
 import { SetupStrip } from "./setup-strip";
+import { SectionHead } from "./tile";
 
 interface Setup {
   startPath: string;
@@ -41,20 +42,24 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
     );
 
   return (
-    <section aria-label="Setup" className="flex flex-col gap-5 border-t pt-8">
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-x-2.5">
-          <h2 className="font-medium">Setup</h2>
-          <p className="text-sm text-muted-foreground">
+    <section aria-label="Setup" className="flex flex-col gap-5">
+      <SectionHead
+        icon={LogIn}
+        tint="pink"
+        title="Setup"
+        detail={
+          <>
             {SETUP_WHEN_LABEL[setup.when]}
             {last && <> · {last.label}</>}
-          </p>
-          <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="ml-auto text-muted-foreground">
+            {setup.why && <> · {setup.why}</>}
+          </>
+        }
+        action={
+          <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="text-muted-foreground">
             Edit
           </Button>
-        </div>
-        {setup.why && <p className="text-sm text-pretty text-muted-foreground">{setup.why}</p>}
-      </div>
+        }
+      />
       <SetupStrip steps={last?.steps ?? setup.steps.map((text) => ({ text }))} />
     </section>
   );

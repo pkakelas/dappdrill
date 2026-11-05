@@ -3,8 +3,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* shadcn/ui, neutral. Only problems get colour: bad (Broken, Critical, Dangerous),
- * warn (Review, Medium, Check this); live marks a running scan. */
+/* shadcn/ui, neutral, with the soft tints of the New app page on top: good (Passed), bad (Failed,
+ * Dangerous), warn (Couldn't run, Check this), live (Running, Queued), fork (conditions). */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -58,24 +58,31 @@
 
 @theme {
   --color-red: #ff4a1f;
-  --color-bad: #c4340e;
-  --color-bad-ink: #9a2a0b;
-  --color-bad-bg: #fbe8df;
-  --color-bad-soft: #fdf2ec;
-  --color-bad-line: #f2c9b8;
-  --color-bad-mid: #e3825f;
-  --color-warn: #87500f;
-  --color-warn-bg: #f8edd8;
-  --color-warn-soft: #fcf6ea;
-  --color-warn-line: #ecd9b0;
-  --color-warn-bar: #c2852f;
-  --color-warn-ink: #5c3608;
-  --color-warn-icon: #a8640f;
-  --color-live: #2c4aa6;
-  --color-live-ink: #26407f;
-  --color-live-bg: #e8ebf3;
-  --color-live-soft: #f1f3f8;
-  --color-pass: oklch(0.922 0 0);
+  --color-good: #047857;
+  --color-good-ink: #065f46;
+  --color-good-bg: #d1fae5;
+  --color-good-soft: #ecfdf5;
+  --color-good-bar: #34d399;
+  --color-bad: #c9184a;
+  --color-bad-ink: #9f1239;
+  --color-bad-bg: #ffe4e9;
+  --color-bad-soft: #fff5f7;
+  --color-bad-line: #fecdd6;
+  --color-bad-mid: #fb7190;
+  --color-warn: #b45309;
+  --color-warn-bg: #fef3c7;
+  --color-warn-soft: #fffbeb;
+  --color-warn-line: #fde68a;
+  --color-warn-bar: #f59e0b;
+  --color-warn-ink: #78350f;
+  --color-warn-icon: #d97706;
+  --color-live: #0369a1;
+  --color-live-ink: #075985;
+  --color-live-bg: #e0f2fe;
+  --color-live-soft: #f0f9ff;
+  --color-fork: #7c3aed;
+  --color-fork-bg: #ede9fe;
+  --color-fork-line: #c4b5fd;
 }
 
 @layer base {

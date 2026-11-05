@@ -3,12 +3,13 @@ import { specOf, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrowserWindow } from "@/components/site-preview";
 import { cx } from "@/components/ui";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
 import { plural, timeAgo } from "@/lib/format";
-import { failureParts, Line } from "./condition-pills";
+import { failureParts, Line } from "./condition-branches";
 import { RunButton } from "./run-button";
 import { SigningFlag } from "./signing-flag";
 import { readLabel, REVEAL, STATE_LABEL, STATE_TEXT, StateMark, type TestRead } from "./status";
@@ -17,6 +18,8 @@ import { WriteTest } from "./write-test";
 /** `run` is the result its status reads from; `live` the newest run, for progress. `signing` covers its conditions too. */
 export interface TestCardProps {
   appId: string;
+  /** The app's address, for the window its screenshot sits in. */
+  url: string;
   test: TestRow;
   read: TestRead;
   run?: TestRunRow;
@@ -29,9 +32,9 @@ export interface TestCardProps {
 }
 
 const SEGMENT: Record<StepStatus, string> = {
-  pass: "bg-foreground/25",
-  fail: "bg-bad",
-  running: "animate-pulse bg-live",
+  pass: "bg-good-bar",
+  fail: "bg-rose-500",
+  running: "animate-pulse bg-sky-500",
   pending: "bg-foreground/10",
   skipped: "bg-foreground/10",
 };
@@ -98,7 +101,7 @@ function WalletMark({ href }: { href?: string }) {
 
 function Title({ appId, test, signs, signing, hasConditions, className }: TestCardProps & { className?: string }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 sm:flex-nowrap">
       <Link href={`/apps/${appId}/tests/${test.id}`} className={cx("min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline", className)}>
         {specOf(test).name}
       </Link>
@@ -111,10 +114,10 @@ function Title({ appId, test, signs, signing, hasConditions, className }: TestCa
 /** The status mark, with the test beside it. A test with conditions grows a trunk from the mark for them to branch off. */
 function Trunk({ mark, forked, className, children }: { mark: TestRead["mark"]; forked: boolean; className?: string; children: ReactNode }) {
   return (
-    <div className="flex gap-2.5">
-      <div className="flex w-4 shrink-0 flex-col">
-        <StateMark state={mark} className="mt-0.5" />
-        {forked && <span className="mt-1 ml-2 w-px flex-1 bg-foreground/20" />}
+    <div className="flex gap-3">
+      <div className="flex w-7 shrink-0 flex-col">
+        <StateMark state={mark} size="lg" />
+        {forked && <span className="mt-1 ml-3.5 w-px flex-1 bg-fork-line" />}
       </div>
       <div className={cx("flex min-w-0 flex-1 flex-col", className)}>{children}</div>
     </div>
@@ -123,7 +126,7 @@ function Trunk({ mark, forked, className, children }: { mark: TestRead["mark"]; 
 
 /** The list the lines sit in. */
 export function TestList({ children }: { children: ReactNode }) {
-  return <ul className="divide-y rounded-xl border bg-card shadow-xs">{children}</ul>;
+  return <ul className="divide-y rounded-xl border bg-card shadow-sm">{children}</ul>;
 }
 
 /** A test that ran to the end, or hasn't run, as one line. Its conditions nest under it. */
@@ -134,8 +137,8 @@ export function TestLine(props: TestCardProps) {
   return (
     <li className="p-1.5">
       <Line
-        className="min-h-10 py-1.5"
-        mark={<StateMark state={read.mark} />}
+        className="min-h-11 py-2"
+        mark={<StateMark state={read.mark} size="lg" />}
         name={<Title {...props} />}
         status={
           <span title={reason}>
@@ -152,14 +155,14 @@ export function TestLine(props: TestCardProps) {
 
 /** A test that failed or couldn't run: where it stopped, why, and what the page looked like at that moment. */
 export function ProblemCard(props: TestCardProps) {
-  const { appId, test, read, run, children } = props;
+  const { appId, url, test, read, run, children } = props;
   const stuck = read.settled === "error";
   const failure = run?.result?.failure ? failureParts(run.result.failure) : undefined;
   const shot = run && artifactUrl("runs", run.batchId, run.result?.steps.findLast((s) => s.screenshot)?.screenshot);
   const now = progress(props);
   return (
-    <Card className={cx("group/test relative gap-0 overflow-hidden py-0 shadow-xs sm:flex-row", stuck ? "border-warn-line bg-warn-soft" : "border-bad-line bg-bad-soft")}>
-      <div className="flex min-w-0 flex-1 flex-col p-5">
+    <Card className={cx("group/test relative gap-5 p-5 shadow-sm md:flex-row", stuck ? "border-warn-line bg-warn-soft" : "border-bad-line bg-bad-soft")}>
+      <div className="flex min-w-0 flex-1 flex-col">
         <Trunk mark={read.mark} forked={Boolean(children)} className="gap-3">
           <div className="flex items-start gap-2.5">
             <Title {...props} className="text-base font-semibold tracking-tight" />
@@ -181,9 +184,11 @@ export function ProblemCard(props: TestCardProps) {
         {children && <div className="-ml-2">{children}</div>}
       </div>
       {shot && (
-        <div className="shrink-0 border-t border-inherit sm:w-80 sm:border-t-0 sm:border-l">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={shot} alt={`The page when ${specOf(test).name} stopped`} className="h-48 w-full object-cover object-top sm:h-full sm:min-h-52" />
+        <div className="shrink-0 self-start max-md:w-full md:w-72">
+          <BrowserWindow url={url}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={shot} alt={`The page when ${specOf(test).name} stopped`} className="aspect-[16/10] w-full object-cover object-top" />
+          </BrowserWindow>
         </div>
       )}
     </Card>
@@ -195,8 +200,8 @@ export function DraftLine({ appId, test }: { appId: string; test: TestRow }) {
   return (
     <li className="p-1.5">
       <Line
-        className="min-h-10 py-1.5"
-        mark={<StateMark state="never" />}
+        className="min-h-11 py-2"
+        mark={<StateMark state="never" size="lg" />}
         name={
           <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
             {test.name}

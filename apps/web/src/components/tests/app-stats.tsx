@@ -1,13 +1,11 @@
 import type { TestRunStatus } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { cx } from "@/components/ui";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { duration, plural, shortDate } from "@/lib/format";
 
 /** How far back the chart looks. */
 export const HISTORY_DAYS = 14;
 
-const PASS = "bg-foreground/20";
 const DAY = 24 * 60 * 60 * 1000;
 
 /** A slot per day, oldest first. */
@@ -41,9 +39,9 @@ export function RunHistory({ runs }: { runs: RunSummary[] }) {
   const signatures = runs.flatMap((r) => r.verdicts).length;
   const typical = typicalRun(runs);
   return (
-    <section aria-label={`The last ${HISTORY_DAYS} days`} className="flex flex-col gap-3 text-sm text-muted-foreground tabular-nums">
+    <section aria-label={`The last ${HISTORY_DAYS} days`} className="flex flex-col gap-4 rounded-xl border bg-card p-5 text-sm text-muted-foreground tabular-nums shadow-sm">
       <div className="flex items-baseline justify-between gap-4">
-        <span>Last {HISTORY_DAYS} days</span>
+        <span className="font-medium text-foreground">Last {HISTORY_DAYS} days</span>
         {total > 0 ? (
           <span>
             <span className="font-medium text-foreground">{Math.round((passed / total) * 100)}%</span> of {plural(total, "run")} passed
@@ -52,7 +50,7 @@ export function RunHistory({ runs }: { runs: RunSummary[] }) {
           <span>No runs yet</span>
         )}
       </div>
-      <div role="img" aria-label={`${passed} of ${total} runs passed in the last ${HISTORY_DAYS} days`} className="flex h-16 items-end gap-1">
+      <div role="img" aria-label={`${passed} of ${total} runs passed in the last ${HISTORY_DAYS} days`} className="flex h-20 items-end gap-1">
         {days.map((d) => {
           const runsThatDay = d.passed + d.failed;
           return (
@@ -60,11 +58,11 @@ export function RunHistory({ runs }: { runs: RunSummary[] }) {
               <TooltipTrigger asChild>
                 <span className="flex h-full min-w-0 flex-1 flex-col justify-end transition-opacity hover:opacity-70">
                   {runsThatDay === 0 ? (
-                    <span className="h-1 rounded-full bg-muted" />
+                    <span className="h-1 rounded-full bg-foreground/10" />
                   ) : (
-                    <span className="flex flex-col gap-px overflow-hidden rounded-[3px]" style={{ height: `${Math.max(20, (runsThatDay / busiest) * 100)}%` }}>
-                      {d.failed > 0 && <span className="min-h-1 bg-bad" style={{ flexGrow: d.failed }} />}
-                      {d.passed > 0 && <span className={cx("min-h-1", PASS)} style={{ flexGrow: d.passed }} />}
+                    <span className="flex flex-col gap-0.5 overflow-hidden rounded-t" style={{ height: `${Math.max(20, (runsThatDay / busiest) * 100)}%` }}>
+                      {d.failed > 0 && <span className="min-h-1 bg-rose-500" style={{ flexGrow: d.failed }} />}
+                      {d.passed > 0 && <span className="min-h-1 bg-good-bar" style={{ flexGrow: d.passed }} />}
                     </span>
                   )}
                 </span>
@@ -77,9 +75,19 @@ export function RunHistory({ runs }: { runs: RunSummary[] }) {
         })}
       </div>
       {total > 0 && (
-        <div className="flex items-baseline justify-between gap-4">
-          {signatures > 0 && <span>{plural(signatures, "signature")} reviewed</span>}
-          {typical !== undefined && <span className="ml-auto">{duration(typical)} typical run</span>}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-xs bg-good-bar" />
+            Passed
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-xs bg-rose-500" />
+            Failed
+          </span>
+          <span className="flex gap-3 sm:ml-auto">
+            {signatures > 0 && <span>{plural(signatures, "signature")} reviewed</span>}
+            {typical !== undefined && <span>{duration(typical)} typical run</span>}
+          </span>
         </div>
       )}
     </section>

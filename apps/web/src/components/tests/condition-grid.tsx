@@ -1,10 +1,29 @@
-import { OFFERED_CONDITIONS, SETTLED_LABEL, count, applicable } from "@dappdrill/core";
+import { OFFERED_CONDITIONS, SETTLED_LABEL, count, applicable, type EdgeCaseId } from "@dappdrill/core";
 import type { TestRow, TestRunRow } from "@dappdrill/db";
+import { Ban, CircleHelp, Fuel, Gauge, Hourglass, Network, RotateCw, ShieldCheck, ShieldOff, Unplug, UserRoundCog, WalletCards, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { readLabel, StateMark, type TestRead } from "@/components/tests/status";
+import { Tile, TINT } from "@/components/tests/tile";
 import { cx } from "@/components/ui";
 import { Card } from "@/components/ui/card";
 import { plural } from "@/lib/format";
+
+/** Each condition's tile on this page. */
+const LOOK: Partial<Record<EdgeCaseId, { icon: LucideIcon; tint: keyof typeof TINT }>> = {
+  reject: { icon: Ban, tint: "pink" },
+  "slow-rpc": { icon: Hourglass, tint: "live" },
+  "wrong-network": { icon: Network, tint: "fork" },
+  "low-gas": { icon: Fuel, tint: "warn" },
+  "switch-account": { icon: UserRoundCog, tint: "fork" },
+  "failing-rpc": { icon: Unplug, tint: "live" },
+  "reload-while-pending": { icon: RotateCw, tint: "good" },
+  "two-wallets": { icon: WalletCards, tint: "pink" },
+  "unknown-chain": { icon: CircleHelp, tint: "warn" },
+  "speed-up": { icon: Gauge, tint: "good" },
+  "existing-approval": { icon: ShieldCheck, tint: "live" },
+  "revoked-approval": { icon: ShieldOff, tint: "pink" },
+};
+const look = (id: EdgeCaseId) => LOOK[id] ?? { icon: CircleHelp, tint: "quiet" as const };
 
 /**
  * What each condition found: a tile per condition in use, with the tests it runs on and how they
@@ -29,13 +48,16 @@ export function ConditionGrid({ appId, tests, reads, settled }: { appId: string;
           {used.map(({ condition, added, counts: c }) => {
             const missing = bases.length - added.length;
             return (
-              <Card key={condition.id} className={cx("gap-3 p-4 shadow-xs", c.failed > 0 && "border-bad-line bg-bad-soft")}>
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="font-medium">{condition.name}</h3>
-                    <span className={cx("shrink-0 text-xs tabular-nums", c.failed > 0 ? "text-bad" : c.couldntRun > 0 ? "text-warn" : "text-muted-foreground")}>{summary(added.length, c)}</span>
+              <Card key={condition.id} className={cx("gap-3 p-5 shadow-sm", c.failed > 0 && "border-bad-line bg-bad-soft")}>
+                <div className="flex gap-3">
+                  <Tile {...look(condition.id)} />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <h3 className="text-sm leading-snug font-medium">{condition.name}</h3>
+                      <span className={cx("shrink-0 text-xs tabular-nums", c.failed > 0 ? "text-bad" : c.couldntRun > 0 ? "text-warn" : "text-muted-foreground")}>{summary(added.length, c)}</span>
+                    </div>
+                    <p className="text-sm text-pretty text-muted-foreground">{condition.expected}</p>
                   </div>
-                  <p className="text-sm text-pretty text-muted-foreground">{condition.expected}</p>
                 </div>
                 <ul className="flex flex-col gap-1">
                   {added.map(({ base, test }) => (
@@ -53,15 +75,21 @@ export function ConditionGrid({ appId, tests, reads, settled }: { appId: string;
       {unused.length > 0 && (
         <section aria-label="Not added yet" className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
-            <h2 className="font-medium">Not added yet</h2>
+            <h2 className="text-sm font-medium">Not added yet</h2>
             <p className="text-sm text-muted-foreground">Add these from a test&apos;s page.</p>
           </div>
-          <ul className="flex flex-wrap gap-1.5">
-            {unused.map(({ condition }) => (
-              <li key={condition.id} title={condition.expected} className="rounded-full bg-muted/70 px-3 py-1 text-xs text-muted-foreground">
-                {condition.name}
-              </li>
-            ))}
+          <ul className="flex flex-wrap gap-2">
+            {unused.map(({ condition }) => {
+              const { icon: Icon, tint } = look(condition.id);
+              return (
+                <li key={condition.id} title={condition.expected} className="flex items-center gap-1.5 rounded-full border py-1 pr-3 pl-1 text-sm shadow-xs">
+                  <span className={cx("flex size-6 items-center justify-center rounded-full", TINT[tint])}>
+                    <Icon className="size-3.5" aria-hidden="true" />
+                  </span>
+                  {condition.name}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

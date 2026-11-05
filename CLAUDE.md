@@ -8,8 +8,9 @@ signature request is reviewed. A fast assistant on every page can see the app ma
 drive the browser. Product context: `docs/product-context.md`. Layout reference:
 `docs/designs/*.html`, where the v2 UX notes in the product context win where the two differ.
 The web UI is shadcn/ui (new-york, neutral) on Tailwind v4: use the components in `apps/web/src/components/ui/`
-(add more with the shadcn CLI) and keep pages plain. Only problems get colour, through the status tokens
-(bad, warn, live) next to the shadcn theme in `apps/web/src/app/globals.css`; the brand red is only in the logo.
+(add more with the shadcn CLI) and keep pages plain. Colour comes as the soft tinted tiles of the New app page
+(`Tile` and `TINT` in `apps/web/src/components/tests/tile.tsx`) and the status tokens (good, bad, warn, live, fork)
+next to the shadcn theme in `apps/web/src/app/globals.css`; the brand red is only in the logo.
 
 ## Layout
 
@@ -52,7 +53,7 @@ or `requireApp(appId)` from `apps/web/src/lib/session.ts`; forms send their `org
   Data from indexers or explorers that we couldn't confirm on the fork is marked unverified.
 - Never bypass CAPTCHAs or bot checks. If blocked, report it as blocked.
 - UI copy is plain: no "AI" badges or gradients, and "simulate" only means transaction simulation.
-  Test status vocabulary: Passed / Failed / Couldn't run (plus Running, Queued, Not run yet). Only problems get colour.
+  Test status vocabulary: Passed / Failed / Couldn't run (plus Running, Queued, Not run yet).
 - Keep it clean, but don't overengineer: small modules, few abstractions, comments only where they help.
 - Three models: thinking `claude-opus-5-5` (env `DAPPDRILL_MODEL`) analyzes apps; fast
   `claude-sonnet-5-5` (env `DAPPDRILL_FAST_MODEL`) runs test steps, judges results, writes tests and

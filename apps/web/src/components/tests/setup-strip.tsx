@@ -14,7 +14,7 @@ const MIN_COLUMNS = 4;
 function Mark({ step, n }: { step: StepWithResult; n: number }) {
   const status = step.result?.status;
   if (status && status !== "pending") return <StateMark state={status} />;
-  return <span className="flex size-4 shrink-0 items-center justify-center text-xs text-muted-foreground tabular-nums">{n}</span>;
+  return <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground tabular-nums">{n}</span>;
 }
 
 /** The setup as a strip of frames, one per step, left to right along a line. A frame opens what that step did. */
@@ -24,7 +24,7 @@ export function SetupStrip({ steps }: { steps: StepWithResult[] }) {
   const failed = steps.findIndex((s) => s.result?.status === "fail");
   const step = open === undefined ? undefined : steps[open];
   const did = step?.result?.did.filter((d) => d !== step.text).join(" · ");
-  const rail = (i: number) => (failed < 0 || i < failed ? "bg-foreground/15" : "bg-foreground/5");
+  const rail = (i: number) => (failed < 0 || i < failed ? (ran ? "bg-emerald-500/30" : "bg-foreground/15") : "bg-foreground/5");
   const go = (by: number) => setOpen((i) => (i === undefined ? i : Math.min(steps.length - 1, Math.max(0, i + by))));
 
   return (
@@ -35,10 +35,10 @@ export function SetupStrip({ steps }: { steps: StepWithResult[] }) {
           return (
             <li key={i} className="flex min-w-0 snap-start flex-col gap-2.5">
               {/* The mark sits over the middle of its frame. The line runs the width of the strip, meeting the next frame's halfway across the gap. */}
-              <div className="relative flex h-4 items-center justify-center">
-                <span className={cx("absolute right-[calc(50%+0.75rem)] h-px", i === 0 ? "left-0" : "-left-1.5", rail(i - 1))} />
+              <div className="relative flex h-5 items-center justify-center">
+                <span className={cx("absolute right-[calc(50%+0.875rem)] h-px", i === 0 ? "left-0" : "-left-1.5", rail(i - 1))} />
                 <Mark step={s} n={i + 1} />
-                <span className={cx("absolute left-[calc(50%+0.75rem)] h-px", i === steps.length - 1 ? "right-0" : "-right-1.5", rail(i))} />
+                <span className={cx("absolute left-[calc(50%+0.875rem)] h-px", i === steps.length - 1 ? "right-0" : "-right-1.5", rail(i))} />
               </div>
               {ran ? (
                 <button type="button" onClick={() => setOpen(i)} aria-label={`Step ${i + 1}: ${s.text}`} className="group/frame flex flex-col gap-2 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">

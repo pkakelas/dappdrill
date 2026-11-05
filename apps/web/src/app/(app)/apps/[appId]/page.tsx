@@ -1,6 +1,7 @@
 import { appRollup, signingOf, walletUse } from "@dappdrill/core";
 import { analyses, appTests, db, latestRuns, notWritten, runHistory, settledRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
+import { Flag, ListChecks, Route, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
@@ -10,16 +11,17 @@ import { AnalysisPanel } from "@/components/tests/analysis-panel";
 import { AppHero } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
 import { ConditionGrid } from "@/components/tests/condition-grid";
-import { ConditionBranches } from "@/components/tests/condition-pills";
+import { ConditionBranches } from "@/components/tests/condition-branches";
 import { RunButton } from "@/components/tests/run-button";
 import { SetupCard } from "@/components/tests/setup-card";
 import { readTest } from "@/components/tests/status";
 import { DraftLine, ProblemCard, TestLine, TestList, type TestCardProps } from "@/components/tests/test-card";
+import { SectionHead, Tile, type TINT } from "@/components/tests/tile";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
-import { hostFromUrl, timeAgo } from "@/lib/format";
+import { hostFromUrl, plural, timeAgo } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
@@ -70,7 +72,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
   const setupRun = app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()]) : undefined;
   const setupCard = setup && <SetupCard appId={appId} setup={setup} last={setupRun} />;
-  const cardProps = (t: TestRow): TestCardProps => ({ appId, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0 });
+  const cardProps = (t: TestRow): TestCardProps => ({ appId, url: app.url, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0 });
   const branches = (t: TestRow) => conditionsOf(t).length > 0 && <ConditionBranches appId={appId} tests={conditionsOf(t)} reads={reads} runs={settled} className="relative z-10" />;
   const fine = others.length + untested.length;
 
@@ -85,6 +87,8 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
             name={app.name}
             url={app.url}
             lastRun={lastRun}
+            wallet={app.settings.wallets[0]}
+            chainId={(app.settings.chains[0] ?? app.chains[0])?.id}
             rollup={roots.length > 0 ? overall : undefined}
             running={activeIds.length}
             runs={history}
@@ -104,7 +108,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
               ) : (
                 <div className="flex flex-col gap-10">
                   {attention.length > 0 && (
-                    <Group title={fine > 0 ? "Needs attention" : undefined} className="flex flex-col gap-3">
+                    <Group icon={Flag} tint="bad" title="Needs attention" detail={attentionText(stopped.length, flagged.length)}>
                       {stopped.map((t) => (
                         <ProblemCard key={t.id} {...cardProps(t)}>
                           {branches(t)}
@@ -121,8 +125,8 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
                       )}
                     </Group>
                   )}
-                  <Group title={attention.length > 0 && fine > 0 ? "Other tests" : undefined} className="flex flex-col gap-3">
-                    {fine > 0 && (
+                  {fine > 0 && (
+                    <Group icon={ListChecks} tint="fork" title={attention.length > 0 ? "Other tests" : "Tests"} detail={plural(fine, "test")}>
                       <TestList>
                         {others.map((t) => (
                           <TestLine key={t.id} {...cardProps(t)}>
@@ -133,9 +137,9 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
                           <DraftLine key={t.id} appId={appId} test={t} />
                         ))}
                       </TestList>
-                    )}
-                    <NewTest appId={appId} />
-                  </Group>
+                    </Group>
+                  )}
+                  <NewTest appId={appId} />
                 </div>
               )}
             </div>
@@ -165,31 +169,43 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   );
 }
 
-function Group({ title, className, children }: { title?: string; className: string; children: React.ReactNode }) {
+function attentionText(stopped: number, flagged: number) {
+  return [stopped > 0 && `${stopped} stopped`, flagged > 0 && `${flagged} passed with a problem`].filter(Boolean).join(", ");
+}
+
+function Group({ icon, tint, title, detail, children }: { icon: LucideIcon; tint: keyof typeof TINT; title: string; detail: string; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-3">
-      {title && <h2 className="font-medium">{title}</h2>}
-      <div className={className}>{children}</div>
+    <section aria-label={title} className="flex flex-col gap-4">
+      <SectionHead icon={icon} tint={tint} title={title} detail={detail} />
+      <div className="flex flex-col gap-3">{children}</div>
     </section>
   );
 }
 
+/** Laid out like a question on the New app page: what it asks on the left, the field on the right. */
 function NewTest({ appId }: { appId: string }) {
   return (
-    <div className="flex min-h-14 items-center rounded-xl border border-dashed px-4 py-2 transition-colors focus-within:border-foreground/30 hover:border-foreground/25">
+    <section aria-label="Add a test" className="grid items-center gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-8">
+      <div className="flex items-center gap-3">
+        <Tile icon={Route} tint="live" />
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-sm leading-snug font-medium">What else should we test?</h2>
+          <p className="text-sm text-muted-foreground">One sentence. We write the steps.</p>
+        </div>
+      </div>
       <AddTest appId={appId} />
-    </div>
+    </section>
   );
 }
 
 function ViewSwitch({ appId, grid, tests }: { appId: string; grid: boolean; tests: number }) {
   const item = (href: string, label: React.ReactNode, on: boolean) => (
-    <Link href={href} aria-current={on ? "page" : undefined} className={cx("-mb-px border-b-2 pb-2.5 font-medium transition-colors outline-none focus-visible:text-foreground", on ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+    <Link href={href} aria-current={on ? "page" : undefined} className={cx("rounded-md px-3 py-1 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
       {label}
     </Link>
   );
   return (
-    <nav aria-label="View" className="flex items-baseline gap-6 border-b">
+    <nav aria-label="View" className="flex w-fit items-center gap-0.5 rounded-lg bg-muted p-0.5">
       {item(
         `/apps/${appId}`,
         <>

@@ -8,7 +8,7 @@ import { notFound } from "next/navigation";
 import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ConfirmButton } from "@/components/confirm-button";
-import { ConditionPills } from "@/components/tests/condition-pills";
+import { ConditionFork } from "@/components/tests/condition-branches";
 import { AddConditions } from "@/components/tests/conditions";
 import { Duplicate } from "@/components/tests/duplicate";
 import { RunButton } from "@/components/tests/run-button";
@@ -71,10 +71,10 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const condition = test.condition ? conditionInfo(test.condition) : undefined;
   const signing = signingOf(result?.signingReviews.map((r) => r.verdict) ?? []);
   const wallet = walletUse(test.steps);
-  const pills = !test.baseId && (
-    <ConditionPills appId={appId} tests={children} reads={childReads} runs={childSettled}>
+  const forks = !test.baseId && (
+    <ConditionFork appId={appId} tests={children} reads={childReads} runs={childSettled}>
       {wallet === "signs" && <AddConditions testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} startOpen={add === "conditions"} />}
-    </ConditionPills>
+    </ConditionFork>
   );
   const url = (path?: string | null) => (run ? artifactUrl("runs", run.batchId, path) : null);
 
@@ -162,7 +162,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           {condition && base ? (
             // A condition row has nothing of its own to edit: steps and goal are the test's, name and expected the condition's.
             <div className="flex flex-col gap-6">
-              <p className="rounded-xl bg-muted px-4 py-3 text-muted-foreground">
+              <p className="rounded-xl bg-fork-bg/50 px-4 py-3 text-muted-foreground">
                 Runs the steps of{" "}
                 <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
                   {base.name}
@@ -191,7 +191,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                   <Verdict result={result} />
                 </Block>
                 {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-                <Steps steps={steps} result={result} url={url} pills={pills} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
+                <Steps steps={steps} result={result} url={url} forks={forks} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
               </div>
             }
           />
@@ -235,14 +235,14 @@ function Steps({
   steps,
   result,
   url,
-  pills,
+  forks,
   wallet,
   hasConditions,
 }: {
   steps: TestStep[];
   result?: TestRunResult;
   url: (p?: string | null) => string | null;
-  pills?: React.ReactNode;
+  forks?: React.ReactNode;
   wallet?: ReturnType<typeof walletUse>;
   hasConditions?: boolean;
 }) {
@@ -266,12 +266,12 @@ function Steps({
             result: result?.steps[i],
             shot: url(result?.steps[i]?.screenshot),
             signs: stepSigns(s),
-            after: wallet === "signs" && i === branchAt ? <div id="conditions" className="ml-[7px] scroll-mt-24 border-l py-0.5 pl-3">{pills}</div> : undefined,
+            after: wallet === "signs" && i === branchAt ? <div id="conditions" className="scroll-mt-24">{forks}</div> : undefined,
           }))}
         />
         {wallet && wallet !== "signs" && (
           <div className="flex flex-col gap-2 px-1 pt-1">
-            {hasConditions && pills}
+            {hasConditions && forks}
             <p className="flex gap-2 text-sm text-muted-foreground">
               <Wallet className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               {wallet === "none" ? "This test never asks the wallet to sign, so conditions have nothing to change." : "Conditions unlock once a run of this test reaches the wallet."}

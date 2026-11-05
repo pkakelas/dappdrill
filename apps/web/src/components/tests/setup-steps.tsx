@@ -11,7 +11,7 @@ export function StepList({ steps, className }: { steps: StepWithResult[]; classN
     <ol className={cx("divide-y", className)}>
       {steps.map(({ text, result: r, shot, signs, after }, i) => (
         <li key={i} className={cx("flex flex-wrap gap-x-3 gap-y-2 px-4 py-3", r?.status === "fail" && "bg-bad-soft")}>
-          <span className="flex w-5 shrink-0 justify-center pt-0.5">
+          <span className="flex w-5 shrink-0 justify-center">
             {r && r.status !== "pending" ? <StateMark state={r.status} /> : <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span>}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -31,7 +31,7 @@ export function StepList({ steps, className }: { steps: StepWithResult[]; classN
               <img src={shot} alt="" className="h-12 w-20 rounded-md border object-cover object-top" />
             </a>
           )}
-          {after && <div className="basis-full pl-8">{after}</div>}
+          {after && <div className="basis-full pl-2.5">{after}</div>}
         </li>
       ))}
     </ol>
