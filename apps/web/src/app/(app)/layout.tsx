@@ -1,12 +1,12 @@
 import { cookies } from "next/headers";
-import { switchTeam } from "@/actions/team";
+import { switchOrgAction } from "@/actions/organization";
 import { Header } from "@/components/shell/header";
 import { hostFromUrl } from "@/lib/format";
-import { currentTeam, teamApps } from "@/lib/session";
+import { currentOrg, orgApps } from "@/lib/session";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, team, all } = await currentTeam();
-  const apps = await teamApps(team.id);
+  const { user, org, all } = await currentOrg();
+  const apps = await orgApps(org.id);
   const shellApps = apps.map((a) => ({ id: a.id, name: a.name, host: hostFromUrl(a.url) }));
   const lastAppId = (await cookies()).get("dd_app")?.value;
 
@@ -16,9 +16,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         apps={shellApps}
         lastAppId={lastAppId}
         user={{ name: user.name, email: user.email }}
-        team={{ id: team.id, name: team.name }}
-        teams={all.map((m) => ({ id: m.team.id, name: m.team.name }))}
-        switchTeam={switchTeam}
+        org={{ id: org.id, name: org.name }}
+        orgs={all.map((m) => ({ id: m.org.id, name: m.org.name }))}
+        switchOrg={switchOrgAction}
       />
       <main>{children}</main>
     </>

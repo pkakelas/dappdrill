@@ -19,14 +19,14 @@ export function targetHints(settings: AppRow["settings"]): string | undefined {
 }
 
 /**
- * Everything the engine needs for this app: URL, chains, the team's test wallets, live key, inbox.
+ * Everything the engine needs for this app: URL, chains, the organization's test wallets, live key, inbox.
  *
  * - "analysis": the configured chains (empty = detect), plus chains the app asked the wallet for last time.
  * - "tests": the configured chains pinned at the analysis's fork blocks, or the analysis's chains
  *   when none are configured, so every run starts from the same state.
  */
 export async function buildTarget(db: Db, app: AppRow, use: "analysis" | "tests"): Promise<DrillTarget> {
-  const [wallets] = await db.select().from(testWallets).where(eq(testWallets.teamId, app.teamId));
+  const [wallets] = await db.select().from(testWallets).where(eq(testWallets.organizationId, app.organizationId));
   const { settings } = app;
   return DrillTarget.parse({
     url: app.url,

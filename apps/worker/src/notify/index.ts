@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { conditionInfo } from "@dappdrill/core";
-import { decrypt, flows, integrations, signingAlerts, teamMembers, testRuns, tests, user, type Db } from "@dappdrill/db";
+import { decrypt, flows, integrations, member, signingAlerts, testRuns, tests, user, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
 import type { AppRow } from "../target.js";
@@ -12,8 +12,8 @@ const log = logger("notify");
 const base = alias(tests, "base");
 
 /**
- * After a batch: tell the team about tests that failed now and passed the time before, and
- * about Dangerous signatures they haven't heard about yet, whatever the test's own status.
+ * After a batch: tell the organization about tests that failed now and passed the time before,
+ * and about Dangerous signatures it hasn't heard about yet, whatever the test's own status.
  */
 export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promise<Alert | null> {
   if (runIds.length === 0) return null;
@@ -49,7 +49,7 @@ export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promis
   if (!alert) return null;
 
   let delivered = false;
-  const rows = await db.select().from(integrations).where(and(eq(integrations.teamId, app.teamId), eq(integrations.enabled, true)));
+  const rows = await db.select().from(integrations).where(and(eq(integrations.organizationId, app.organizationId), eq(integrations.enabled, true)));
   for (const row of rows) {
     try {
       const secret = row.secretEnc ? decrypt(row.secretEnc) : undefined;
@@ -65,9 +65,9 @@ export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promis
           break;
         }
         case "email": {
-          const to = await emailRecipients(db, app.teamId, row.config);
+          const to = await emailRecipients(db, app.organizationId, row.config);
           if (to.length === 0) throw new Error("no recipients");
-          await sendEmail(to, alert);
+          if (!(await sendEmail(to, alert))) continue;
           break;
         }
         default:
@@ -86,10 +86,10 @@ export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promis
   return alert;
 }
 
-/** config.to (comma-separated), else every member of the team. */
-async function emailRecipients(db: Db, teamId: string, cfg: Record<string, string>): Promise<string[]> {
+/** config.to (comma-separated), else everyone in the organization. */
+async function emailRecipients(db: Db, orgId: string, cfg: Record<string, string>): Promise<string[]> {
   const listed = (cfg.to ?? cfg.recipients ?? "").split(/[,\s]+/).filter(Boolean);
   if (listed.length) return listed;
-  const members = await db.select({ email: user.email }).from(teamMembers).innerJoin(user, eq(user.id, teamMembers.userId)).where(eq(teamMembers.teamId, teamId));
+  const members = await db.select({ email: user.email }).from(member).innerJoin(user, eq(user.id, member.userId)).where(eq(member.organizationId, orgId));
   return members.map((m) => m.email);
 }

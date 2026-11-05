@@ -50,7 +50,7 @@ export function signatureKey(r: SigningReview): string {
 }
 
 /**
- * The Dangerous signatures in a batch the team hasn't been told about, one per signature
+ * The Dangerous signatures in a batch the organization hasn't been told about, one per signature
  * however many tests asked for it. Named after a test rather than a condition when it can be.
  */
 export function newDangerous(results: (Place & { reviews: SigningReview[] })[], told: Set<string>): DangerousSignature[] {

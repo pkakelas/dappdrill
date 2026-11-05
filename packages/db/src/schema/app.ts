@@ -24,51 +24,20 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth.js";
+import { organization, user } from "./auth.js";
 
 const id = () => text("id").primaryKey();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
-// ---------------------------------------------------------------- teams
-
-export type Plan = "free" | "builder";
-
-/** Every user gets a personal team on sign-up; apps, wallets and integrations belong to teams. */
-export const teams = pgTable("teams", {
-  id: id(),
-  name: text("name").notNull(),
-  plan: text("plan").$type<Plan>().notNull().default("builder"),
-  createdAt: createdAt(),
-});
-
-export const teamMembers = pgTable(
-  "team_members",
-  {
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    role: text("role").$type<"owner" | "member">().notNull().default("member"),
-    createdAt: createdAt(),
-  },
-  (t) => [uniqueIndex("team_members_pk").on(t.teamId, t.userId)],
-);
-
-export const invites = pgTable("invites", {
-  id: id(),
-  teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  email: text("email").notNull(),
-  token: text("token").notNull().unique(),
-  invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
-  acceptedAt: ts("accepted_at"),
-  createdAt: createdAt(),
-});
+// ---------------------------------------------------------------- organization resources
 
 /**
- * Test wallets are per team: accounts A and B (keys encrypted), an optional
- * funded live-mode key, and a disposable inbox for email-code logins.
+ * Test wallets are per organization: accounts A and B (keys encrypted) and a
+ * disposable inbox for email-code logins.
  */
 export const testWallets = pgTable("test_wallets", {
-  teamId: text("team_id").primaryKey().references(() => teams.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id").primaryKey().references(() => organization.id, { onDelete: "cascade" }),
   accountAKeyEnc: text("account_a_key_enc").notNull(),
   accountAAddress: text("account_a_address").notNull(),
   accountBKeyEnc: text("account_b_key_enc").notNull(),
@@ -82,7 +51,7 @@ export const integrations = pgTable(
   "integrations",
   {
     id: id(),
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
     kind: text("kind").$type<"slack" | "telegram" | "email" | "github">().notNull(),
     /** Non-secret settings (channel name, chat id, recipients, repo). */
     config: jsonb("config").$type<Record<string, string>>().notNull().default({}),
@@ -91,7 +60,7 @@ export const integrations = pgTable(
     enabled: boolean("enabled").notNull().default(true),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("integrations_team_kind").on(t.teamId, t.kind)],
+  (t) => [uniqueIndex("integrations_org_kind").on(t.organizationId, t.kind)],
 );
 
 // ---------------------------------------------------------------- apps
@@ -115,7 +84,7 @@ export const apps = pgTable(
   "apps",
   {
     id: id(),
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     url: text("url").notNull(),
     /** Hostname, used for domain verification. */
@@ -138,21 +107,21 @@ export const apps = pgTable(
     scheduleTime: text("schedule_time"),
     createdAt: createdAt(),
   },
-  (t) => [index("apps_team_idx").on(t.teamId)],
+  (t) => [index("apps_org_idx").on(t.organizationId)],
 );
 
 export const domains = pgTable(
   "domains",
   {
     id: id(),
-    teamId: text("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
     host: text("host").notNull(),
     token: text("token").notNull(),
     method: text("method").$type<"file" | "dns">(),
     verifiedAt: ts("verified_at"),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("domains_team_host").on(t.teamId, t.host)],
+  (t) => [uniqueIndex("domains_org_host").on(t.organizationId, t.host)],
 );
 
 
@@ -249,7 +218,7 @@ export const testRuns = pgTable(
   (t) => [index("test_runs_test_idx").on(t.testId, t.createdAt), index("test_runs_batch_idx").on(t.batchId)],
 );
 
-/** Dangerous signatures the team was told about, so later runs don't repeat the alert. */
+/** Dangerous signatures the organization was told about, so later runs don't repeat the alert. */
 export const signingAlerts = pgTable(
   "signing_alerts",
   {
