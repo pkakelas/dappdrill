@@ -21,6 +21,9 @@ export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a w
      - each: before every test, when the tests use up what setup gives on a live chain and setup is cheap to repeat (a mint button with no limit).
      Say why in one short sentence. Leave setup out when the core flows work right after connecting the wallet.
    - the 2 or 3 flows users most need to work (the app's core value: trade, swap, deposit, mint, borrow), each with one happy-path test. A flow's own needs (an open position before closing it) go in its steps; what every flow needs goes in setup.
+     When the developer lists flows to test, those come first: find where each one happens and keep their wording in the name. Add your own only if they listed fewer than 3. If a listed flow isn't in the app, leave it out and say so with note.
+     When the developer says what keeps breaking or what just changed, prefer flows that go through it.
+     Use the rest of their notes too: leave alone what they say to avoid, use the tokens and amounts they give, and take expected from what they say success looks like.
 
 Tests are read by busy developers. Write them plainly:
 - name: what the user does, e.g. "Market buy on ETH perp".
