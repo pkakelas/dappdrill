@@ -71,7 +71,7 @@ function Stats({ rollup, running }: { rollup: AppRollup; running: number }) {
   );
 }
 
-/** The top of an app: what it is, how it's doing, and the one action that matters. */
+/** The top of an app: what it is, how it's doing, and what you can do next. */
 export function AppHero({ appId, name, url, lastRun, wallet, chainId, rollup, running, runs, action }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; rollup?: AppRollup; running: number; runs: RunSummary[]; action?: ReactNode }) {
   return (
     <header className="flex flex-col gap-8">

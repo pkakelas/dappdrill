@@ -1,12 +1,12 @@
 import { appRollup, signingOf, walletUse } from "@dappdrill/core";
 import { analyses, appTests, db, latestRuns, notWritten, runHistory, settledRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
-import { Flag, ListChecks, Route, type LucideIcon } from "lucide-react";
+import { ArrowRight, Flag, ListChecks, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { AddTest } from "@/components/tests/add-test";
+import { AddTest, AddTestButton } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
 import { AppHero } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
@@ -28,6 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ appId: st
   const { app } = await requireApp((await params).appId);
   return { title: app.name };
 }
+
+type Tab = "tests" | "conditions" | "setup";
 
 export default async function TestsPage({ params, searchParams }: { params: Promise<{ appId: string }>; searchParams: Promise<{ view?: string }> }) {
   const { appId } = await params;
@@ -68,10 +70,9 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
     .map((r) => r.finishedAt)
     .filter((d) => d !== null)
     .sort((a, b) => b.getTime() - a.getTime())[0];
-  const grid = view === "grid";
+  const tab: Tab = view === "grid" ? "conditions" : view === "setup" ? "setup" : "tests";
   const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
   const setupRun = app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()]) : undefined;
-  const setupCard = setup && <SetupCard appId={appId} setup={setup} last={setupRun} />;
   const cardProps = (t: TestRow): TestCardProps => ({ appId, url: app.url, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0 });
   const branches = (t: TestRow) => conditionsOf(t).length > 0 && <ConditionBranches appId={appId} tests={conditionsOf(t)} reads={reads} runs={settled} className="relative z-10" />;
   const fine = others.length + untested.length;
@@ -92,21 +93,27 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
             rollup={roots.length > 0 ? overall : undefined}
             running={activeIds.length}
             runs={history}
-            action={roots.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
+            action={
+              tests.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <AddTestButton appId={appId} />
+                  {roots.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
+                </div>
+              )
+            }
           />
 
           {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasTests={tests.length > 0} />}
 
-          {/* A setup that failed is why the tests below can't be trusted, so it goes first. */}
-          {setupRun?.ok === false && setupCard}
-
           {tests.length > 0 ? (
             <div className="flex flex-col gap-6">
-              {roots.length > 0 && <ViewSwitch appId={appId} grid={grid} tests={roots.length} />}
-              {grid ? (
-                <ConditionGrid appId={appId} tests={tests.filter((t) => !notWritten(t))} reads={reads} settled={settled} />
-              ) : (
+              <ViewSwitch appId={appId} tab={tab} tests={roots.length} setupSteps={app.setup?.steps.length} setupFailed={setupRun?.failed} />
+              {tab === "conditions" && <ConditionGrid appId={appId} tests={tests.filter((t) => !notWritten(t))} reads={reads} settled={settled} />}
+              {tab === "setup" && <SetupCard appId={appId} setup={setup ?? null} last={setupRun} />}
+              {tab === "tests" && (
                 <div className="flex flex-col gap-10">
+                  {/* A setup that failed is why these results can't be trusted, so it can't wait behind its tab. */}
+                  {setupRun?.failed && <SetupWarning appId={appId} />}
                   {attention.length > 0 && (
                     <Group icon={Flag} tint="bad" title="Needs attention" detail={attentionText(stopped.length, flagged.length)}>
                       {stopped.map((t) => (
@@ -139,7 +146,6 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
                       </TestList>
                     </Group>
                   )}
-                  <NewTest appId={appId} />
                 </div>
               )}
             </div>
@@ -157,12 +163,10 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
                     </form>
                   </section>
                 )}
-                <NewTest appId={appId} />
+                <AddTest appId={appId} placeholder="What should we test?" className="w-full max-w-md" />
               </div>
             )
           )}
-
-          {!grid && tests.length > 0 && setupRun?.ok !== false && (setupCard ?? <SetupCard appId={appId} setup={null} />)}
         </div>
       </TooltipProvider>
     </div>
@@ -182,38 +186,43 @@ function Group({ icon, tint, title, detail, children }: { icon: LucideIcon; tint
   );
 }
 
-/** Laid out like a question on the New app page: what it asks on the left, the field on the right. */
-function NewTest({ appId }: { appId: string }) {
+function SetupWarning({ appId }: { appId: string }) {
   return (
-    <section aria-label="Add a test" className="grid items-center gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-8">
-      <div className="flex items-center gap-3">
-        <Tile icon={Route} tint="live" />
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-sm leading-snug font-medium">What else should we test?</h2>
-          <p className="text-sm text-muted-foreground">One sentence. We write the steps.</p>
-        </div>
-      </div>
-      <AddTest appId={appId} />
-    </section>
+    <Link href={`/apps/${appId}?view=setup`} className="flex items-center gap-3 rounded-xl border border-warn-line bg-warn-soft p-3 shadow-sm transition-colors outline-none hover:border-warn-bar focus-visible:ring-2 focus-visible:ring-ring">
+      <Tile icon={TriangleAlert} tint="warn" />
+      <span className="min-w-0 flex-1 text-pretty">Setup didn&apos;t finish, so these results can&apos;t be trusted.</span>
+      <span className="flex shrink-0 items-center gap-1 pr-1 font-medium">
+        See setup
+        <ArrowRight className="size-4" aria-hidden="true" />
+      </span>
+    </Link>
   );
 }
 
-function ViewSwitch({ appId, grid, tests }: { appId: string; grid: boolean; tests: number }) {
+function ViewSwitch({ appId, tab, tests, setupSteps, setupFailed }: { appId: string; tab: Tab; tests: number; setupSteps?: number; setupFailed?: boolean }) {
   const item = (href: string, label: React.ReactNode, on: boolean) => (
-    <Link href={href} aria-current={on ? "page" : undefined} className={cx("rounded-md px-3 py-1 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
+    <Link href={href} aria-current={on ? "page" : undefined} className={cx("flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
       {label}
     </Link>
   );
+  const count = (n: number) => <span className="font-normal text-muted-foreground tabular-nums">{n}</span>;
   return (
     <nav aria-label="View" className="flex w-fit items-center gap-0.5 rounded-lg bg-muted p-0.5">
       {item(
         `/apps/${appId}`,
         <>
-          Tests <span className="font-normal text-muted-foreground tabular-nums">{tests}</span>
+          Tests {count(tests)}
         </>,
-        !grid,
+        tab === "tests",
       )}
-      {item(`/apps/${appId}?view=grid`, "Conditions", grid)}
+      {item(`/apps/${appId}?view=grid`, "Conditions", tab === "conditions")}
+      {item(
+        `/apps/${appId}?view=setup`,
+        <>
+          Setup {setupFailed ? <span role="img" aria-label="Didn't finish" className="size-2 rounded-full bg-warn-bar" /> : setupSteps !== undefined && count(setupSteps)}
+        </>,
+        tab === "setup",
+      )}
     </nav>
   );
 }
@@ -231,5 +240,5 @@ function lastSetup(texts: string[], runs: TestRunRow[]) {
   ) : (
     <span className="text-warn">didn't finish {run.finishedAt ? timeAgo(run.finishedAt) : ""}</span>
   );
-  return { label, ok: setup.ok && !running, steps: texts.map((text, i) => ({ text, result: setup.steps[i], shot: artifactUrl("runs", run.batchId, setup.steps[i]?.screenshot) })) };
+  return { label, ok: setup.ok && !running, failed: !setup.ok && !running, steps: texts.map((text, i) => ({ text, result: setup.steps[i], shot: artifactUrl("runs", run.batchId, setup.steps[i]?.screenshot) })) };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { SETUP_WHEN_LABEL, type SetupWhen } from "@dappdrill/core";
-import { LogIn, X } from "lucide-react";
+import { LogIn, Pencil, X } from "lucide-react";
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { removeSetupAction, updateSetupAction } from "@/actions/apps";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -46,7 +46,7 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
       <SectionHead
         icon={LogIn}
         tint="pink"
-        title="Setup"
+        title="Runs before your tests"
         detail={
           <>
             {SETUP_WHEN_LABEL[setup.when]}
@@ -55,8 +55,9 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
           </>
         }
         action={
-          <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="text-muted-foreground">
-            Edit
+          <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)} className="max-sm:w-8 max-sm:px-0">
+            <Pencil aria-hidden="true" />
+            <span className="max-sm:sr-only">Edit setup</span>
           </Button>
         }
       />
