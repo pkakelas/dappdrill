@@ -26,7 +26,7 @@ const review = (patch: Record<string, unknown> = {}) =>
     ...patch,
   });
 
-const inClaim = (reviews: SigningReview[], condition?: string) => ({ flowName: "Rewards", testName: "Claim rewards", condition, reviews });
+const inClaim = (reviews: SigningReview[], condition?: string) => ({ testName: "Claim rewards", condition, reviews });
 
 describe("composeAlert", () => {
   it("stays quiet when nothing broke", () => {
@@ -37,21 +37,21 @@ describe("composeAlert", () => {
     const alert = composeAlert({
       appName: "Harbor",
       regressions: [
-        { testName: "Withdraw everything", flowName: "Withdraw", failure: "The Withdraw button stays disabled." },
-        { testName: "Deposit USDC", flowName: "Deposit", condition: "Slow RPC", failure: "The spinner never stops." },
+        { testName: "Withdraw everything", failure: "The Withdraw button stays disabled." },
+        { testName: "Deposit USDC", condition: "Slow RPC", failure: "The spinner never stops." },
       ],
       link,
     })!;
     expect(alert.title).toBe("Harbor: 2 tests stopped passing");
     expect(alert.lines).toEqual([
-      "Withdraw · Withdraw everything: The Withdraw button stays disabled.",
-      "Deposit · Deposit USDC · Slow RPC: The spinner never stops.",
+      "Withdraw everything: The Withdraw button stays disabled.",
+      "Deposit USDC · Slow RPC: The spinner never stops.",
     ]);
     expect(alertText(alert)).toContain(link);
   });
 
   it("caps the lines", () => {
-    const regressions = Array.from({ length: 9 }, (_, i) => ({ testName: `Test ${i}`, flowName: "Trade" }));
+    const regressions = Array.from({ length: 9 }, (_, i) => ({ testName: `Test ${i}` }));
     const alert = composeAlert({ appName: "Harbor", regressions, link })!;
     expect(alert.title).toBe("Harbor: 9 tests stopped passing");
     expect(alert.lines).toHaveLength(7);
@@ -62,14 +62,14 @@ describe("composeAlert", () => {
     const dangerous = newDangerous([inClaim([review()])], new Set());
     const alert = composeAlert({ appName: "Harbor", regressions: [], dangerous, link })!;
     expect(alert.title).toBe("Harbor: a new dangerous signature");
-    expect(alert.lines).toEqual(["Dangerous signature in Rewards · Claim rewards: Unlimited USDC approval to an unverified contract"]);
+    expect(alert.lines).toEqual(["Dangerous signature in Claim rewards: Unlimited USDC approval to an unverified contract"]);
     expect(alertText(alert)).toContain(link);
-    expect(JSON.stringify(slackPayload(alert))).toContain("Dangerous signature in Rewards");
+    expect(JSON.stringify(slackPayload(alert))).toContain("Dangerous signature in Claim rewards");
   });
 
   it("puts both in one alert, Dangerous first so the cap can't hide it", () => {
     const dangerous = newDangerous([inClaim([review()])], new Set());
-    const regressions = Array.from({ length: 9 }, (_, i) => ({ testName: `Test ${i}`, flowName: "Trade" }));
+    const regressions = Array.from({ length: 9 }, (_, i) => ({ testName: `Test ${i}` }));
     const alert = composeAlert({ appName: "Harbor", regressions, dangerous, link })!;
     expect(alert.title).toBe("Harbor: a new dangerous signature, 9 tests stopped passing");
     expect(alert.lines[0]).toMatch(/^Dangerous signature in/);
@@ -93,12 +93,12 @@ describe("newDangerous", () => {
     );
     expect(rest).toEqual([]);
     expect(found).toMatchObject({ condition: undefined, others: 2 });
-    expect(composeAlert({ appName: "Harbor", regressions: [], dangerous: [found!], link })!.lines[0]).toContain("Rewards · Claim rewards (and 2 other tests):");
+    expect(composeAlert({ appName: "Harbor", regressions: [], dangerous: [found!], link })!.lines[0]).toContain("Claim rewards (and 2 other tests):");
   });
 
   it("names a condition when only a condition saw it", () => {
     const dangerous = newDangerous([inClaim([review()], "Slow RPC")], new Set());
-    expect(composeAlert({ appName: "Harbor", regressions: [], dangerous, link })!.lines[0]).toContain("Rewards · Claim rewards · Slow RPC:");
+    expect(composeAlert({ appName: "Harbor", regressions: [], dangerous, link })!.lines[0]).toContain("Claim rewards · Slow RPC:");
   });
 });
 

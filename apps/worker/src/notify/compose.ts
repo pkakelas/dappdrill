@@ -1,9 +1,8 @@
 import { fingerprint, type SigningReview } from "@dappdrill/core";
 
-/** Where something happened: reads "Flow · Test · Condition". */
+/** Where something happened: reads "Test · Condition". */
 export interface Place {
   testName: string;
-  flowName: string;
   /** Set for a condition row: the condition's name. */
   condition?: string;
 }
@@ -69,7 +68,7 @@ export function newDangerous(results: (Place & { reviews: SigningReview[] })[], 
   return [...found.values()];
 }
 
-const placeText = (p: Place) => `${p.flowName} · ${p.testName}${p.condition ? ` · ${p.condition}` : ""}`;
+const placeText = (p: Place) => `${p.testName}${p.condition ? ` · ${p.condition}` : ""}`;
 
 function dangerousLine(d: DangerousSignature): string {
   const others = d.others ? ` (and ${d.others} other ${d.others === 1 ? "test" : "tests"})` : "";

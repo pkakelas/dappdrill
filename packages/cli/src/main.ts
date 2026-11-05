@@ -10,7 +10,7 @@ const EXIT_CODES = `
 Exit codes:
   0  everything passed
   1  a test failed, or a signature was Dangerous (even on a test that passed)
-  2  the only problem is a test that couldn't run, a run that was stopped, or DappDrill itself (bad flags, blocked, no flows found)`;
+  2  the only problem is a test that couldn't run, a run that was stopped, or DappDrill itself (bad flags, blocked, no tests found)`;
 
 function action<A extends unknown[]>(fn: (...args: A) => Promise<number>) {
   return async (...args: A) => {
@@ -29,7 +29,7 @@ const program = new Command("dappdrill").description("Tests for web3 apps, run o
 targetOptions(
   program
     .command("analyze")
-    .description("Use the app for about two minutes, write a test for each of its main flows, then run them.")
+    .description("Use the app for about two minutes, write tests for the main things users do, then run them.")
     .argument("<url>", "the app's URL")
     .option("--file <path>", "where to write the tests", TESTS_FILE)
     .option("--hints <text>", "where things are, what to use")
@@ -48,7 +48,7 @@ targetOptions(
     .description("Run the tests in a tests file.")
     .argument("[file]", "tests file", TESTS_FILE)
     .option("--url <url>", "run against this URL instead, e.g. a preview deploy")
-    .option("--only <text>", "only tests whose flow or name contains this")
+    .option("--only <text>", "only tests whose name contains this")
     .option("--conditions, --unhappy", "add the usual conditions to tests that don't have them")
     .option("--junit <file>", "write JUnit XML"),
 )

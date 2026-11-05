@@ -12,7 +12,7 @@ export default async function NewAppPage() {
       <div className="flex flex-col gap-8">
         <header className="mx-auto flex max-w-xl flex-col gap-2 text-center">
           <h1 className="text-3xl font-semibold tracking-tight">Add your dApp</h1>
-          <p className="text-base text-balance text-muted-foreground">Paste its URL and DappDrill turns the main flows into tests.</p>
+          <p className="text-base text-balance text-muted-foreground">Paste its URL and DappDrill writes tests for what users do there.</p>
         </header>
         <NewAppForm orgId={org.id}>
           <HowItWorks className="pt-2" />

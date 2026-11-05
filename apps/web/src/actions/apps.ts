@@ -13,7 +13,7 @@ import {
   type ChainConfig,
   type FixedResponse,
 } from "@dappdrill/core";
-import { analyses, apps, db, encrypt, flows, testRuns, type AppSettings } from "@dappdrill/db";
+import { analyses, apps, db, encrypt, testRuns, tests, type AppSettings } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -152,8 +152,8 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
       .set({ settings, ...liveKey })
       .where(eq(apps.id, existing.id));
   }
-  const hasFlows = existing ? (await db().select({ id: flows.id }).from(flows).where(eq(flows.appId, existing.id)).limit(1)).length > 0 : false;
-  if (!hasFlows) await analyze(appId!);
+  const hasTests = existing ? (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, existing.id)).limit(1)).length > 0 : false;
+  if (!hasTests) await analyze(appId!);
   revalidatePath("/", "layout"); // the app switcher lists it
   redirect(`/apps/${appId}`);
 }

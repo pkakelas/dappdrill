@@ -21,7 +21,7 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
       {anyActive && <AutoRefresh every={2000} />}
       <PageHeader title="Runs" description={`Every time ${app.name}'s tests ran: by you, by the assistant, after exploring, or on the daily schedule.`} />
       {batches.length === 0 ? (
-        <Empty title="No runs yet">Run a flow or a test and it shows up here.</Empty>
+        <Empty title="No runs yet">Run a test and it shows up here.</Empty>
       ) : (
         <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
           {batches.map((b) => (

@@ -34,7 +34,7 @@ export function AuthForm({ mode, google, next, notice }: { mode: "login" | "sign
     <Card>
       <CardHeader>
         <CardTitle className="text-xl">{signup ? "Create your account" : "Log in"}</CardTitle>
-        <CardDescription>{signup ? "Tests for your dApp's main flows, in minutes." : "Welcome back."}</CardDescription>
+        <CardDescription>{signup ? "Tests for your dApp, in minutes." : "Welcome back."}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         {notice && <p className="rounded-md bg-muted px-3 py-2">{notice}</p>}

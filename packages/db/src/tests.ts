@@ -5,10 +5,9 @@
 import { and, asc, count, desc, eq, gte, inArray, max, min, sql } from "drizzle-orm";
 import { conditionInfo, newId, type EdgeCaseId, type TestRunStatus, type TestSpec, type Verdict } from "@dappdrill/core";
 import type { Db } from "./client.js";
-import { flows, testRuns, tests, type Trigger } from "./schema/app.js";
+import { testRuns, tests, type Trigger } from "./schema/app.js";
 
 export type TestRow = typeof tests.$inferSelect;
-export type FlowRow = typeof flows.$inferSelect;
 export type TestRunRow = typeof testRuns.$inferSelect;
 
 /** A condition row reads its name and expected result from the shared list, not from what was stored. */
@@ -26,20 +25,25 @@ export function specOf(t: TestRow): TestSpec {
   };
 }
 
-/** The app's flows in order, each with its tests in order (each test before its condition rows). */
-export async function flowsWithTests(db: Db, appId: string): Promise<(FlowRow & { tests: TestRow[] })[]> {
-  const fs = await db.select().from(flows).where(eq(flows.appId, appId)).orderBy(asc(flows.position), asc(flows.createdAt));
-  const ts = await db.select().from(tests).where(eq(tests.appId, appId)).orderBy(asc(tests.position), asc(tests.createdAt));
-  return fs.map((f) => ({ ...f, tests: ordered(ts.filter((t) => t.flowId === f.id)) }));
+/** Something users do that nobody wrote yet: a name and a goal, under Not tested yet. It can't run. */
+export function notWritten(t: Pick<TestRow, "baseId" | "drafting" | "steps">): boolean {
+  return !t.baseId && !t.drafting && t.steps.length === 0;
 }
 
-/** Each test followed by its condition rows. */
-function ordered(list: TestRow[]): TestRow[] {
-  const out: TestRow[] = [];
-  for (const t of list.filter((t) => !t.baseId)) out.push(t, ...list.filter((u) => u.baseId === t.id));
-  // Condition rows whose base is in another flow (shouldn't happen) still show.
-  for (const t of list) if (!out.includes(t)) out.push(t);
-  return out;
+/** A condition row runs its base's steps; anything else needs steps of its own. */
+export function runnable(t: Pick<TestRow, "baseId" | "drafting" | "steps">): boolean {
+  return Boolean(t.baseId) || (!t.drafting && t.steps.length > 0);
+}
+
+/** What a test from a sentence is called until the writer names it. */
+export function sentenceName(text: string): string {
+  return text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text;
+}
+
+/** The app's tests in order, each followed by its condition rows. */
+export async function appTests(db: Db, appId: string): Promise<TestRow[]> {
+  const list = await db.select().from(tests).where(eq(tests.appId, appId)).orderBy(asc(tests.position), asc(tests.createdAt));
+  return list.filter((t) => !t.baseId).flatMap((t) => [t, ...list.filter((u) => u.baseId === t.id)]);
 }
 
 /** The latest result of each test, whatever its status. */
@@ -126,12 +130,12 @@ export async function runHistory(db: Db, appId: string, since: Date) {
 }
 
 /**
- * Queued results for the tests, as one batch (a run). Condition rows go after their base,
- * so a base that learns its actions in this batch hands them on.
+ * Queued results for the tests that can run, as one batch (a run). Condition rows go after
+ * their base, so a base that learns its actions in this batch hands them on.
  */
 export async function queueRuns(db: Db, appId: string, testIds: string[], trigger: Trigger): Promise<string | undefined> {
   if (testIds.length === 0) return undefined;
-  const rows = await db.select({ id: tests.id, baseId: tests.baseId }).from(tests).where(and(eq(tests.appId, appId), inArray(tests.id, testIds)));
+  const rows = (await db.select({ id: tests.id, baseId: tests.baseId, drafting: tests.drafting, steps: tests.steps }).from(tests).where(and(eq(tests.appId, appId), inArray(tests.id, testIds)))).filter(runnable);
   const sorted = [...rows.filter((r) => !r.baseId), ...rows.filter((r) => r.baseId)];
   if (sorted.length === 0) return undefined;
   const batchId = newId("batch");
@@ -152,7 +156,6 @@ export async function addConditions(db: Db, baseId: string, conditions: EdgeCase
   const rows = fresh.map((c, i) => ({
     id: newId("test"),
     appId: base.appId,
-    flowId: base.flowId,
     name: conditionInfo(c).name,
     goal: base.goal,
     expected: conditionInfo(c).expected,
@@ -166,11 +169,9 @@ export async function addConditions(db: Db, baseId: string, conditions: EdgeCase
   return rows.map((r) => r.id);
 }
 
-/** Next position at the end of a flow (or of the app's flows when `flowId` is undefined). */
-export async function nextPosition(db: Db, appId: string, flowId?: string): Promise<number> {
-  const [row] = flowId
-    ? await db.select({ n: max(tests.position) }).from(tests).where(eq(tests.flowId, flowId))
-    : await db.select({ n: max(flows.position) }).from(flows).where(eq(flows.appId, appId));
+/** The position after the app's last test. */
+export async function nextPosition(db: Db, appId: string): Promise<number> {
+  const [row] = await db.select({ n: max(tests.position) }).from(tests).where(eq(tests.appId, appId));
   return (row?.n ?? -1) + 1;
 }
 

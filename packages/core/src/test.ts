@@ -161,10 +161,6 @@ export const AppMap = z.object({
 });
 export type AppMap = z.infer<typeof AppMap>;
 
-/** A thing users do in the app. Comes with its happy-path test when the analyst wrote one. */
-export const FlowDraft = z.object({
-  name: z.string().describe("What the user does, 2-4 words, e.g. 'Trade perps'"),
-  goal: z.string().describe("One sentence: what the user wants to have done at the end"),
-  test: TestDraft.optional().describe("The happy-path test, for the flows that matter most"),
-});
-export type FlowDraft = z.infer<typeof FlowDraft>;
+/** Something users do that the analysis saw but wrote no steps for: shows under Not tested yet. */
+export const TestIdea = TestDraft.pick({ name: true, goal: true });
+export type TestIdea = z.infer<typeof TestIdea>;

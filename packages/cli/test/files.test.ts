@@ -86,23 +86,23 @@ async function saved(value: unknown): Promise<string> {
 
 describe("loadTests", () => {
   it("reads a tests file, defaulting what can be left out", async () => {
-    const tests = await loadTests(await saved({ url: "https://app.example", flows: [{ name: "Withdraw", tests: [withdraw] }] }));
+    const tests = await loadTests(await saved({ url: "https://app.example", tests: [withdraw] }));
     expect(tests.chains).toEqual([]);
-    expect(tests.flows[0]?.tests[0]?.name).toBe("Withdraw everything");
+    expect(tests.tests[0]?.name).toBe("Withdraw everything");
   });
 
   it("says where a bad file is wrong, and refuses duplicate ids", async () => {
-    await expect(loadTests(await saved({ url: "https://app.example", flows: [{ name: "Withdraw", tests: [{ id: "x" }] }] }))).rejects.toThrow(/flows\.0\.tests\.0\.name/);
-    await expect(loadTests(await saved({ url: "https://app.example", flows: [{ name: "W", tests: [withdraw, withdraw] }] }))).rejects.toThrow(/share the id test_1/);
+    await expect(loadTests(await saved({ url: "https://app.example", tests: [{ id: "x" }] }))).rejects.toThrow(/tests\.0\.name/);
+    await expect(loadTests(await saved({ url: "https://app.example", tests: [withdraw, withdraw] }))).rejects.toThrow(/share the id test_1/);
     await expect(loadTests("/nope/tests.json")).rejects.toThrow(/dappdrill analyze/);
   });
 });
 
 describe("addUnhappyPaths", () => {
   it("adds the default conditions after each happy path, once", () => {
-    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+    const tests: TestsFile = { url: "https://app.example", chains: [], tests: [withdraw] };
     addUnhappyPaths(tests);
-    const after = tests.flows[0]!.tests;
+    const after = tests.tests;
     expect(after[0]).toBe(withdraw);
     expect(after.slice(1).map((t) => [t.condition, t.baseId, t.steps.length])).toEqual([
       ["reject", "test_1", 0],
@@ -111,15 +111,15 @@ describe("addUnhappyPaths", () => {
       ["low-gas", "test_1", 0],
     ]);
     addUnhappyPaths(tests);
-    expect(tests.flows[0]!.tests).toHaveLength(5);
+    expect(tests.tests).toHaveLength(5);
   });
 });
 
 describe("renderJunit", () => {
-  it("writes a suite per flow and escapes the failure", () => {
-    const tests: TestsFile = { url: "https://app.example", chains: [], flows: [{ name: "Withdraw", tests: [withdraw] }] };
+  it("writes one suite for the app and escapes the failure", () => {
+    const tests: TestsFile = { url: "https://app.example", chains: [], tests: [withdraw] };
     const xml = renderJunit(tests, [{ testId: "test_1", status: "fail", result: TestRunResult.parse({ failure: 'Step 1, "Click Withdraw": <disabled>' }) }]);
-    expect(xml).toContain('<testsuite name="Withdraw" tests="1" failures="1"');
+    expect(xml).toContain('<testsuite name="app.example" tests="1" failures="1"');
     expect(xml).toContain('<failure message="Step 1, &quot;Click Withdraw&quot;: &lt;disabled&gt;"/>');
   });
 });

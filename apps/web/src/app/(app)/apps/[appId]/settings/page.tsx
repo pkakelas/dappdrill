@@ -62,7 +62,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
         seen={seen ? `Last explored ${timeAgo(seen.finishedAt ?? seen.createdAt)}` : "Not explored yet"}
       />
 
-      <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds flows it hasn't seen. Your tests stay as they are.">
+      <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds what it hasn't seen. Your tests stay as they are.">
         <form action={analyzeAction.bind(null, app.id)}>
           <Button type="submit" variant="outline" size="sm" className="w-fit">
             Explore again

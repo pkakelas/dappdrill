@@ -148,11 +148,11 @@ function skipReason(edge: EdgeCaseId, plan: Plan, chains: ChainController): stri
   const live = chains.mode(plan.flowChain) === "live";
   if (info.needsFork && live) return `needs a fork; ${chainName(plan.flowChain)} runs in live mode`;
   const needsWallet = !["happy", "slow-rpc", "failing-rpc"].includes(edge);
-  if (needsWallet && plan.walletSteps.length === 0) return "the flow has no wallet step";
+  if (needsWallet && plan.walletSteps.length === 0) return "the test has no wallet step";
   if ((edge === "existing-approval" || edge === "revoked-approval") && !plan.approval) {
-    return plan.txSignIndexes ? "the flow doesn't approve a token" : "needs the happy path first to learn the flow's approval";
+    return plan.txSignIndexes ? "the test doesn't approve a token" : "needs the happy path first to learn the test's approval";
   }
-  if ((edge === "speed-up" || edge === "reload-mid-flow" || edge === "low-gas") && plan.txSignIndexes && plan.txSignIndexes.length === 0) return "the flow sends no transaction";
+  if ((edge === "speed-up" || edge === "reload-mid-flow" || edge === "low-gas") && plan.txSignIndexes && plan.txSignIndexes.length === 0) return "the test sends no transaction";
   return undefined;
 }
 
@@ -335,8 +335,8 @@ function runStatus(edge: EdgeCaseId, replay: ReplayFlowResult | undefined, issue
   if (issues.length > 0) return { status: "issue", reason: issues[0]!.title };
   if (replay.completed || replay.stoppedByHook) return { status: "pass" };
   // Apps often make a new account sign in or set up again; not finishing as B isn't a bug by itself.
-  if (edge === "switch-account") return { status: "skipped", reason: `couldn't finish as the second account (${replay.error ?? "the flow stopped"}); no requests from the old account` };
-  return { status: "fail", reason: replay.error ?? `the flow did not complete under ${edgeLabel(edge)}` };
+  if (edge === "switch-account") return { status: "skipped", reason: `couldn't finish as the second account (${replay.error ?? "the test stopped"}); no requests from the old account` };
+  return { status: "fail", reason: replay.error ?? `the test did not complete under ${edgeLabel(edge)}` };
 }
 
 /** What the happy run teaches us about the flow: which sign steps send transactions and whether one is an ERC-20 approval. */
@@ -380,7 +380,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
     case "reject":
       return {
         // The main transaction (the deposit, not the approval before it) is where a rejection most often leaves the UI stuck.
-        setup: ["Reject the flow's main request in the wallet (error 4001)."],
+        setup: ["Reject the test's main request in the wallet (error 4001)."],
         hooks: {
           respond: async (ctx) => (ctx.signIndex === lastTxSign ? "reject" : "default"),
           afterStep: async (ctx) => (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign ? "stop" : undefined),
@@ -415,7 +415,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "high",
               category: "wallet",
               title: `Doesn't handle the wallet being on ${chainName(plan.otherChain)}`,
-              summary: `With the wallet on the wrong network the flow broke (${replay.error}) and the dApp neither asked to switch nor told the user.`,
+              summary: `With the wallet on the wrong network the test broke (${replay.error}) and the dApp neither asked to switch nor told the user.`,
               expected: `Ask the wallet to switch to ${chainName(plan.flowChain)} or show a "wrong network" message.`,
               actual: replay.error,
             });
@@ -440,7 +440,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "high",
               category: "wallet",
               title: `Gives up when the wallet doesn't know ${chainName(plan.flowChain)} (error 4902)`,
-              summary: `The wallet answered wallet_switchEthereumChain with 4902 and the dApp never called wallet_addEthereumChain; the flow then broke (${replay.error}).`,
+              summary: `The wallet answered wallet_switchEthereumChain with 4902 and the dApp never called wallet_addEthereumChain; the test then broke (${replay.error}).`,
               expected: "Call wallet_addEthereumChain and retry the switch.",
               actual: replay.error,
             });
@@ -542,8 +542,8 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               kind: "slow-rpc-breaks",
               severity: "medium",
               category: "rpc",
-              title: "Flow breaks when the RPC is slow",
-              summary: `With 2.5s of latency on every RPC call the flow did not complete: ${firstLine(replay.error)}.`,
+              title: "Test breaks when the RPC is slow",
+              summary: `With 2.5s of latency on every RPC call the test did not complete: ${firstLine(replay.error)}.`,
               expected: "Keep working, just slower, with a loading state.",
               actual: replay.error,
             });
@@ -562,8 +562,8 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               kind: "failing-rpc-breaks",
               severity: "medium",
               category: "rpc",
-              title: "Flow breaks when some RPC calls fail",
-              summary: `With 30% of RPC calls failing the flow did not complete: ${firstLine(replay.error)}.`,
+              title: "Test breaks when some RPC calls fail",
+              summary: `With 30% of RPC calls failing the test did not complete: ${firstLine(replay.error)}.`,
               expected: "Retry failed reads, or show the user what went wrong.",
               actual: replay.error,
             });
@@ -593,7 +593,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "medium",
               category: "ui",
               title: "Reloading while a transaction is pending loses track of it",
-              summary: `The transaction was sent, the page was reloaded while it was pending, and the flow never reached its end: ${replay.error}.`,
+              summary: `The transaction was sent, the page was reloaded while it was pending, and the test never reached its end: ${replay.error}.`,
               expected: "Remember pending transactions (e.g. in local storage) and show their outcome after a reload.",
               actual: replay.error,
             });
@@ -654,7 +654,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               severity: "medium",
               category: "wallet",
               title: "Asks for a token approval that was already granted",
-              summary: "The token was already approved for the spender (unlimited) before the flow started, but the dApp still asked the wallet to approve again. Users pay for an extra transaction.",
+              summary: "The token was already approved for the spender (unlimited) before the test started, but the dApp still asked the wallet to approve again. Users pay for an extra transaction.",
               expected: "Read the current allowance and skip the approval when it is sufficient.",
               actual: "An approve transaction was requested.",
               stepIndex: plan.walletSteps[approval.signIndex],
@@ -666,8 +666,8 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               kind: "existing-approval-breaks",
               severity: "medium",
               category: "wallet",
-              title: "Flow breaks when the token is already approved",
-              summary: `With an existing approval in place the flow did not complete: ${firstLine(replay.error)}.`,
+              title: "Test breaks when the token is already approved",
+              summary: `With an existing approval in place the test did not complete: ${firstLine(replay.error)}.`,
               actual: replay.error,
             });
           }
@@ -686,8 +686,8 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               kind: "revoked-approval-breaks",
               severity: "medium",
               category: "wallet",
-              title: "Flow breaks after a previous approval was revoked",
-              summary: `With the allowance explicitly set to zero the flow did not complete: ${firstLine(replay.error)}.`,
+              title: "Test breaks after a previous approval was revoked",
+              summary: `With the allowance explicitly set to zero the test did not complete: ${firstLine(replay.error)}.`,
               actual: replay.error,
             });
           }
@@ -785,7 +785,7 @@ function commonChecks(edge: EdgeCaseId, plan: Plan, session: EngineSession, repl
       kind: "page-error",
       severity: "medium",
       category: "ui",
-      title: `Uncaught error on the page during ${edge === "happy" ? "the flow" : edgeLabel(edge)}`,
+      title: `Uncaught error on the page during ${edge === "happy" ? "the test" : edgeLabel(edge)}`,
       summary: `The page threw ${pageErrors.length} uncaught error(s). First: ${pageErrors[0]!.text}`,
       actual: pageErrors[0]!.text,
       evidence: { console: pageErrors.slice(0, 10) },
@@ -811,7 +811,7 @@ function commonChecks(edge: EdgeCaseId, plan: Plan, session: EngineSession, repl
         severity: "critical",
         category: "wallet",
         title: `Sends ${requestVerb(ws.request)} on ${chainName(ws.request.chainId)} instead of ${chainName(plan.flowChain)}`,
-        summary: `The transaction went out on chain ${ws.request.chainId} although the flow is for ${chainName(plan.flowChain)}.`,
+        summary: `The transaction went out on chain ${ws.request.chainId} although the test is for ${chainName(plan.flowChain)}.`,
         stepIndex: ws.stepIndex,
         evidence: { walletAsked: ws.asked },
       });
@@ -828,7 +828,7 @@ async function blankCheck(edge: EdgeCaseId, session: EngineSession, replay: Repl
       kind: "blank-page",
       severity: "high",
       category: "ui",
-      title: `The page goes blank during ${edge === "happy" ? "the flow" : edgeLabel(edge)}`,
+      title: `The page goes blank during ${edge === "happy" ? "the test" : edgeLabel(edge)}`,
       summary: "After the edge case hit, the page shows almost nothing: no text and no controls the user could use.",
       expected: "Keep the page usable and show what happened.",
       actual: "An empty page.",

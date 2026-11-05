@@ -19,21 +19,14 @@ export const TestsFile = z.object({
   chains: z.array(ChainConfig).default([]),
   /** Steps every test needs first (sign in, get test funds), and when they run. */
   setup: AppSetup.optional(),
-  flows: z.array(z.object({ name: z.string(), goal: z.string().optional(), tests: z.array(SavedTest) })),
+  tests: z.array(SavedTest),
 });
 export type TestsFile = z.infer<typeof TestsFile>;
 
-/** "Flow · Test", or "Flow · Test · Condition": a condition's name alone can't tell two tests apart. */
-export function testLabels(tests: TestsFile): Map<string, string> {
-  const byId = new Map(tests.flows.flatMap((f) => f.tests).map((t) => [t.id, t]));
-  return new Map(
-    tests.flows.flatMap((f) =>
-      f.tests.map((t) => {
-        const base = t.baseId ? byId.get(t.baseId) : undefined;
-        return [t.id, [f.name, base?.name, t.name].filter(Boolean).join(" · ")] as const;
-      }),
-    ),
-  );
+/** "Test", or "Test · Condition": a condition's name alone can't tell two tests apart. */
+export function testLabels(file: TestsFile): Map<string, string> {
+  const byId = new Map(file.tests.map((t) => [t.id, t]));
+  return new Map(file.tests.map((t) => [t.id, [t.baseId ? byId.get(t.baseId)?.name : undefined, t.name].filter(Boolean).join(" · ")]));
 }
 
 export async function loadTests(path: string): Promise<TestsFile> {
@@ -49,7 +42,7 @@ export async function loadTests(path: string): Promise<TestsFile> {
     throw new UsageError(`${path} is not valid: ${first ? `${first.path.join(".") || "(root)"}: ${first.message}` : parsed.error.message}`);
   }
   const ids = new Set<string>();
-  for (const t of parsed.data.flows.flatMap((f) => f.tests)) {
+  for (const t of parsed.data.tests) {
     if (ids.has(t.id)) throw new UsageError(`${path}: two tests share the id ${t.id}`);
     ids.add(t.id);
   }

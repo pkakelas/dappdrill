@@ -81,7 +81,7 @@ describe("runEdgeCases", () => {
     expect(titles(stuck.issues)).toEqual(["high: Rejecting 'Deposit' leaves the button stuck on 'Confirming…'"]);
     expect(stuck.runs[0]!.status).toBe("issue");
     const issue = stuck.issues[0]!;
-    expect(issue.stepsToReproduce[0]).toBe("Reject the flow's main request in the wallet (error 4001).");
+    expect(issue.stepsToReproduce[0]).toBe("Reject the test's main request in the wallet (error 4001).");
     expect(issue.stepsToReproduce).toContain('4. Click "Deposit"');
     expect(issue.evidence?.walletAsked).toMatch(/^approve\(/);
     expect(issue.evidence?.screenshot).toMatch(/\.png$/);
@@ -143,7 +143,7 @@ describe("runEdgeCases", () => {
     expect(dbl.runs[0]!.status).toBe("issue");
 
     const crash = await matrix(["crash"], ["happy"]);
-    expect(titles(crash.issues)).toEqual(["medium: Uncaught error on the page during the flow"]);
+    expect(titles(crash.issues)).toEqual(["medium: Uncaught error on the page during the test"]);
     expect(crash.issues[0]!.actual).toMatch(/seeded uncaught error/);
   }, 180_000);
 
@@ -152,7 +152,7 @@ describe("runEdgeCases", () => {
     // cases run in the matrix's own order, whatever order they were asked in
     expect(r.runs.map((x) => [x.edgeCase, x.status, x.reason])).toEqual([
       ["speed-up", "pass", undefined],
-      ["existing-approval", "skipped", "needs the happy path first to learn the flow's approval"],
+      ["existing-approval", "skipped", "needs the happy path first to learn the test's approval"],
     ]);
 
     // A transaction the flow rejects is never sent: no gas to run out of, nothing to speed up.
@@ -163,8 +163,8 @@ describe("runEdgeCases", () => {
     const rr = await matrix([], ["happy", "speed-up", "low-gas"], rejecting);
     expect(rr.runs.map((x) => [x.edgeCase, x.status, x.reason])).toEqual([
       ["happy", "pass", undefined],
-      ["low-gas", "skipped", "the flow sends no transaction"],
-      ["speed-up", "skipped", "the flow sends no transaction"],
+      ["low-gas", "skipped", "the test sends no transaction"],
+      ["speed-up", "skipped", "the test sends no transaction"],
     ]);
   }, 180_000);
 });

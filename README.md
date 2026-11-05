@@ -1,12 +1,12 @@
 # DappDrill
 
-Tests for web3 dApp frontends. Paste a URL: in a minute or two DappDrill finds the app's main
-flows and writes a test for each one, with a goal, an expected result and short steps. It runs
+Tests for web3 dApp frontends. Paste a URL: in a minute or two DappDrill finds what users do
+in the app and writes a test for the main things, with a goal, an expected result and short steps. It runs
 them with its own test wallet on local Anvil forks, adds unhappy paths (rejected in wallet, slow
 RPC, wrong network, low gas) and reviews every signature request. Nothing touches mainnet.
 
 ```
-apps/web          Next.js app: accounts, apps, flows and tests, runs, settings, the assistant
+apps/web          Next.js app: accounts, apps, tests, runs, settings, the assistant
 apps/worker       pg-boss jobs that run the engine and store results in Postgres
 packages/engine   The drilling backend (Playwright + Anvil + Claude). No database
 packages/cli      `dappdrill` CLI: the engine on its own, for CI or local runs
@@ -46,7 +46,7 @@ corepack pnpm cli analyze http://localhost:5173
 The engine runs without the web app or a database:
 
 ```bash
-dappdrill analyze <url>                 # find the flows, write .dappdrill/tests.json, run it
+dappdrill analyze <url>                 # find what to test, write .dappdrill/tests.json, run it
 dappdrill run                           # run .dappdrill/tests.json
 dappdrill run --url <url> --only deposit --conditions --junit junit.xml
 ```
@@ -58,9 +58,9 @@ and means the same.
 |---|---|
 | 0 | Everything passed |
 | 1 | A test failed, or a signature was Dangerous, even on a test that passed |
-| 2 | The only problem is a test that couldn't run, a run that was stopped (Ctrl-C), or DappDrill itself (bad flags, blocked, no flows found) |
+| 2 | The only problem is a test that couldn't run, a run that was stopped (Ctrl-C), or DappDrill itself (bad flags, blocked, no tests found) |
 
-In JUnit output a case is named "Flow · Test · Condition", and a test with a Dangerous signature
+In JUnit output a case is named "Test · Condition", and a test with a Dangerous signature
 is a failure, whatever its own result. A signing verdict never changes a test's own status in
 `results.json`.
 

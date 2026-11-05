@@ -19,7 +19,7 @@ const test = (id: string, name: string, extra: Partial<SavedTest> = {}): SavedTe
 const file: TestsFile = {
   url: "https://app.example",
   chains: [],
-  flows: [{ name: "Trade", tests: [test("a", "Open a long"), test("b", "Slow RPC", { baseId: "a", condition: "slow-rpc" }), test("c", "Close a long")] }],
+  tests: [test("a", "Open a long"), test("b", "Slow RPC", { baseId: "a", condition: "slow-rpc" }), test("c", "Close a long")],
 };
 
 describe("exitCode", () => {
@@ -64,26 +64,21 @@ describe("summaryText", () => {
 
 describe("testLabels", () => {
   it("names a condition after its test", () => {
-    expect(testLabels(file).get("a")).toBe("Trade · Open a long");
-    expect(testLabels(file).get("b")).toBe("Trade · Open a long · Slow RPC");
-  });
-
-  it("finds a base in another flow", () => {
-    const flows = [{ name: "Trade", tests: [test("a", "Open a long")] }, { name: "Edge", tests: [test("b", "Slow RPC", { baseId: "a" })] }];
-    expect(testLabels({ ...file, flows }).get("b")).toBe("Edge · Open a long · Slow RPC");
+    expect(testLabels(file).get("a")).toBe("Open a long");
+    expect(testLabels(file).get("b")).toBe("Open a long · Slow RPC");
   });
 });
 
 describe("renderJunit", () => {
-  it('names cases "Flow · Test · Condition"', () => {
+  it('names cases "Test · Condition"', () => {
     const xml = renderJunit(file, [outcome("a", "pass"), outcome("b", "pass")]);
-    expect(xml).toContain('classname="Trade" name="Trade · Open a long" time');
-    expect(xml).toContain('classname="Trade" name="Trade · Open a long · Slow RPC" time');
+    expect(xml).toContain('classname="app.example" name="Open a long" time');
+    expect(xml).toContain('classname="app.example" name="Open a long · Slow RPC" time');
   });
 
   it("reports a Dangerous signature on a passing test as a failure", () => {
     const xml = renderJunit(file, [outcome("a", "pass", ["dangerous"])]);
-    expect(xml).toContain('<testsuite name="Trade" tests="1" failures="1" errors="0"');
+    expect(xml).toContain('<testsuite name="app.example" tests="1" failures="1" errors="0"');
     expect(xml).toContain('<failure message="Dangerous signature: Unlimited USDC approval"/>');
   });
 
@@ -96,7 +91,7 @@ describe("renderJunit", () => {
 
   it("leaves Couldn't run as an error and Check this as a pass", () => {
     expect(renderJunit(file, [outcome("a", "error", [], "No RPC.")])).toContain('<error message="No RPC."/>');
-    expect(renderJunit(file, [outcome("a", "pass", ["check"])])).toContain('failures="0" errors="0" skipped="0" time="0">\n    <testcase classname="Trade" name="Trade · Open a long" time="0"></testcase>');
+    expect(renderJunit(file, [outcome("a", "pass", ["check"])])).toContain('failures="0" errors="0" skipped="0" time="0">\n    <testcase classname="app.example" name="Open a long" time="0"></testcase>');
   });
 });
 
@@ -109,7 +104,7 @@ describe("renderMarkdown", () => {
     const md = renderMarkdown(file, [outcome("a", "pass", ["dangerous"])]);
     expect(md).not.toContain("All 1 tests passed");
     expect(md).toContain("**1 of 1 passed · 1 dangerous signature** on https://app.example");
-    expect(md).toContain("- **Trade · Open a long**: Dangerous signature: Unlimited USDC approval");
+    expect(md).toContain("- **Open a long**: Dangerous signature: Unlimited USDC approval");
   });
 
   it("never reads as all passed after an interrupted run", () => {
@@ -120,6 +115,6 @@ describe("renderMarkdown", () => {
   it("says Couldn't run rather than failed", () => {
     const md = renderMarkdown(file, [outcome("a", "pass"), outcome("b", "error", [], "No RPC.")]);
     expect(md).toContain("**1 of 2 passed, 1 couldn't run**");
-    expect(md).toContain("- **Trade · Open a long · Slow RPC**: Couldn't run. No RPC.");
+    expect(md).toContain("- **Open a long · Slow RPC**: Couldn't run. No RPC.");
   });
 });

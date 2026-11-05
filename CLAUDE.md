@@ -1,7 +1,7 @@
 # DappDrill
 
 Tests for web3 dApp frontends. Paste a URL. In a minute or two an agent finds the
-app's main flows and writes one test per flow (goal, expected result, short steps).
+app's main uses and writes a test for each (goal, expected result, short steps).
 Tests run with our own wallet against local Anvil forks (never mainnet). Unhappy paths
 (reject, slow RPC, wrong network, low gas…) are derived from happy-path tests, and every
 signature request is reviewed. A fast assistant on every page can see the app map and
@@ -21,7 +21,7 @@ packages/engine   The backend that drills a dApp. No DB. Public API in src/api.t
   src/chain/        Anvil forks, live-mode passthrough, RPC faults, chain detection
   src/wallet/       Injected EIP-1193/EIP-6963 provider (page side) + controller (node side)
   src/browser/      Playwright session: video, trace, console + RPC capture, page JSON-RPC routing
-  src/pipeline/     analyze (find flows, write tests) and runTests (cached actions first, the agent when they stop working)
+  src/pipeline/     analyze (find what to test, write tests) and runTests (cached actions first, the agent when they stop working)
   src/replay/       Replaying recorded actions + unhappy-path conditions, used by pipeline/
   src/agent/        Claude: LLM backends, analyst, tester, judge, test writer, assistant chat
   src/fake/         Canned engine for UI work (DAPPDRILL_FAKE_ENGINE=1)

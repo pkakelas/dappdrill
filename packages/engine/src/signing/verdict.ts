@@ -118,7 +118,7 @@ function short(c: SigningCheck): string {
     case "ui-match":
       return c.status === "unverified" ? "Couldn't compare with the button" : c.detail.replace(/\.$/, "");
     case "expectation":
-      return "Doesn't match the flow's expectation";
+      return "Doesn't match the test's expectation";
     default:
       return c.detail.replace(/\.$/, "");
   }

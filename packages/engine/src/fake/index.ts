@@ -89,45 +89,33 @@ const analyze: Engine["analyze"] = async (target, opts, sink, signal) => {
     }
   } catch (e) {
     if (!isAbort(e)) throw e;
-    return { flows: [], chains: chainsOf(target), costUsd: 0.04 };
+    return { tests: [], untested: [], chains: chainsOf(target), costUsd: 0.04 };
   }
-  const flows = [
+  const tests = [
     {
-      name: "Deposit",
-      goal: "Put USDC into the vault and see it earning.",
-      test: {
-        name: "Deposit USDC",
-        goal: "Deposit a small amount of USDC into the vault and see it counted.",
-        expected: "Deposited shows 5.00 USDC and the wallet balance drops by 5.",
-        startPath: "/vault",
-        steps: ["Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet", "Check Deposited shows 5.00"],
-      },
+      name: "Deposit USDC",
+      goal: "Deposit a small amount of USDC into the vault and see it counted.",
+      expected: "Deposited shows 5.00 USDC and the wallet balance drops by 5.",
+      startPath: "/vault",
+      steps: ["Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet", "Check Deposited shows 5.00"],
     },
     {
-      name: "Withdraw",
-      goal: "Get the deposit back into the wallet.",
-      test: {
-        name: "Withdraw everything",
-        goal: "Withdraw the whole deposit back to the wallet.",
-        expected: "Deposited shows 0.00 and the balance is back to 1,000 USDC.",
-        startPath: "/vault",
-        steps: ["Connect the wallet", "Deposit 5 USDC first", "Click Withdraw", "Approve in the wallet", "Check Deposited shows 0.00"],
-      },
+      name: "Withdraw everything",
+      goal: "Withdraw the whole deposit back to the wallet.",
+      expected: "Deposited shows 0.00 and the balance is back to 1,000 USDC.",
+      startPath: "/vault",
+      steps: ["Connect the wallet", "Deposit 5 USDC first", "Click Withdraw", "Approve in the wallet", "Check Deposited shows 0.00"],
     },
     {
       name: "Claim rewards",
-      goal: "Collect the rewards the deposit has earned.",
-      test: {
-        name: "Claim rewards",
-        goal: "Claim the accrued rewards into the wallet.",
-        expected: "Claimable rewards shows 0.00 and a success message appears.",
-        startPath: "/vault",
-        steps: ["Connect the wallet", "Click Claim rewards", "Approve in the wallet", "Check rewards show 0.00"],
-      },
+      goal: "Claim the accrued rewards into the wallet.",
+      expected: "Claimable rewards shows 0.00 and a success message appears.",
+      startPath: "/vault",
+      steps: ["Connect the wallet", "Click Claim rewards", "Approve in the wallet", "Check rewards show 0.00"],
     },
-    // Seen while exploring, no test written: shows as Not tested.
-    { name: "Borrow against the deposit", goal: "Take a USDC loan against what is in the vault." },
   ];
+  // Seen while exploring, nothing written: shows under Not tested yet.
+  const untested = [{ name: "Borrow against the deposit", goal: "Take a USDC loan against what is in the vault." }];
   return {
     map: {
       summary: "Harbor is a USDC vault on Base. Users connect a wallet, deposit USDC to earn rewards, withdraw, and claim rewards.",
@@ -142,7 +130,8 @@ const analyze: Engine["analyze"] = async (target, opts, sink, signal) => {
       when: "once",
       why: "The faucet gives test USDC once per account.",
     },
-    flows,
+    tests,
+    untested,
     chains: chainsOf(target),
     costUsd: 0.06,
   };
@@ -386,9 +375,8 @@ const chatTurn: Engine["chatTurn"] = async (_target, input) => {
     if (testId) await call("run_tests", { testIds: [testId] });
     text = testId ? "Running it now." : "Which test? Open it and ask again, or use Run all.";
   } else if (/\b(add|new|write|create)\b/i.test(msg)) {
-    const flow = /^(.+?) \(flow /m.exec(await call("list_tests", {}))?.[1] ?? "Deposit";
-    await call("create_test", { flow, request: msg });
-    text = `Writing it in ${flow}. It runs as soon as it's written.`;
+    await call("create_test", { request: msg });
+    text = "Writing it. It runs as soon as it's written.";
   } else {
     const list = await call("list_tests", {});
     const count = list.split("\n").filter((l) => l.startsWith("- ")).length;

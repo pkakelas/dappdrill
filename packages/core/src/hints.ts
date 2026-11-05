@@ -10,34 +10,34 @@ export const HINT_LABELS = {
   avoid: "What to avoid",
 } as const;
 export type HintTopic = keyof typeof HINT_LABELS;
-export type HintAnswers = { flows: string[]; tips: Partial<Record<HintTopic, string>> };
+export type HintAnswers = { tests: string[]; tips: Partial<Record<HintTopic, string>> };
 
 const TOPICS = Object.keys(HINT_LABELS) as HintTopic[];
-const FLOWS_HEADING = "Flows to test:";
+const TESTS_HEADING = "What to test:";
 
-export function formatHints({ flows, tips }: HintAnswers): string {
-  const filled = flows.map((flow) => flow.trim()).filter(Boolean);
+export function formatHints({ tests, tips }: HintAnswers): string {
+  const filled = tests.map((test) => test.trim()).filter(Boolean);
   return [
-    ...(filled.length ? [FLOWS_HEADING, ...filled.map((flow) => `- ${flow}`)] : []),
+    ...(filled.length ? [TESTS_HEADING, ...filled.map((test) => `- ${test}`)] : []),
     ...TOPICS.filter((topic) => tips[topic]?.trim()).map((topic) => `${HINT_LABELS[topic]}: ${tips[topic]!.trim()}`),
   ].join("\n");
 }
 
 /** The reverse of formatHints. Text that isn't an answer, like notes saved before the questions existed, joins the notes. */
 export function parseHints(text: string): HintAnswers {
-  const answers: HintAnswers = { flows: [], tips: {} };
+  const answers: HintAnswers = { tests: [], tips: {} };
   const loose: string[] = [];
   const add = (topic: HintTopic, line: string) => (answers.tips[topic] = answers.tips[topic] === undefined ? line : `${answers.tips[topic]}\n${line}`);
-  let open: HintTopic | "flows" | undefined;
+  let open: HintTopic | "tests" | undefined;
   // Forms post newlines as \r\n, so that's how saved hints come back.
   for (const line of text.split(/\r?\n/)) {
     const topic = TOPICS.find((t) => line.startsWith(`${HINT_LABELS[t]}: `));
-    if (line.trim() === FLOWS_HEADING) open = "flows";
+    if (line.trim() === TESTS_HEADING) open = "tests";
     else if (topic) {
       open = topic;
       add(topic, line.slice(HINT_LABELS[topic].length + 2));
-    } else if (open === "flows" && line.startsWith("- ")) answers.flows.push(line.slice(2).trim());
-    else if (open && open !== "flows") add(open, line);
+    } else if (open === "tests" && line.startsWith("- ")) answers.tests.push(line.slice(2).trim());
+    else if (open && open !== "tests") add(open, line);
     else loose.push(line);
   }
   const note = loose.join("\n").trim();

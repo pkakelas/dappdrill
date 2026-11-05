@@ -154,27 +154,15 @@ export const analyses = pgTable(
 
 // ---------------------------------------------------------------- flows & tests
 
-/** A thing users do (trade, deposit); groups its happy path with the tests forked or derived from it. */
-export const flows = pgTable(
-  "flows",
-  {
-    id: id(),
-    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    /** One sentence: what the user wants to have done. Flows found by analysis have one even without a test. */
-    goal: text("goal"),
-    position: integer("position").notNull().default(0),
-    createdAt: createdAt(),
-  },
-  (t) => [index("flows_app_idx").on(t.appId)],
-);
-
+/**
+ * A test: a goal, an expected result and steps. With no steps it is something users do that
+ * nobody wrote yet (see `notWritten`). A condition row runs its base's steps under a condition.
+ */
 export const tests = pgTable(
   "tests",
   {
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    flowId: text("flow_id").notNull().references(() => flows.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     goal: text("goal").notNull(),
     expected: text("expected").notNull(),
@@ -193,7 +181,7 @@ export const tests = pgTable(
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("tests_flow_idx").on(t.flowId), index("tests_app_idx").on(t.appId)],
+  (t) => [index("tests_app_idx").on(t.appId)],
 );
 
 export type Trigger = "manual" | "analysis" | "schedule" | "agent";
@@ -249,7 +237,7 @@ export const agentMessages = pgTable(
     /** Agent replies: pending while the worker answers. */
     status: text("status").$type<"pending" | "done" | "failed">().notNull().default("done"),
     /** The page the user was on: what "this test" means. */
-    context: jsonb("context").$type<{ testId?: string; flowId?: string }>().notNull().default({}),
+    context: jsonb("context").$type<{ testId?: string }>().notNull().default({}),
     /** What the agent changed, as links. */
     links: jsonb("links").$type<AgentLink[]>().notNull().default([]),
     createdAt: createdAt(),

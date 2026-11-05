@@ -85,6 +85,13 @@
       "when": 1793886140512,
       "tag": "0011_signing_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793894495497,
+      "tag": "0012_tests_only",
+      "breakpoints": true
     }
   ]
 }

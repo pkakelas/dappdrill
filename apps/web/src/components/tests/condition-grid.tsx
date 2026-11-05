@@ -1,20 +1,20 @@
 import { OFFERED_CONDITIONS, SETTLED_LABEL, count, applicable } from "@dappdrill/core";
-import type { FlowRow, TestRow, TestRunRow } from "@dappdrill/db";
+import type { TestRow, TestRunRow } from "@dappdrill/db";
 import Link from "next/link";
 import { readLabel, StateMark, type TestRead } from "@/components/tests/status";
 import { cx } from "@/components/ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /**
- * Flows × conditions, from the same rows as the list: one row per test, grouped under its flow,
- * one column per condition we offer. A cell says not added, Not run yet, Passed, Failed,
+ * Tests × conditions, from the same rows as the list: one row per test, one column per
+ * condition we offer. A cell says not added, Not run yet, Passed, Failed,
  * Couldn't run or Doesn't apply (with why), so the gaps are as visible as the failures.
  */
-export function ConditionGrid({ appId, flows, reads, settled }: { appId: string; flows: (FlowRow & { tests: TestRow[] })[]; reads: Map<string, TestRead>; settled: Map<string, TestRunRow> }) {
-  const bases = flows.flatMap((f) => f.tests.filter((t) => !t.baseId).map((t) => ({ flow: f, test: t })));
-  const cell = (base: TestRow, conditionId: string) => flows.flatMap((f) => f.tests).find((t) => t.baseId === base.id && t.condition === conditionId);
+export function ConditionGrid({ appId, tests, reads, settled }: { appId: string; tests: TestRow[]; reads: Map<string, TestRead>; settled: Map<string, TestRunRow> }) {
+  const bases = tests.filter((t) => !t.baseId);
+  const cell = (base: TestRow, conditionId: string) => tests.find((t) => t.baseId === base.id && t.condition === conditionId);
   const totals = OFFERED_CONDITIONS.map((c) => {
-    const rows = bases.map(({ test }) => cell(test, c.id)).filter((t): t is TestRow => Boolean(t));
+    const rows = bases.map((test) => cell(test, c.id)).filter((t): t is TestRow => Boolean(t));
     return { added: rows.length, ...count(applicable(rows.map((t) => reads.get(t.id)!))) };
   });
 
@@ -35,33 +35,22 @@ export function ConditionGrid({ appId, flows, reads, settled }: { appId: string;
           </TableRow>
         </TableHeader>
         <TableBody>
-          {flows.map((f) => {
-            const rows = bases.filter((b) => b.flow.id === f.id);
-            return [
-              <TableRow key={f.id} className="bg-muted/40 hover:bg-muted/40">
-                <TableCell colSpan={2 + OFFERED_CONDITIONS.length} className="sticky left-0 pl-5 text-sm font-semibold">
-                  {f.name}
-                  {rows.length === 0 && <span className="ml-2 font-normal text-muted-foreground">Not tested</span>}
-                </TableCell>
-              </TableRow>,
-              ...rows.map(({ test }) => (
-                <TableRow key={test.id}>
-                  <TableCell className="sticky left-0 z-10 bg-card pl-5 font-medium">
-                    <Link href={`/apps/${appId}/tests/${test.id}`} className="hover:underline">
-                      {test.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Cell appId={appId} test={test} read={reads.get(test.id)!} run={settled.get(test.id)} />
-                  </TableCell>
-                  {OFFERED_CONDITIONS.map((c) => {
-                    const row = cell(test, c.id);
-                    return <TableCell key={c.id}>{row ? <Cell appId={appId} test={row} read={reads.get(row.id)!} run={settled.get(row.id)} /> : <span className="text-xs text-muted-foreground/60">not added</span>}</TableCell>;
-                  })}
-                </TableRow>
-              )),
-            ];
-          })}
+          {bases.map((test) => (
+            <TableRow key={test.id}>
+              <TableCell className="sticky left-0 z-10 bg-card pl-5 font-medium">
+                <Link href={`/apps/${appId}/tests/${test.id}`} className="hover:underline">
+                  {test.name}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Cell appId={appId} test={test} read={reads.get(test.id)!} run={settled.get(test.id)} />
+              </TableCell>
+              {OFFERED_CONDITIONS.map((c) => {
+                const row = cell(test, c.id);
+                return <TableCell key={c.id}>{row ? <Cell appId={appId} test={row} read={reads.get(row.id)!} run={settled.get(row.id)} /> : <span className="text-xs text-muted-foreground/60">not added</span>}</TableCell>;
+              })}
+            </TableRow>
+          ))}
           <TableRow className="hover:bg-transparent">
             <TableCell className="sticky left-0 z-10 bg-card pl-5 text-xs text-muted-foreground" colSpan={2}>
               Per condition

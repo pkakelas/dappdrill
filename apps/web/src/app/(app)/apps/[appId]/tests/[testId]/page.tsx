@@ -1,5 +1,5 @@
 import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
-import { db, flows, latestRuns, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
+import { db, latestRuns, notWritten, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Check, Wallet, X } from "lucide-react";
 import type { Metadata } from "next";
@@ -17,6 +17,7 @@ import { StepList } from "@/components/tests/setup-steps";
 import { SigningFlag } from "@/components/tests/signing-flag";
 import { SpecEditor } from "@/components/tests/spec-editor";
 import { isActive, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
+import { WriteTest } from "@/components/tests/write-test";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -46,8 +47,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const { run: runParam, add } = await searchParams;
   const test = await load(appId, testId);
   const { app } = await requireApp(appId);
-  const [[flow], [base], children, history, [forkedFrom]] = await Promise.all([
-    db().select().from(flows).where(eq(flows.id, test.flowId)),
+  const [[base], children, history, [forkedFrom]] = await Promise.all([
     test.baseId ? db().select().from(tests).where(eq(tests.id, test.baseId)) : Promise.resolve([]),
     test.baseId ? Promise.resolve([]) : db().select().from(tests).where(eq(tests.baseId, test.id)).orderBy(asc(tests.position)),
     db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15),
@@ -85,10 +85,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       <header className="flex flex-col gap-4">
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
           <Link href={`/apps/${appId}`} className="hover:text-foreground">
-            Flows
+            Tests
           </Link>
-          <span aria-hidden="true">/</span>
-          <span>{flow?.name}</span>
           {base && (
             <>
               <span aria-hidden="true">/</span>
@@ -103,7 +101,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             <h1 className="text-2xl font-semibold tracking-tight">{spec.name}</h1>
             <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state.mark])}>
               <StateMark state={state.mark} />
-              <span>{readLabel(state)}</span>
+              <span>{notWritten(test) ? "Not tested yet" : readLabel(state)}</span>
               {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
               {settled?.startedAt && settled.finishedAt && <span className="text-muted-foreground">· took {formatDuration(settled.finishedAt.getTime() - settled.startedAt.getTime())}</span>}
               <SigningFlag signing={signing} className="before:mr-2 before:content-['·'] before:text-muted-foreground" />
@@ -118,7 +116,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />
+            {notWritten(test) ? <WriteTest testId={test.id} primary /> : <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />}
             {!test.baseId && !state.drafting && <Duplicate testId={test.id} />}
             <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
@@ -130,7 +128,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       {test.drafting && (
         <div className="flex items-center gap-3 rounded-xl border border-dashed bg-card px-5 py-4">
           <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/50" />
-          <p className="text-muted-foreground">Writing this test from “{test.drafting}”. It runs as soon as the steps are ready.</p>
+          <p className="text-muted-foreground">Writing this test from “{test.drafting.replace(/\.$/, "")}”. It runs as soon as the steps are ready.</p>
         </div>
       )}
 
@@ -252,7 +250,7 @@ function Steps({
     return (
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-muted-foreground">Steps</span>
-        <p className="text-muted-foreground">No steps yet. The first run works them out from the goal.</p>
+        <p className="text-muted-foreground">Not written yet.</p>
       </div>
     );
   // Conditions bite on the main transaction, the last thing signed (the deposit, not the approval before it).

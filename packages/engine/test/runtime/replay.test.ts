@@ -66,7 +66,7 @@ describe("replayFlow", () => {
       const r = await replayFlow(session, depositFlow(fx.pageUrl(["unlimited"]), fx.token, fx.vault));
       expect(r.completed).toBe(false);
       expect(r.steps[4]!.status).toBe("fail");
-      expect(r.error).toMatch(/The wallet request doesn't match the flow: the approval is unlimited; amount should be 5/);
+      expect(r.error).toMatch(/The wallet request doesn't match the test: the approval is unlimited; amount should be 5/);
       // the mismatching request was rejected, not signed
       expect(r.walletSteps[0]!.request.outcome).toBe("rejected");
       expect(r.steps[4]!.screenshot).toMatch(/step4-fail\.png$/);

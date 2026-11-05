@@ -1,6 +1,6 @@
 import { conditionInfo } from "@dappdrill/core";
-import { db, flows, listBatches, specOf, testRuns, tests } from "@dappdrill/db";
-import { and, asc, eq } from "drizzle-orm";
+import { appTests, db, listBatches, specOf, testRuns, tests } from "@dappdrill/db";
+import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -16,20 +16,23 @@ export const metadata: Metadata = { title: "Run" };
 
 const base = alias(tests, "base");
 
-/** One run: its results, one per test or condition, named Flow · Test · Condition. */
+/** One run: its results, one per test or condition, named Test · Condition, in page order. */
 export default async function RunPage({ params }: { params: Promise<{ appId: string; batchId: string }> }) {
   const { appId, batchId } = await params;
   await requireApp(appId);
   const [batch] = (await listBatches(db(), appId, 500)).filter((b) => b.batchId === batchId);
   if (!batch) notFound();
-  const results = await db()
-    .select({ run: testRuns, test: tests, baseName: base.name, flowName: flows.name })
-    .from(testRuns)
-    .innerJoin(tests, eq(tests.id, testRuns.testId))
-    .leftJoin(base, eq(base.id, tests.baseId))
-    .innerJoin(flows, eq(flows.id, tests.flowId))
-    .where(and(eq(testRuns.appId, appId), eq(testRuns.batchId, batchId)))
-    .orderBy(asc(flows.position), asc(tests.position), asc(testRuns.createdAt));
+  const [results, ordered] = await Promise.all([
+    db()
+      .select({ run: testRuns, test: tests, baseName: base.name })
+      .from(testRuns)
+      .innerJoin(tests, eq(tests.id, testRuns.testId))
+      .leftJoin(base, eq(base.id, tests.baseId))
+      .where(and(eq(testRuns.appId, appId), eq(testRuns.batchId, batchId))),
+    appTests(db(), appId),
+  ]);
+  const rank = new Map(ordered.map((t, i) => [t.id, i]));
+  results.sort((a, b) => rank.get(a.test.id)! - rank.get(b.test.id)!);
 
   return (
     <div className="page">
@@ -55,14 +58,13 @@ export default async function RunPage({ params }: { params: Promise<{ appId: str
         }
       />
       <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
-        {results.map(({ run, test, baseName, flowName }) => {
+        {results.map(({ run, test, baseName }) => {
           const failure = run.result?.failure;
           return (
             <li key={run.id} className="relative flex items-center gap-3 px-5 py-3 hover:bg-accent/40">
               <StateMark state={run.status} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <Link href={`/apps/${appId}/tests/${test.id}?run=${run.id}`} className="truncate outline-none after:absolute after:inset-0 focus-visible:underline">
-                  <span className="text-muted-foreground">{flowName} · </span>
                   <span className="font-medium">{baseName ?? test.name}</span>
                   {test.condition && <span className="text-muted-foreground"> · {conditionInfo(test.condition).name}</span>}
                 </Link>

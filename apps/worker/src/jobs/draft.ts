@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { keepActions } from "@dappdrill/core";
-import { flows, queueRuns, specOf, tests, touched, type Db } from "@dappdrill/db";
+import { queueRuns, sentenceName, specOf, tests, touched, type Db } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import { errorMessage, logger } from "../log.js";
 import { QUEUES, type TestsJob } from "../queues.js";
@@ -17,16 +17,17 @@ export async function runDraft(db: Db, engine: Engine, boss: PgBoss, testId: str
   const [test] = await db.select().from(tests).where(eq(tests.id, testId));
   if (!test?.drafting) return log.warn("nothing to write; skipping");
   const app = await loadApp(db, test.appId);
-  const [flow] = await db.select({ name: flows.name }).from(flows).where(eq(flows.id, test.flowId));
   const [forked] = test.forkedFrom ? await db.select().from(tests).where(eq(tests.id, test.forkedFrom)) : [];
   const base = forked ?? (test.steps.length ? test : undefined);
+  // A test the analysis found already has its name; one from a sentence takes the writer's.
+  const named = !base && test.name !== sentenceName(test.drafting);
 
   try {
-    const { draft } = await engine.writeTest({ prompt: test.drafting, map: app.map ?? undefined, base: base && specOf(base), flowName: flow?.name });
+    const { draft } = await engine.writeTest({ prompt: test.drafting, map: app.map ?? undefined, base: base && specOf(base) });
     await db
       .update(tests)
       .set({
-        name: draft.name,
+        name: named ? test.name : draft.name,
         goal: draft.goal,
         expected: draft.expected,
         startPath: draft.startPath,

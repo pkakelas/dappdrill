@@ -28,21 +28,20 @@ export async function runCommand(file: string, flags: RunFlags): Promise<number>
 }
 
 export async function runTests(tests: TestsFile, target: DrillTarget, flags: RunFlags): Promise<number> {
-  const all = tests.flows.flatMap((f) => f.tests.map((test) => ({ flow: f.name, test })));
-  const picked = flags.only ? all.filter(({ flow, test }) => `${flow} ${test.name}`.toLowerCase().includes(flags.only!.toLowerCase())) : all;
+  const label = testLabels(tests);
+  const picked = flags.only ? tests.tests.filter((t) => label.get(t.id)!.toLowerCase().includes(flags.only!.toLowerCase())) : tests.tests;
   if (picked.length === 0) throw new UsageError(flags.only ? `No test matches "${flags.only}".` : "There are no tests in the file.");
-  const byId = new Map(all.map(({ test }) => [test.id, test]));
-  const items: TestItem[] = picked.map(({ test }) => {
+  const byId = new Map(tests.tests.map((t) => [t.id, t]));
+  const items: TestItem[] = picked.map((test) => {
     const base = test.baseId ? byId.get(test.baseId) : undefined;
     if (test.baseId && !base) throw new UsageError(`${test.name} is an unhappy path of ${test.baseId}, which isn't in the file.`);
     return { spec: test, base };
   });
 
   const out = resolve(flags.out);
-  const label = testLabels(tests);
   const started = new Map<string, number>();
   const seconds = new Map<string, number>();
-  const width = Math.min(60, Math.max(...picked.map(({ test }) => label.get(test.id)!.length)));
+  const width = Math.min(60, Math.max(...picked.map((t) => label.get(t.id)!.length)));
 
   console.log(`Running ${picked.length} ${picked.length === 1 ? "test" : "tests"} on ${target.url}\n`);
   const engine = await loadEngine();
@@ -92,15 +91,13 @@ function learn(byId: Map<string, SavedTest>, o: TestOutcome) {
 }
 
 /** The usual unhappy paths for every happy-path test that doesn't have them yet. */
-export function addUnhappyPaths(tests: TestsFile): void {
-  for (const flow of tests.flows) {
-    flow.tests = flow.tests.flatMap((test) => {
-      if (test.baseId) return [test];
-      const have = new Set(flow.tests.filter((t) => t.baseId === test.id).map((t) => t.condition));
-      const added = CONDITIONS.filter((c) => c.default && !have.has(c.id)).map(
-        (c): SavedTest => ({ id: newId("test"), name: c.name, goal: test.goal, expected: c.expected, startPath: test.startPath, steps: [], condition: c.id, baseId: test.id }),
-      );
-      return [test, ...added];
-    });
-  }
+export function addUnhappyPaths(file: TestsFile): void {
+  file.tests = file.tests.flatMap((test) => {
+    if (test.baseId) return [test];
+    const have = new Set(file.tests.filter((t) => t.baseId === test.id).map((t) => t.condition));
+    const added = CONDITIONS.filter((c) => c.default && !have.has(c.id)).map(
+      (c): SavedTest => ({ id: newId("test"), name: c.name, goal: test.goal, expected: c.expected, startPath: test.startPath, steps: [], condition: c.id, baseId: test.id }),
+    );
+    return [test, ...added];
+  });
 }

@@ -147,7 +147,7 @@ function advice(facts: Facts, checks: SigningCheck[], verdict: Verdict): string 
   if (byId["ui-match"]?.status === "fail" || byId["ui-match"]?.status === "warn") tips.push("Make the button say what the wallet will ask for: the action, the token and the amount.");
   if (byId["ui-match"]?.status === "unverified") tips.push("No button label was captured; give the control an accessible name so the request can be compared with it.");
   if (byId.simulation?.status === "warn") tips.push(`The transaction reverts on a fork of the current chain state (${facts.simulation?.revertReason}); the page should not offer it in this state.`);
-  if (byId.expectation?.status === "fail") tips.push("Either the dApp changed or the flow's expectation is stale: update the expectation if the change is intended.");
+  if (byId.expectation?.status === "fail") tips.push("Either the dApp changed or the test's expectation is stale: update the expectation if the change is intended.");
   if (byId.baseline?.status === "warn" && !tips.some((t) => t.startsWith("If you did move"))) tips.push("If this change is intended, accept it as the new baseline.");
   if (facts.message?.siwe && byId["ui-match"]?.status === "fail") tips.push("The SIWE domain must be the page's own origin; wallets warn users when it isn't.");
   if (!tips.length && byId["known-bad"]?.status === "unverified") tips.push("The blocklists couldn't be loaded this time; re-run with network access to complete the check.");

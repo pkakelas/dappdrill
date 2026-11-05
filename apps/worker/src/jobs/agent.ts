@@ -1,16 +1,18 @@
-import { and, asc, eq, lt, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, ne } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { z } from "zod";
 import { OFFERED_CONDITIONS, conditionInfo, keepActions, newId, walletUse, type EdgeCaseId } from "@dappdrill/core";
 import {
   addConditions,
+  appTests,
   specOf,
   agentMessages,
-  flows,
-  flowsWithTests,
   latestRuns,
   nextPosition,
+  notWritten,
+  sentenceName,
   queueRuns,
+  runnable,
   tests,
   touched,
   type AgentLink,
@@ -69,14 +71,10 @@ export async function runAgentReply(db: Db, engine: Engine, boss: PgBoss, messag
 
 async function describeContext(db: Db, ctx: MessageRow["context"]): Promise<string | undefined> {
   if (ctx.testId) {
-    const [t] = await db.select({ name: tests.name, flow: flows.name }).from(tests).innerJoin(flows, eq(flows.id, tests.flowId)).where(eq(tests.id, ctx.testId));
-    if (t) return `viewing test “${t.name}” (${ctx.testId}) in flow “${t.flow}”`;
+    const [t] = await db.select({ name: tests.name }).from(tests).where(eq(tests.id, ctx.testId));
+    if (t) return `viewing test “${t.name}” (${ctx.testId})`;
   }
-  if (ctx.flowId) {
-    const [f] = await db.select({ name: flows.name }).from(flows).where(eq(flows.id, ctx.flowId));
-    if (f) return `viewing flow “${f.name}” (${ctx.flowId})`;
-  }
-  return "on the app's flows page";
+  return "on the app's tests page";
 }
 
 /** What the assistant can do with the app's tests. Changes are collected as links for the panel. */
@@ -100,20 +98,14 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
   return [
     {
       name: "list_tests",
-      description: "The app's flows (with goal) and their tests with ids and the latest result. Condition rows are listed under their test.",
+      description: "The app's tests with ids and the latest result, each followed by its condition rows. A test marked not written has a name and a goal but no steps yet.",
       schema: z.object({}),
       handler: async () => {
-        const all = await flowsWithTests(db, app.id);
-        const last = await latestRuns(db, all.flatMap((f) => f.tests.map((t) => t.id)));
-        if (all.length === 0) return "No flows yet.";
-        return all
-          .map((f) =>
-            [
-              `${f.name} (flow ${f.id})${f.goal ? `: ${f.goal}` : ""}${f.tests.length === 0 ? " — not tested" : ""}`,
-              ...f.tests.map((t) => `- ${specOf(t).name} [${t.id}]${t.condition ? ` condition of ${t.baseId}` : ""}: ${last.get(t.id)?.status ?? "never run"}`),
-            ].join("\n"),
-          )
-          .join("\n\n");
+        const all = await appTests(db, app.id);
+        if (all.length === 0) return "No tests yet.";
+        const last = await latestRuns(db, all.map((t) => t.id));
+        const state = (t: (typeof all)[number]) => (notWritten(t) ? `not written. Goal: ${t.goal}` : t.drafting ? "being written" : (last.get(t.id)?.status ?? "never run"));
+        return all.map((t) => `- ${specOf(t).name} [${t.id}]${t.condition ? ` condition of ${t.baseId}` : ""}: ${state(t)}`).join("\n");
       },
     },
     {
@@ -137,19 +129,25 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
     },
     {
       name: "create_test",
-      description: "Write a new test from a sentence and run it. Uses an existing flow by name, or makes a new flow.",
-      schema: z.object({ flow: z.string().describe("Flow name, e.g. 'Trade perps'"), request: z.string().describe("What the test should do, in the developer's words") }),
-      handler: async ({ flow, request }) => {
-        const flows_ = await db.select().from(flows).where(eq(flows.appId, app.id));
-        let target = flows_.find((f) => f.name.toLowerCase() === flow.toLowerCase());
-        if (!target) {
-          target = { id: newId("flow"), appId: app.id, name: flow, goal: null, position: await nextPosition(db, app.id), createdAt: new Date() };
-          await db.insert(flows).values(target);
-        }
-        const flowId = target.id;
+      description: "Write a new test from a sentence and run it.",
+      schema: z.object({ request: z.string().describe("What the test should do, in the developer's words") }),
+      handler: async ({ request }) => {
         const id = newId("test");
-        await draft({ id, appId: app.id, flowId, name: request.slice(0, 60), goal: request, expected: "", steps: [], drafting: request, position: await nextPosition(db, app.id, flowId) });
-        return `Writing it now as ${id} in “${target.name}”; it runs when written.`;
+        await draft({ id, appId: app.id, name: sentenceName(request), goal: request, expected: "", steps: [], drafting: request, position: await nextPosition(db, app.id) });
+        return `Writing it now as ${id}; it runs when written.`;
+      },
+    },
+    {
+      name: "write_test",
+      description: "Write the steps of a test listed as not written, then run it.",
+      schema: z.object({ testId: z.string() }),
+      handler: async ({ testId }) => {
+        const t = await own(testId);
+        if (!notWritten(t)) return "That test is already written.";
+        await db.update(tests).set({ drafting: t.goal || t.name, ...touched() }).where(eq(tests.id, testId));
+        await boss.send(QUEUES.draft, { testId } satisfies DraftJob);
+        testLink(testId, t.name);
+        return `Writing “${t.name}”; it runs when written.`;
       },
     },
     {
@@ -160,7 +158,7 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
         const base = await own(testId);
         if (base.baseId) return "That is a condition row; duplicate its test instead.";
         const id = newId("test");
-        await draft({ id, appId: app.id, flowId: base.flowId, name: `${base.name} (copy)`, goal: base.goal, expected: base.expected, startPath: base.startPath, steps: base.steps, forkedFrom: base.id, drafting: change, position: base.position });
+        await draft({ id, appId: app.id, name: `${base.name} (copy)`, goal: base.goal, expected: base.expected, startPath: base.startPath, steps: base.steps, forkedFrom: base.id, drafting: change, position: base.position });
         return `Duplicating “${base.name}” as ${id}; it runs when written.`;
       },
     },
@@ -210,11 +208,13 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
     },
     {
       name: "run_tests",
-      description: "Run tests now. Give test ids, or a flow id to run all its tests.",
-      schema: z.object({ testIds: z.array(z.string()).optional(), flowId: z.string().optional() }),
-      handler: async ({ testIds, flowId }) => {
-        const ids = flowId ? (await db.select({ id: tests.id }).from(tests).where(and(eq(tests.flowId, flowId), eq(tests.appId, app.id)))).map((t) => t.id) : (testIds ?? []);
-        if (ids.length === 0) return "No tests given.";
+      description: "Run tests now, by id. Tests that aren't written yet can't run.",
+      schema: z.object({ testIds: z.array(z.string()) }),
+      handler: async ({ testIds }) => {
+        if (testIds.length === 0) return "No tests given.";
+        const rows = await db.select().from(tests).where(and(eq(tests.appId, app.id), inArray(tests.id, testIds)));
+        const ids = rows.filter(runnable).map((t) => t.id);
+        if (ids.length === 0) return "None of those can run: they have no steps yet.";
         await run(ids);
         links.push({ label: ids.length === 1 ? "Running 1 test" : `Running ${ids.length} tests`, href: `/apps/${app.id}` });
         return `Started ${ids.length}.`;

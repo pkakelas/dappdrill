@@ -1,7 +1,7 @@
 "use server";
 
 import { EdgeCaseId, OFFERED_CONDITIONS, keepActions, newId, walletUse } from "@dappdrill/core";
-import { addConditions, db, flows, nextPosition, queueRuns, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
+import { addConditions, db, nextPosition, notWritten, queueRuns, sentenceName, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -14,13 +14,6 @@ async function ownTest(testId: string) {
   if (!t) throw new Error("That test no longer exists.");
   await requireApp(t.appId);
   return t;
-}
-
-async function ownFlow(flowId: string) {
-  const [f] = await db().select().from(flows).where(eq(flows.id, flowId));
-  if (!f) throw new Error("That flow no longer exists.");
-  await requireApp(f.appId);
-  return f;
 }
 
 async function run(appId: string, testIds: string[], trigger: Trigger = "manual") {
@@ -53,13 +46,6 @@ export async function runTestsAction(appId: string, testIds: string[]): Promise<
   refresh(appId);
 }
 
-export async function runFlowAction(flowId: string): Promise<void> {
-  const f = await ownFlow(flowId);
-  const ids = await db().select({ id: tests.id }).from(tests).where(eq(tests.flowId, f.id));
-  await run(f.appId, ids.map((t) => t.id));
-  refresh(f.appId);
-}
-
 export async function runAllAction(appId: string): Promise<void> {
   await requireApp(appId);
   const ids = await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, appId));
@@ -85,46 +71,34 @@ export async function stopRunsAction(appId: string, testIds?: string[]): Promise
 // ---------------------------------------------------------------- writing
 
 const Sentence = z.string().trim().min(3, "Say what the test should do.").max(1000);
-const FlowName = z.string().trim().min(1, "Name the flow.").max(60);
-const Goal = z.string().trim().max(300);
 
-/** A flow on its own, before it has a test: something users do that we haven't tested yet. */
-export async function addFlowAction(appId: string, name: string, goal?: string): Promise<{ error?: string; flowId?: string }> {
-  await requireApp(appId);
-  const n = FlowName.safeParse(name);
-  if (!n.success) return { error: n.error.issues[0]?.message };
-  const flowId = newId("flow");
-  await db().insert(flows).values({ id: flowId, appId, name: n.data, goal: Goal.parse(goal ?? "") || null, position: await nextPosition(db(), appId) });
-  refresh(appId);
-  return { flowId };
-}
-
-/** A test from one sentence, in an existing flow or a new one. Returns the new test's id. */
-export async function addTestAction(appId: string, flow: { id: string } | { name: string; goal?: string }, request: string): Promise<{ error?: string; testId?: string }> {
+/** A test from one sentence. Returns the new test's id. */
+export async function addTestAction(appId: string, request: string): Promise<{ error?: string; testId?: string }> {
   await requireApp(appId);
   const text = Sentence.safeParse(request);
   if (!text.success) return { error: text.error.issues[0]?.message };
-  let flowId: string;
-  if ("id" in flow) flowId = (await ownFlow(flow.id)).id;
-  else {
-    const made = await addFlowAction(appId, flow.name, flow.goal);
-    if (!made.flowId) return { error: made.error };
-    flowId = made.flowId;
-  }
   const id = newId("test");
   await draft({
     id,
     appId,
-    flowId,
-    name: text.data.length > 60 ? `${text.data.slice(0, 57).trimEnd()}…` : text.data,
+    name: sentenceName(text.data),
     goal: text.data,
     expected: "",
     steps: [],
     drafting: text.data,
-    position: await nextPosition(db(), appId, flowId),
+    position: await nextPosition(db(), appId),
   });
   refresh(appId);
   return { testId: id };
+}
+
+/** Writes the steps of a test that only has a name and a goal; it runs when written. */
+export async function writeTestAction(testId: string): Promise<void> {
+  const t = await ownTest(testId);
+  if (!notWritten(t)) return;
+  await db().update(tests).set({ drafting: t.goal || t.name, ...touched() }).where(eq(tests.id, testId));
+  await enqueue("test-draft.run", { testId });
+  refresh(t.appId);
 }
 
 /** A copy of a test with one change, written by the worker. Opens the copy. */
@@ -137,7 +111,6 @@ export async function duplicateTestAction(testId: string, change: string): Promi
   await draft({
     id,
     appId: base.appId,
-    flowId: base.flowId,
     name: base.name,
     goal: base.goal,
     expected: base.expected,
@@ -145,7 +118,7 @@ export async function duplicateTestAction(testId: string, change: string): Promi
     steps: base.steps,
     forkedFrom: base.id,
     drafting: text.data,
-    position: await nextPosition(db(), base.appId, base.flowId),
+    position: base.position,
   });
   refresh(base.appId);
   redirect(`/apps/${base.appId}/tests/${id}`);
@@ -195,26 +168,7 @@ export async function addConditionsAction(testId: string, conditions: string[]):
 export async function deleteTestAction(testId: string): Promise<void> {
   const t = await ownTest(testId);
   await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.testId, testId), eq(testRuns.status, "running")));
-  // The flow stays, as Not tested: it is still something users do.
   await db().delete(tests).where(eq(tests.id, testId));
   refresh(t.appId);
   redirect(`/apps/${t.appId}`);
-}
-
-export async function renameFlowAction(flowId: string, name: string, goal?: string): Promise<void> {
-  const f = await ownFlow(flowId);
-  const clean = name.trim().slice(0, 60);
-  if (!clean) return;
-  await db()
-    .update(flows)
-    .set({ name: clean, ...(goal === undefined ? {} : { goal: Goal.parse(goal) || null }) })
-    .where(eq(flows.id, f.id));
-  refresh(f.appId);
-}
-
-export async function deleteFlowAction(flowId: string): Promise<void> {
-  const f = await ownFlow(flowId);
-  await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.status, "running"), inArray(testRuns.testId, db().select({ id: tests.id }).from(tests).where(eq(tests.flowId, f.id)))));
-  await db().delete(flows).where(eq(flows.id, f.id));
-  refresh(f.appId);
 }

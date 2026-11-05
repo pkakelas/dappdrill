@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { keepActions, TestRunResult, type TestRunStatus, type TestStep } from "@dappdrill/core";
-import { apps, flowsWithTests, specOf, testRuns, tests, type Db, type TestRunRow } from "@dappdrill/db";
+import { appTests, apps, specOf, testRuns, tests, type Db, type TestRunRow } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
@@ -18,8 +18,8 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
   if (runs.length === 0) return log.warn("nothing queued; skipping");
   const app = await loadApp(db, runs[0]!.appId);
 
-  // Page order: flows, then each test followed by its condition rows.
-  const ordered = (await flowsWithTests(db, app.id)).flatMap((f) => f.tests);
+  // Page order: each test followed by its condition rows.
+  const ordered = await appTests(db, app.id);
   const rank = new Map(ordered.map((t, i) => [t.id, i]));
   const byTest = new Map(ordered.map((t) => [t.id, t]));
   const runOf = new Map<string, TestRunRow>();

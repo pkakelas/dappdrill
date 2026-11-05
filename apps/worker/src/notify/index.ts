@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { conditionInfo } from "@dappdrill/core";
-import { decrypt, flows, integrations, member, signingAlerts, testRuns, tests, user, type Db } from "@dappdrill/db";
+import { decrypt, integrations, member, signingAlerts, testRuns, tests, user, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
 import type { AppRow } from "../target.js";
@@ -18,15 +18,14 @@ const base = alias(tests, "base");
 export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promise<Alert | null> {
   if (runIds.length === 0) return null;
   const results = await db
-    .select({ testId: testRuns.testId, status: testRuns.status, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, baseName: base.name, condition: tests.condition, flowName: flows.name })
+    .select({ testId: testRuns.testId, status: testRuns.status, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, baseName: base.name, condition: tests.condition })
     .from(testRuns)
     .innerJoin(tests, eq(tests.id, testRuns.testId))
     .leftJoin(base, eq(base.id, tests.baseId))
-    .innerJoin(flows, eq(flows.id, tests.flowId))
     .where(inArray(testRuns.id, runIds));
 
-  // A condition row is named "Flow · Test · Condition", like everywhere else.
-  const placeOf = (run: (typeof results)[number]) => ({ testName: run.baseName ?? run.testName, flowName: run.flowName, condition: run.condition ? conditionInfo(run.condition).name : undefined });
+  // A condition row is named "Test · Condition", like everywhere else.
+  const placeOf = (run: (typeof results)[number]) => ({ testName: run.baseName ?? run.testName, condition: run.condition ? conditionInfo(run.condition).name : undefined });
 
   const regressions: Regression[] = [];
   for (const run of results.filter((r) => r.status === "fail")) {

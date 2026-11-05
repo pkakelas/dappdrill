@@ -9,7 +9,7 @@ import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 
 const ON_TEST = ["Why did this fail?", "Duplicate it with a different amount", "Add conditions and run them"];
-const ON_LIST = ["Which flows are failing?", "Add a test for withdrawing everything", "Run every test"];
+const ON_LIST = ["Which tests are failing?", "Add a test for withdrawing everything", "Run every test"];
 
 /** The assistant: a panel on every app page that knows the tests and can change and run them. ⌘K opens it. */
 export function Assistant({ appId }: { appId: string }) {

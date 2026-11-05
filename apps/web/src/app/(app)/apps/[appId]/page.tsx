@@ -1,22 +1,22 @@
-import { appRollup, appText, conditionsText, flowRollup, flowStatusText, signingOf, signingText, walletUse, type FlowRollup } from "@dappdrill/core";
-import { analyses, db, flowsWithTests, latestRuns, runHistory, settledRuns, specOf, type RunSummary, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { appRollup, appText, signingOf, signingText, walletUse, type SigningFlag as Signing } from "@dappdrill/core";
+import { analyses, appTests, db, latestRuns, notWritten, runHistory, settledRuns, specOf, type RunSummary, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
 import { Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { NewFlow } from "@/components/tests/add-test";
+import { AddTest } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
 import { AppStats, HISTORY_DAYS, RunTicks } from "@/components/tests/app-stats";
 import { ConditionGrid } from "@/components/tests/condition-grid";
 import { ConditionPills, failureParts } from "@/components/tests/condition-pills";
-import { FlowSection } from "@/components/tests/flow-section";
 import { RunButton } from "@/components/tests/run-button";
 import { SetupCard } from "@/components/tests/setup-card";
 import { SigningFlag } from "@/components/tests/signing-flag";
 import { ActiveDot, readTest, REVEAL, STATE_LABEL, StateMark, type TestRead } from "@/components/tests/status";
-import { cx, PageHeader } from "@/components/ui";
+import { WriteTest } from "@/components/tests/write-test";
+import { cx, ItemList, ListItem, PageHeader } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
@@ -28,17 +28,26 @@ export async function generateMetadata({ params }: { params: Promise<{ appId: st
   return { title: app.name };
 }
 
-export default async function FlowsPage({ params, searchParams }: { params: Promise<{ appId: string }>; searchParams: Promise<{ view?: string }> }) {
+export default async function TestsPage({ params, searchParams }: { params: Promise<{ appId: string }>; searchParams: Promise<{ view?: string }> }) {
   const { appId } = await params;
   const { view } = await searchParams;
   const { app } = await requireApp(appId);
-  const [[analysis], all] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), flowsWithTests(db(), appId)]);
-  const tests = all.flatMap((f) => f.tests);
+  const [[analysis], tests] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), appTests(db(), appId)]);
   const ids = tests.map((t) => t.id);
   const [latest, settled, history] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000))]);
   const reads = new Map(tests.map((t) => [t.id, readTest(t, latest.get(t.id), settled.get(t.id))]));
-  const rollups = new Map(all.map((f) => [f.id, rollupOf(f.tests, reads, settled)]));
-  const overall = appRollup([...rollups.values()]);
+  const untested = tests.filter(notWritten);
+  const roots = tests.filter((t) => !t.baseId && !notWritten(t));
+  const conditionsOf = (t: TestRow) => tests.filter((c) => c.baseId === t.id);
+  // A row flags its conditions' signatures too: they only show as pills otherwise.
+  const signingFor = (t: TestRow) => signingOf([t, ...conditionsOf(t)].flatMap((row) => settled.get(row.id)?.result?.signingReviews.map((r) => r.verdict) ?? []));
+  const overall = appRollup(
+    roots.map((t) => ({ read: reads.get(t.id)!, conditions: conditionsOf(t).map((c) => reads.get(c.id)!), signing: signingFor(t) })),
+    untested.length,
+  );
+  // Problems first; otherwise the order they were added.
+  const rank = (t: TestRow) => ["fail", "error"].indexOf(reads.get(t.id)!.settled) + 1 || 3;
+  const sorted = [...roots].sort((a, b) => rank(a) - rank(b));
   const host = hostFromUrl(app.url);
 
   const exploring = analysis && (analysis.status === "queued" || analysis.status === "running");
@@ -62,7 +71,7 @@ export default async function FlowsPage({ params, searchParams }: { params: Prom
             <a href={app.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
               {host}
             </a>
-            {all.length > 0 && (
+            {tests.length > 0 && (
               <>
                 <span aria-hidden="true">·</span>
                 <span className={cx(overall.status === "fail" && "text-bad", overall.status === "error" && "text-warn")}>{appText(overall)}</span>
@@ -85,7 +94,7 @@ export default async function FlowsPage({ params, searchParams }: { params: Prom
           </p>
         }
         actions={
-          tests.length > 0 && (
+          roots.length > 0 && (
             <>
               <ViewSwitch appId={appId} grid={grid} />
               <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />
@@ -96,42 +105,59 @@ export default async function FlowsPage({ params, searchParams }: { params: Prom
 
       <TooltipProvider>
         <div className="flex flex-col gap-10">
-          {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasFlows={all.length > 0} />}
+          {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasTests={tests.length > 0} />}
 
-          {tests.length > 0 && <AppStats states={tests.filter((t) => !t.baseId).map((t) => reads.get(t.id)!.mark)} conditionsFailed={overall.conditionsFailed} runs={history} />}
+          {roots.length > 0 && <AppStats states={roots.map((t) => reads.get(t.id)!.mark)} conditionsFailed={overall.conditionsFailed} runs={history} />}
 
           {!grid && app.setup && (
             <SetupCard appId={appId} setup={{ startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()])} />
           )}
 
           {grid ? (
-            <ConditionGrid appId={appId} flows={all} reads={reads} settled={settled} />
+            <ConditionGrid appId={appId} tests={tests.filter((t) => !notWritten(t))} reads={reads} settled={settled} />
           ) : (
-            all.map((f) => {
-              const base = f.tests.filter((t) => !t.baseId);
-              const flowActive = f.tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
-              return (
-                <FlowSection key={f.id} appId={appId} flow={f} states={base.map((t) => reads.get(t.id)!.mark)} summary={<FlowSummary rollup={rollups.get(f.id)!} />} activeIds={flowActive}>
-                  <ul className="flex flex-col gap-1">
-                    {base.map((t) => {
-                      const conditions = f.tests.filter((c) => c.baseId === t.id);
-                      return (
-                        <li key={t.id}>
-                          <TestLine appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} history={history} signs={walletUse(t.steps) === "signs"} hasConditions={conditions.length > 0} />
-                          {conditions.length > 0 && <ConditionPills appId={appId} tests={conditions} reads={reads} runs={settled} className="ml-7 pb-3" />}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </FlowSection>
-              );
-            })
+            sorted.length > 0 && (
+              <ItemList>
+                {sorted.map((t) => {
+                  const conditions = conditionsOf(t);
+                  return (
+                    <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} history={history} signs={walletUse(t.steps) === "signs"} signing={signingFor(t)} hasConditions={conditions.length > 0}>
+                      {conditions.length > 0 && <ConditionPills appId={appId} tests={conditions} reads={reads} runs={settled} className="relative z-10 mt-2" />}
+                    </TestLine>
+                  );
+                })}
+              </ItemList>
+            )
           )}
 
-          {all.length > 0 ? (
+          {!grid && untested.length > 0 && (
+            <section aria-labelledby="not-tested" className="flex flex-col gap-3">
+              <h2 id="not-tested" className="font-semibold tracking-tight">
+                Not tested yet
+              </h2>
+              <ItemList>
+                {untested.map((t) => (
+                  <ListItem key={t.id} className="flex-nowrap items-start gap-3">
+                    <StateMark state="never" className="mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/apps/${appId}/tests/${t.id}`} className="block truncate font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
+                        {t.name}
+                      </Link>
+                      {t.goal && <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{t.goal}</p>}
+                    </div>
+                    <span className="relative z-10 -my-1">
+                      <WriteTest testId={t.id} />
+                    </span>
+                  </ListItem>
+                ))}
+              </ItemList>
+            </section>
+          )}
+
+          {tests.length > 0 ? (
             !grid && (
-              <div className="flex flex-col gap-4 md:px-5">
-                <NewFlow appId={appId} />
+              <div className="flex flex-col gap-4">
+                <AddTest appId={appId} />
                 {!app.setup && <SetupCard appId={appId} setup={null} />}
               </div>
             )
@@ -140,57 +166,20 @@ export default async function FlowsPage({ params, searchParams }: { params: Prom
               {!analysis && (
                 <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-6 shadow-xs">
                   <div className="flex flex-col gap-1">
-                    <h2 className="text-base font-semibold">No flows yet</h2>
-                    <p className="text-sm text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a flow yourself.</p>
+                    <h2 className="text-base font-semibold">No tests yet</h2>
+                    <p className="text-sm text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a test yourself.</p>
                   </div>
                   <form action={analyzeAction.bind(null, appId)}>
                     <Button type="submit">Explore the app</Button>
                   </form>
                 </section>
               )}
-              <NewFlow appId={appId} first />
+              <AddTest appId={appId} />
             </div>
           ) : null}
         </div>
       </TooltipProvider>
     </div>
-  );
-}
-
-/** The flow's rollup: its tests' reads, each test's condition reads, and the signing verdicts of their latest finished results. */
-function rollupOf(tests: TestRow[], reads: Map<string, TestRead>, settled: Map<string, TestRunRow>): FlowRollup {
-  const verdicts = (ids: string[]) => ids.flatMap((id) => settled.get(id)?.result?.signingReviews.map((r) => r.verdict) ?? []);
-  return flowRollup(
-    tests
-      .filter((t) => !t.baseId)
-      .map((t) => {
-        const children = tests.filter((c) => c.baseId === t.id);
-        return { read: reads.get(t.id)!, conditions: children.map((c) => reads.get(c.id)!), signing: signingOf(verdicts([t.id, ...children.map((c) => c.id)])) };
-      }),
-  );
-}
-
-/** Under the flow's name: its status, then its conditions, then anything the signing review flagged. Inline, so it wraps in the rail. */
-function FlowSummary({ rollup: r }: { rollup: FlowRollup }) {
-  if (r.status === "untested") return "Not tested";
-  return (
-    <>
-      <span className={cx(r.status === "fail" && "text-bad", r.status === "error" && "text-warn")}>{flowStatusText(r)}</span>
-      {r.active && (
-        <>
-          {" "}
-          <ActiveDot active="running" />
-        </>
-      )}
-      {" · "}
-      <span className={cx(r.conditions.failed > 0 && "text-warn")}>Conditions: {conditionsText(r)}</span>
-      {signingText(r.signing) && (
-        <>
-          {" · "}
-          <SigningFlag signing={r.signing} />
-        </>
-      )}
-    </>
   );
 }
 
@@ -246,13 +235,12 @@ function WalletMark({ href }: { href?: string }) {
   );
 }
 
-/** One test. `run` is the result its status reads from; `live` the newest run, for progress. */
-function TestLine({ appId, test, read, run, live, history, signs, hasConditions }: { appId: string; test: TestRow; read: TestRead; run?: TestRunRow; live?: TestRunRow; history: RunSummary[]; signs: boolean; hasConditions: boolean }) {
+/** One test. `run` is the result its status reads from; `live` the newest run, for progress. `signing` covers its conditions too. */
+function TestLine({ appId, test, read, run, live, history, signs, signing, hasConditions, children }: { appId: string; test: TestRow; read: TestRead; run?: TestRunRow; live?: TestRunRow; history: RunSummary[]; signs: boolean; signing: Signing; hasConditions: boolean; children?: React.ReactNode }) {
   const steps = live?.result?.steps ?? [];
   const current = steps.findIndex((s) => s.status === "running");
   const setupSteps = live?.result?.setup?.steps ?? [];
   const inSetup = setupSteps.findIndex((s) => s.status === "running");
-  const signing = signingOf(run?.result?.signingReviews.map((r) => r.verdict) ?? []);
   let detail: React.ReactNode = null;
   if (read.drafting) detail = <span className="text-muted-foreground">Writing the steps…</span>;
   else if (read.active === "running" && current < 0 && inSetup >= 0)
@@ -279,18 +267,19 @@ function TestLine({ appId, test, read, run, live, history, signs, hasConditions 
   } else if (read.settled === "skipped") detail = <span className="text-muted-foreground">Doesn&apos;t apply{run?.result?.failure ? `: ${run.result.failure}` : ""}</span>;
 
   return (
-    <div className="group/test relative -mx-3 flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/60">
+    <ListItem className="group/test flex-nowrap items-start gap-3">
       <StateMark state={read.mark} className="mt-0.5" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Link href={`/apps/${appId}/tests/${test.id}`} className="truncate font-medium outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
+          <Link href={`/apps/${appId}/tests/${test.id}`} className="truncate font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
             {specOf(test).name}
           </Link>
           {read.settled !== "never" && <ActiveDot active={read.active} />}
           {signingText(signing) && <SigningFlag signing={signing} short />}
           {signs && <WalletMark href={hasConditions ? undefined : `/apps/${appId}/tests/${test.id}?add=conditions#conditions`} />}
         </div>
-        {detail && <p className="mt-0.5 line-clamp-2 text-sm sm:line-clamp-1">{detail}</p>}
+        {detail ? <p className="mt-0.5 line-clamp-2 text-sm sm:line-clamp-1">{detail}</p> : test.goal && <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{test.goal}</p>}
+        {children}
       </div>
       <span className={cx("relative z-10 -my-1", !read.active && REVEAL, "group-hover/test:opacity-100")}>
         <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} stopIds={[test.id]} label="Run test" disabled={read.drafting} />
@@ -299,6 +288,6 @@ function TestLine({ appId, test, read, run, live, history, signs, hasConditions 
         <RunTicks runs={history.filter((r) => r.testId === test.id)} />
         <span className="w-16 text-right">{run?.finishedAt && !read.active ? timeAgo(run.finishedAt) : ""}</span>
       </span>
-    </div>
+    </ListItem>
   );
 }

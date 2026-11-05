@@ -2,7 +2,7 @@
  * Public engine API. The worker and the CLI only use these functions, so the
  * engine runs the same with or without a database.
  *
- * - analyze: look around the app and propose 2-3 flows with a happy-path test each, and a setup if every test needs one.
+ * - analyze: look around the app and propose 2-3 happy-path tests, what else it saw, and a setup if every test needs one.
  * - runTests: run tests (after the app's setup); cached actions first, the fast model when they break.
  * - writeTest: write or fork a test from a sentence.
  * - chatTurn: one answer from the assistant in the side panel.
@@ -15,10 +15,10 @@ import {
   type Blocked,
   type ChainConfig,
   type DrillEventSink,
-  type FlowDraft,
   type SetupDraft,
   type Stalled,
   type TestDraft,
+  type TestIdea,
 } from "@dappdrill/core";
 import { analyzeApp } from "./agent/analyst.js";
 import { browseTask, chat, type ChatInput } from "./agent/chat.js";
@@ -41,7 +41,9 @@ export interface AnalyzeOutput {
   map?: AppMap;
   /** Steps every test needs first, when the app has any. */
   setup?: SetupDraft;
-  flows: FlowDraft[];
+  tests: TestDraft[];
+  /** Seen but not written: a name and a goal. */
+  untested: TestIdea[];
   /** Chains the app used, including ones it asked the wallet for. */
   chains: ChainConfig[];
   blocked?: Blocked;
@@ -52,31 +54,32 @@ export interface AnalyzeOutput {
 /** Look around the app for about two minutes. Logs and live frames go to `sink`. */
 export async function analyze(
   target: DrillTarget,
-  opts: { artifactsDir: string; hints?: string; maxMs?: number; headless?: boolean },
+  opts: { artifactsDir: string; hints?: string; known?: string[]; maxMs?: number; headless?: boolean },
   sink: DrillEventSink,
   signal?: AbortSignal,
 ): Promise<AnalyzeOutput> {
   const env = await openEnv(DrillTarget.parse(target), sink, { headless: opts.headless });
   const restore = await pin(env);
   const session = await createSession(env.target, env.chains, { artifactsDir: opts.artifactsDir, sink: env.sink, headless: env.headless, video: false, trace: false, log: debug });
-  let out: Omit<AnalyzeOutput, "chains" | "costUsd"> = { flows: [] };
+  let out: Omit<AnalyzeOutput, "chains" | "costUsd"> = { tests: [], untested: [] };
   try {
     await env.log(`Opening ${env.target.url}`);
     await session.page.goto(env.target.url, { waitUntil: "domcontentloaded", timeout: 45_000 });
     // A challenge on the first page stops before anything is spent on the model.
     const blocked = await landingBotCheck(session);
     out = blocked
-      ? { flows: [], blocked }
+      ? { tests: [], untested: [], blocked }
       : await analyzeApp(session, env.thinkLlm(), {
           maxMs: opts.maxMs,
           hints: opts.hints,
+          known: opts.known,
           inbox: env.inbox,
           signal,
           onNote: (text) => void env.log(text),
         });
     if (out.blocked) {
       await env.log(blockedLine(out.blocked), "warn");
-    } else if (out.flows.length === 0 && !signal?.aborted) {
+    } else if (out.tests.length === 0 && !signal?.aborted) {
       // Nothing to test usually means the app's data never loaded; say what it was waiting on.
       const missing = env.chains.missing();
       const waiting = diagnoseStall(session.traffic, session.rpc, env.chains.configs().map((c) => c.id));

@@ -48,7 +48,7 @@ function Exploring({ analysis, host, url }: { analysis: Analysis; host: string; 
             </span>
             {analysis.startedAt ? <Elapsed since={analysis.startedAt.toISOString()} /> : <span className="tabular-nums">0:00</span>}
           </div>
-          <h2 className="text-xl font-semibold tracking-tight">Finding the main flows</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Finding what to test</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">Takes 5–7 minutes. Tests for what it finds show up below and run right away.</p>
         </div>
 
@@ -79,13 +79,13 @@ function LiveDot() {
 }
 
 /** The first look at the app, live; or why it found nothing. */
-export function AnalysisPanel({ analysis, appId, host, url, hasFlows }: { analysis: Analysis; appId: string; host: string; url: string; hasFlows: boolean }) {
+export function AnalysisPanel({ analysis, appId, host, url, hasTests }: { analysis: Analysis; appId: string; host: string; url: string; hasTests: boolean }) {
   if (analysis.status === "queued" || analysis.status === "running") return <Exploring analysis={analysis} host={host} url={url} />;
 
-  if (hasFlows) return null;
+  if (hasTests) return null;
 
-  let title = "It didn't find a flow to test";
-  let body: React.ReactNode = "Add a flow yourself below, or add a note in Settings about where to look and try again.";
+  let title = "It didn't find anything to test";
+  let body: React.ReactNode = "Add a test yourself below, or add a note in Settings about where to look and try again.";
   if (analysis.blocked) {
     title = describeBlock(analysis.blocked);
     body = (
@@ -109,7 +109,7 @@ export function AnalysisPanel({ analysis, appId, host, url, hasFlows }: { analys
     body = analysis.error ? `It stopped with: ${analysis.error}` : "Try again; if it keeps happening, add a note in Settings.";
   } else if (analysis.status === "stopped") {
     title = "Stopped";
-    body = "Start it again when you're ready, or add a flow yourself below.";
+    body = "Start it again when you're ready, or add a test yourself below.";
   }
   return (
     <section className="flex flex-col gap-3 rounded-xl border bg-card p-6 shadow-xs">

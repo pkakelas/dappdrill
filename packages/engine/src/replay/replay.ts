@@ -246,7 +246,7 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
       return;
     }
     case "email-code": {
-      if (!env.opts.inbox) throw new Error("This flow reads a login code from the test inbox, but no inbox is configured");
+      if (!env.opts.inbox) throw new Error("This test reads a login code from the test inbox, but no inbox is configured");
       const code = await env.opts.inbox.latestCode({ sinceMs: env.startedAt, timeoutMs: Math.max(timeout, 60_000) });
       const el = await resolveLocator(page, step.target, timeout);
       await el.fill(code, { timeout });
@@ -305,7 +305,7 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
 
   if (!check.ok) {
     await wallet.reject(req.id);
-    throw new Error(`The wallet request doesn't match the flow: ${check.problems.join("; ")}`);
+    throw new Error(`The wallet request doesn't match the test: ${check.problems.join("; ")}`);
   }
 
   const decision = (await env.opts.hooks?.respond?.({ ...ctx, pending })) ?? "default";
