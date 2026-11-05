@@ -9,6 +9,7 @@ import {
   parseStorageEntry,
   SetupWhen,
   WalletProfileId,
+  chainInfo,
   type ChainConfig,
   type FixedResponse,
 } from "@dappdrill/core";
@@ -21,7 +22,10 @@ import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { hostOf } from "@/lib/domains";
 import { enqueue } from "@/lib/jobs";
+import { readChainId } from "@/lib/rpc";
+import { looksLikeKey } from "@/lib/secrets";
 import { currentTeam, requireApp } from "@/lib/session";
+import { readSite, type SiteInfo } from "@/lib/site";
 
 const Url = z
   .string()
@@ -53,11 +57,35 @@ async function analyze(appId: string): Promise<void> {
   await enqueue("analysis.run", { analysisId: id });
 }
 
+/** /new: what the form's preview shows once a URL is in. */
+export async function previewSiteAction(input: string): Promise<SiteInfo | undefined> {
+  await currentTeam();
+  const url = Url.safeParse(input);
+  return url.success ? readSite(url.data) : undefined;
+}
+
 const KeyHex = z
   .string()
   .trim()
   .transform((s) => (s.startsWith("0x") ? s : `0x${s}`))
   .pipe(z.string().regex(/^0x[0-9a-fA-F]{64}$/, "The funded key is 64 hex characters."));
+
+const RpcUrl = z
+  .string()
+  .trim()
+  .min(1, "Add the chain's RPC URL.")
+  .transform((s) => (/^https?:\/\//i.test(s) ? s : `https://${s}`))
+  .pipe(z.string().url("That doesn't look like a URL."));
+const NO_CHAIN = "No chain answered at that URL.";
+
+/** /new: tells the form which chain an RPC belongs to while the user is still typing. */
+export async function checkRpcAction(input: string): Promise<{ chainId?: number; error?: string }> {
+  await currentTeam();
+  const url = RpcUrl.safeParse(input);
+  if (!url.success) return { error: url.error.issues[0]?.message };
+  const chainId = await readChainId(url.data);
+  return chainId === undefined ? { error: NO_CHAIN } : { chainId };
+}
 
 /** /new: find or create the app for this URL. A new app (or one with no tests yet) gets analyzed. */
 export async function createAppAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
@@ -65,47 +93,45 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
   const url = Url.safeParse(form.get("url"));
   if (!url.success) return { error: url.error.issues[0]?.message };
   const customized = form.get("customized") === "1";
-  const hints = String(form.get("hints") ?? "").trim().slice(0, 2000);
+  const hints = String(form.get("hints") ?? "").trim().slice(0, 4000);
+  const funding = String(form.get("funding") ?? "").trim().slice(0, 1000);
+  if (looksLikeKey(hints) || looksLikeKey(funding)) return { error: "That looks like a private key. Text boxes aren't encrypted, so take it out.", inline: true };
+  const keyIn = String(form.get("liveKey") ?? "").trim();
   let wallets: AppSettings["wallets"] = ["metamask"];
   const chains: ChainConfig[] = [];
-  const chainFunding: Record<string, string> = {};
 
   if (customized) {
     const wallet = WalletProfileId.safeParse(form.get("wallet"));
     if (!wallet.success) return { error: "Choose a primary wallet." };
     wallets = [wallet.data];
-    const ids = [...new Set(form.getAll("chain").map(Number))];
-    for (const id of ids) {
-      const info = KNOWN_CHAINS.find((c) => c.id === id && c.id !== 31337);
+    const chainId = form.get("chain");
+    if (form.has("rpcUrl")) {
+      const rpc = RpcUrl.safeParse(form.get("rpcUrl"));
+      if (!rpc.success) return { error: rpc.error.issues[0]?.message, inline: true };
+      const id = await readChainId(rpc.data);
+      if (id === undefined) return { error: NO_CHAIN, inline: true };
+      const info = chainInfo(id);
+      const testnet = info ? info.testnet : form.get("testnet") === "1";
+      chains.push({ id, name: info?.name, rpcUrl: rpc.data, mode: (testnet && keyIn) || info?.forkable === false ? "live" : "fork" });
+    } else if (chainId) {
+      const info = KNOWN_CHAINS.find((c) => c.id === Number(chainId) && c.id !== 31337 && c.forkable);
       if (!info) return { error: "Choose a supported chain." };
-      // Mainnets always fork. Non-standard testnets that Anvil can't fork always run live.
-      const mode = info.testnet && info.forkable && form.get(`chainMode-${id}`) === "live" ? "live" : info.forkable ? "fork" : "live";
-      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode });
-      if (mode === "live") {
-        const funding = String(form.get(`chainFunding-${id}`) ?? "").trim().slice(0, 1000);
-        if (funding) chainFunding[id] = funding;
-      }
+      // A key is what opts a testnet into running live. Everything else, mainnets included, is a local fork.
+      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: info.testnet && keyIn ? "live" : "fork" });
     }
   }
   if (chains.some((c) => c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id))) return { error: "Live mode is for testnets only. Mainnet chains always run on a local fork." };
 
   const [existing] = await db().select().from(apps).where(and(eq(apps.teamId, team.id), eq(apps.url, url.data)));
-  const needsLiveKey = chains.some((c) => c.mode === "live");
-  const keyIn = needsLiveKey ? String(form.get("liveKey") ?? "").trim() : "";
-  if (needsLiveKey && !keyIn && !existing?.liveKeyEnc) return { error: "Add a private key with test funds for the live testnet." };
   let liveKey: { liveKeyEnc: string; liveKeyAddress: string } | undefined;
-  if (keyIn) {
+  if (keyIn && chains.some((c) => c.mode === "live")) {
     const key = KeyHex.safeParse(keyIn);
     if (!key.success) return { error: key.error.issues[0]?.message };
     liveKey = { liveKeyEnc: encrypt(key.data), liveKeyAddress: privateKeyToAccount(key.data as `0x${string}`).address };
   }
 
-  const settingsBase: AppSettings = {
-    wallets,
-    chains,
-    ...(hints ? { hints } : {}),
-    ...(Object.keys(chainFunding).length ? { chainFunding } : {}),
-  };
+  const notes = { ...(hints ? { hints } : {}), ...(funding ? { funding } : {}) };
+  const settingsBase: AppSettings = { wallets, chains, ...notes };
 
   let appId = existing?.id;
   if (!existing) {
@@ -114,10 +140,8 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
     await db()
       .insert(apps)
       .values({ id: appId, teamId: team.id, name: nameFromHost(host), url: url.data, host, settings: settingsBase, ...liveKey });
-  } else if (customized || hints || liveKey) {
-    const settings = customized
-      ? { ...existing.settings, ...settingsBase }
-      : { ...existing.settings, ...(hints ? { hints } : {}) };
+  } else if (customized || hints || funding || liveKey) {
+    const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...notes };
     await db()
       .update(apps)
       .set({ settings, ...liveKey })
@@ -218,7 +242,7 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
     ...app.settings,
     wallets,
     chains,
-    hints: String(form.get("hints") ?? "").trim().slice(0, 2000) || undefined,
+    hints: String(form.get("hints") ?? "").trim().slice(0, 4000) || undefined,
     allowMainnetLive: false,
     storage,
     responses,

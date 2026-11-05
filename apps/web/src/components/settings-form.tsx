@@ -66,7 +66,7 @@ export function SettingsForm({ appId, defaults: d }: { appId: string; defaults: 
           <Input name="url" defaultValue={d.url} required spellCheck={false} />
         </Field>
         <Field label="Notes for DappDrill" hint="Where things are, what to use. It reads these before every run.">
-          <Textarea name="hints" defaultValue={d.hints} rows={3} maxLength={2000} placeholder="The swap is under /trade. Use USDC on Base." />
+          <Textarea name="hints" defaultValue={d.hints} rows={3} maxLength={4000} placeholder="The swap is under /trade. Use USDC on Base." />
         </Field>
       </SettingsSection>
 

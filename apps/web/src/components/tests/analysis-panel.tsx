@@ -38,7 +38,7 @@ export function AnalysisPanel({ analysis, appId, host, hasFlows }: { analysis: A
             </div>
             <span className="text-sm text-muted-foreground tabular-nums">{analysis.startedAt ? <Elapsed since={analysis.startedAt.toISOString()} /> : "0:00"}</span>
           </div>
-          <p className="text-sm leading-relaxed text-muted-foreground">Takes about two minutes. Tests for what it finds show up below and run right away.</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">Takes 5–7 minutes. Tests for what it finds show up below and run right away.</p>
           {lines.length > 0 && (
             <ol className="flex flex-col gap-1.5 border-t pt-4">
               {lines.map((l, i) => (

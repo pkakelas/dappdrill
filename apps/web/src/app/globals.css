@@ -108,4 +108,49 @@
   .page {
     @apply mx-auto w-full max-w-6xl px-4 pt-8 pb-16 sm:px-6;
   }
+
+  /* New app preview: greys the site down to its shape, with a clear band passing through. */
+  .site-wash {
+    background: color-mix(in srgb, var(--background) 72%, transparent);
+    backdrop-filter: grayscale(1) blur(1px);
+    mask: linear-gradient(#000 40%, transparent 47% 53%, #000 60%) 0 100% / 100% 300% no-repeat;
+    animation: site-sweep 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  /* The bottom edge is the light. Moves with the band above, which is why the numbers differ. */
+  .site-beam {
+    border-bottom: 1px solid color-mix(in oklab, var(--foreground) 35%, transparent);
+    box-shadow: 0 6px 24px color-mix(in oklab, var(--foreground) 12%, transparent);
+    animation: site-beam 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-wash {
+      animation: none;
+      mask: none;
+    }
+    .site-beam {
+      display: none;
+    }
+  }
+}
+
+@keyframes site-sweep {
+  from {
+    mask-position: 0 100%;
+  }
+  65%,
+  to {
+    mask-position: 0 0;
+  }
+}
+
+@keyframes site-beam {
+  from {
+    transform: translateY(-150%);
+  }
+  65%,
+  to {
+    transform: translateY(50%);
+  }
 }
