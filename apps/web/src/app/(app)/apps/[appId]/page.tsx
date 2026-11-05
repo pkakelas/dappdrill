@@ -1,7 +1,7 @@
 import { appRollup, signingOf, walletUse } from "@dappdrill/core";
 import { analyses, appTests, db, latestRuns, notWritten, runHistory, settledRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
-import { ArrowRight, Flag, ListChecks, TriangleAlert, type LucideIcon } from "lucide-react";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
@@ -15,13 +15,13 @@ import { ConditionBranches } from "@/components/tests/condition-branches";
 import { RunButton } from "@/components/tests/run-button";
 import { SetupCard } from "@/components/tests/setup-card";
 import { readTest } from "@/components/tests/status";
-import { DraftLine, ProblemCard, TestLine, TestList, type TestCardProps } from "@/components/tests/test-card";
-import { SectionHead, Tile, type TINT } from "@/components/tests/tile";
+import { DraftLine, TestLine, TestList, type TestCardProps } from "@/components/tests/test-card";
+import { Tile } from "@/components/tests/tile";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
-import { hostFromUrl, plural, timeAgo } from "@/lib/format";
+import { hostFromUrl, timeAgo } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
@@ -30,10 +30,11 @@ export async function generateMetadata({ params }: { params: Promise<{ appId: st
 }
 
 type Tab = "tests" | "conditions" | "setup";
+type Show = "all" | "attention" | "passed" | "waiting";
 
-export default async function TestsPage({ params, searchParams }: { params: Promise<{ appId: string }>; searchParams: Promise<{ view?: string }> }) {
+export default async function TestsPage({ params, searchParams }: { params: Promise<{ appId: string }>; searchParams: Promise<{ view?: string; show?: string }> }) {
   const { appId } = await params;
-  const { view } = await searchParams;
+  const { view, show } = await searchParams;
   const { app } = await requireApp(appId);
   const [[analysis], tests] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), appTests(db(), appId)]);
   const ids = tests.map((t) => t.id);
@@ -58,9 +59,14 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
     return all.some((r) => r.active === "running") ? 0 : all.some((r) => r.active === "queued") ? 1 : all.some((r) => r.drafting) ? 2 : 3;
   };
   const others = roots.filter((t) => !needsLook(t)).sort((a, b) => liveRank(a) - liveRank(b));
-  // Only a test that stopped has a moment to show. One that passed with a problem stays a line.
-  const stopped = attention.filter((t) => rank(t) < 3);
-  const flagged = attention.filter((t) => rank(t) === 3);
+  const all = [...attention, ...others];
+  // The same counts as the top of the page, so a test that passed with a problem is under both Passed and Needs attention.
+  const passed = all.filter((t) => reads.get(t.id)!.settled === "pass");
+  const waiting = all.filter((t) => reads.get(t.id)!.settled === "never");
+  const counts: Record<Show, number> = { all: roots.length + untested.length, attention: attention.length, passed: passed.length, waiting: waiting.length + untested.length };
+  // A filter that has emptied since the link was made falls back to everything.
+  const showing: Show = show === "attention" || show === "passed" || show === "waiting" ? (counts[show] > 0 ? show : "all") : "all";
+  const listed = { all, attention, passed, waiting }[showing];
   const host = hostFromUrl(app.url);
 
   const exploring = analysis && (analysis.status === "queued" || analysis.status === "running");
@@ -73,9 +79,8 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   const tab: Tab = view === "grid" ? "conditions" : view === "setup" ? "setup" : "tests";
   const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
   const setupRun = app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()]) : undefined;
-  const cardProps = (t: TestRow): TestCardProps => ({ appId, url: app.url, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0 });
+  const cardProps = (t: TestRow): TestCardProps => ({ appId, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0 });
   const branches = (t: TestRow) => conditionsOf(t).length > 0 && <ConditionBranches appId={appId} tests={conditionsOf(t)} reads={reads} runs={settled} className="relative z-10" />;
-  const fine = others.length + untested.length;
 
   return (
     <div className="page">
@@ -114,38 +119,14 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
                 <div className="flex flex-col gap-10">
                   {/* A setup that failed is why these results can't be trusted, so it can't wait behind its tab. */}
                   {setupRun?.failed && <SetupWarning appId={appId} />}
-                  {attention.length > 0 && (
-                    <Group icon={Flag} tint="bad" title="Needs attention" detail={attentionText(stopped.length, flagged.length)}>
-                      {stopped.map((t) => (
-                        <ProblemCard key={t.id} {...cardProps(t)}>
-                          {branches(t)}
-                        </ProblemCard>
-                      ))}
-                      {flagged.length > 0 && (
-                        <TestList>
-                          {flagged.map((t) => (
-                            <TestLine key={t.id} {...cardProps(t)}>
-                              {branches(t)}
-                            </TestLine>
-                          ))}
-                        </TestList>
-                      )}
-                    </Group>
-                  )}
-                  {fine > 0 && (
-                    <Group icon={ListChecks} tint="fork" title={attention.length > 0 ? "Other tests" : "Tests"} detail={plural(fine, "test")}>
-                      <TestList>
-                        {others.map((t) => (
-                          <TestLine key={t.id} {...cardProps(t)}>
-                            {branches(t)}
-                          </TestLine>
-                        ))}
-                        {untested.map((t) => (
-                          <DraftLine key={t.id} appId={appId} test={t} />
-                        ))}
-                      </TestList>
-                    </Group>
-                  )}
+                  <TestList filter={<TestFilter appId={appId} showing={showing} counts={counts} />}>
+                    {listed.map((t) => (
+                      <TestLine key={t.id} {...cardProps(t)}>
+                        {branches(t)}
+                      </TestLine>
+                    ))}
+                    {(showing === "all" || showing === "waiting") && untested.map((t) => <DraftLine key={t.id} appId={appId} test={t} />)}
+                  </TestList>
                 </div>
               )}
             </div>
@@ -173,19 +154,6 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   );
 }
 
-function attentionText(stopped: number, flagged: number) {
-  return [stopped > 0 && `${stopped} stopped`, flagged > 0 && `${flagged} passed with a problem`].filter(Boolean).join(", ");
-}
-
-function Group({ icon, tint, title, detail, children }: { icon: LucideIcon; tint: keyof typeof TINT; title: string; detail: string; children: React.ReactNode }) {
-  return (
-    <section aria-label={title} className="flex flex-col gap-4">
-      <SectionHead icon={icon} tint={tint} title={title} detail={detail} />
-      <div className="flex flex-col gap-3">{children}</div>
-    </section>
-  );
-}
-
 function SetupWarning({ appId }: { appId: string }) {
   return (
     <Link href={`/apps/${appId}?view=setup`} className="flex items-center gap-3 rounded-xl border border-warn-line bg-warn-soft p-3 shadow-sm transition-colors outline-none hover:border-warn-bar focus-visible:ring-2 focus-visible:ring-ring">
@@ -196,6 +164,33 @@ function SetupWarning({ appId }: { appId: string }) {
         <ArrowRight className="size-4" aria-hidden="true" />
       </span>
     </Link>
+  );
+}
+
+const FILTERS: { show: Show; label: string }[] = [
+  { show: "all", label: "All" },
+  { show: "attention", label: "Needs attention" },
+  { show: "passed", label: "Passed" },
+  { show: "waiting", label: "Not run yet" },
+];
+
+/** The list's own header. Worst comes first anyway, so this is for narrowing down, and it only offers what's there. */
+function TestFilter({ appId, showing, counts }: { appId: string; showing: Show; counts: Record<Show, number> }) {
+  return (
+    <nav aria-label="Filter tests" className="flex flex-wrap items-center gap-0.5 p-1.5">
+      {FILTERS.filter((f) => counts[f.show] > 0).map(({ show, label }) => (
+        <Link
+          key={show}
+          href={show === "all" ? `/apps/${appId}` : `/apps/${appId}?show=${show}`}
+          scroll={false}
+          aria-current={show === showing ? "true" : undefined}
+          className={cx("flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", show === showing ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
+        >
+          {label}
+          {show !== "all" && <span className={cx("font-normal tabular-nums", show === "attention" ? "text-bad" : "text-muted-foreground")}>{counts[show]}</span>}
+        </Link>
+      ))}
+    </nav>
   );
 }
 

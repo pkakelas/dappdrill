@@ -1,14 +1,11 @@
-import { signingText, type SigningFlag as Signing, type StepStatus } from "@dappdrill/core";
+import { signingText, type SigningFlag as Signing } from "@dappdrill/core";
 import { specOf, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { BrowserWindow } from "@/components/site-preview";
 import { cx } from "@/components/ui";
-import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { artifactUrl } from "@/lib/artifacts";
-import { plural, timeAgo } from "@/lib/format";
+import { timeAgo } from "@/lib/format";
 import { failureParts, Line } from "./condition-branches";
 import { RunButton } from "./run-button";
 import { SigningFlag } from "./signing-flag";
@@ -18,8 +15,6 @@ import { WriteTest } from "./write-test";
 /** `run` is the result its status reads from; `live` the newest run, for progress. `signing` covers its conditions too. */
 export interface TestCardProps {
   appId: string;
-  /** The app's address, for the window its screenshot sits in. */
-  url: string;
   test: TestRow;
   read: TestRead;
   run?: TestRunRow;
@@ -29,39 +24,6 @@ export interface TestCardProps {
   hasConditions: boolean;
   /** The test's conditions. */
   children?: ReactNode;
-}
-
-const SEGMENT: Record<StepStatus, string> = {
-  pass: "bg-good-bar",
-  fail: "bg-rose-500",
-  running: "animate-pulse bg-sky-500",
-  pending: "bg-foreground/10",
-  skipped: "bg-foreground/10",
-};
-
-/** A test's steps as one bar, so where it stopped shows without reading anything. */
-function StepTrail({ steps, stuck }: { steps: StepStatus[]; stuck?: boolean }) {
-  const passed = steps.filter((s) => s === "pass").length;
-  const label = `${passed} of ${plural(steps.length, "step")} passed`;
-  if (steps.length === 0) return null;
-  return (
-    <div className="flex items-center gap-3">
-      <div role="img" aria-label={label} title={label} className="flex h-1.5 min-w-0 flex-1 gap-0.5">
-        {steps.map((s, i) => (
-          <span key={i} className={cx("min-w-0 flex-1 rounded-full", s === "fail" && stuck ? "bg-warn-bar" : SEGMENT[s])} />
-        ))}
-      </div>
-      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-        {passed > 0 && passed < steps.length ? `${passed} of ${steps.length}` : plural(steps.length, "step")}
-      </span>
-    </div>
-  );
-}
-
-/** The steps as the bar draws them: the run in progress, else the last result, else steps that haven't run. */
-function trailOf({ test, read, run, live }: TestCardProps): StepStatus[] {
-  const steps = (read.active ? live?.result?.steps : undefined) ?? run?.result?.steps;
-  return steps?.length ? steps.map((s) => s.status) : test.steps.map(() => "pending");
 }
 
 /** What's happening right now, while a run is on. */
@@ -86,7 +48,7 @@ function WalletMark({ href }: { href?: string }) {
         {href ? (
           <Link href={href} className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
             {icon}
-            <span className={cx("max-sm:sr-only", REVEAL, "group-hover/test:opacity-100")}>Add conditions</span>
+            <span className={cx("max-sm:sr-only", REVEAL, "group-hover/line:opacity-100")}>Add conditions</span>
           </Link>
         ) : (
           <span role="img" aria-label="Asks the wallet to sign" className="relative z-10 shrink-0 text-muted-foreground">
@@ -99,10 +61,10 @@ function WalletMark({ href }: { href?: string }) {
   );
 }
 
-function Title({ appId, test, signs, signing, hasConditions, className }: TestCardProps & { className?: string }) {
+function Title({ appId, test, signs, signing, hasConditions }: TestCardProps) {
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 sm:flex-nowrap">
-      <Link href={`/apps/${appId}/tests/${test.id}`} className={cx("min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline", className)}>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:flex-nowrap">
+      <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
         {specOf(test).name}
       </Link>
       {signingText(signing) && <SigningFlag signing={signing} short />}
@@ -111,35 +73,33 @@ function Title({ appId, test, signs, signing, hasConditions, className }: TestCa
   );
 }
 
-/** The status mark, with the test beside it. A test with conditions grows a trunk from the mark for them to branch off. */
-function Trunk({ mark, forked, className, children }: { mark: TestRead["mark"]; forked: boolean; className?: string; children: ReactNode }) {
+/** The list the lines sit in, under its filter. */
+export function TestList({ filter, children }: { filter: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex gap-3">
-      <div className="flex w-7 shrink-0 flex-col">
-        <StateMark state={mark} size="lg" />
-        {forked && <span className="mt-1 ml-3.5 w-px flex-1 bg-fork-line" />}
-      </div>
-      <div className={cx("flex min-w-0 flex-1 flex-col", className)}>{children}</div>
+    <div className="rounded-xl border bg-card shadow-sm">
+      {filter}
+      <ul className="divide-y border-t">{children}</ul>
     </div>
   );
 }
 
-/** The list the lines sit in. */
-export function TestList({ children }: { children: ReactNode }) {
-  return <ul className="divide-y rounded-xl border bg-card shadow-sm">{children}</ul>;
-}
-
-/** A test that ran to the end, or hasn't run, as one line. Its conditions nest under it. */
+/** A test as one line, with its conditions nested under it. One that stopped says where, which is what lifts it out of the list. */
 export function TestLine(props: TestCardProps) {
   const { appId, test, read, run, children } = props;
   const now = progress(props);
-  const reason = read.settled === "skipped" ? run?.result?.failure : undefined;
+  const reason = read.settled === "fail" || read.settled === "error" || read.settled === "skipped" ? run?.result?.failure : undefined;
+  const stopped = reason && read.settled !== "skipped" ? failureParts(reason) : undefined;
   return (
     <li className="p-1.5">
       <Line
         className="min-h-11 py-2"
         mark={<StateMark state={read.mark} size="lg" />}
-        name={<Title {...props} />}
+        name={
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <Title {...props} />
+            {stopped && <p className={cx("truncate text-xs", STATE_TEXT[read.settled])}>{stopped.where ?? stopped.why}</p>}
+          </div>
+        }
         status={
           <span title={reason}>
             {now ?? <span className={STATE_TEXT[read.mark]}>{readLabel(read)}</span>}
@@ -150,48 +110,6 @@ export function TestLine(props: TestCardProps) {
       />
       {children}
     </li>
-  );
-}
-
-/** A test that failed or couldn't run: where it stopped, why, and what the page looked like at that moment. */
-export function ProblemCard(props: TestCardProps) {
-  const { appId, url, test, read, run, children } = props;
-  const stuck = read.settled === "error";
-  const failure = run?.result?.failure ? failureParts(run.result.failure) : undefined;
-  const shot = run && artifactUrl("runs", run.batchId, run.result?.steps.findLast((s) => s.screenshot)?.screenshot);
-  const now = progress(props);
-  return (
-    <Card className={cx("group/test relative gap-5 p-5 shadow-sm md:flex-row", stuck ? "border-warn-line bg-warn-soft" : "border-bad-line bg-bad-soft")}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Trunk mark={read.mark} forked={Boolean(children)} className="gap-3">
-          <div className="flex items-start gap-2.5">
-            <Title {...props} className="text-base font-semibold tracking-tight" />
-            <span className="relative z-10 -my-1 shrink-0">
-              <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} stopIds={[test.id]} label="Run again" size="sm" disabled={read.drafting} />
-            </span>
-          </div>
-          {failure && (
-            <div className="flex flex-col gap-1" title={run?.result?.failure}>
-              <p className={cx("font-medium text-pretty", stuck ? "text-warn" : "text-bad")}>{failure.where ?? STATE_LABEL[read.settled]}</p>
-              <p className="line-clamp-3 text-pretty text-foreground/70">{failure.why}</p>
-            </div>
-          )}
-          <div className="flex flex-col gap-2">
-            <StepTrail steps={trailOf(props)} stuck={stuck} />
-            {(now || run?.finishedAt) && <p className="text-xs text-muted-foreground">{now ?? `${readLabel(read)} ${timeAgo(run!.finishedAt!)}`}</p>}
-          </div>
-        </Trunk>
-        {children && <div className="-ml-2">{children}</div>}
-      </div>
-      {shot && (
-        <div className="shrink-0 self-start max-md:w-full md:w-72">
-          <BrowserWindow url={url}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={shot} alt={`The page when ${specOf(test).name} stopped`} className="aspect-[16/10] w-full object-cover object-top" />
-          </BrowserWindow>
-        </div>
-      )}
-    </Card>
   );
 }
 
