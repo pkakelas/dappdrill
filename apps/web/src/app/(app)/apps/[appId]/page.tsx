@@ -170,22 +170,27 @@ function rollupOf(tests: TestRow[], reads: Map<string, TestRead>, settled: Map<s
   );
 }
 
-/** Under the flow's name: its status, then its conditions, then anything the signing review flagged. */
+/** Under the flow's name: its status, then its conditions, then anything the signing review flagged. Inline, so it wraps in the rail. */
 function FlowSummary({ rollup: r }: { rollup: FlowRollup }) {
-  if (r.status === "untested") return <span>Not tested</span>;
+  if (r.status === "untested") return "Not tested";
   return (
-    <span className="flex flex-wrap items-center gap-x-2">
+    <>
       <span className={cx(r.status === "fail" && "text-bad", r.status === "error" && "text-warn")}>{flowStatusText(r)}</span>
-      {r.active && <ActiveDot active="running" />}
-      <span aria-hidden="true">·</span>
+      {r.active && (
+        <>
+          {" "}
+          <ActiveDot active="running" />
+        </>
+      )}
+      {" · "}
       <span className={cx(r.conditions.failed > 0 && "text-warn")}>Conditions: {conditionsText(r)}</span>
       {signingText(r.signing) && (
         <>
-          <span aria-hidden="true">·</span>
+          {" · "}
           <SigningFlag signing={r.signing} />
         </>
       )}
-    </span>
+    </>
   );
 }
 

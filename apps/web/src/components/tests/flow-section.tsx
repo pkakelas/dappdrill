@@ -89,15 +89,10 @@ export function FlowSection({ appId, flow, states, summary, activeIds, children 
             <>
               <h2 className="font-semibold tracking-tight text-pretty">{flow.name}</h2>
               {flow.goal && <p className="mt-0.5 text-sm text-pretty text-muted-foreground">{flow.goal}</p>}
-              <div className="mt-0.5 flex flex-wrap gap-x-2 text-sm text-muted-foreground">
-                {tested && (
-                  <>
-                    <span>{plural(states.length, "test")}</span>
-                    <span aria-hidden="true">·</span>
-                  </>
-                )}
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {tested && `${plural(states.length, "test")} · `}
                 {summary}
-              </div>
+              </p>
             </>
           )}
         </div>
