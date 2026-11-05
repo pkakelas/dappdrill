@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
-import { agentMessages, analyses, apps, db, member, testRuns } from "@dappdrill/db";
+import { agentMessages, analyses, apps, db, explorations, member, testRuns } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
 import { env } from "@/lib/env";
 import { getSession } from "@/lib/session";
@@ -27,6 +27,7 @@ async function appIdFor(kind: string, id: string): Promise<string | undefined> {
   if (kind === "analyses") return (await d.select({ appId: analyses.appId }).from(analyses).where(eq(analyses.id, id)))[0]?.appId;
   if (kind === "runs") return (await d.select({ appId: testRuns.appId }).from(testRuns).where(eq(testRuns.batchId, id)).limit(1))[0]?.appId;
   if (kind === "agent") return (await d.select({ appId: agentMessages.appId }).from(agentMessages).where(eq(agentMessages.id, id)))[0]?.appId;
+  if (kind === "explorations") return (await d.select({ appId: explorations.appId }).from(explorations).where(eq(explorations.id, id)))[0]?.appId;
   return undefined;
 }
 

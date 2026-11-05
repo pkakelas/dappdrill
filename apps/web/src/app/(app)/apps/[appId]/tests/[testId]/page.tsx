@@ -114,6 +114,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                 </span>
               )}
             </p>
+            {state.draft && <p className="text-sm text-muted-foreground">{test.draftNote} It doesn&apos;t count towards the app&apos;s results or run on a schedule until it passes.</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {notWritten(test) ? <WriteTest testId={test.id} primary /> : <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />}

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ChainConfig } from "./chains.js";
 import { EdgeCaseId, DEFAULT_EDGE_CASES } from "./edge-cases.js";
+import type { ExploreState } from "./explore.js";
 import { ReplayScript, Variation, WalletProfileId } from "./script.js";
 import { ConsoleEntry, Issue, RpcLogEntry } from "./issues.js";
 import { SigningReview, WalletRequest } from "./signing.js";
@@ -237,7 +238,8 @@ export type DrillEvent =
   | { type: "cost"; usd: number }
   | { type: "blocked"; blocked: Blocked }
   | { type: "stalled"; stalled: Stalled }
-  | { type: "plan"; plan: ScanPlan };
+  | { type: "plan"; plan: ScanPlan }
+  | { type: "explore"; state: ExploreState };
 
 export type DrillEventSink = (event: DrillEvent) => void | Promise<void>;
 

@@ -1,11 +1,12 @@
 import { appRollup, signingOf, walletUse } from "@dappdrill/core";
-import { analyses, appTests, db, latestRuns, notWritten, runHistory, settledRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { analyses, appTests, db, explorations, latestRuns, notWritten, runHistory, settledRuns, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
 import { ArrowRight, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { ExplorePanel } from "@/components/explore/panel";
 import { AddTest, AddTestButton } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
 import { AppHero } from "@/components/tests/app-hero";
@@ -36,7 +37,11 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   const { appId } = await params;
   const { view, show } = await searchParams;
   const { app } = await requireApp(appId);
-  const [[analysis], tests] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), appTests(db(), appId)]);
+  const [[analysis], [exploration], tests] = await Promise.all([
+    db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1),
+    db().select().from(explorations).where(eq(explorations.appId, appId)).orderBy(desc(explorations.createdAt)).limit(1),
+    appTests(db(), appId),
+  ]);
   const ids = tests.map((t) => t.id);
   const [latest, settled, history] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000))]);
   const reads = new Map(tests.map((t) => [t.id, readTest(t, latest.get(t.id), settled.get(t.id))]));
@@ -45,13 +50,15 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   const conditionsOf = (t: TestRow) => tests.filter((c) => c.baseId === t.id);
   // A row flags its conditions' signatures too: they only show as pills otherwise.
   const signingFor = (t: TestRow) => signingOf([t, ...conditionsOf(t)].flatMap((row) => settled.get(row.id)?.result?.signingReviews.map((r) => r.verdict) ?? []));
+  // A draft hasn't passed yet, so it doesn't count for or against the app.
+  const counted = roots.filter((t) => !t.draftNote);
   const overall = appRollup(
-    roots.map((t) => ({ read: reads.get(t.id)!, conditions: conditionsOf(t).map((c) => reads.get(c.id)!), signing: signingFor(t) })),
+    counted.map((t) => ({ read: reads.get(t.id)!, conditions: conditionsOf(t).map((c) => reads.get(c.id)!), signing: signingFor(t) })),
     untested.length,
   );
   // Worst first. A passed test can still need a look: a condition failed, or it signed something dangerous.
   const rank = (t: TestRow) => ["fail", "error"].indexOf(reads.get(t.id)!.settled) + 1 || 3;
-  const needsLook = (t: TestRow) => rank(t) < 3 || signingFor(t).dangerous > 0 || conditionsOf(t).some((c) => reads.get(c.id)!.settled === "fail");
+  const needsLook = (t: TestRow) => !t.draftNote && (rank(t) < 3 || signingFor(t).dangerous > 0 || conditionsOf(t).some((c) => reads.get(c.id)!.settled === "fail"));
   const attention = roots.filter(needsLook).sort((a, b) => rank(a) - rank(b));
   // What's happening now comes first, conditions included.
   const liveRank = (t: TestRow) => {
@@ -70,6 +77,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   const host = hostFromUrl(app.url);
 
   const exploring = analysis && (analysis.status === "queued" || analysis.status === "running");
+  const inDepth = exploration && (exploration.status === "queued" || exploration.status === "running");
   const activeIds = tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
   const anyActive = activeIds.length > 0 || tests.some((t) => reads.get(t.id)!.drafting);
   const lastRun = [...latest.values()]
@@ -84,7 +92,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
 
   return (
     <div className="page">
-      {(exploring || anyActive) && <AutoRefresh every={2000} />}
+      {(exploring || inDepth || anyActive) && <AutoRefresh every={2000} />}
 
       <TooltipProvider>
         <div className="flex flex-col gap-12">
@@ -95,7 +103,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
             lastRun={lastRun}
             wallet={app.settings.wallets[0]}
             chainId={(app.settings.chains[0] ?? app.chains[0])?.id}
-            rollup={roots.length > 0 ? overall : undefined}
+            rollup={counted.length > 0 ? overall : undefined}
             running={activeIds.length}
             runs={history}
             action={
@@ -109,6 +117,8 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
           />
 
           {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasTests={tests.length > 0} />}
+
+          {!exploring && tests.length > 0 && <ExplorePanel appId={appId} url={app.url} exploration={exploration} />}
 
           {tests.length > 0 ? (
             <div className="flex flex-col gap-6">

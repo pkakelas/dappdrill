@@ -175,5 +175,8 @@ export async function nextPosition(db: Db, appId: string): Promise<number> {
   return (row?.n ?? -1) + 1;
 }
 
+/** On a new test until its first pass. */
+export const NEW_TEST_NOTE = "Hasn't passed yet.";
+
 /** Bumps updated_at; used with every edit of a test. */
 export const touched = () => ({ updatedAt: sql`now()` });

@@ -5,10 +5,11 @@ import { config } from "./config.js";
 import { runAgentReply } from "./jobs/agent.js";
 import { runAnalysis } from "./jobs/analyze.js";
 import { runDraft } from "./jobs/draft.js";
+import { runExploration, runSweep } from "./jobs/explore.js";
 import { scheduleTick } from "./jobs/schedule.js";
 import { runTestBatch } from "./jobs/tests.js";
 import { errorMessage, logger } from "./log.js";
-import { createBoss, QUEUES, type AgentJob, type AnalysisJob, type DraftJob, type ScheduleTickJob, type TestsJob } from "./queues.js";
+import { createBoss, QUEUES, type AgentJob, type AnalysisJob, type DraftJob, type ExplorationJob, type ScheduleTickJob, type TestsJob } from "./queues.js";
 
 const log = logger("worker");
 const SHUTDOWN_GRACE_MS = 30_000;
@@ -31,6 +32,8 @@ async function main() {
   await boss.work<TestsJob>(QUEUES.tests, { localConcurrency: config.testsConcurrency }, each((d, s) => runTestBatch(db, engine, d.batchId, s)));
   await boss.work<DraftJob>(QUEUES.draft, { localConcurrency: config.chatConcurrency }, each((d) => runDraft(db, engine, boss, d.testId)));
   await boss.work<AgentJob>(QUEUES.agent, { localConcurrency: config.chatConcurrency }, each((d, s) => runAgentReply(db, engine, boss, d.messageId, s)));
+  await boss.work<ExplorationJob>(QUEUES.exploration, { localConcurrency: config.explorationConcurrency }, each((d, s) => runExploration(db, engine, boss, d.explorationId, s)));
+  await boss.work<ExplorationJob>(QUEUES.sweep, each((d, s) => runSweep(db, engine, d.explorationId, s)));
   await boss.work<ScheduleTickJob>(QUEUES.scheduleTick, each((d) => scheduleTick(db, boss, d?.at)));
   await boss.schedule(QUEUES.scheduleTick, "* * * * *");
 

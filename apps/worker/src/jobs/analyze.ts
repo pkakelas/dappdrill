@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { newId, type AppSetup, type DrillEvent, type SetupDraft, type TestDraft, type TestIdea } from "@dappdrill/core";
-import { analyses, apps, nextPosition, notWritten, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
+import { NEW_TEST_NOTE, analyses, apps, nextPosition, notWritten, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
@@ -107,7 +107,7 @@ async function addTests(db: Db, appId: string, drafts: TestDraft[], ideas: TestI
   const ids: string[] = [];
   for (const { steps, ...draft } of drafts) {
     const key = draft.name.toLowerCase();
-    const row = { ...draft, steps: steps.map((text) => ({ text })) };
+    const row = { ...draft, steps: steps.map((text) => ({ text })), draftNote: NEW_TEST_NOTE };
     const stub = unwritten.get(key);
     if (stub) {
       unwritten.delete(key);

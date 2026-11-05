@@ -66,6 +66,13 @@ export class Recorder {
     return this.active?.steps ?? [];
   }
 
+  /** A copy of the steps so far, made generic like take(), with the recording still going. */
+  snapshot(): Step[] {
+    const steps = structuredClone(this.steps());
+    this.generic(steps);
+    return steps;
+  }
+
   /**
    * Close the script: amounts the user typed that showed up in a transaction
    * become {{amount}}, and the wallet's address becomes {{account}} so the
@@ -128,6 +135,8 @@ export interface ToolContext {
   budgetNote?: () => string | undefined;
   /** Runs before the wallet approves a signing request (the signing review). */
   beforeApprove?: (request: WalletRequest) => Promise<void>;
+  /** Why this request must not be approved, when it mustn't. */
+  refuseApprove?: (request: WalletRequest) => string | undefined;
   /** After each click: undefined when it landed, otherwise what we failed to click. */
   onClick?: (failed?: string) => void;
 }
@@ -303,6 +312,8 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
       handler: async () => {
         const pending = pendingSign(session);
         if (!pending) return "No signing request is pending. Trigger one in the app first.";
+        const refused = ctx.refuseApprove?.(pending);
+        if (refused) return refused;
         const decoded = decodeWalletRequest(pending);
         const match = matchTypedAmount(recorder.typedValues(), decoded.amounts);
         const expect = { ...decoded.expectation };

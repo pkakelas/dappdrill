@@ -10,3 +10,4 @@ export * from "./hints.js";
 export * from "./setup.js";
 export * from "./test.js";
 export * from "./rollup.js";
+export * from "./explore.js";

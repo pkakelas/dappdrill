@@ -6,6 +6,8 @@
  * - runTests: run tests (after the app's setup); cached actions first, the fast model when they break.
  * - writeTest: write or fork a test from a sentence.
  * - chatTurn: one answer from the assistant in the side panel.
+ * - explore: explore the app in depth with parallel explorers, and prove what they find as tests.
+ * - sweep: repeat an exploration's checks without a model.
  */
 import {
   DrillTarget,
@@ -19,19 +21,23 @@ import {
   type Stalled,
   type TestDraft,
   type TestIdea,
+  type CheckReplay,
+  type SweepResults,
 } from "@dappdrill/core";
 import { analyzeApp } from "./agent/analyst.js";
 import { browseTask, chat, type ChatInput } from "./agent/chat.js";
 import { createLlm } from "./agent/index.js";
 import { draftTest, type DraftInput } from "./agent/writer.js";
 import { diagnoseStall } from "./browser/traffic.js";
+import { runExploration, type ExploreHooks, type ExploreOptions, type ExploreOutput, type KnownTest } from "./explore/run.js";
+import { sweepChecks } from "./explore/sweep.js";
 import { openEnv, withoutFallback, type Env } from "./pipeline/env.js";
 import { pin } from "./pipeline/pin.js";
 import { landingBotCheck, runTestItems, type RunTestsOptions, type TestHooks, type TestItem, type TestOutcome } from "./pipeline/tests.js";
 import { createSession, type EngineSession } from "./runtime.js";
 import type { Llm } from "./types.js";
 
-export type { TestItem, TestOutcome, TestHooks, DraftInput };
+export type { TestItem, TestOutcome, TestHooks, DraftInput, ExploreHooks, ExploreOptions, ExploreOutput, KnownTest };
 
 const debug = (m: string) => {
   if (process.env.DAPPDRILL_DEBUG) console.error(`[engine] ${m}`);
@@ -112,6 +118,22 @@ export async function runTests(
   } finally {
     await env.close();
   }
+}
+
+/** Explore the app in depth, for about `budgetMinutes` plus the time to prove tests and settle bugs. */
+export async function explore(target: DrillTarget, opts: ExploreOptions, hooks: ExploreHooks, sink: DrillEventSink, signal?: AbortSignal): Promise<ExploreOutput> {
+  return runExploration(DrillTarget.parse(target), opts, hooks, sink, signal);
+}
+
+/** Repeat checks from their recorded actions, with no model. Signing paths are left to the saved tests. */
+export async function sweep(
+  target: DrillTarget,
+  replays: CheckReplay[],
+  opts: { artifactsDir: string; setup?: AppSetup; headless?: boolean },
+  sink?: DrillEventSink,
+  signal?: AbortSignal,
+): Promise<{ sweep: SweepResults; costUsd: number }> {
+  return sweepChecks(DrillTarget.parse(target), replays, opts, sink, signal);
 }
 
 /** Write a new test, a fork of one, or a rewrite, from the developer's sentence. */

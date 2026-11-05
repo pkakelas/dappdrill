@@ -2,14 +2,15 @@ import { ACTIVE_LABEL, readOf, SETTLED_LABEL, type Active, type Read, type Settl
 import { Check, Minus, TriangleAlert, X } from "lucide-react";
 import { cx } from "@/components/ui";
 
-/** Anything a mark can show: a finished result, a run in progress, a result list's stopped run, a draft being written. */
-export type TestState = TestRunStatus | "never" | "drafting";
+/** Anything a mark can show: a finished result, a run in progress, a result list's stopped run, a test being written, a draft that hasn't passed yet. */
+export type TestState = TestRunStatus | "never" | "drafting" | "draft";
 
 export const STATE_LABEL: Record<TestState, string> = {
   ...SETTLED_LABEL,
   ...ACTIVE_LABEL,
   stopped: "Stopped",
   drafting: "Writing…",
+  draft: "Draft",
 };
 
 /** The mark carries a pass's colour, so its word stays quiet. Failed is bad, Couldn't run is warn, Running and Queued are live. */
@@ -23,6 +24,7 @@ export const STATE_TEXT: Record<TestState, string> = {
   skipped: "text-muted-foreground",
   never: "text-muted-foreground",
   drafting: "text-muted-foreground",
+  draft: "text-muted-foreground",
 };
 
 /**
@@ -31,6 +33,8 @@ export const STATE_TEXT: Record<TestState, string> = {
  */
 export interface TestRead extends Read {
   drafting: boolean;
+  /** Hasn't passed yet: it doesn't count towards the app's results or run on a schedule. */
+  draft: boolean;
   /** The mark to draw: the finished result, or the live state when there is no result yet. */
   mark: TestState;
 }
@@ -38,11 +42,12 @@ export interface TestRead extends Read {
 /** Actions that wait for the pointer, but stay put on touch screens and for the keyboard. */
 export const REVEAL = "transition-opacity focus-within:opacity-100 has-[[data-state=open]]:opacity-100 [@media(hover:hover)]:opacity-0";
 
-export function readTest(test: { drafting: string | null }, latest?: { status: TestRunStatus }, settled?: { status: TestRunStatus }): TestRead {
+export function readTest(test: { drafting: string | null; draftNote: string | null }, latest?: { status: TestRunStatus }, settled?: { status: TestRunStatus }): TestRead {
   const read = readOf(latest, settled);
   const drafting = Boolean(test.drafting);
-  const mark: TestState = drafting ? "drafting" : read.settled === "never" && read.active ? read.active : read.settled;
-  return { ...read, drafting, mark };
+  const draft = Boolean(test.draftNote);
+  const mark: TestState = drafting ? "drafting" : read.active && (draft || read.settled === "never") ? read.active : draft ? "draft" : read.settled;
+  return { ...read, drafting, draft, mark };
 }
 
 export const isActive = (r: TestRead) => Boolean(r.active) || r.drafting;
@@ -50,6 +55,7 @@ export const isActive = (r: TestRead) => Boolean(r.active) || r.drafting;
 /** "Passed", "Failed · Running", "Queued"… */
 export function readLabel(r: TestRead): string {
   if (r.drafting) return STATE_LABEL.drafting;
+  if (r.draft) return r.active ? `${STATE_LABEL.draft} · ${ACTIVE_LABEL[r.active]}` : STATE_LABEL.draft;
   if (r.settled === "never") return r.active ? ACTIVE_LABEL[r.active] : SETTLED_LABEL.never;
   return r.active ? `${SETTLED_LABEL[r.settled]} · ${ACTIVE_LABEL[r.active]}` : SETTLED_LABEL[r.settled];
 }
@@ -66,6 +72,7 @@ const BOX: Record<TestState, string> = {
   skipped: "bg-muted text-muted-foreground",
   never: "bg-muted",
   drafting: "bg-muted",
+  draft: "bg-muted",
 };
 
 function Glyph({ state, size }: { state: TestState; size: string }) {
@@ -89,6 +96,8 @@ function Glyph({ state, size }: { state: TestState; size: string }) {
       );
     case "queued":
       return <span className="size-2 rounded-full border-2 border-live" />;
+    case "draft":
+      return <span className="size-2 rounded-full border-2 border-dashed border-muted-foreground/60" />;
     case "drafting":
       return <span className="size-2 animate-pulse rounded-full bg-muted-foreground/50" />;
     default:

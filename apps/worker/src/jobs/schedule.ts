@@ -1,9 +1,9 @@
-import { and, eq, gt, isNotNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
-import { apps, domains, queueRuns, testRuns, tests, type Db } from "@dappdrill/db";
+import { apps, domains, explorations, queueRuns, testRuns, tests, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { logger } from "../log.js";
-import { QUEUES, type TestsJob } from "../queues.js";
+import { QUEUES, type ExplorationJob, type TestsJob } from "../queues.js";
 
 const log = logger("schedule");
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
@@ -33,7 +33,10 @@ export async function scheduleTick(db: Db, boss: PgBoss, at = utcMinute()): Prom
       .limit(1);
     if (recent.length) continue;
 
-    const ids = (await db.select({ id: tests.id }).from(tests).where(eq(tests.appId, app.id))).map((t) => t.id);
+    // Drafts haven't passed yet, so they would only raise false alarms.
+    const ids = (await db.select({ id: tests.id }).from(tests).where(and(eq(tests.appId, app.id), isNull(tests.draftNote)))).map((t) => t.id);
+    const [explored] = await db.select({ id: explorations.id }).from(explorations).where(and(eq(explorations.appId, app.id), eq(explorations.status, "done"))).orderBy(desc(explorations.createdAt)).limit(1);
+    if (explored) await boss.send(QUEUES.sweep, { explorationId: explored.id } satisfies ExplorationJob);
     const batchId = await queueRuns(db, app.id, ids, "schedule");
     if (!batchId) {
       log.info(`${app.name}: no tests to run`);

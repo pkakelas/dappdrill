@@ -6,6 +6,8 @@
  *   "tests.run"      { batchId }     test_runs rows sharing the batch id (queueRuns in @dappdrill/db).
  *   "test-draft.run" { testId }      tests row with `drafting` = the developer's sentence; forkedFrom for a fork.
  *   "agent.reply"    { messageId }   a pending agent_messages row after the user's message.
+ *   "exploration.run" { explorationId } explorations row, status "queued".
+ *   "sweep.run"      { explorationId } a finished exploration whose checks get repeated.
  * Stopping is not a job: the web sets stop_requested and the worker polls it.
  *
  * Artifacts: a job writes into ARTIFACTS_DIR/<kind>/<id>/ ("analyses"/<analysisId>, "runs"/<batchId>,
@@ -20,10 +22,12 @@ export interface JobPayloads {
   "tests.run": { batchId: string };
   "test-draft.run": { testId: string };
   "agent.reply": { messageId: string };
+  "exploration.run": { explorationId: string };
+  "sweep.run": { explorationId: string };
 }
 export type QueueName = keyof JobPayloads;
 
-export type ArtifactKind = "analyses" | "runs" | "agent";
+export type ArtifactKind = "analyses" | "runs" | "agent" | "explorations";
 
 // One send-only pg-boss instance per server process (kept across dev reloads).
 const g = globalThis as unknown as { __ddBoss?: Promise<PgBoss>; __ddQueues?: Set<string> };

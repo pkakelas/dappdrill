@@ -6,6 +6,8 @@
  *   "tests.run"      { batchId }     test_runs rows sharing the batch id, status "queued" (queueRuns in @dappdrill/db).
  *   "test-draft.run" { testId }      tests row with `drafting` = the developer's sentence; forkedFrom set for a fork.
  *   "agent.reply"    { messageId }   agent_messages row, role "agent", status "pending", after the user's message.
+ *   "exploration.run" { explorationId } explorations row, status "queued".
+ *   "sweep.run"      { explorationId } a finished exploration whose checks get repeated.
  *
  * Stopping is not a job: the web sets stop_requested on the analysis or run and the worker polls it.
  */
@@ -17,10 +19,15 @@ export const QUEUES = {
   draft: "test-draft.run",
   agent: "agent.reply",
   scheduleTick: "schedule.tick",
+  exploration: "exploration.run",
+  sweep: "sweep.run",
 } as const;
 
 export interface AnalysisJob {
   analysisId: string;
+}
+export interface ExplorationJob {
+  explorationId: string;
 }
 export interface TestsJob {
   batchId: string;
@@ -48,6 +55,8 @@ const QUEUE_OPTIONS: Record<(typeof QUEUES)[keyof typeof QUEUES], Omit<Queue, "n
   "test-draft.run": { retryLimit: 0, expireInSeconds: 600 },
   "agent.reply": { retryLimit: 0, expireInSeconds: HOUR / 4 },
   "schedule.tick": { retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: HOUR },
+  "exploration.run": { retryLimit: 0, expireInSeconds: 3 * HOUR },
+  "sweep.run": { retryLimit: 0, expireInSeconds: HOUR },
 };
 
 /**

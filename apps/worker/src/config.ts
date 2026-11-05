@@ -28,5 +28,8 @@ export const config = {
   testsConcurrency: int("DAPPDRILL_TESTS_CONCURRENCY", 2),
   /** Drafts and assistant replies: small model calls, sometimes a short browse. */
   chatConcurrency: int("DAPPDRILL_CHAT_CONCURRENCY", 4),
+  /** Explorations at once; each runs up to `explorers` browsers and forks. */
+  explorationConcurrency: int("DAPPDRILL_EXPLORATION_CONCURRENCY", 1),
+  explorers: int("DAPPDRILL_EXPLORERS", 3),
   stopPollMs: int("DAPPDRILL_STOP_POLL_MS", 2000),
 };

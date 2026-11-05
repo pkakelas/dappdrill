@@ -2,10 +2,14 @@ import type {
   AppMap,
   AppSetup,
   Blocked,
+  BugTriage,
   ChainConfig,
+  CheckReplay,
   EdgeCaseId,
+  ExploreState,
   FixedResponse,
   Stalled,
+  SweepResults,
   TestRunResult,
   TestRunStatus,
   TestStep,
@@ -152,6 +156,34 @@ export const analyses = pgTable(
   (t) => [index("analyses_app_idx").on(t.appId, t.createdAt)],
 );
 
+/** Exploring an app in depth, after the first look: explorers, what they checked, the tests and bugs that came of it. */
+export const explorations = pgTable(
+  "explorations",
+  {
+    id: id(),
+    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
+    status: text("status").$type<JobStatus>().notNull().default("queued"),
+    /** Time for the exploring itself; proving and confirming bugs come after it. */
+    budgetMinutes: integer("budget_minutes").notNull().default(30),
+    /** Everything the live view and the report draw. */
+    state: jsonb("state").$type<ExploreState>(),
+    /** Checks that can be repeated without a model, for sweeps. */
+    replays: jsonb("replays").$type<CheckReplay[]>().notNull().default([]),
+    /** The latest sweep of those checks. */
+    sweep: jsonb("sweep").$type<SweepResults>(),
+    /** What a person decided about each bug, by bug id. Apart from state, which the worker overwrites. */
+    triage: jsonb("triage").$type<Record<string, BugTriage>>().notNull().default({}),
+    blocked: jsonb("blocked").$type<Blocked>(),
+    costUsd: real("cost_usd").notNull().default(0),
+    error: text("error"),
+    stopRequested: boolean("stop_requested").notNull().default(false),
+    startedAt: ts("started_at"),
+    finishedAt: ts("finished_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("explorations_app_idx").on(t.appId, t.createdAt)],
+);
+
 // ---------------------------------------------------------------- tests
 
 /**
@@ -177,6 +209,8 @@ export const tests = pgTable(
     proof: text("proof"),
     /** Set while the worker writes the test (a fork, a request to the agent); the page shows it. */
     drafting: text("drafting"),
+    /** A draft: it hasn't passed yet, and this says why. Cleared by its first pass. Drafts don't count towards a flow's status. */
+    draftNote: text("draft_note"),
     position: integer("position").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -184,7 +218,7 @@ export const tests = pgTable(
   (t) => [index("tests_app_idx").on(t.appId)],
 );
 
-export type Trigger = "manual" | "analysis" | "schedule" | "agent";
+export type Trigger = "manual" | "analysis" | "explore" | "schedule" | "agent";
 
 /** One result: one execution of one test. Results started together share a batch id, which is what the Runs page calls a run. */
 export const testRuns = pgTable(

@@ -1,6 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { keepActions, TestRunResult, type TestRunStatus, type TestStep } from "@dappdrill/core";
 import { appTests, apps, specOf, testRuns, tests, type Db, type TestRunRow } from "@dappdrill/db";
+import type { TestOutcome } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
@@ -68,6 +69,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
           await frames.get(outcome.testId)?.flush();
           await setRun(outcome.testId, { status: outcome.status, result: outcome.result, finishedAt: new Date() });
           if (outcome.steps) await saveSteps(db, outcome.testId, outcome.steps);
+          await settleDraft(db, outcome);
           const baseId = byTest.get(outcome.testId)?.baseId;
           if (outcome.baseSteps && baseId) await saveSteps(db, baseId, outcome.baseSteps);
           log.info(`${byTest.get(outcome.testId)?.name}: ${outcome.status}`);
@@ -99,6 +101,13 @@ async function saveSteps(db: Db, testId: string, steps: TestStep[]): Promise<voi
     .update(tests)
     .set({ steps: keepActions(current.steps.map((s) => s.text), steps) })
     .where(eq(tests.id, testId));
+}
+
+/** A draft stops being one on its first pass; until then the note says why it isn't there yet. */
+async function settleDraft(db: Db, outcome: TestOutcome): Promise<void> {
+  if (outcome.status === "stopped") return;
+  const draftNote = outcome.status === "pass" ? null : (outcome.result.failure ?? "It didn't pass.");
+  await db.update(tests).set({ draftNote }).where(and(eq(tests.id, outcome.testId), isNotNull(tests.draftNote)));
 }
 
 /** Same as saveSteps, for the app's setup. */

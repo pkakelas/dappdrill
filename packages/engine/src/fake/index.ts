@@ -27,6 +27,7 @@ import {
   type WalletRequest,
 } from "@dappdrill/core";
 import type * as api from "../api.js";
+import { fakeExplore, fakeSweep } from "./explore.js";
 import { stripedPng } from "./png.js";
 
 export interface Engine {
@@ -34,6 +35,8 @@ export interface Engine {
   runTests: typeof api.runTests;
   writeTest: typeof api.writeTest;
   chatTurn: typeof api.chatTurn;
+  explore: typeof api.explore;
+  sweep: typeof api.sweep;
 }
 
 const ACCOUNT = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
@@ -48,29 +51,29 @@ const COLOURS: [number, number, number][] = [
 
 let frames = 0;
 
-async function beat(signal?: AbortSignal, n = 1) {
+export async function beat(signal?: AbortSignal, n = 1) {
   signal?.throwIfAborted();
   await sleep(n * Number(process.env.DAPPDRILL_FAKE_DELAY_MS ?? 100), undefined, { signal });
 }
 
-async function png(artifactsDir: string, rel: string, colour = COLOURS[frames % COLOURS.length]!): Promise<string> {
+export async function png(artifactsDir: string, rel: string, colour = COLOURS[frames % COLOURS.length]!): Promise<string> {
   const abs = join(artifactsDir, rel);
   await mkdir(join(abs, ".."), { recursive: true });
   await writeFile(abs, stripedPng(320, 200, colour));
   return rel;
 }
 
-async function frame(artifactsDir: string): Promise<string> {
+export async function frame(artifactsDir: string): Promise<string> {
   frames++;
   return png(artifactsDir, `frames/${String(frames).padStart(4, "0")}.png`);
 }
 
-function chainsOf(target: DrillTarget): ChainConfig[] {
+export function chainsOf(target: DrillTarget): ChainConfig[] {
   const chains = target.chains.length > 0 ? target.chains : [{ id: 8453, name: "Base", rpcUrl: "https://base-rpc.publicnode.com", mode: "fork" as const }];
   return chains.map((c) => ({ ...c, forkBlock: c.forkBlock ?? "23456789" }));
 }
 
-const isAbort = (e: unknown) => e instanceof Error && e.name === "AbortError";
+export const isAbort = (e: unknown) => e instanceof Error && e.name === "AbortError";
 
 const analyze: Engine["analyze"] = async (target, opts, sink, signal) => {
   const log = (message: string) => sink({ type: "log", level: "info", message, at: nowIso() });
@@ -387,6 +390,6 @@ const chatTurn: Engine["chatTurn"] = async (_target, input) => {
   return { text, costUsd: 0.001 };
 };
 
-export const fakeEngine: Engine = { analyze, runTests, writeTest, chatTurn };
+export const fakeEngine: Engine = { analyze, runTests, writeTest, chatTurn, explore: fakeExplore, sweep: fakeSweep };
 
 export { loadEngine } from "./select.js";
