@@ -48,7 +48,7 @@ export async function walkSteps(
   results: TestStepResult[],
   reviews: SigningReview[],
   opts: WalkOptions,
-): Promise<{ failure?: string }> {
+): Promise<{ failure?: string; stuck?: boolean }> {
   const { signal } = opts;
   const beforeApprove = async (request: WalletRequest) => {
     const screenshot = await session.screenshot(`sign-${request.id}`);
@@ -86,7 +86,7 @@ export async function walkSteps(
     };
     if (!out.ok) {
       for (const later of results.slice(i + 1)) later.status = "skipped";
-      return { failure: `Step ${i + 1}, “${step.text}”: ${out.note ?? "didn't work"}` };
+      return { failure: `Step ${i + 1}, “${step.text}”: ${out.note ?? "didn't work"}`, stuck: out.stuck };
     }
     await opts.progress?.();
   }

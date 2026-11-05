@@ -113,7 +113,7 @@ export async function runTests(
 
 /** Write a new test, a fork of one, or a rewrite, from the developer's sentence. */
 export async function writeTest(input: DraftInput): Promise<{ draft: TestDraft; costUsd: number }> {
-  const llm = createLlm({ role: "fast", effort: "low" });
+  const llm = createLlm({ role: "fast" });
   const draft = await draftTest(llm, input);
   return { draft, costUsd: llm.costUsd() };
 }
@@ -127,7 +127,7 @@ export async function chatTurn(
   input: Omit<ChatInput, "browse" | "appUrl">,
   opts: { artifactsDir: string; headless?: boolean },
 ): Promise<{ text: string; costUsd: number }> {
-  const llm = createLlm({ role: "fast", effort: "low" });
+  const llm = createLlm({ role: "fast" });
   let browser: { env: Env; session: EngineSession } | undefined;
   const browse = async (task: string) => {
     if (!browser) {
