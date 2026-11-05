@@ -35,6 +35,12 @@ export function stateOf(test: { drafting: string | null }, run?: { status: TestR
   return run?.status ?? "never";
 }
 
+/** A rail beside the content, on the same columns as the stats above. Alignment does the work borders would. */
+export const RAIL = "grid gap-y-3 md:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] md:*:px-5";
+
+/** Actions that wait for the pointer, but stay put on touch screens and for the keyboard. */
+export const REVEAL = "transition-opacity focus-within:opacity-100 has-[[data-state=open]]:opacity-100 [@media(hover:hover)]:opacity-0";
+
 export const isActive = (s: TestState) => s === "running" || s === "queued" || s === "drafting";
 
 /** A 16px mark. Only problems get colour; a pass is a quiet check. */

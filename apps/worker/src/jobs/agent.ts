@@ -1,7 +1,7 @@
 import { and, asc, eq, lt, ne } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { z } from "zod";
-import { CONDITIONS, conditionInfo, keepActions, newId, type EdgeCaseId } from "@dappdrill/core";
+import { CONDITIONS, conditionInfo, keepActions, newId, walletUse, type EdgeCaseId } from "@dappdrill/core";
 import {
   addUnhappyPaths,
   agentMessages,
@@ -180,11 +180,14 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
     },
     {
       name: "add_unhappy_paths",
-      description: `Add unhappy paths to a happy-path test (its steps under a condition) and run them. Conditions: ${CONDITIONS.map((c) => `${c.id} (${c.name})`).join(", ")}. Leave out for the usual ones.`,
+      description: `Add unhappy paths to a happy-path test (its steps under a condition) and run them. Only for tests that have asked the wallet to sign on a run. Conditions: ${CONDITIONS.map((c) => `${c.id} (${c.name})`).join(", ")}. Leave out for the usual ones.`,
       schema: z.object({ testId: z.string(), conditions: z.array(z.enum(CONDITION_IDS)).optional() }),
       handler: async ({ testId, conditions }) => {
         const base = await own(testId);
         if (base.baseId) return "That is already an unhappy path.";
+        const use = walletUse(base.steps);
+        if (use === "none") return "That test never asks the wallet to sign, so unhappy paths have nothing to change.";
+        if (use === "unknown") return "No run of that test has reached the wallet yet. Unhappy paths unlock once one does.";
         const ids = await addUnhappyPaths(db, testId, conditions ?? CONDITIONS.filter((c) => c.default).map((c) => c.id));
         if (ids.length === 0) return "It already has those.";
         await run(ids);

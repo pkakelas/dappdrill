@@ -25,6 +25,21 @@ export function keepActions(texts: string[], old: TestStep[]): TestStep[] {
   });
 }
 
+/** Whether a step's recorded actions include handling a signature request. */
+export function stepSigns(step: TestStep): boolean {
+  return step.actions?.some((a) => a.kind === "wallet") ?? false;
+}
+
+/**
+ * Whether a test asks the wallet to sign, from what its runs recorded. Connecting
+ * doesn't count: it's approved automatically and there's nothing to reject or pay for.
+ * "unknown" until every step has run, since the wallet may come after where it stopped.
+ */
+export function walletUse(steps: TestStep[]): "signs" | "none" | "unknown" {
+  if (steps.some(stepSigns)) return "signs";
+  return steps.length > 0 && steps.every((s) => s.actions) ? "none" : "unknown";
+}
+
 function norm(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.!]$/, "");
 }

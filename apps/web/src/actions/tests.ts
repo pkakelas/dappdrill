@@ -1,6 +1,6 @@
 "use server";
 
-import { CONDITIONS, EdgeCaseId, keepActions, newId } from "@dappdrill/core";
+import { CONDITIONS, EdgeCaseId, keepActions, newId, walletUse } from "@dappdrill/core";
 import { addUnhappyPaths, db, flows, nextPosition, queueRuns, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -170,6 +170,7 @@ export async function updateTestAction(testId: string, input: z.input<typeof Edi
 export async function addUnhappyAction(testId: string, conditions: string[]): Promise<{ error?: string }> {
   const t = await ownTest(testId);
   if (t.baseId) return { error: "That is already an unhappy path." };
+  if (walletUse(t.steps) !== "signs") return { error: "Unhappy paths need a test that asks the wallet to sign." };
   const picked = conditions.map((c) => EdgeCaseId.safeParse(c)).flatMap((r) => (r.success && CONDITIONS.some((c) => c.id === r.data) ? [r.data] : []));
   if (picked.length === 0) return { error: "Pick at least one." };
   const ids = await addUnhappyPaths(db(), testId, picked);

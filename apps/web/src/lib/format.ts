@@ -32,6 +32,12 @@ export function minutesBetween(a: Date | string | null, b: Date | string | null)
   return `${m} min`;
 }
 
+/** "44s", "1m 23s". */
+export function duration(ms: number): string {
+  const s = Math.round(ms / 1000);
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+}
+
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
