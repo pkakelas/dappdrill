@@ -1,6 +1,7 @@
 import { ACTIVE_LABEL, readOf, SETTLED_LABEL, type Active, type Read, type Settled, type TestRunStatus } from "@dappdrill/core";
 import { Check, CircleAlert, Minus, X } from "lucide-react";
 import { cx } from "@/components/ui";
+import { Badge } from "@/components/ui/badge";
 
 /** Anything a mark can show: a finished result, a run in progress, a result list's stopped run, a draft being written. */
 export type TestState = TestRunStatus | "never" | "drafting";
@@ -118,6 +119,25 @@ export function StateMark({ state, className }: { state: TestState; className?: 
         </span>
       );
   }
+}
+
+const BADGE: Partial<Record<TestState, string>> = {
+  fail: "bg-bad-bg text-bad-ink",
+  error: "bg-warn-bg text-warn",
+  running: "bg-live-bg text-live-ink",
+  queued: "bg-live-bg text-live-ink",
+};
+
+/** A state as a label with its mark, for the top of a page. */
+export function StateBadge({ state }: { state: TestState }) {
+  return (
+    <Badge variant="secondary" className={cx("h-6 gap-1 rounded-md pr-2 pl-1", BADGE[state] ?? "text-muted-foreground")}>
+      <span aria-hidden="true" className="inline-flex">
+        <StateMark state={state} />
+      </span>
+      {STATE_LABEL[state]}
+    </Badge>
+  );
 }
 
 /** The small live dot shown beside a finished result while a new run is queued or running. */

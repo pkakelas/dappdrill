@@ -61,7 +61,7 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
             <span className="min-w-0 truncate">{plural(setup.steps.length, "step")}: {setup.steps.join(" → ")}</span>
             <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open/setup:rotate-90" />
           </summary>
-          <StepList steps={last?.steps ?? setup.steps.map((text) => ({ text }))} className="-mx-3 mt-1 [&>li]:rounded-lg [&>li]:border-0 [&>li]:px-3 [&>li]:py-2" />
+          <StepList steps={last?.steps ?? setup.steps.map((text) => ({ text }))} className="-mx-3 mt-1 [&>li]:[--step-pad:0.75rem]" />
         </details>
       </div>
     </section>

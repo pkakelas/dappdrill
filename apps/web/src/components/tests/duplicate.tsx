@@ -17,7 +17,7 @@ export function Duplicate({ testId }: { testId: string }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        <Button type="button" variant="ghost" size="sm" className="text-muted-foreground">
           Duplicate
         </Button>
       </PopoverTrigger>

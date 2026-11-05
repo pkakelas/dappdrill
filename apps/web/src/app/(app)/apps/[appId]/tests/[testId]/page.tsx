@@ -1,24 +1,26 @@
-import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, signingText, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { db, flows, latestRuns, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { Check, Wallet, X } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, CircleX, Clock, Copy, GitBranch, History as HistoryIcon, LoaderCircle, ShieldAlert, Timer, Wallet, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ConfirmButton } from "@/components/confirm-button";
-import { ConditionPills } from "@/components/tests/condition-pills";
+import { ConditionPills, failureParts } from "@/components/tests/condition-pills";
 import { AddConditions } from "@/components/tests/conditions";
 import { Duplicate } from "@/components/tests/duplicate";
 import { RunButton } from "@/components/tests/run-button";
-import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/tests/run-details";
+import { RunDetails } from "@/components/tests/run-details";
 import { StepList } from "@/components/tests/setup-steps";
-import { SigningFlag } from "@/components/tests/signing-flag";
 import { SpecEditor } from "@/components/tests/spec-editor";
-import { isActive, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
-import { cx } from "@/components/ui";
+import { isActive, readTest, STATE_LABEL, STATE_TEXT, StateBadge, StateMark } from "@/components/tests/status";
+import { cx, Tag } from "@/components/ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo, TRIGGER_LABEL } from "@/lib/format";
@@ -77,158 +79,198 @@ export default async function TestPage({ params, searchParams }: { params: Promi
     </ConditionPills>
   );
   const url = (path?: string | null) => (run ? artifactUrl("runs", run.batchId, path) : null);
+  const signingNote = signingText(signing);
+  const setupRun = result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />;
 
   return (
     <div className="page flex flex-col gap-8">
       {(isActive(state) || childActive) && <AutoRefresh every={2000} />}
 
-      <header className="flex flex-col gap-4">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-          <Link href={`/apps/${appId}`} className="hover:text-foreground">
-            Flows
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span>{flow?.name}</span>
-          {base && (
-            <>
-              <span aria-hidden="true">/</span>
-              <Link href={`/apps/${appId}/tests/${base.id}`} className="hover:text-foreground">
-                {base.name}
-              </Link>
-            </>
-          )}
-        </nav>
+      <header className="flex flex-col gap-3">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href={`/apps/${appId}`}>Flows</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="text-muted-foreground">{flow?.name}</BreadcrumbPage>
+            </BreadcrumbItem>
+            {base && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href={`/apps/${appId}/tests/${base.id}`}>{base.name}</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              </>
+            )}
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{spec.name}</h1>
-            <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state.mark])}>
-              <StateMark state={state.mark} />
-              <span>{readLabel(state)}</span>
-              {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
-              {settled?.startedAt && settled.finishedAt && <span className="text-muted-foreground">· took {formatDuration(settled.finishedAt.getTime() - settled.startedAt.getTime())}</span>}
-              <SigningFlag signing={signing} className="before:mr-2 before:content-['·'] before:text-muted-foreground" />
+          <div className="flex min-w-0 flex-col gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight">{spec.name}</h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <StateBadge state={state.mark} />
+              {state.active && state.settled !== "never" && !state.drafting && <StateBadge state={state.active} />}
+              {signingNote && (
+                <Tag tone={signing.dangerous > 0 ? "bad" : "warn"} className="h-6 gap-1 px-2">
+                  <ShieldAlert /> {signingNote}
+                </Tag>
+              )}
+              {settled?.finishedAt && <Fact icon={Clock}>{timeAgo(settled.finishedAt)}</Fact>}
+              {settled?.startedAt && settled.finishedAt && <Fact icon={Timer}>Took {formatDuration(settled.finishedAt.getTime() - settled.startedAt.getTime())}</Fact>}
               {forkedFrom && (
-                <span className="text-muted-foreground">
-                  · duplicated from{" "}
+                <Fact icon={Copy}>
+                  Duplicated from{" "}
                   <Link href={`/apps/${appId}/tests/${forkedFrom.id}`} className="underline underline-offset-4 hover:text-foreground">
                     {forkedFrom.name}
                   </Link>
-                </span>
+                </Fact>
               )}
-            </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />
             {!test.baseId && !state.drafting && <Duplicate testId={test.id} />}
-            <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
+            <ConfirmButton className={cx(buttonVariants({ variant: "ghost", size: "sm" }), "text-muted-foreground")} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
             </ConfirmButton>
           </div>
         </div>
       </header>
 
-      {test.drafting && (
-        <div className="flex items-center gap-3 rounded-xl border border-dashed bg-card px-5 py-4">
-          <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/50" />
-          <p className="text-muted-foreground">Writing this test from “{test.drafting}”. It runs as soon as the steps are ready.</p>
+      {(test.drafting || viewingOld || (result?.failure && (runState === "fail" || runState === "error")) || runState === "skipped") && (
+        <div className="flex flex-col gap-3">
+          {test.drafting && (
+            <Alert variant="quiet">
+              <LoaderCircle className="animate-spin" />
+              <AlertTitle className="line-clamp-none font-normal">Writing this test from “{test.drafting}”. It runs as soon as the steps are ready.</AlertTitle>
+            </Alert>
+          )}
+          {viewingOld && (
+            <Alert variant="quiet">
+              <HistoryIcon />
+              <AlertTitle className="flex flex-wrap items-center justify-between gap-x-3 font-normal">
+                <span>
+                  Showing the result from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
+                </span>
+                <Button asChild variant="link" size="sm" className="h-auto p-0">
+                  <Link href={`/apps/${appId}/tests/${test.id}`}>Back to the latest</Link>
+                </Button>
+              </AlertTitle>
+            </Alert>
+          )}
+          {result?.failure && (runState === "fail" || runState === "error") && <FailureAlert failure={result.failure} verdict={result.verdict} failed={runState === "fail"} />}
+          {runState === "skipped" && (
+            <Alert role="status" variant="quiet">
+              <CircleAlert />
+              <AlertTitle>Doesn&apos;t apply here</AlertTitle>
+              <AlertDescription>{result?.failure ?? "This condition can't be set up for this test."} It is left out of the counts.</AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
 
-      {viewingOld && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-5 py-3 text-muted-foreground">
-          <span>
-            Showing the result from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
-          </span>
-          <Button asChild variant="link" size="sm" className="h-auto p-0">
-            <Link href={`/apps/${appId}/tests/${test.id}`}>Back to the latest</Link>
-          </Button>
-        </div>
-      )}
-
-      {result?.failure && (runState === "fail" || runState === "error") && (
-        <div
-          role="status"
-          className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
-        >
-          {result.failure}
-        </div>
-      )}
-      {runState === "skipped" && (
-        <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
-          <strong className="font-medium text-foreground">Doesn&apos;t apply here.</strong> {result?.failure ?? "This condition can't be set up for this test."} It is left out of the counts.
-        </div>
-      )}
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
+      <div className={cx("grid items-start gap-x-14 gap-y-10", run && "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]")}>
+        <div className="flex min-w-0 flex-col gap-8">
           {condition && base ? (
             // A condition row has nothing of its own to edit: steps and goal are the test's, name and expected the condition's.
-            <div className="flex flex-col gap-6">
-              <p className="rounded-xl bg-muted px-4 py-3 text-muted-foreground">
-                Runs the steps of{" "}
-                <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
-                  {base.name}
-                </Link>{" "}
-                under the condition <strong className="font-semibold text-foreground">{condition.name}</strong>. Edit the test to change what runs.
+            <>
+              <p className="flex gap-2 text-muted-foreground">
+                <GitBranch className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  Runs the steps of{" "}
+                  <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
+                    {base.name}
+                  </Link>{" "}
+                  under the condition <strong className="font-semibold text-foreground">{condition.name}</strong>. Edit the test to change what runs.
+                </span>
               </p>
-              <Block label="Goal">{base.goal}</Block>
-              <Block label="Expected result">
-                {condition.expected}
-                <Verdict result={result} />
-              </Block>
-              {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-              <Steps steps={steps} result={result} url={url} />
-            </div>
+              <Summary goal={base.goal} expected={condition.expected} result={result} />
+              <Steps steps={steps} result={result} url={url} setup={setupRun} />
+            </>
           ) : (
-          <SpecEditor
-            testId={test.id}
-            spec={{ name: test.name, goal: test.goal, expected: test.expected, steps: test.steps.map((s) => s.text) }}
-            stepsFixed={false}
-            disabled={Boolean(test.drafting)}
-            view={
-              <div className="flex flex-col gap-6">
-                <Block label="Goal">{test.goal || <span className="text-muted-foreground">Not written yet</span>}</Block>
-                <Block label="Expected result">
-                  {test.expected || <span className="text-muted-foreground">Not written yet</span>}
-                  <Verdict result={result} />
-                </Block>
-                {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-                <Steps steps={steps} result={result} url={url} pills={pills} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
-              </div>
-            }
-          />
+            <SpecEditor
+              testId={test.id}
+              spec={{ name: test.name, goal: test.goal, expected: test.expected, steps: test.steps.map((s) => s.text) }}
+              stepsFixed={false}
+              disabled={Boolean(test.drafting)}
+              summary={<Summary goal={test.goal} expected={test.expected} result={result} />}
+              steps={<Steps steps={steps} result={result} url={url} setup={setupRun} pills={pills} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />}
+            />
           )}
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-5">
+        <aside className="flex min-w-0 flex-col gap-6">
           <Media run={run} result={result} url={url} />
-          {result && <IssueList result={result} />}
-          {result && <WalletActivity result={result} />}
-          {result && <ConsoleErrors result={result} />}
-
-          {history.length > 1 && <History appId={appId} testId={test.id} runs={history} selected={run?.id} />}
+          <RunDetails result={result} history={history.length > 1 ? { count: history.length, list: <History appId={appId} testId={test.id} runs={history} selected={run?.id} /> } : undefined} />
         </aside>
       </div>
     </div>
   );
 }
 
-/** What the judge or the proof check said about the expected result, under it. */
-function Verdict({ result }: { result?: TestRunResult }) {
-  if (!result?.verdict) return null;
+/** A small fact beside the status, with its icon. */
+function Fact({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
   return (
-    <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
-      {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
-      <span>{result.verdict.reason}</span>
+    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+      <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
     </span>
+  );
+}
+
+/** Why the run failed: where as the title and why below it, so the reason reads once, up here. */
+function FailureAlert({ failure, verdict, failed }: { failure: string; verdict: TestRunResult["verdict"]; failed: boolean }) {
+  const { where, why } = failureParts(failure);
+  const missed = verdict?.ok === false;
+  return (
+    <Alert role="status" variant={failed ? "bad" : "warn"} className="rounded-xl px-5 py-4">
+      {failed ? <CircleX /> : <CircleAlert />}
+      <AlertTitle className="line-clamp-none">{where ?? (missed ? "The expected result didn't show" : failed ? "This test failed" : "This test couldn't run")}</AlertTitle>
+      <AlertDescription className="block leading-relaxed">{missed ? verdict.reason : why}</AlertDescription>
+    </Alert>
+  );
+}
+
+function Summary({ goal, expected, result }: { goal: string; expected: string; result?: TestRunResult }) {
+  const notWritten = <span className="text-muted-foreground">Not written yet</span>;
+  return (
+    <dl className="grid gap-6 sm:grid-cols-2 sm:gap-8">
+      <Block label="Goal">
+        {goal || notWritten}
+      </Block>
+      <Block label="Expected result">
+        {expected || notWritten}
+        {result?.verdict?.ok && (
+          <span className="mt-2 flex gap-1.5 text-muted-foreground">
+            <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span>{result.verdict.reason}</span>
+          </span>
+        )}
+      </Block>
+    </dl>
   );
 }
 
 function Block({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <p className="flex flex-col leading-relaxed">{children}</p>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="flex flex-col text-[0.9375rem] leading-relaxed text-pretty">{children}</dd>
+    </div>
+  );
+}
+
+function StepsHeading({ aside }: { aside?: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <h2 className="text-xs font-medium text-muted-foreground">Steps</h2>
+      {aside}
     </div>
   );
 }
@@ -237,6 +279,7 @@ function Steps({
   steps,
   result,
   url,
+  setup,
   pills,
   wallet,
   hasConditions,
@@ -244,43 +287,59 @@ function Steps({
   steps: TestStep[];
   result?: TestRunResult;
   url: (p?: string | null) => string | null;
+  setup?: React.ReactNode;
   pills?: React.ReactNode;
   wallet?: ReturnType<typeof walletUse>;
   hasConditions?: boolean;
 }) {
   if (steps.length === 0)
     return (
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-muted-foreground">Steps</span>
+      <section className="flex flex-col gap-2">
+        <StepsHeading />
+        {setup}
         <p className="text-muted-foreground">No steps yet. The first run works them out from the goal.</p>
-      </div>
+      </section>
     );
   // Conditions bite on the main transaction, the last thing signed (the deposit, not the approval before it).
   const branchAt = steps.findLastIndex(stepSigns);
+  // The failure banner already gives this step's reason.
+  const explained = result?.failure && failureParts(result.failure).where ? result.steps.findIndex((s) => s.status === "fail") : -1;
+  const ran = result?.steps.some((s) => s.status === "pass" || s.status === "fail" || s.status === "running");
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-muted-foreground">Steps</span>
+      <section className="flex flex-col gap-2">
+        <StepsHeading
+          aside={
+            ran && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {result!.steps.filter((s) => s.status === "pass").length} of {steps.length} passed
+              </span>
+            )
+          }
+        />
+        {setup}
         <StepList
-          className="overflow-hidden rounded-xl border bg-card shadow-xs"
-          steps={steps.map((s, i) => ({
-            text: s.text,
-            result: result?.steps[i],
-            shot: url(result?.steps[i]?.screenshot),
-            signs: stepSigns(s),
-            after: wallet === "signs" && i === branchAt ? <div id="conditions" className="ml-[7px] scroll-mt-24 border-l py-0.5 pl-3">{pills}</div> : undefined,
-          }))}
+          steps={steps.map((s, i) => {
+            const r = result?.steps[i];
+            return {
+              text: s.text,
+              result: r && i === explained ? { ...r, note: undefined } : r,
+              shot: url(r?.screenshot),
+              signs: stepSigns(s),
+              after: wallet === "signs" && i === branchAt ? <div id="conditions" className="scroll-mt-24">{pills}</div> : undefined,
+            };
+          })}
         />
         {wallet && wallet !== "signs" && (
-          <div className="flex flex-col gap-2 px-1 pt-1">
+          <div className="mt-2 flex flex-col gap-2">
             {hasConditions && pills}
-            <p className="flex gap-2 text-sm text-muted-foreground">
+            <p className="flex gap-2 text-muted-foreground">
               <Wallet className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               {wallet === "none" ? "This test never asks the wallet to sign, so conditions have nothing to change." : "Conditions unlock once a run of this test reaches the wallet."}
             </p>
           </div>
         )}
-      </div>
+      </section>
     </TooltipProvider>
   );
 }
@@ -293,23 +352,27 @@ function SetupRun({ appId, run, setup, url }: { appId: string; run: SetupRunResu
     run.reused && "ran before an earlier test of this run; this test started from where it left off",
     run.shared && "on a live chain this test also started from what earlier tests left",
   ].filter(Boolean);
+  const running = run.steps.some((s) => s.status === "running");
   return (
-    <details open={!run.ok} className="group/setup flex flex-col gap-2">
-      <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-        <StateMark state={run.ok ? "pass" : run.steps.some((s) => s.status === "running") ? "running" : "error"} />
-        <span>Setup</span>
-        <span className="font-normal">
-          · {SETUP_WHEN_LABEL[run.when].toLowerCase()} · {run.ok ? "passed" : run.steps.some((s) => s.status === "running") ? "running" : <span className="text-warn">didn't finish</span>}
+    <Collapsible defaultOpen={!run.ok}>
+      <CollapsibleTrigger className="group flex w-full items-center gap-3 rounded-md py-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+        <span className="flex size-6 shrink-0 items-center justify-center">
+          <StateMark state={run.ok ? "pass" : running ? "running" : "error"} />
         </span>
-      </summary>
-      <div className="mt-2 flex flex-col gap-2">
-        {notes.length > 0 && <p className="text-sm text-muted-foreground">It {notes.join("; ")}.</p>}
-        <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={texts.map((text, i) => ({ text, result: run.steps[i], shot: url(run.steps[i]?.screenshot) }))} />
-        <Link href={`/apps/${appId}`} className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+        <span className="font-medium">Setup</span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          {SETUP_WHEN_LABEL[run.when].toLowerCase()} · {run.ok ? "passed" : running ? "running" : <span className="text-warn">didn&apos;t finish</span>}
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pb-2 pl-9">
+        {notes.length > 0 && <p className="pb-2 text-muted-foreground">It {notes.join("; ")}.</p>}
+        <StepList steps={texts.map((text, i) => ({ text, result: run.steps[i], shot: url(run.steps[i]?.screenshot) }))} />
+        <Link href={`/apps/${appId}`} className="mt-1 inline-block text-muted-foreground underline underline-offset-4 hover:text-foreground">
           Edit the setup
         </Link>
-      </div>
-    </details>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -320,10 +383,10 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
   const video = !running ? url(result?.video) : null;
   if (!frame && !video)
     return running || run.status === "queued" ? (
-      <div className="flex aspect-[16/10] items-center justify-center rounded-xl border bg-card text-muted-foreground shadow-xs">{running ? "Opening the app…" : "Waiting for a browser…"}</div>
+      <div className="flex aspect-[16/10] items-center justify-center rounded-xl bg-muted text-muted-foreground">{running ? "Opening the app…" : "Waiting for a browser…"}</div>
     ) : null;
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
+    <div className="overflow-hidden rounded-xl">
       {video ? (
         <video src={video} poster={frame ?? undefined} controls muted playsInline className="block aspect-[16/10] w-full bg-muted object-contain" />
       ) : (
@@ -331,7 +394,7 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
         <img src={frame!} alt={running ? "The test running now" : "The page when the test finished"} className="block aspect-[16/10] w-full bg-muted object-cover object-top" />
       )}
       {running && (
-        <div className="flex items-center gap-2 border-t px-4 py-2 text-xs text-live">
+        <div className="flex items-center gap-2 pt-2 text-xs text-live">
           <span className="size-1.5 animate-pulse rounded-full bg-live" /> Live
         </div>
       )}
@@ -342,23 +405,21 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
 /** Every result of this test, newest first. Each belongs to a run (a batch), which the Runs page lists. */
 function History({ appId, testId, runs, selected }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string }) {
   return (
-    <Panel title="Results" count={runs.length}>
-      <ul className="divide-y">
-        {runs.map((r, i) => (
-          <li key={r.id}>
-            <Link
-              href={i === 0 ? `/apps/${appId}/tests/${testId}` : `/apps/${appId}/tests/${testId}?run=${r.id}`}
-              aria-current={r.id === selected ? "true" : undefined}
-              className={cx("flex items-center gap-3 px-4 py-2 hover:bg-accent/50", r.id === selected && "bg-accent")}
-            >
-              <StateMark state={r.status} />
-              <span className={cx("flex-1", STATE_TEXT[r.status])}>{STATE_LABEL[r.status]}</span>
-              <span className="text-xs text-muted-foreground">{TRIGGER_LABEL[r.trigger]}</span>
-              <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Panel>
+    <ul className="max-h-80 divide-y divide-border/60 overflow-auto">
+      {runs.map((r, i) => (
+        <li key={r.id}>
+          <Link
+            href={i === 0 ? `/apps/${appId}/tests/${testId}` : `/apps/${appId}/tests/${testId}?run=${r.id}`}
+            aria-current={r.id === selected ? "true" : undefined}
+            className={cx("flex items-center gap-3 py-3 hover:text-foreground", r.id === selected && "font-medium")}
+          >
+            <StateMark state={r.status} />
+            <span className={cx("flex-1", STATE_TEXT[r.status])}>{STATE_LABEL[r.status]}</span>
+            <span className="text-xs text-muted-foreground">{TRIGGER_LABEL[r.trigger]}</span>
+            <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

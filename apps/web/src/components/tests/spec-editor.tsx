@@ -16,10 +16,24 @@ interface Spec {
 }
 
 /**
- * The test's goal, expected result and steps. `view` is the server-rendered read view (steps with
- * the run's results); Edit swaps it for fields. Conditions run their test's steps, so theirs are fixed.
+ * The test's goal, expected result and steps. `summary` and `steps` are the server-rendered read view
+ * (steps with the run's results); Edit swaps them for fields. Conditions run their test's steps, so theirs are fixed.
  */
-export function SpecEditor({ testId, spec, stepsFixed, view, disabled }: { testId: string; spec: Spec; stepsFixed: boolean; view: ReactNode; disabled?: boolean }) {
+export function SpecEditor({
+  testId,
+  spec,
+  stepsFixed,
+  summary,
+  steps,
+  disabled,
+}: {
+  testId: string;
+  spec: Spec;
+  stepsFixed: boolean;
+  summary: ReactNode;
+  steps: ReactNode;
+  disabled?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(spec);
   const [error, setError] = useState<string>();
@@ -27,11 +41,11 @@ export function SpecEditor({ testId, spec, stepsFixed, view, disabled }: { testI
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
   const open = (addStep = false) => {
-    const steps = addStep || spec.steps.length === 0 ? [...spec.steps, ""] : spec.steps;
-    setDraft({ ...spec, steps });
+    const drafted = addStep || spec.steps.length === 0 ? [...spec.steps, ""] : spec.steps;
+    setDraft({ ...spec, steps: drafted });
     setError(undefined);
     setEditing(true);
-    if (addStep) requestAnimationFrame(() => refs.current[steps.length - 1]?.focus());
+    if (addStep) requestAnimationFrame(() => refs.current[drafted.length - 1]?.focus());
   };
   const save = () =>
     start(async () => {
@@ -51,15 +65,18 @@ export function SpecEditor({ testId, spec, stepsFixed, view, disabled }: { testI
 
   if (!editing)
     return (
-      <div className="relative flex flex-col gap-3">
-        {!disabled && (
-          <Button type="button" variant="outline" size="xs" className="absolute -top-1 right-0" onClick={() => open()}>
-            Edit
-          </Button>
-        )}
-        {view}
+      <div className="flex flex-col gap-8">
+        <div className="relative">
+          {summary}
+          {!disabled && (
+            <Button type="button" variant="ghost" size="xs" className="absolute -top-1 right-0 text-muted-foreground" onClick={() => open()}>
+              Edit
+            </Button>
+          )}
+        </div>
+        {steps}
         {!disabled && !stepsFixed && (
-          <Button type="button" variant="ghost" size="sm" className="w-fit text-muted-foreground" onClick={() => open(true)}>
+          <Button type="button" variant="ghost" size="sm" className="-mt-5 -ml-2 w-fit text-muted-foreground" onClick={() => open(true)}>
             <Plus /> Add step
           </Button>
         )}
