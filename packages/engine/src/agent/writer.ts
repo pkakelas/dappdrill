@@ -9,7 +9,7 @@ import type { Llm } from "../types.js";
 export const WRITE_SYSTEM = `You write end-to-end tests for a web app in plain English, for busy developers.
 - name: what the user does, e.g. "Limit sell on ETH perp".
 - goal: one sentence.
-- expected: one sentence about what is visible when it worked.
+- expected: one sentence about what the page shows at the end when it worked: final values ("Balance shows 5 USDC"), not changes ("rises by 5") or earlier moments, and no prices or rates that move. Amounts can be rounded on screen, so say "about 0.01 stETH".
 - steps: 3 to 8 short imperative steps of 3 to 7 words, at the level a user thinks ("Connect the wallet", "Open the ETH market", "Enter 0.01 as size"). No selectors.
 When you change an existing test, keep every step that still applies word for word, so its recorded actions are reused. Change only what the request needs.`;
 

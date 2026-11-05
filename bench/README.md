@@ -1,16 +1,23 @@
 # Real-dApp benchmark
 
-Measures DappDrill on live dApp frontends, three ways:
+Measures DappDrill on real dApp frontends by driving the CLI, so it measures what users run. For each dApp:
 
-- **Precision**: every distinct finding is labeled real or false in `labels/<dapp>.json`, by fingerprint. The report counts it twice: once over the scans' findings, and once over the control replays' findings, which run on the engine as it is now, after fixes for the false findings the scans turned up.
-- **Replay stability**: each saved flow is replayed three times (happy path plus the edge cases the injected bugs need); a flow × edge-case cell is stable when all three runs end the same way with the same findings.
-- **Recall**: page scripts in `src/mutations.ts` inject a frontend bug between the dApp and the wallet (unlimited approval, a stranger spender, 10× value, a sign-in that is really a permit, ignoring an account switch, hanging on a rejection, skipping a chain switch). Each one is replayed on the flows it applies to and scored against the unmutated replays:
-  - **diagnosed**: DappDrill reports the bug for what it is (a dangerous/flagged signing review, or a wallet/UI issue on that edge case);
-  - **noticed**: something new shows up, but not the right diagnosis;
-  - **missed**: nothing changes;
-  - **not-fired**: the script never triggered on that flow, so the case doesn't count.
+1. **`analyze`**: finds the flows and writes the tests, with no hints unless you pass `--hints`. The product promise is "paste a URL", and the hints in `dapps.json` spell out the flows.
+2. **`replay-1..3`**: each runs a fresh copy of what `analyze` wrote, like a CI run from the committed file. `--quick` stops here.
+3. **`unhappy`**: the unhappy paths the injected bugs need, run clean as their control.
+4. **`mutation-<bug>`**: page scripts in `src/mutations.ts` inject a frontend bug between the dApp and the wallet. Each runs on the tests it applies to, scored against the clean run:
+   - **diagnosed**: a worse signing review, or a new issue;
+   - **noticed**: the test failed where the clean run passed;
+   - **missed**: nothing changed;
+   - **not-fired**: the script never triggered, so the case doesn't count.
 
-  Signing bugs also run a second time against baselines accepted from the control run, which is how CI catches a regression.
+A dApp with a `buggyUrl` (Harbor Vault) replaces steps 3 and 4 with **`seeded`**: the tests made on the clean build run on the seeded one, unhappy paths included.
+
+`expected/<dapp>.json` lists the flows a user comes for. Write it before the first run, so a review can't just approve what was found. A review agent then reads the runs and writes `results/<date>/<dapp>/review.json`: each flow's usefulness and which expected flow it covers, the expected flows missed, and a label for each test:
+
+`real pass`, `empty pass`, `app bug`, `bad test`, `environment`, `engine bug` or `can't run on a fork`.
+
+A pass only counts if the test could also fail, which is what the signed count, the mutations and the seeded build are for.
 
 Mainnet dApps run on local Anvil forks, so nothing reaches a real chain. The corpus and its funding live in `dapps.json`.
 
@@ -23,25 +30,16 @@ BENCH_RPC_1=https://eth-mainnet.g.alchemy.com/v2/<key>
 BENCH_RPC_42161=https://arb-mainnet.g.alchemy.com/v2/<key>
 ```
 
-Spend: `report` adds up `costUsd` from every `scan*` folder of a dApp, so scans that an engine fix made obsolete (kept as `scan-v1`, `scan-v2`) still count. Replays make no model calls.
+Spend: `report` adds up `costUsd` from the analysis and every run of a dApp. Replays use the model only when a recorded step stops working; the "Steps on the model" column counts those.
 
 ## Running
 
 ```bash
 set -a; . ./.env; set +a
-node_modules/.bin/tsx bench/src/run.ts scan   [ids…] --parallel 2   # model exploration; costs money
-node_modules/.bin/tsx bench/src/run.ts replay [ids…] --parallel 2   # model-free
-node_modules/.bin/tsx bench/src/run.ts report                       # summary.json + report.md
+node_modules/.bin/tsx bench/src/run.ts drill  [ids…] --parallel 2   # costs money
+node_modules/.bin/tsx bench/src/run.ts report [ids…]                # summary.json + report.md
 ```
 
-Results go to `results/<date>/` (`--date` to pick one). Steps that already have a `report.json` are skipped, so a run can be resumed.
+Results go to `results/<date>/` (`--date` to pick one). Steps that already have a `meta.json` are skipped, so a run can be resumed.
 
-## Labels
-
-`labels/<dapp>.json` maps an issue fingerprint to a verdict:
-
-```json
-{ "<fingerprint>": { "label": "false", "note": "The spinner is the dApp waiting on its own indexer, not a stuck wallet call." } }
-```
-
-A false finding that an engine change has since fixed gets a `fixed` field saying which change.
+Results from before 2026-11-05 and `labels/` come from the old scan-and-replay pipeline, whose runner is gone.

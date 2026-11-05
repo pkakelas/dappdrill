@@ -12,6 +12,7 @@ const MAX_BACKENDS = 5;
 /** Analytics, error reporting and wallet relays fail all the time without the app noticing. */
 const NOISE = /sentry|google-analytics|analytics\.google|googletagmanager|doubleclick|adnxs|launchdarkly|segment\.(io|com)|mixpanel|amplitude|hotjar|posthog|datadoghq|intercom|cloudflareinsights|vercel-insights|walletconnect|web3modal|reown|privy|coinbase\.com\/.*metrics/i;
 const RATE_LIMITED = /\b429\b|rate.?limit|too many requests|exceeded .*(limit|quota)|capacity/i;
+const ADDRESS = /0x[0-9a-f]{40}/g;
 const TIMED_OUT = /timed? ?out|timeout|ETIMEDOUT/i;
 const PRUNED = /missing trie node|archive.*not available|pruned|header not found|historical state|state .*not available|unknown block|block not found/i;
 /** In order of precedence: the first cause any error shows names the chain's failure. */
@@ -26,6 +27,8 @@ export class Traffic {
   private readonly open = new Map<Request, { host: string; at: number }>();
   private readonly hosts = new Map<string, HostStats>();
   private readonly seen = new Set<string>();
+  /** Which hosts were told about each address. */
+  private readonly told = new Map<string, Set<string>>();
 
   install(context: BrowserContext): void {
     context.on("request", (r) => {
@@ -33,6 +36,9 @@ export class Traffic {
       if (!host) return;
       this.open.set(r, { host, at: Date.now() });
       this.seen.add(new URL(r.url()).origin);
+      for (const [address] of `${r.url()} ${r.postData() ?? ""}`.toLowerCase().matchAll(ADDRESS)) {
+        this.told.set(address, (this.told.get(address) ?? new Set()).add(host));
+      }
     });
     context.on("requestfinished", (r) => {
       const entry = this.open.get(r);
@@ -68,6 +74,11 @@ export class Traffic {
       }))
       .sort((a, b) => b.failed + b.hung - (a.failed + a.hung))
       .slice(0, MAX_BACKENDS);
+  }
+
+  /** Backends the page sent this address to: the ones that may answer for it from the real chain. */
+  hostsTold(address: string): string[] {
+    return [...(this.told.get(address.toLowerCase()) ?? [])];
   }
 
   /** Origins the page fetched from, ones on the app's own site (e.g. app.x.dev → node.x.dev) first. */

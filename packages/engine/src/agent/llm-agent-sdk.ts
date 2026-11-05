@@ -98,10 +98,14 @@ export function createAgentSdkLlm(opts: { model: string; effort: Effort }): Llm 
       };
       let lastError: string | undefined;
       // The SDK validates against the JSON schema; zod adds refinements, so retry once with the error.
+      // It also runs out of its one turn now and then, which a second try gets past.
       for (let attempt = 0; attempt < 2; attempt++) {
         const text = lastError ? `${prompt}\n\nYour previous answer was invalid: ${lastError}\nAnswer again.` : prompt;
         const res = await run(options, text, images);
-        if (res.subtype !== "success") throw new LlmError("invalid_output", `No structured output (${res.subtype})`);
+        if (res.subtype !== "success") {
+          lastError = `No structured output (${res.subtype})`;
+          continue;
+        }
         const parsed = schema.safeParse(res.structured ?? safeJson(res.text));
         if (parsed.success) return parsed.data;
         lastError = parsed.error.message;

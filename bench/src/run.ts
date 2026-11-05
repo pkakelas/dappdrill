@@ -1,20 +1,19 @@
 /**
  * The real-dApp benchmark. Drives the CLI so it measures what users run.
  *
- *   tsx bench/src/run.ts scan   [ids…]   explore each dApp with the model (costs money)
- *   tsx bench/src/run.ts replay [ids…]   control replays x3, then a replay per injected bug (model-free)
- *   tsx bench/src/run.ts report          score everything into summary.json and report.md
+ *   tsx bench/src/run.ts drill  [ids…]   analyze each dApp, replay its tests, inject bugs (costs money)
+ *   tsx bench/src/run.ts report [ids…]   score everything into summary.json and report.md
  *
  * Options: --date YYYY-MM-DD (results folder, default today), --parallel N (dApps at once, default 2),
- * --minutes N and --flows N (scan budget, default 12 and 4).
- * Load .env first (set -a; . ./.env; set +a) so scans have ANTHROPIC_API_KEY.
+ * --quick (stop after the replays), --minutes N (analysis budget, default the CLI's), --hints (use the hints in dapps.json; results go
+ * to <id>-hints). Load .env first (set -a; . ./.env; set +a) so runs have ANTHROPIC_API_KEY.
  */
 import { spawn } from "node:child_process";
 import { createWriteStream, existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { EdgeCaseId, FlowRun, Issue, ScanReport, SigningReview, Verdict } from "@dappdrill/core";
+import type { EdgeCaseId, TestRunResult, TestRunStatus, TestStep, Verdict } from "@dappdrill/core";
 import { FIRED_MARK, MUTATIONS, type Mutation } from "./mutations.js";
 
 const BENCH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,9 +21,9 @@ const ROOT = path.resolve(BENCH, "..");
 const TSX = path.join(ROOT, "node_modules/.bin/tsx");
 const CLI = path.join(ROOT, "packages/cli/src/main.ts");
 
-/** Edge cases the control replays run: happy plus every one a mutation needs. */
-const CONTROL_EDGES: EdgeCaseId[] = ["happy", ...new Set(MUTATIONS.flatMap((m) => m.edgeCases).filter((e) => e !== "happy"))];
-const CONTROL_RUNS = 3;
+const REPLAYS = 3;
+/** Unhappy paths a mutation needs; the `unhappy` step runs them clean, as its control. */
+const CONTROL_CONDITIONS = [...new Set(MUTATIONS.flatMap((m) => m.edgeCases).filter((e) => e !== "happy"))];
 
 interface Dapp {
   id: string;
@@ -34,21 +33,44 @@ interface Dapp {
   hints: string;
   /** A frontend built from source and served on this machine; `serve` is the command that starts it. */
   serve?: string;
+  /** The same app with bugs seeded in: the tests made on `url` also run here, and should catch them. */
+  buggyUrl?: string;
   /** Test setup: localStorage on the app's origin, and fixed responses as "<url> [status] <body>". */
   storage?: Record<string, string>;
   respond?: string[];
 }
 
-interface Label {
-  label: "true" | "false";
-  note?: string;
-  /** For a false finding caused by an engine bug: what fixed it. */
-  fixed?: string;
+interface SavedTest {
+  id: string;
+  name: string;
+  condition?: EdgeCaseId;
+  baseId?: string;
+  steps: TestStep[];
 }
-
+interface TestsFile {
+  flows: { name: string; tests: SavedTest[] }[];
+}
+interface Outcome {
+  testId: string;
+  status: TestRunStatus;
+  result: TestRunResult;
+}
+interface Analysis {
+  flows: { name: string }[];
+  blocked?: unknown;
+  stalled?: unknown;
+  costUsd: number;
+}
 interface StepMeta {
   ms: number;
   exitCode: number;
+}
+/** What a review agent wrote to results/<date>/<id>/review.json after reading the runs. */
+interface Review {
+  flows: { name: string; useful: boolean; expected?: string; note?: string }[];
+  missed: string[];
+  tests: { test: string; label: "real pass" | "empty pass" | "app bug" | "bad test" | "environment" | "engine bug" | "can't run on a fork"; note: string }[];
+  summary: string;
 }
 
 const args = process.argv.slice(2);
@@ -57,34 +79,34 @@ const opt = (name: string, fallback: string) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] ? args[i + 1]! : fallback;
 };
-const optionValues = new Set(["--date", "--parallel", "--minutes", "--flows"].flatMap((o) => (args.includes(o) ? [args[args.indexOf(o) + 1]] : [])));
+const optionValues = new Set(["--date", "--parallel", "--minutes"].flatMap((o) => (args.includes(o) ? [args[args.indexOf(o) + 1]] : [])));
 const ids = args.slice(1).filter((a) => !a.startsWith("--") && !optionValues.has(a));
 const date = opt("date", new Date().toISOString().slice(0, 10));
+const useHints = args.includes("--hints");
+const quick = args.includes("--quick");
 const OUT = path.join(BENCH, "results", date);
+const rootOf = (d: Dapp) => path.join(OUT, useHints ? `${d.id}-hints` : d.id);
 
 async function main(): Promise<void> {
   const corpus = (JSON.parse(await readFile(path.join(BENCH, "dapps.json"), "utf8")) as { dapps: Dapp[] }).dapps;
   const picked = ids.length ? corpus.filter((d) => ids.includes(d.id)) : corpus;
   const unknown = ids.filter((id) => !corpus.some((d) => d.id === id));
   if (unknown.length) throw new Error(`Not in dapps.json: ${unknown.join(", ")}`);
-  const parallel = Number(opt("parallel", "2"));
-  if (command === "scan" || command === "replay") await checkServed(picked);
 
-  if (command === "scan") {
+  if (command === "drill") {
+    await checkServed(picked);
     if (!process.env.ANTHROPIC_API_KEY) console.warn("ANTHROPIC_API_KEY is not set; the engine falls back to the local Claude Code login.");
-    await pool(picked, parallel, (d) => scanDapp(d));
-  } else if (command === "replay") {
-    await pool(picked, parallel, (d) => replayDapp(d));
+    await pool(picked, Number(opt("parallel", "2")), drillDapp);
   } else if (command === "report") {
     await report(picked);
   } else {
-    throw new Error("Usage: run.ts scan|replay|report [ids…] [--date D] [--parallel N] [--minutes N] [--flows N]");
+    throw new Error("Usage: run.ts drill|report [ids…] [--date D] [--parallel N] [--minutes N] [--hints] [--quick]");
   }
 }
 
 // ── running ──────────────────────────────────────────────────────────────────
 
-/** Local frontends must already be up; a scan of a dead port would only measure the error page. */
+/** Local frontends must already be up; a run on a dead port would only measure the error page. */
 async function checkServed(dapps: Dapp[]): Promise<void> {
   const down = [];
   for (const d of dapps.filter((x) => x.serve)) {
@@ -105,81 +127,67 @@ function targetFlags(d: Dapp): string[] {
   ];
 }
 
-async function scanDapp(d: Dapp): Promise<void> {
-  const dir = path.join(OUT, d.id, "scan");
-  if (existsSync(path.join(dir, "report.json"))) return log(d, "scan already done");
-  log(d, "scanning");
-  const meta = await cli(dir, ["scan", d.url, ...targetFlags(d), "--max-minutes", opt("minutes", "12"), "--max-flows", opt("flows", "4"), "--hints", d.hints, "--out", dir]);
-  const r = await readReport(dir);
-  log(d, `scan done in ${min(meta.ms)}: ${r?.flows.length ?? 0} flows, ${r?.issues.length ?? 0} issues, $${r?.costUsd.toFixed(2) ?? "?"}`);
-}
-
-async function replayDapp(d: Dapp): Promise<void> {
-  const scanDir = path.join(OUT, d.id, "scan");
-  const flowsDir = path.join(scanDir, "flows");
-  if (!existsSync(flowsDir)) return log(d, "no flows to replay (scan first)");
-  const flowFiles = (await readdir(flowsDir)).filter((f) => f.endsWith(".json")).map((f) => path.join(flowsDir, f));
-  if (flowFiles.length === 0) return log(d, "the scan found no flows");
-  const run = (dir: string, extra: string[], files = flowFiles) =>
-    cli(dir, ["run", "--url", d.url, ...targetFlags(d), "--out", dir, "--no-video", "--fail-on", "never", ...extra, ...files]);
-
-  for (let i = 1; i <= CONTROL_RUNS; i++) {
-    const dir = path.join(OUT, d.id, `control-${i}`);
-    if (existsSync(path.join(dir, "report.json"))) continue;
-    log(d, `control ${i}/${CONTROL_RUNS}`);
-    await run(dir, ["--edge-cases", CONTROL_EDGES.join(",")]);
+async function drillDapp(d: Dapp): Promise<void> {
+  const root = rootOf(d);
+  const analyzeDir = path.join(root, "analyze");
+  const tests = path.join(analyzeDir, "tests.json");
+  if (!existsSync(path.join(analyzeDir, "meta.json"))) {
+    log(d, "analyzing");
+    const minutes = args.includes("--minutes") ? ["--max-minutes", opt("minutes", "")] : [];
+    const meta = await cli(analyzeDir, ["analyze", d.url, ...targetFlags(d), "--file", tests, "--out", analyzeDir, "--force", ...minutes, ...(useHints ? ["--hints", d.hints] : [])]);
+    log(d, `analyzed in ${min(meta.ms)}, exit ${meta.exitCode}`);
   }
-  const control = await readReport(path.join(OUT, d.id, "control-1"));
-  if (!control) return log(d, "control replay produced no report");
+  if (!existsSync(tests)) return log(d, "no tests to replay");
 
-  // Baselines from the first control, for the "regression" variant of the signing bugs.
-  const baselineFile = path.join(OUT, d.id, "baselines.json");
-  await writeFile(baselineFile, JSON.stringify(Object.fromEntries(control.signingReviews.map((r) => [r.fingerprint, r])), null, 2));
+  // Each replay starts from what analyze wrote, like a CI run from the committed file.
+  for (let i = 1; i <= REPLAYS; i++) await runStep(d, `replay-${i}`, tests, []);
+  if (quick) return log(d, "done");
 
+  if (d.buggyUrl) {
+    await runStep(d, "seeded", tests, ["--url", d.buggyUrl, "--unhappy", "--condition", "switch-account", "--condition", "two-wallets"]);
+    return log(d, "done");
+  }
+
+  const conditions = CONTROL_CONDITIONS.flatMap((c) => ["--condition", c]);
+  await runStep(d, "unhappy", tests, conditions);
+  const control = path.join(root, "unhappy", "tests.json");
+  const outcomes = await readOutcomes(path.join(root, "unhappy"));
+  if (!existsSync(control) || !outcomes) return log(d, "no unhappy-path control");
+
+  const saved = JSON.parse(await readFile(control, "utf8")) as TestsFile;
   for (const m of MUTATIONS) {
-    const flows = flowFiles.filter((f) => applies(m, flowIdOf(f), control));
-    if (flows.length === 0) continue;
-    const scriptFile = path.join(OUT, d.id, "scripts", `${m.id}.js`);
-    await mkdir(path.dirname(scriptFile), { recursive: true });
-    await writeFile(scriptFile, m.script);
-    const variants: [string, string[]][] = [[`mutation-${m.id}`, ["--baseline", path.join(OUT, d.id, "no-baselines.json")]]];
-    if (m.edgeCases.includes("happy")) variants.push([`mutation-${m.id}-baseline`, ["--baseline", baselineFile]]);
-    for (const [name, extra] of variants) {
-      const dir = path.join(OUT, d.id, name);
-      if (existsSync(path.join(dir, "report.json"))) continue;
-      log(d, `${name} on ${flows.length} flow(s)`);
-      await run(dir, ["--edge-cases", m.edgeCases.join(","), "--init-script", scriptFile, ...extra], flows);
-    }
+    const only = applicable(m, saved, outcomes);
+    if (only.flows.length === 0) continue;
+    const script = path.join(root, "scripts", `${m.id}.js`);
+    await mkdir(path.dirname(script), { recursive: true });
+    await writeFile(script, m.script);
+    await runStep(d, `mutation-${m.id}`, control, ["--init-script", script], only);
   }
-  log(d, "replays done");
+  log(d, "done");
 }
 
-/** Only replay a bug on flows whose unmutated run does the thing it breaks. */
-function applies(m: Mutation, flowId: string, control: ScanReport): boolean {
-  const runs = control.runs.filter((r) => r.flowId === flowId);
-  const happy = runs.find((r) => r.edgeCase === "happy");
-  const reqs = happy?.walletRequests ?? [];
-  const txs = reqs.filter((r) => r.method === "eth_sendTransaction").map((r) => ((r.params as unknown[])?.[0] ?? {}) as { data?: string; input?: string; value?: string });
-  const approves = txs.filter((t) => (t.data ?? t.input ?? "").startsWith("0x095ea7b3"));
-  const signs = reqs.some((r) => r.kind === "sign");
-  switch (m.id) {
-    case "unlimited-approval":
-      return approves.some((t) => (t.data ?? t.input ?? "").slice(74, 138) !== "f".repeat(64));
-    case "approval-to-stranger":
-      return approves.length > 0;
-    case "inflated-value":
-      return txs.some((t) => t.value && BigInt(t.value) > 0n);
-    case "signin-is-permit":
-      return reqs.some((r) => r.method === "personal_sign");
-    case "skips-chain-switch":
-      return runs.some((r) => r.edgeCase === "wrong-network" && r.walletRequests.some((w) => w.method === "wallet_switchEthereumChain" || w.method === "wallet_addEthereumChain"));
-    default:
-      return signs;
-  }
+/** The tests a bug can hit, judged from the clean run's wallet requests, with the happy paths the unhappy ones need. */
+function applicable(m: Mutation, saved: TestsFile, outcomes: Outcome[]): TestsFile {
+  const requests = (id: string) => outcomes.find((o) => o.testId === id)?.result.walletRequests ?? [];
+  const wanted = (t: SavedTest) => m.edgeCases.includes(t.condition ?? "happy") && m.relevant(requests(t.baseId ?? t.id));
+  const flows = saved.flows.map((f) => {
+    const hit = f.tests.filter(wanted);
+    const bases = new Set(hit.map((t) => t.baseId));
+    return { ...f, tests: f.tests.filter((t) => wanted(t) || bases.has(t.id)) };
+  });
+  return { ...saved, flows: flows.filter((f) => f.tests.length > 0) };
 }
 
-function flowIdOf(file: string): string {
-  return path.basename(file, ".json");
+/** One `run` over its own copy of a tests file, so steps never learn from each other. */
+async function runStep(d: Dapp, name: string, source: string, extra: string[], tests?: TestsFile): Promise<void> {
+  const dir = path.join(rootOf(d), name);
+  if (existsSync(path.join(dir, "meta.json"))) return;
+  log(d, name);
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, "tests.json");
+  await writeFile(file, tests ? JSON.stringify(tests, null, 2) : await readFile(source, "utf8"));
+  const meta = await cli(dir, ["run", file, ...targetFlags(d), "--out", dir, ...extra]);
+  log(d, `${name} done in ${min(meta.ms)}, exit ${meta.exitCode}`);
 }
 
 async function cli(dir: string, argv: string[]): Promise<StepMeta> {
@@ -190,7 +198,7 @@ async function cli(dir: string, argv: string[]): Promise<StepMeta> {
     const child = spawn(TSX, [CLI, ...argv], { cwd: ROOT, env: process.env });
     child.stdout.pipe(logFile, { end: false });
     child.stderr.pipe(logFile, { end: false });
-    child.on("close", (code) => resolve(code ?? 1));
+    child.on("close", (code) => resolve(code ?? 2));
   });
   await new Promise((resolve) => logFile.end(resolve));
   const meta = { ms: Date.now() - started, exitCode };
@@ -211,340 +219,156 @@ async function pool(items: Dapp[], size: number, work: (item: Dapp) => Promise<v
 
 // ── scoring ──────────────────────────────────────────────────────────────────
 
-const VERDICT_RANK: Record<Verdict, number> = { consistent: 0, check: 1, dangerous: 2 };
-type Outcome = "diagnosed" | "noticed" | "missed" | "not-fired" | "no-run";
+const RANK: Record<Verdict, number> = { consistent: 0, check: 1, dangerous: 2 };
+const worst = (o?: Outcome) => Math.max(-1, ...(o?.result.signingReviews ?? []).map((r) => RANK[r.verdict]));
 
-interface MutationScore {
-  dapp: string;
-  mutation: string;
-  flowId: string;
-  edgeCase: EdgeCaseId;
-  variant: "first-run" | "with-baseline";
-  outcome: Outcome;
-  why: string;
+/** Did the test really do something on chain or in the wallet, or could it pass by just looking at a page? */
+const signed = (o?: Outcome) => (o?.result.walletRequests ?? []).filter((r) => r.kind === "sign" && r.outcome === "approved").length;
+
+function scoreMutation(m: Mutation, mutated: Outcome[], control: Outcome[], tests: TestsFile) {
+  const all = tests.flows.flatMap((f) => f.tests.map((t) => ({ ...t, flow: f.name })));
+  return all
+    .filter((t) => m.edgeCases.includes(t.condition ?? "happy"))
+    .flatMap((t) => {
+      const o = mutated.find((x) => x.testId === t.id);
+      if (!o) return [];
+      const c = control.find((x) => x.testId === t.id);
+      const base = { mutation: m.id, test: `${t.flow} · ${t.name}`, status: o.status };
+      if (!o.result.console.some((l) => l.text.includes(FIRED_MARK))) return [{ ...base, outcome: "not-fired", why: o.result.failure ?? "" }];
+      const escalated = o.result.signingReviews.find((r) => RANK[r.verdict] > worst(c));
+      if (escalated) return [{ ...base, outcome: "diagnosed", why: `${escalated.verdict}: ${escalated.title}` }];
+      const issue = o.result.issues.find((i) => !c?.result.issues.some((x) => x.fingerprint === i.fingerprint));
+      if (issue) return [{ ...base, outcome: "diagnosed", why: issue.title }];
+      if (c?.status === "pass" && o.status !== "pass") return [{ ...base, outcome: "noticed", why: o.result.failure ?? o.status }];
+      return [{ ...base, outcome: "missed", why: `${o.status}, nothing new against the clean run` }];
+    });
 }
 
-/** The signal a mutation should produce when DappDrill really understands the bug. */
-function diagnoses(m: Mutation, run: FlowRun, newIssues: Issue[], reviews: SigningReview[], control: Ctl): string | undefined {
-  const fresh = reviews.filter((r) => VERDICT_RANK[r.verdict] > control.maxVerdict || newChecks(r, control).length);
-  const flagged = (pred: (r: SigningReview) => boolean) => fresh.find(pred);
-  switch (m.id) {
-    case "unlimited-approval": {
-      const r = flagged((r) => r.approvals.some((a) => a.unlimited) && r.checks.some((c) => (c.id === "approval" || c.id === "ui-match") && c.status !== "pass"));
-      return r && `${r.verdict}: ${r.title}`;
-    }
-    case "approval-to-stranger":
-    case "signin-is-permit": {
-      const r = flagged((r) => r.verdict === "dangerous");
-      return r && `dangerous: ${r.title}`;
-    }
-    case "inflated-value": {
-      const r = flagged((r) => r.checks.some((c) => (c.id === "ui-match" || c.id === "expectation" || c.id === "baseline") && c.status !== "pass"));
-      return r && `${r.verdict}: ${r.title}`;
-    }
-    default: {
-      const i = newIssues.find((i) => i.edgeCase === run.edgeCase && (i.category === "wallet" || i.category === "ui"));
-      return i && `${i.severity} ${i.category}: ${i.title}`;
-    }
-  }
-}
-
-function newChecks(r: SigningReview, control: Ctl): string[] {
-  return r.checks.filter((c) => SIGNAL_CHECK.has(c.status) && !control.checks.has(`${c.id}:${c.status}`)).map((c) => `${c.id}:${c.status}`);
-}
-
-/** Skipped and unverified checks say what couldn't be looked up, not what's wrong. */
-const SIGNAL_CHECK = new Set(["warn", "fail"]);
-
-/**
- * A run's issues and reviews, found through the run's own id lists: reports
- * saved before the engine stamped reviews with their run have no runId on
- * reviews or on the signing issues made from them.
- */
-function ofRun(report: ScanReport, run: FlowRun): { issues: Issue[]; reviews: SigningReview[] } {
-  const reviewIds = new Set(run.signingReviewIds);
-  const issueIds = new Set(run.issueIds);
-  return {
-    reviews: report.signingReviews.filter((r) => r.runId === run.id || reviewIds.has(r.id)),
-    issues: report.issues.filter((i) => i.runId === run.id || issueIds.has(i.id) || (i.evidence.signingReviewId !== undefined && reviewIds.has(i.evidence.signingReviewId))),
-  };
-}
-
-/** What the unmutated replays of one flow + edge case looked like. */
-interface Ctl {
-  statuses: FlowRun["status"][];
-  fingerprints: Set<string>;
-  maxVerdict: number;
-  checks: Set<string>;
-}
-
-function controlFor(controls: ScanReport[], flowId: string, edgeCase: EdgeCaseId): Ctl {
-  const owned = controls.flatMap((c) => c.runs.filter((r) => r.flowId === flowId).map((run) => ({ run, ...ofRun(c, run) })));
-  const same = owned.filter((o) => o.run.edgeCase === edgeCase);
-  const runs = same.map((o) => o.run);
-  const issues = same.flatMap((o) => o.issues);
-  // Reviews compare against every clean run of the flow: a mutated run can get further than its edge case's control did.
-  const reviews = owned.flatMap((o) => o.reviews);
-  return {
-    statuses: runs.map((r) => r.status),
-    fingerprints: new Set(issues.map((i) => i.fingerprint)),
-    maxVerdict: Math.max(-1, ...reviews.map((r) => VERDICT_RANK[r.verdict])),
-    checks: new Set(reviews.flatMap((r) => r.checks.filter((c) => SIGNAL_CHECK.has(c.status)).map((c) => `${c.id}:${c.status}`))),
-  };
-}
-
-function scoreMutation(d: Dapp, m: Mutation, variant: MutationScore["variant"], mutated: ScanReport, controls: ScanReport[]): MutationScore[] {
-  return mutated.runs.map((run) => {
-    const base = { dapp: d.id, mutation: m.id, flowId: run.flowId, edgeCase: run.edgeCase, variant };
-    if (!run.console.some((c) => c.text.includes(FIRED_MARK))) return { ...base, outcome: "not-fired", why: `run ${run.status}: ${run.reason ?? ""}`.trim() };
-    const control = controlFor(controls, run.flowId, run.edgeCase);
-    const { issues, reviews } = ofRun(mutated, run);
-    const newIssues = issues.filter((i) => !control.fingerprints.has(i.fingerprint));
-    const diag = diagnoses(m, run, newIssues, reviews, control);
-    if (diag) return { ...base, outcome: "diagnosed", why: diag };
-    const escalated = reviews.find((r) => VERDICT_RANK[r.verdict] > control.maxVerdict);
-    const checks = [...new Set(reviews.flatMap((r) => newChecks(r, control)))];
-    const worse = control.statuses.every((s) => s === "pass") && run.status !== "pass";
-    const signals = [
-      ...newIssues.map((i) => `new ${i.category} issue: ${i.title}`),
-      ...(escalated ? [`review went to ${escalated.verdict}: ${escalated.title}`] : []),
-      ...(checks.length ? [`new checks ${checks.join(", ")}`] : []),
-      ...(worse ? [`run ${run.status} where control passed: ${run.reason ?? ""}`] : []),
-    ];
-    if (signals.length) return { ...base, outcome: "noticed", why: signals.join("; ") };
-    return { ...base, outcome: "missed", why: `run ${run.status}, nothing new vs control` };
-  });
-}
-
-interface Cell {
-  flowId: string;
-  flowName: string;
-  edgeCase: EdgeCaseId;
-  statuses: FlowRun["status"][];
-  sameStatus: boolean;
-  sameIssues: boolean;
-}
-
-function stability(controls: ScanReport[]): Cell[] {
-  const first = controls[0];
-  if (!first) return [];
-  const cells: Cell[] = [];
-  for (const flow of first.flows) {
-    for (const edgeCase of CONTROL_EDGES) {
-      const runs = controls.map((c) => c.runs.find((r) => r.flowId === flow.id && r.edgeCase === edgeCase));
-      if (runs.some((r) => !r)) continue;
-      const fps = controls.map((c, i) => c.issues.filter((x) => x.runId === runs[i]!.id).map((x) => x.fingerprint).sort().join(","));
-      const statuses = runs.map((r) => r!.status);
-      cells.push({ flowId: flow.id, flowName: flow.name, edgeCase, statuses, sameStatus: new Set(statuses).size === 1, sameIssues: new Set(fps).size === 1 });
-    }
-  }
-  return cells;
+interface AppScore {
+  id: string;
+  outcome: string;
+  flows: string[];
+  expected?: string[];
+  rows: { test: string; first: string; replays: string[]; signed: number; agentSteps: number; steps: number; failure?: string }[];
+  mutations: { mutation: string; test: string; status: string; outcome: string; why: string }[];
+  seeded?: { passed: number; total: number; flagged: string[] };
+  review?: Review;
+  minutes: number;
+  costUsd: number;
 }
 
 async function report(dapps: Dapp[]): Promise<void> {
-  const perDapp = [];
-  const mutationScores: MutationScore[] = [];
+  const apps: AppScore[] = [];
   for (const d of dapps) {
-    const dir = path.join(OUT, d.id);
-    const scan = await readReport(path.join(dir, "scan"));
-    if (!scan) {
-      perDapp.push({ id: d.id, url: d.url, scanned: false });
-      continue;
-    }
-    const scanMeta = await readMeta(path.join(dir, "scan"));
-    const labels = await readLabels(d.id);
-    const label = (list: Issue[]) =>
-      [...new Map(list.map((i) => [i.fingerprint, i])).values()].map((i) => ({
-        fingerprint: i.fingerprint,
-        severity: i.severity,
-        category: i.category,
-        edgeCase: i.edgeCase,
-        title: i.title,
-        label: labels[i.fingerprint]?.label,
-        note: labels[i.fingerprint]?.note,
-        fixed: labels[i.fingerprint]?.fixed,
-      }));
-    const labeled = label(scan.issues);
-    // Every scan attempt cost money, including the ones an engine fix replaced.
-    let spentUsd = 0;
-    for (const entry of await readdir(dir)) if (entry.startsWith("scan")) spentUsd += (await readReport(path.join(dir, entry)))?.costUsd ?? 0;
-    const verdicts = countBy(scan.signingReviews.map((r) => r.verdict));
+    const root = rootOf(d);
+    const analysis = await readJson<Analysis>(path.join(root, "analyze", "analysis.json"));
+    const meta = await readJson<StepMeta>(path.join(root, "analyze", "meta.json"));
+    if (!meta) continue;
+    const tests = await readJson<TestsFile>(path.join(root, "analyze", "tests.json"));
+    const first = (await readOutcomes(path.join(root, "analyze"))) ?? [];
+    const replays = (await Promise.all(Array.from({ length: REPLAYS }, (_, i) => readOutcomes(path.join(root, `replay-${i + 1}`))))).flatMap((r) => (r ? [r] : []));
+    const expected = (await readJson<{ flows: string[] }>(path.join(BENCH, "expected", `${d.id}.json`)))?.flows;
+    const review = await readJson<Review>(path.join(root, "review.json"));
 
-    const controls = (await Promise.all(Array.from({ length: CONTROL_RUNS }, (_, i) => readReport(path.join(dir, `control-${i + 1}`))))).filter((r): r is ScanReport => !!r);
-    const cells = controls.length === CONTROL_RUNS ? stability(controls) : [];
-    // The control replays run on the engine as committed, so their findings re-measure precision after the fixes.
-    const replayIssues = label(controls.flatMap((c) => c.issues));
-    let replayMs = 0;
-    for (let i = 1; i <= CONTROL_RUNS; i++) replayMs += (await readMeta(path.join(dir, `control-${i}`)))?.ms ?? 0;
+    const rows = (tests?.flows ?? []).flatMap((f) =>
+      f.tests.map((t) => {
+        const runs = replays.map((r) => r.find((o) => o.testId === t.id));
+        const steps = runs.flatMap((o) => o?.result.steps ?? []);
+        const lastBad = [...runs].reverse().find((o) => o && o.status !== "pass");
+        return {
+          test: `${f.name} · ${t.name}`,
+          first: first.find((o) => o.testId === t.id)?.status ?? "–",
+          replays: runs.map((o) => o?.status ?? "–"),
+          signed: Math.max(0, ...runs.map(signed)),
+          agentSteps: steps.filter((s) => s.via === "agent").length,
+          steps: steps.length,
+          failure: lastBad?.result.failure ?? first.find((o) => o.testId === t.id)?.result.failure,
+        };
+      }),
+    );
 
+    const control = (await readOutcomes(path.join(root, "unhappy"))) ?? [];
+    const mutations = [];
     for (const m of MUTATIONS) {
-      for (const [name, variant] of [[`mutation-${m.id}`, "first-run"], [`mutation-${m.id}-baseline`, "with-baseline"]] as const) {
-        const mutated = await readReport(path.join(dir, name));
-        replayMs += (await readMeta(path.join(dir, name)))?.ms ?? 0;
-        if (mutated) mutationScores.push(...scoreMutation(d, m, variant, mutated, controls));
-      }
+      const dir = path.join(root, `mutation-${m.id}`);
+      const mutated = await readOutcomes(dir);
+      const saved = await readJson<TestsFile>(path.join(dir, "tests.json"));
+      if (mutated && saved) mutations.push(...scoreMutation(m, mutated, control, saved));
     }
 
-    perDapp.push({
+    const steps = existsSync(root) ? await readdir(root) : [];
+    const everyRun = (await Promise.all(steps.map((s) => readOutcomes(path.join(root, s))))).flatMap((o) => o ?? []);
+    const minutes = (await Promise.all(steps.map((s) => readJson<StepMeta>(path.join(root, s, "meta.json"))))).reduce((sum, m) => sum + (m?.ms ?? 0), 0) / 60_000;
+    const seeded = await readOutcomes(path.join(root, "seeded"));
+    apps.push({
       id: d.id,
-      url: d.url,
-      scanned: true,
-      scanMinutes: scanMeta ? +(scanMeta.ms / 60_000).toFixed(1) : undefined,
-      replayMinutes: +(replayMs / 60_000).toFixed(1),
-      costUsd: +scan.costUsd.toFixed(2),
-      spentUsd: +spentUsd.toFixed(2),
-      pages: scan.pages.length,
-      flows: scan.flows.map((f) => ({ id: f.id, name: f.name, steps: f.steps.length, setup: f.setup?.map((s) => s.name) })),
-      runs: countBy(scan.runs.map((r) => r.status)),
-      issues: labeled,
-      replayIssues,
-      signingVerdicts: verdicts,
-      stability: cells.length
-        ? { cells: cells.length, sameStatus: cells.filter((c) => c.sameStatus).length, sameIssues: cells.filter((c) => c.sameIssues).length, flaky: cells.filter((c) => !c.sameStatus || !c.sameIssues) }
-        : undefined,
+      outcome: analysis?.blocked ? "blocked" : analysis?.stalled ? "stalled" : !analysis ? `no analysis (exit ${meta.exitCode})` : analysis.flows.length ? "ok" : "no flows",
+      flows: tests?.flows.map((f) => f.name) ?? [],
+      expected,
+      rows,
+      mutations,
+      seeded: seeded && { passed: seeded.filter((o) => o.status === "pass").length, total: seeded.length, flagged: seeded.flatMap((o) => o.result.signingReviews).filter((r) => r.verdict !== "consistent").map((r) => `${r.verdict}: ${r.title}`) },
+      review,
+      minutes: Math.round(minutes * 10) / 10,
+      costUsd: Math.round(((analysis?.costUsd ?? 0) + everyRun.reduce((sum, o) => sum + o.result.costUsd, 0)) * 100) / 100,
     });
   }
-
-  const issues = perDapp.flatMap((d) => ("issues" in d && d.issues ? d.issues : []));
-  const tp = issues.filter((i) => i.label === "true").length;
-  const fp = issues.filter((i) => i.label === "false").length;
-  const fixedFp = issues.filter((i) => i.label === "false" && i.fixed).length;
-  const replayIssues = perDapp.flatMap((d) => ("replayIssues" in d && d.replayIssues ? d.replayIssues : []));
-  const rtp = replayIssues.filter((i) => i.label === "true").length;
-  const rfp = replayIssues.filter((i) => i.label === "false").length;
-  const cells = perDapp.flatMap((d) => ("stability" in d && d.stability ? [d.stability] : []));
-  const fired = mutationScores.filter((s) => s.outcome !== "not-fired" && s.outcome !== "no-run");
-  const byMutation = MUTATIONS.map((m) => {
-    const forM = (variant: MutationScore["variant"]) => fired.filter((s) => s.mutation === m.id && s.variant === variant);
-    const tally = (s: MutationScore[]) => ({ cases: s.length, diagnosed: s.filter((x) => x.outcome === "diagnosed").length, noticed: s.filter((x) => x.outcome === "noticed").length, missed: s.filter((x) => x.outcome === "missed").length });
-    return { id: m.id, bug: m.bug, edgeCases: m.edgeCases, firstRun: tally(forM("first-run")), withBaseline: tally(forM("with-baseline")) };
-  });
-  const totals = {
-    dapps: dapps.length,
-    scanned: perDapp.filter((d) => d.scanned).length,
-    withFlows: perDapp.filter((d) => "flows" in d && d.flows?.length).length,
-    costUsd: +perDapp.reduce((s, d) => s + ("costUsd" in d ? (d.costUsd ?? 0) : 0), 0).toFixed(2),
-    spentUsd: +perDapp.reduce((s, d) => s + ("spentUsd" in d ? (d.spentUsd ?? 0) : 0), 0).toFixed(2),
-    issues: issues.length,
-    labeledTrue: tp,
-    labeledFalse: fp,
-    unlabeled: issues.length - tp - fp,
-    precision: tp + fp ? +(tp / (tp + fp)).toFixed(2) : undefined,
-    falseFixed: fixedFp,
-    replayIssues: replayIssues.length,
-    replayTrue: rtp,
-    replayFalse: rfp,
-    replayUnlabeled: replayIssues.length - rtp - rfp,
-    replayPrecision: rtp + rfp ? +(rtp / (rtp + rfp)).toFixed(2) : undefined,
-    stableCells: cells.reduce((s, c) => s + c.sameStatus, 0),
-    stableIssueCells: cells.reduce((s, c) => s + c.sameIssues, 0),
-    cells: cells.reduce((s, c) => s + c.cells, 0),
-    mutationCases: fired.filter((s) => s.variant === "first-run").length,
-    diagnosed: fired.filter((s) => s.variant === "first-run" && s.outcome === "diagnosed").length,
-    caught: fired.filter((s) => s.variant === "first-run" && s.outcome !== "missed").length,
-  };
-
-  const summary: Summary = { date, totals, byMutation, dapps: perDapp, mutationScores };
-  await mkdir(OUT, { recursive: true });
-  await writeFile(path.join(OUT, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
-  await writeFile(path.join(OUT, "report.md"), markdown(summary));
-  console.log(`Wrote ${path.join(OUT, "summary.json")} and report.md`);
+  await writeFile(path.join(OUT, "summary.json"), JSON.stringify(apps, null, 2));
+  await writeFile(path.join(OUT, "report.md"), renderReport(apps));
+  console.log(`${path.join(OUT, "report.md")}`);
 }
 
-interface Tally {
-  cases: number;
-  diagnosed: number;
-  noticed: number;
-  missed: number;
-}
-
-interface Summary {
-  date: string;
-  totals: Record<string, number | undefined>;
-  byMutation: { id: string; bug: string; edgeCases: EdgeCaseId[]; firstRun: Tally; withBaseline: Tally }[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- per-dApp rows are plain JSON
-  dapps: any[];
-  mutationScores: MutationScore[];
-}
-
-function markdown(s: Summary): string {
-  const t = s.totals;
-  const pct = (a?: number, b?: number) => (a !== undefined && b ? `${Math.round((100 * a) / b)}%` : "–");
-  const lines = [
-    `# DappDrill real-dApp benchmark — ${s.date}`,
-    "",
-    `${t.scanned}/${t.dapps} dApps scanned, ${t.withFlows} with replayable flows. Final scans cost $${t.costUsd}; every scan attempt together $${t.spentUsd}.`,
-    "",
-    `- **Precision (scans):** ${t.labeledTrue} real / ${t.labeledFalse} false of ${t.issues} distinct findings (${t.unlabeled} unlabeled) → ${t.precision ?? "–"}; ${t.falseFixed} of the false ones were engine bugs fixed since`,
-    `- **Precision (replays on the fixed engine, ${CONTROL_EDGES.join("/")}):** ${t.replayTrue} real / ${t.replayFalse} false of ${t.replayIssues} distinct findings (${t.replayUnlabeled} unlabeled) → ${t.replayPrecision ?? "–"}`,
-    `- **Replay stability:** same status in ${t.stableCells}/${t.cells} flow × edge-case cells (${pct(t.stableCells, t.cells)}), same findings in ${t.stableIssueCells}/${t.cells} (${pct(t.stableIssueCells, t.cells)})`,
-    `- **Injected bugs:** ${t.diagnosed} diagnosed, ${t.caught} caught at all, of ${t.mutationCases} cases where the bug fired`,
-    "",
-    "## Injected bugs",
-    "",
-    "| Bug | Edge case | Cases | Diagnosed | Noticed | Missed | With baseline: diagnosed / noticed / missed |",
-    "|---|---|---|---|---|---|---|",
-    ...s.byMutation.map(
-      (m) =>
-        `| ${m.id} | ${m.edgeCases.join(", ")} | ${m.firstRun.cases} | ${m.firstRun.diagnosed} | ${m.firstRun.noticed} | ${m.firstRun.missed} | ${m.withBaseline.cases ? `${m.withBaseline.diagnosed} / ${m.withBaseline.noticed} / ${m.withBaseline.missed}` : "–"} |`,
-    ),
-    "",
-    "## Per dApp",
-    "",
-    "| dApp | Scan min | Cost | All attempts | Flows | Findings (real/false/unlabeled) | Stable cells | Replay min |",
-    "|---|---|---|---|---|---|---|---|",
-    ...s.dapps.map((d) =>
-      d.scanned
-        ? `| ${d.id} | ${d.scanMinutes ?? "–"} | $${d.costUsd} | $${d.spentUsd} | ${d.flows.length} | ${d.issues.filter((i: any) => i.label === "true").length}/${d.issues.filter((i: any) => i.label === "false").length}/${d.issues.filter((i: any) => !i.label).length} | ${d.stability ? `${d.stability.sameStatus}/${d.stability.cells}` : "–"} | ${d.replayMinutes} |`
-        : `| ${d.id} | not scanned | | | | | | |`,
-    ),
-    "",
-    "## Every mutation case",
-    "",
-    "| dApp | Bug | Variant | Flow | Outcome | Why |",
-    "|---|---|---|---|---|---|",
-    ...s.mutationScores.map((m) => `| ${m.dapp} | ${m.mutation} | ${m.variant} | ${m.flowId} | ${m.outcome} | ${m.why.replace(/\|/g, "\\|").slice(0, 160)} |`),
-    "",
-  ];
-  return lines.join("\n");
-}
-
-// ── files ────────────────────────────────────────────────────────────────────
-
-async function readReport(dir: string): Promise<ScanReport | undefined> {
-  try {
-    return JSON.parse(await readFile(path.join(dir, "report.json"), "utf8")) as ScanReport;
-  } catch {
-    return undefined;
+function renderReport(apps: AppScore[]): string {
+  const lines = [`# DappDrill real-dApp benchmark, ${date}`, "", "| dApp | Analysis | Flows | Expected found | Useful | First run | Passed every replay | Signed something | Steps on the model | Min | Cost |", "|---|---|---|---|---|---|---|---|---|---|---|"];
+  for (const a of apps) {
+    const stable = a.rows.filter((r) => r.replays.length === REPLAYS && r.replays.every((s) => s === "pass"));
+    const found = a.review ? new Set(a.review.flows.flatMap((f) => (f.expected ? [f.expected] : []))).size : undefined;
+    const steps = a.rows.reduce((s, r) => s + r.steps, 0);
+    const cells = [
+      a.id,
+      a.outcome,
+      a.flows.length,
+      found === undefined ? "not reviewed" : `${found}/${a.expected?.length ?? "?"}`,
+      a.review ? `${a.review.flows.filter((f) => f.useful).length}/${a.review.flows.length}` : "not reviewed",
+      `${a.rows.filter((r) => r.first === "pass").length}/${a.rows.length}`,
+      `${stable.length}/${a.rows.length}`,
+      `${stable.filter((r) => r.signed > 0).length}/${stable.length}`,
+      steps ? `${a.rows.reduce((s, r) => s + r.agentSteps, 0)}/${steps}` : "–",
+      a.minutes,
+      `$${a.costUsd}`,
+    ];
+    lines.push(`| ${cells.join(" | ")} |`);
   }
-}
-
-async function readMeta(dir: string): Promise<StepMeta | undefined> {
-  try {
-    return JSON.parse(await readFile(path.join(dir, "meta.json"), "utf8")) as StepMeta;
-  } catch {
-    return undefined;
+  for (const a of apps) {
+    lines.push("", `## ${a.id}`, "");
+    if (a.review) lines.push(a.review.summary, "");
+    if (a.rows.length) {
+      lines.push(`| Test | First run | Replays | Signed | Why not |`, "|---|---|---|---|---|");
+      for (const r of a.rows) lines.push(`| ${r.test} | ${r.first} | ${r.replays.join(" ")} | ${r.signed} | ${(r.failure ?? "").replace(/\|/g, "/").replace(/\n/g, " ").slice(0, 160)} |`);
+      lines.push("");
+    }
+    if (a.seeded) lines.push(`Seeded build: ${a.seeded.passed} of ${a.seeded.total} tests passed. Flagged: ${a.seeded.flagged.join("; ") || "nothing"}.`, "");
+    if (a.mutations.length) {
+      lines.push("| Injected bug | Test | Outcome | Why |", "|---|---|---|---|");
+      for (const m of a.mutations) lines.push(`| ${m.mutation} | ${m.test} | ${m.outcome} | ${m.why.replace(/\|/g, "/").replace(/\n/g, " ").slice(0, 160)} |`);
+      lines.push("");
+    }
+    if (a.review?.tests.length) {
+      lines.push("| Reviewed test | Label | Note |", "|---|---|---|");
+      for (const t of a.review.tests) lines.push(`| ${t.test} | ${t.label} | ${t.note.replace(/\|/g, "/").replace(/\n/g, " ")} |`);
+      lines.push("");
+    }
+    if (a.review?.missed.length) lines.push(`Expected but not found: ${a.review.missed.join(", ")}.`, "");
   }
+  return `${lines.join("\n").trimEnd()}\n`;
 }
 
-async function readLabels(id: string): Promise<Record<string, Label>> {
-  try {
-    return JSON.parse(await readFile(path.join(BENCH, "labels", `${id}.json`), "utf8")) as Record<string, Label>;
-  } catch {
-    return {};
-  }
+async function readJson<T>(file: string): Promise<T | undefined> {
+  return readFile(file, "utf8").then((t) => JSON.parse(t) as T, () => undefined);
 }
-
-function countBy<T extends string>(xs: T[]): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const x of xs) out[x] = (out[x] ?? 0) + 1;
-  return out;
-}
+const readOutcomes = (dir: string) => readJson<Outcome[]>(path.join(dir, "results.json"));
 
 const min = (ms: number) => `${(ms / 60_000).toFixed(1)} min`;
-const log = (d: Dapp, m: string) => console.log(`[bench] ${new Date().toISOString().slice(11, 19)} ${d.id}: ${m}`);
+const log = (d: Dapp, text: string) => console.log(`[bench] ${d.id}: ${text}`);
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+await main();

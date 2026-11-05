@@ -32,7 +32,7 @@ import type { Wallet } from "../wallet/controller.js";
 import { decodeBuiltin, spenderOf } from "./expectation.js";
 import { edgeLabel, inspectRecovery, makeIssue, pickConsole, pickRpc, type IssueContext, type IssueDraft } from "./issues.js";
 import { resolveLocator } from "./locators.js";
-import { replayFlow, sameRequest, type ReplayFlowResult, type ReplayHooks } from "./replay.js";
+import { STEP_TIMEOUT_MS, replayFlow, sameRequest, type ReplayFlowResult, type ReplayHooks } from "./replay.js";
 
 /** Playwright errors end in a multi-line call log; summaries keep only what failed. */
 const firstLine = (text?: string) => text?.split("\n")[0]?.trim();
@@ -248,7 +248,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
       reviewLlm: opts.reviewLlm,
       baselines: opts.baselines,
       inbox: opts.inbox,
-      stepTimeoutMs: (opts.stepTimeoutMs ?? 15_000) * (setup.stepTimeoutFactor ?? 1),
+      stepTimeoutMs: (opts.stepTimeoutMs ?? STEP_TIMEOUT_MS) * (setup.stepTimeoutFactor ?? 1),
       // A slow RPC delays the wallet request too: the app reads state before it asks.
       signTimeoutMs: 30_000 * (setup.stepTimeoutFactor ?? 1),
       hooks: setup.hooks,
@@ -338,6 +338,8 @@ function runStatus(edge: EdgeCaseId, replay: ReplayFlowResult | undefined, issue
   if (replay.completed || replay.stoppedByHook) return { status: "pass" };
   // Apps often make a new account sign in or set up again; not finishing as B isn't a bug by itself.
   if (edge === "switch-account") return { status: "skipped", reason: `couldn't finish as the second account (${replay.error ?? "the flow stopped"}); no requests from the old account` };
+  // No issue means the app asked to switch or told the user, so stopping there is the right outcome.
+  if (edge === "wrong-network") return { status: "pass" };
   return { status: "fail", reason: replay.error ?? `the flow did not complete under ${edgeLabel(edge)}` };
 }
 

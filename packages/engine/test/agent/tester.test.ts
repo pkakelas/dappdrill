@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Step, TestSpec } from "@dappdrill/core";
-import { runStep, type StepDeps } from "../../src/agent/tester.js";
+import { judgeExpected, runStep, type StepDeps } from "../../src/agent/tester.js";
 import { createStubSession, type StubSession } from "./fixture/session.js";
 import { refOf, scriptedRuns } from "./fixture/scripted-llm.js";
 
@@ -71,6 +71,28 @@ describe("runStep", () => {
     );
     expect(out).toMatchObject({ ok: true, via: "agent", actions: [] });
     expect(prompts[0]).toContain("replaying them failed now: button gone");
+  });
+
+  it("calls a wrong balance Couldn't run only when a backend was asked about the wallet", async () => {
+    const blind = { tool: "step_done", input: { ok: false, cause: "fork", reason: "The page shows 0 ETH." } };
+    await open();
+    const out = await runStep(deps({ fast: scriptedRuns([[blind]]), walletBackends: () => ["api.example.com"] }), spec([{ text: "Click Supply" }]), 0);
+    expect(out).toMatchObject({ ok: false, stuck: true });
+    expect(out.note).toContain("api.example.com");
+
+    await open();
+    const noBackend = await runStep(deps({ fast: scriptedRuns([[blind]]), walletBackends: () => [] }), spec([{ text: "Click Supply" }]), 0);
+    expect(noBackend).toMatchObject({ ok: false, note: "The page shows 0 ETH." });
+    expect(noBackend.stuck).toBeUndefined();
+  });
+
+  it("doesn't take the fast model's word that the app is at fault on a step that never worked", async () => {
+    await open();
+    const fast = scriptedRuns([[{ tool: "step_done", input: { ok: false, cause: "app", reason: "There is no Repay button." } }]]);
+    const strong = scriptedRuns([[{ tool: "step_done", input: { ok: true, reason: "Found it." } }]]);
+    const out = await runStep(deps({ fast, strong }), spec([{ text: "Click Repay" }]), 0);
+    expect(out.ok).toBe(true);
+    expect(strong.results).toHaveLength(1);
   });
 
   it("hands an unsure step to the stronger model once", async () => {
@@ -146,5 +168,14 @@ describe("runStep", () => {
     const out = await runStep(deps({ fast }), spec([{ text: "Check the order filled" }]), 0);
     expect(fast.results[0]).toContain("is not visible");
     expect(out.ok).toBe(false);
+  });
+});
+
+describe("judgeExpected", () => {
+  it("asks the model even when an old proof text still shows", async () => {
+    await open();
+    const llm = { ...scriptedRuns([]), structured: async () => ({ ok: false, reason: "Nothing was deposited." }) } as unknown as StepDeps["fast"];
+    const out = await judgeExpected(session, llm, { ...spec([{ text: "Connect the wallet" }]), proof: "Connect wallet" });
+    expect(out).toEqual({ ok: false, reason: "Nothing was deposited." });
   });
 });

@@ -41,6 +41,11 @@ export function blockedLine(b: Blocked): string {
 /** Where an owner learns to make their app's data load on a fork. */
 export const FORK_GUIDE_URL = "https://dappdrill.com/fork";
 
+/** Why a test couldn't run: the app gets the wallet's funds from a backend that reads the real chain. */
+export function forkBlindLine(reason: string, hosts: string[]): string {
+  return `${reason} The app asks ${hosts.join(", ")} about this wallet, and backends like these read the real chain, not the fork. How to fix it: ${FORK_GUIDE_URL}`;
+}
+
 /** One sentence per thing the app was waiting on, most likely cause first. */
 export function stallReasons(s: Stalled): string[] {
   // Rows saved before missing chains were reported have no `chains`.

@@ -1,0 +1,4 @@
+{
+  "about": "What a user comes to stake.lido.fi to do. Written before the run, from what the app is for.",
+  "flows": ["Stake ETH for stETH", "Wrap stETH into wstETH", "Unwrap wstETH into stETH", "Request a withdrawal"]
+}

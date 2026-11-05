@@ -4,26 +4,29 @@
  * step with the browser tools and its actions become the new cache. A step
  * the fast model can't settle goes to the acting model once.
  */
+import { formatEther } from "viem";
 import { z } from "zod";
-import { describeStep, type AppMap, type Blocked, type Step, type TestSpec, type WalletRequest } from "@dappdrill/core";
+import { describeStep, forkBlindLine, type AppMap, type Blocked, type Step, type TestSpec, type WalletRequest } from "@dappdrill/core";
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, Recorder, settle } from "./tools.js";
+import { decodeWalletRequest } from "./wallet-decode.js";
 
 const FAST_TURNS = 14;
 const STRONG_TURNS = 20;
 
 export const STEP_SYSTEM = `You carry out one step of an end-to-end test on a web app (often a web3 dApp with an injected test wallet).
-You get the test's goal, all its steps, and the one step to do now. Do only that step, with as few actions as you can.
+You get the test's goal, all its steps, and the one step to do now. Do only that step, with as few actions as you can. If an earlier step's work is still queued or unfinished on the page, finish it first: the steps assume it was done.
 
 - Use the page as a user would: look, click, type, select. Prefer what is visible over guessing URLs.
 - When the step is already true (the wallet is already connected, the page is already open), do nothing and call step_done.
 - Wallet requests show up in tool results. Approve them with wallet_approve unless the step says to reject.
-- When the step asks to check something, confirm it on the page and call expect_text with a short exact text that proves it.
-- Never solve a CAPTCHA or bot check. Call report_blocked.
+- When the step asks to check something, confirm it on the page and call expect_text with a short exact text that proves it. A value within 1% is the same value: apps round and truncate (0.0099 for 0.01).
+- Never solve a CAPTCHA or bot check. Call report_blocked. Do the same when the app refuses this user or wallet ("access unavailable", a region block); don't try to get around it.
 - A click that fails tells you nothing about the app. Look again with a screenshot and try another element with the same name.
 - Only report what you saw. A wallet request that returned an empty list means nothing is connected.
-- Finish with step_done. ok=false with cause "app" when a user would see the app in the way (an error, a disabled button, missing content); cause "unsure" when you couldn't work out how to do the step.`;
+- Finish with step_done. ok=false with cause "app" when a user would see the app in the way (an error, a disabled button, missing content); cause "unsure" when you couldn't work out how to do the step.
+- You are told what the wallet holds on the test chain. When that is what stops the step because the page shows something else (0 ETH while it holds 100), use cause "fork": the app is reading from somewhere other than the test chain.`;
 
 export interface StepDeps {
   session: DrillSession;
@@ -35,6 +38,8 @@ export interface StepDeps {
   /** Replays cached actions from where the page is now. */
   replay: (actions: Step[]) => Promise<{ ok: boolean; error?: string }>;
   beforeApprove?: (request: WalletRequest) => Promise<void>;
+  /** Backends the page told about the wallet. */
+  walletBackends?: () => string[];
   signal?: AbortSignal;
 }
 
@@ -70,13 +75,18 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   let done = fast.done;
   // The fast model tends to blame the app for a click of ours that failed, so that goes to the acting model too.
   if (done && !done.ok && stuckOn) done.cause = "unsure";
-  if (!blocked && deps.strong && (!done || (!done.ok && done.cause === "unsure"))) {
+  // The model's word alone doesn't excuse a wrong balance: a backend must really have been asked about the wallet.
+  const blindTo = () => (done && !done.ok && done.cause === "fork" ? (deps.walletBackends?.() ?? []) : []);
+  // A step that has never worked is more likely our misreading than the app's fault, whatever the fast model says.
+  if (!blocked && !blindTo().length && deps.strong && (!done || (!done.ok && (done.cause === "unsure" || !step.actions)))) {
     const hint = done ? `A quicker attempt gave up: ${done.reason}` : "A quicker attempt ran out of actions before finishing.";
     done = (await attempt(deps.strong, STRONG_TURNS, deps, test, index, recorder, hooks, broke, hint)).done;
   }
   const actions = recorder.take();
   const did = actions.map(describeStep);
   if (blocked) return { ok: false, via: "agent", did, note: `Blocked: ${blocked.reason}`, blocked };
+  const hosts = blindTo();
+  if (done && hosts.length) return { ok: false, via: "agent", did, note: forkBlindLine(done.reason, hosts), stuck: true };
   if (stuckOn && !done?.ok && done?.cause !== "app") return { ok: false, via: "agent", did, note: `Couldn't click “${stuckOn}”, so this step didn't finish.`, stuck: true };
   if (!done) return { ok: false, via: "agent", did, note: "Couldn't finish this step." };
   return { ok: done.ok, via: "agent", did, note: done.reason || undefined, actions: done.ok ? actions : undefined };
@@ -84,7 +94,7 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
 
 interface Done {
   ok: boolean;
-  cause?: "app" | "unsure";
+  cause?: "app" | "unsure" | "fork";
   reason: string;
 }
 
@@ -110,7 +120,7 @@ async function attempt(
     ...browserTools({ session, recorder, inbox: deps.inbox, ...hooks, beforeApprove: deps.beforeApprove }),
     {
       name: "expect_text",
-      description: "Check that a short exact text is visible on the page now. Records it as a check that later runs repeat.",
+      description: "Check that a short exact text is visible on the page now. Records it as a check that later runs repeat, so use text that will read the same next time: amounts the test typed and labels, never prices, rates, USD values or times.",
       schema: z.object({ text: z.string().min(1).max(80) }),
       handler: async ({ text }) => {
         const visible = await session.page.getByText(text).first().isVisible().catch(() => false);
@@ -124,7 +134,7 @@ async function attempt(
       description: "Finish the step. Call it exactly once.",
       schema: z.object({
         ok: z.boolean(),
-        cause: z.enum(["app", "unsure"]).optional().describe("When ok=false: app = the app is broken or in the way; unsure = you couldn't work it out"),
+        cause: z.enum(["app", "unsure", "fork"]).optional().describe("When ok=false: app = the app is broken or in the way; unsure = you couldn't work it out; fork = the page disagrees with what the wallet holds on the test chain"),
         reason: z.string().describe("One short sentence: what happened, or what's wrong"),
       }),
       handler: async (input) => {
@@ -141,6 +151,7 @@ async function attempt(
     `Test: ${test.name}`,
     `Goal: ${test.goal}`,
     `Expected: ${test.expected}`,
+    await walletLine(session),
     "Steps:",
     ...test.steps.map((s, i) => `${i + 1}. ${s.text}${i < index ? "  (done)" : i === index ? "  ← do this one now" : ""}`),
     broke ? `\nLast time this step worked with recorded actions, but replaying them failed now: ${broke}` : "",
@@ -154,32 +165,54 @@ async function attempt(
   return { done: done ?? (res.stopReason === "end_turn" && res.text ? { ok: false, cause: "unsure", reason: res.text.slice(0, 200) } : undefined) };
 }
 
+async function walletLine(session: DrillSession): Promise<string> {
+  try {
+    const address = session.wallet.address();
+    const wei = await session.chains.client(session.wallet.chainId()).getBalance({ address });
+    return `The test wallet ${address} holds ${formatEther(wei)} of the native coin on the test chain.`;
+  } catch {
+    return "";
+  }
+}
+
 const Verdict = z.object({
   ok: z.boolean().describe("true when the page shows the expected result"),
   reason: z.string().describe("One short sentence naming what shows it, or what is missing"),
-  proof: z.string().optional().describe("When ok: a short exact text on the page (under 60 characters) that proves it, e.g. 'Order filled'"),
 });
 
-const JUDGE_SYSTEM = `You check the end state of an end-to-end test on a web app. You get the expected result, a screenshot and the page text.
-Say ok=true only when the page plainly shows the expected result. Name the exact text that shows it, or say what is missing. Don't guess.`;
+const JUDGE_SYSTEM = `You check the end state of an end-to-end test on a web app. You get the steps that were done, what the wallet sent, the expected result, a screenshot and the page text.
+Say ok=true only when the page plainly shows the expected result. Name the exact text that shows it, or say what is missing. Don't guess.
+A value within 1% of the expected one is the same value: apps round and truncate (0.0099 for 0.01).
+The page only shows the end. When the expected result talks about a change or an earlier moment, check that the end state fits the steps and what the wallet sent; don't fail it just because the earlier state isn't on screen. Anything on the page that contradicts it is a fail.`;
 
-/** Did the test end where it should? Last run's proof text answers without a model when it still shows. */
-export async function judgeExpected(session: DrillSession, llm: Llm, test: TestSpec): Promise<{ ok: boolean; reason: string; proof?: string }> {
+/** Did the test end where it should? Asked on every run: a saved text can't tell a result from a label that always shows. */
+export async function judgeExpected(session: DrillSession, llm: Llm, test: TestSpec): Promise<{ ok: boolean; reason: string }> {
   await settle(session);
-  const page = session.page;
-  const shows = (text: string) => page.getByText(text).first().isVisible().catch(() => false);
-  if (test.proof && (await shows(test.proof))) return { ok: true, reason: `Shows “${test.proof}”.`, proof: test.proof };
+  const first = await askJudge(session, llm, test);
+  // A success dialog often covers the result; look again without it.
+  return first.ok || !(await closeDialog(session)) ? first : askJudge(session, llm, test);
+}
 
-  const png = await page.screenshot({ type: "png" });
-  const text = formatSnapshot(await takeSnapshot(page, { maxChars: 6_000 }));
-  const v = await llm.structured({
+async function closeDialog(session: DrillSession): Promise<boolean> {
+  const dialogs = session.page.locator('[role="dialog"], dialog[open]').filter({ visible: true });
+  if ((await dialogs.count()) === 0) return false;
+  await session.page.keyboard.press("Escape");
+  await settle(session);
+  return (await dialogs.count()) === 0;
+}
+
+async function askJudge(session: DrillSession, llm: Llm, test: TestSpec): Promise<{ ok: boolean; reason: string }> {
+  const page = session.page;
+  // The whole page: what proves the result is often below the fold.
+  const png = await page.screenshot({ type: "png", fullPage: true });
+  const text = formatSnapshot(await takeSnapshot(page, { maxChars: 12_000 }));
+  const signed = session.wallet.requests().filter((r) => r.kind === "sign");
+  const sent = signed.length ? signed.map((r) => `- ${decodeWalletRequest(r).summary} (${r.outcome})`) : ["- nothing"];
+  return llm.structured({
     system: JUDGE_SYSTEM,
-    prompt: `Test: ${test.name}\nExpected: ${test.expected}\n\nThe page now:\n${text}`,
+    prompt: [`Test: ${test.name}`, "Steps done:", ...test.steps.map((s, i) => `${i + 1}. ${s.text}`), "What the wallet sent:", ...sent, `Expected: ${test.expected}`, "", "The page now:", text].join("\n"),
     images: [{ data: png.toString("base64"), mediaType: "image/png" }],
     schema: Verdict,
     name: "verdict",
   });
-  // Only text that is really on the page becomes the shortcut for next time.
-  const proof = v.ok && v.proof && (await shows(v.proof)) ? v.proof : undefined;
-  return { ok: v.ok, reason: v.reason, proof };
 }

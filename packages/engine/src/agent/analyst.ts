@@ -1,6 +1,6 @@
 /**
  * The analysis: a short look around the app to learn what it is, which pages
- * matter, and the two or three things its users most need to work. Each
+ * matter, and the three to five things its users most need to work. Each
  * becomes a flow with one happy-path test in plain English; nothing is
  * recorded here, the first run of each test does that.
  */
@@ -20,7 +20,7 @@ export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a w
      - once (the default): one time per run. Also pick once when a step can't be repeated often, like a faucet with a limit ("once every 24h") or a sign-in that emails a code.
      - each: before every test, when the tests use up what setup gives on a live chain and setup is cheap to repeat (a mint button with no limit).
      Say why in one short sentence. Leave setup out when the core flows work right after connecting the wallet.
-   - the 2 or 3 flows users most need to work (the app's core value: trade, swap, deposit, mint, borrow), each with one happy-path test. A flow's own needs (an open position before closing it) go in its steps; what every flow needs goes in setup.
+   - the 3 to 5 flows users most need to work (the app's core value: trade, swap, deposit, mint, borrow), each with one happy-path test. Where users put something in, include the way back out (withdraw, repay, close, unstake). A flow's own needs (an open position before closing it) go in its steps; what every flow needs goes in setup.
      When the developer lists flows to test, those come first: find where each one happens and keep their wording in the name. Add your own only if they listed fewer than 3. If a listed flow isn't in the app, leave it out and say so with note.
      When the developer says what keeps breaking or what just changed, prefer flows that go through it.
      Use the rest of their notes too: leave alone what they say to avoid, use the tokens and amounts they give, and take expected from what they say success looks like.
@@ -28,17 +28,17 @@ export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a w
 Tests are read by busy developers. Write them plainly:
 - name: what the user does, e.g. "Market buy on ETH perp".
 - goal: one sentence.
-- expected: one sentence about what is visible when it worked.
+- expected: one sentence about what the page shows at the end when it worked: final values ("Balance shows 5 USDC"), not changes ("rises by 5") or earlier moments, and no prices or rates that move. Amounts can be rounded on screen, so say "about 0.01 stETH".
 - steps: 3 to 8 short imperative steps of 3 to 7 words, at the level a user thinks ("Connect the wallet", "Open the ETH market", "Enter 0.01 as size", "Click Buy", "Approve in the wallet", "Check the order in Positions"). No selectors, no refs.
 Use small amounts. Skip docs, socials, settings and anything that leaves the app.
 
-Never solve a CAPTCHA or bot check: call report_blocked.`;
+Never solve a CAPTCHA or bot check: call report_blocked. If the rest of the app still works, leave that page out, carry on and submit what you found.`;
 
 const Submission = z.object({
   summary: AppMap.shape.summary,
   pages: AppMap.shape.pages.describe("The pages that matter, with their purpose"),
   setup: SetupDraft.optional().describe("Steps every test needs first (sign in, get test funds); leave out when there are none"),
-  flows: z.array(FlowDraft).min(1).max(3),
+  flows: z.array(FlowDraft).min(1).max(5),
 });
 type Submission = z.infer<typeof Submission>;
 
@@ -99,7 +99,7 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
     },
     {
       name: "submit",
-      description: "Submit the summary, the pages that matter, the setup if any, and 2-3 flows with their happy-path tests. Ends the analysis.",
+      description: "Submit the summary, the pages that matter, the setup if any, and 3-5 flows with their happy-path tests. Ends the analysis.",
       schema: Submission,
       handler: async (input) => {
         submitted = input;
@@ -124,7 +124,8 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
   } finally {
     clearTimeout(timer);
   }
-  if (blocked) return { flows: [], blocked };
+  // A check on a side page only leaves that page out; the flows found elsewhere still stand.
+  if (blocked && !submitted) return { flows: [], blocked };
   if (!submitted && !opts.signal?.aborted && notes.length) {
     submitted = await llm
       .structured({

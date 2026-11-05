@@ -132,12 +132,11 @@ function noUnhappyPaths(picked: Picked[]): string[] {
   });
 }
 
-/** Keep what this run learned: the actions that worked, and the text that proved the result. */
+/** Keep what this run learned: the actions that worked. */
 function learn(byId: Map<string, SavedTest>, o: TestOutcome) {
   const test = byId.get(o.testId);
   if (!test) return;
   if (o.steps) test.steps = o.steps;
-  if (o.proof) test.proof = o.proof;
   const base = test.baseId ? byId.get(test.baseId) : undefined;
   if (base && o.baseSteps) base.steps = o.baseSteps;
 }

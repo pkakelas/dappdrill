@@ -10,7 +10,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { TestRunResult, type AppSetup, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
+import { TestRunResult, type AppSetup, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
 import type { Env } from "./env.js";
 import { BlockedError, landingBotCheck, openSession, plain, walkSteps, type WalkOptions } from "./steps.js";
 
@@ -126,7 +126,7 @@ async function runSetup(
   const run: SetupRun = { ok: false, stopped: false, results, steps, reviews, walletRequests: [] };
   const session = await openSession(env, opts.artifactsDir, opts.onFrame, { video: false, trace: false });
   try {
-    await session.page.goto(new URL(setup.startPath, env.target.url).href, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await session.page.goto(urlOnApp(setup.startPath, env.target.url), { waitUntil: "domcontentloaded", timeout: 45_000 });
     const blocked = await landingBotCheck(session);
     if (blocked) throw new BlockedError(blocked);
     const walk = await walkSteps(env, session, spec, steps, results, reviews, { ...opts, shotPrefix: "setup-step", progress: () => opts.progress(results) });
@@ -138,7 +138,7 @@ async function runSetup(
     }
   } catch (e) {
     run.stopped = Boolean(opts.signal?.aborted);
-    run.failure = e instanceof BlockedError ? `A bot check blocked it: ${e.blocked.reason}` : plain(e);
+    run.failure = e instanceof BlockedError ? `Blocked: ${e.blocked.reason}` : plain(e);
     for (const r of results) if (r.status === "pending" || r.status === "running") r.status = "skipped";
   } finally {
     run.walletRequests = session.wallet.requests();

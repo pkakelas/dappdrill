@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { concat, encodeAbiParameters, hashDomain, keccak256, recoverAddress, toHex } from "viem";
+import { concat, encodeAbiParameters, hashDomain, keccak256, recoverAddress, recoverTypedDataAddress, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { signTypedData, typedDataChainId } from "../../src/wallet/signer.js";
 
 const account = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
 
 describe("signTypedData", () => {
+  it("keeps a chainId sent as a string in the domain, like Lido's stETH permit", async () => {
+    const domain = { name: "Liquid staked Ether 2.0", version: "2", verifyingContract: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84" } as const;
+    const types = { Permit: [{ name: "owner", type: "address" }, { name: "nonce", type: "uint256" }] };
+    const message = { owner: account.address, nonce: "0" };
+    const typed = { domain: { ...domain, chainId: "1" }, types, primaryType: "Permit", message };
+    const signature = await signTypedData(account, [account.address, JSON.stringify(typed)], 1);
+    const signer = await recoverTypedDataAddress({ domain: { ...domain, chainId: 1 }, types, primaryType: "Permit", message: { owner: account.address, nonce: 0n }, signature });
+    expect(signer).toBe(account.address);
+  });
+
   it("signs struct names viem rejects but MetaMask accepts, like Hyperliquid:AcceptTerms", async () => {
     const domainTypes = [
       { name: "name", type: "string" },

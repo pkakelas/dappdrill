@@ -2,86 +2,175 @@
   "about": "Real dApps the benchmark scans. Mainnet chains run on local forks (nothing is sent to the real chain); tokens are dealt to the test accounts on the fork.",
   "dapps": [
     {
+      "id": "harbor-vault",
+      "url": "http://localhost:5173/?bugs=none",
+      "chains": [
+        31337
+      ],
+      "tokens": [],
+      "hints": "Get test hUSDC, deposit it, withdraw part of it, claim rewards, and sign in.",
+      "serve": "corepack pnpm fixture",
+      "buggyUrl": "http://localhost:5173/"
+    },
+    {
       "id": "uniswap",
       "url": "https://app.uniswap.org/swap?chain=mainnet",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Swap 0.01 ETH to USDC, and swap 50 USDC to ETH (that one needs a token approval or a permit). Stay on Ethereum mainnet."
     },
     {
       "id": "aave",
       "url": "https://app.aave.com/",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Use the Ethereum Core market. Supply 100 USDC (needs an approval), supply 0.05 ETH, then withdraw some USDC."
     },
     {
       "id": "lido",
       "url": "https://stake.lido.fi/",
-      "chains": [1],
+      "chains": [
+        1
+      ],
       "tokens": [],
       "hints": "Stake 0.05 ETH. Then wrap some stETH into wstETH on the Wrap page (needs an approval)."
     },
     {
       "id": "compound",
       "url": "https://app.compound.finance/",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Use the USDC market on Ethereum. Supply 100 USDC (approve first), then withdraw part of it."
     },
     {
       "id": "cowswap",
       "url": "https://swap.cow.fi/#/1/swap/USDC/WETH",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Swap 100 USDC to WETH. CoW Swap needs a one-time approval and then asks you to sign the order (typed data)."
     },
     {
       "id": "curve",
       "url": "https://www.curve.finance/dex/ethereum/swap/",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Swap 100 USDC to USDT (needs an approval) and swap 0.01 ETH to USDC."
     },
     {
       "id": "spark",
       "url": "https://app.spark.fi/",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Deposit 100 USDC into Savings (needs an approval or a permit), then withdraw part of it."
     },
     {
       "id": "morpho",
       "url": "https://app.morpho.org/ethereum/earn",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Deposit 100 USDC into a USDC vault on Ethereum (needs an approval or a permit), then withdraw part of it."
     },
     {
       "id": "aerodrome",
       "url": "https://aerodrome.finance/swap",
-      "chains": [8453],
-      "tokens": [{ "chainId": 8453, "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "amount": "5000" }],
+      "chains": [
+        8453
+      ],
+      "tokens": [
+        {
+          "chainId": 8453,
+          "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "amount": "5000"
+        }
+      ],
       "hints": "On Base: swap 0.01 ETH to USDC, and swap 50 USDC to ETH (needs an approval)."
     },
     {
       "id": "gmx",
       "url": "https://app.gmx.io/#/trade",
-      "chains": [42161],
-      "tokens": [{ "chainId": 42161, "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "amount": "5000" }],
+      "chains": [
+        42161
+      ],
+      "tokens": [
+        {
+          "chainId": 42161,
+          "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "amount": "5000"
+        }
+      ],
       "hints": "On Arbitrum: open a small 2x ETH long with 20 USDC as collateral (needs an approval). Swap 10 USDC to ETH."
     },
     {
       "id": "hyperliquid",
       "url": "https://app.hyperliquid-testnet.xyz/trade",
-      "chains": [421614],
+      "chains": [
+        421614
+      ],
       "tokens": [],
       "hints": "Hyperliquid testnet perps exchange. The wallet has no exchange balance; still try connecting, accepting the terms, enabling trading, and placing a small order."
     },
     {
       "id": "pod",
       "url": "https://staging-app.podtestnet.dev/trade",
-      "chains": [129302],
+      "chains": [
+        129302
+      ],
       "tokens": [],
       "hints": "pod staging runs live (no fork). Sign in with a wallet, enable trading, mint test funds, then open a small long."
     },
@@ -89,25 +178,51 @@
       "id": "aave-local",
       "url": "http://127.0.0.1:4101/",
       "serve": "~/workspace/dappdrill-frontends/serve.sh aave",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Use the Ethereum Core market. Supply 100 USDC (needs an approval), supply 0.05 ETH, then withdraw some USDC."
     },
     {
       "id": "cowswap-local",
       "url": "http://127.0.0.1:4102/#/1/swap/USDC/WETH",
       "serve": "~/workspace/dappdrill-frontends/serve.sh cowswap",
-      "chains": [1],
-      "tokens": [{ "chainId": 1, "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "amount": "5000" }],
+      "chains": [
+        1
+      ],
+      "tokens": [
+        {
+          "chainId": 1,
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "amount": "5000"
+        }
+      ],
       "hints": "Swap 100 USDC to WETH. CoW Swap needs a one-time approval and then asks you to sign the order (typed data)."
     },
     {
       "id": "gmx-local",
       "url": "http://127.0.0.1:4103/#/trade",
       "serve": "~/workspace/dappdrill-frontends/serve.sh gmx",
-      "chains": [42161],
-      "tokens": [{ "chainId": 42161, "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "amount": "5000" }],
-      "respond": ["https://app.gmx.io/config.json {\"uiVersion\":2.0}"],
+      "chains": [
+        42161
+      ],
+      "tokens": [
+        {
+          "chainId": 42161,
+          "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "amount": "5000"
+        }
+      ],
+      "respond": [
+        "https://app.gmx.io/config.json {\"uiVersion\":2.0}"
+      ],
       "hints": "On Arbitrum: open a small 2x ETH long with 20 USDC as collateral (needs an approval). Swap 10 USDC to ETH."
     }
   ]

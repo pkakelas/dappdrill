@@ -35,9 +35,10 @@ const STRANGER = "000000000000000000000000" + "5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5
 /** Wraps every injected provider (window.ethereum and EIP-6963 announcements) with `body`. */
 function providerPatch(id: string, body: string): string {
   // Bound now, before the dApp loads: production builds often replace console.log with a no-op.
+  // An error, because test results only keep the page's errors.
   return `(() => {
-  const warn = console.warn.bind(console);
-  const fired = (what) => warn(${JSON.stringify(`${FIRED_MARK} ${id}: `)} + what);
+  const report = console.error.bind(console);
+  const fired = (what) => report(${JSON.stringify(`${FIRED_MARK} ${id}: `)} + what);
   const patched = new WeakSet();
   function patch(provider) {
     if (!provider || patched.has(provider)) return;

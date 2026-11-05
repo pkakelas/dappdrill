@@ -70,7 +70,7 @@ export async function walkSteps(
     session.touch();
     const t0 = Date.now();
     const out = await runStep(
-      { session, fast: env.fastLlm(), strong: env.actLlm(), map: opts.map, inbox: env.inbox, replay, beforeApprove, signal },
+      { session, fast: env.fastLlm(), strong: env.actLlm(), map: opts.map, inbox: env.inbox, replay, beforeApprove, walletBackends: () => session.traffic.hostsTold(session.wallet.address()), signal },
       { ...spec, steps },
       i,
     );

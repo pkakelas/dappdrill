@@ -281,7 +281,7 @@ const runTests: Engine["runTests"] = async (target, items, opts, hooks) => {
     }
     result.finalScreenshot = await png(opts.artifactsDir, `screenshots/${newId("final")}.png`);
     result.costUsd = condition ? 0.002 : source.steps.some((s) => !s.actions) ? 0.011 : 0.003;
-    const outcome: api.TestOutcome = { testId: spec.id, status, result, steps: condition || status === "stopped" ? undefined : steps, proof: status === "pass" && !condition ? "Deposited" : undefined };
+    const outcome: api.TestOutcome = { testId: spec.id, status, result, steps: condition || status === "stopped" ? undefined : steps };
     if (condition && item.base?.steps.some((s) => !s.actions)) outcome.baseSteps = item.base.steps.map((s) => ({ text: s.text, actions: s.actions ?? fakeActions(s.text) }));
     outcomes.push(outcome);
     await hooks.onDone?.(outcome);

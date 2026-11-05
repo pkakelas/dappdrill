@@ -86,10 +86,12 @@ export async function signTypedData(account: PrivateKeyAccount, params: unknown,
     throw WalletErrors.invalidParams("typed data needs types, primaryType, domain and message");
   }
   const { EIP712Domain: _domain, ...types } = typed.types;
-  const domain = typed.domain ?? {};
+  const domain = { ...typed.domain };
+  // Dapps often send "1"; viem leaves a string chainId out of the domain, and the signature then fails on chain.
+  if (domain.chainId !== undefined) domain.chainId = Number(domain.chainId);
   // MetaMask refuses typed data bound to another chain than the one it is on.
-  if (activeChainId !== undefined && domain.chainId !== undefined && Number(domain.chainId) !== activeChainId) {
-    throw WalletErrors.invalidParams(`Provided chainId "${Number(domain.chainId)}" must match the active chainId "${activeChainId}"`);
+  if (activeChainId !== undefined && domain.chainId !== undefined && domain.chainId !== activeChainId) {
+    throw WalletErrors.invalidParams(`Provided chainId "${domain.chainId}" must match the active chainId "${activeChainId}"`);
   }
   try {
     return await account.signTypedData({ domain, types, primaryType: typed.primaryType, message: typed.message });

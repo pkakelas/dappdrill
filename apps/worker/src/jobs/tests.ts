@@ -67,7 +67,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
           done.add(outcome.testId);
           await frames.get(outcome.testId)?.flush();
           await setRun(outcome.testId, { status: outcome.status, result: outcome.result, finishedAt: new Date() });
-          if (outcome.steps || outcome.proof) await saveSteps(db, outcome.testId, outcome.steps, outcome.proof);
+          if (outcome.steps) await saveSteps(db, outcome.testId, outcome.steps);
           const baseId = byTest.get(outcome.testId)?.baseId;
           if (outcome.baseSteps && baseId) await saveSteps(db, baseId, outcome.baseSteps);
           log.info(`${byTest.get(outcome.testId)?.name}: ${outcome.status}`);
@@ -92,15 +92,12 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
  * Saves the actions that worked. The developer may have edited the steps while the
  * test ran, so actions are kept only for steps whose text is still the same.
  */
-async function saveSteps(db: Db, testId: string, steps: TestStep[] | undefined, proof?: string): Promise<void> {
+async function saveSteps(db: Db, testId: string, steps: TestStep[]): Promise<void> {
   const [current] = await db.select({ steps: tests.steps }).from(tests).where(eq(tests.id, testId));
   if (!current) return;
   await db
     .update(tests)
-    .set({
-      ...(steps ? { steps: keepActions(current.steps.map((s) => s.text), steps) } : {}),
-      ...(proof ? { proof } : {}),
-    })
+    .set({ steps: keepActions(current.steps.map((s) => s.text), steps) })
     .where(eq(tests.id, testId));
 }
 

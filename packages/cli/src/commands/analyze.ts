@@ -31,6 +31,7 @@ export async function analyzeCommand(url: string, flags: AnalyzeFlags): Promise<
     logSink,
     interruptSignal(),
   );
+  await writeJson(join(resolve(flags.out), "analysis.json"), found);
   const problem = found.blocked
     ? blockedLine(found.blocked)
     : found.stalled

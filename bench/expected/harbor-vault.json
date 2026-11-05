@@ -1,0 +1,4 @@
+{
+  "about": "What a user comes to Harbor Vault to do, from fixtures/harbor-vault/seeded-bugs.json and its site.",
+  "flows": ["Get test hUSDC", "Deposit hUSDC into the vault", "Withdraw from the vault", "Claim rewards", "Sign in"]
+}

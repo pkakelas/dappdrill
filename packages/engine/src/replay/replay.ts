@@ -3,7 +3,7 @@
  * Edge cases plug in through `hooks` to change how wallet requests are
  * answered or to act between steps (switch account, reload, …).
  */
-import { applyParams, describeStep, newId, paramValues, type Flow, type SigningReview, type Step, type StepResult, type WalletRequest } from "@dappdrill/core";
+import { applyParams, describeStep, newId, paramValues, type Flow, type SigningReview, type Step, type StepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
 import type { Inbox, Llm, SigningReviewer } from "../types.js";
 import type { EngineSession } from "../browser/session.js";
 import type { PendingSignRequest } from "../wallet/controller.js";
@@ -12,6 +12,8 @@ import { checkExpectation, decodeBuiltin, describeAsked } from "./expectation.js
 
 /** How long to look for an optional step's element before deciding it didn't show. */
 const OPTIONAL_TIMEOUT_MS = 4_000;
+/** A fork reads state upstream the first time, so a dApp's data can take half a minute to show. */
+export const STEP_TIMEOUT_MS = 45_000;
 
 export interface StepContext {
   flow: Flow;
@@ -39,7 +41,7 @@ export interface ReplayFlowOptions {
   reviewLlm?: Llm;
   baselines?: Record<string, SigningReview>;
   inbox?: Inbox;
-  /** Per-step timeout for finding elements and waiting (default 15s). */
+  /** Per-step timeout for finding elements and waiting (default 45s). */
   stepTimeoutMs?: number;
   /** How long a `wallet` step waits for the dApp to ask (default 30s). */
   signTimeoutMs?: number;
@@ -84,7 +86,7 @@ export async function replayFlow(session: EngineSession, flow: Flow, opts: Repla
   // {{account}} is whichever test account this replay runs with; head and tail make up its short form.
   const account = session.wallet.address();
   const params = { account, "account-head": account.slice(0, 6), "account-tail": account.slice(-4), ...paramValues(flow, opts.params) };
-  const stepTimeout = opts.stepTimeoutMs ?? 15_000;
+  const stepTimeout = opts.stepTimeoutMs ?? STEP_TIMEOUT_MS;
   const signTimeout = opts.signTimeoutMs ?? 30_000;
   const log = opts.log ?? (() => {});
   const runId = opts.runId ?? newId("rpl");
@@ -163,7 +165,7 @@ export async function replayFlow(session: EngineSession, flow: Flow, opts: Repla
 }
 
 async function gotoUrl(session: EngineSession, url: string, params: Record<string, string>, timeout: number): Promise<void> {
-  const abs = new URL(applyParams(url, params), session.target.url).toString();
+  const abs = urlOnApp(applyParams(url, params), session.target.url);
   await session.page.goto(abs, { waitUntil: "domcontentloaded", timeout: Math.max(timeout, 30_000) });
   await session.page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
 }

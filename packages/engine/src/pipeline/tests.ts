@@ -15,8 +15,7 @@ import {
   type Step,
   type TestRunStatus,
   type TestSpec,
-  type TestStep,
-} from "@dappdrill/core";
+  type TestStep, urlOnApp } from "@dappdrill/core";
 import { createRecoveryJudge } from "../agent/index.js";
 import { judgeExpected } from "../agent/tester.js";
 import { runEdgeCases } from "../runtime.js";
@@ -41,7 +40,6 @@ export interface TestOutcome {
   result: TestRunResult;
   /** The test's steps with the actions that worked this time, to save. */
   steps?: TestStep[];
-  proof?: string;
   /** An unhappy path whose base had no cached actions ran the base first: its refreshed steps. */
   baseSteps?: TestStep[];
 }
@@ -112,14 +110,13 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
   const steps = spec.steps.map((s) => ({ ...s }));
   const progress = () => hooks.onProgress?.(spec.id, result);
   let status: TestRunStatus = "pass";
-  let proof: string | undefined;
 
   const restore = await pin(env);
   const session = await openSession(env, opts.artifactsDir, (p) => hooks.onFrame?.(spec.id, p) ?? Promise.resolve(), { storageState: pre.storageState });
   const reviews: SigningReview[] = [...(pre.reviews ?? [])];
 
   try {
-    await session.page.goto(new URL(spec.startPath, env.target.url).href, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await session.page.goto(urlOnApp(spec.startPath, env.target.url), { waitUntil: "domcontentloaded", timeout: 45_000 });
     const blocked = await landingBotCheck(session);
     if (blocked) throw new BlockedError(blocked);
 
@@ -132,7 +129,6 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     if (status === "pass") {
       const v = await judgeExpected(session, env.fastLlm(), spec);
       result.verdict = { ok: v.ok, reason: v.reason };
-      proof = v.proof;
       if (!v.ok) {
         status = "fail";
         result.failure = `The expected result didn't show: ${v.reason}`;
@@ -140,7 +136,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     }
   } catch (e) {
     status = signal?.aborted ? "stopped" : "error";
-    result.failure = e instanceof BlockedError ? `A bot check blocked the test: ${e.blocked.reason}` : signal?.aborted ? undefined : plain(e);
+    result.failure = e instanceof BlockedError ? `Blocked: ${e.blocked.reason}` : signal?.aborted ? undefined : plain(e);
     for (const s of result.steps) if (s.status === "pending" || s.status === "running") s.status = "skipped";
   } finally {
     result.finalScreenshot = await session.screenshot("final").catch(() => undefined);
@@ -150,7 +146,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     result.video = (await session.close().catch(() => ({}) as { video?: string })).video;
     await restore();
   }
-  return { testId: spec.id, status, result, steps: status === "stopped" ? undefined : steps, proof };
+  return { testId: spec.id, status, result, steps: status === "stopped" ? undefined : steps };
 }
 
 async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunTestsOptions, hooks: TestHooks, pre: Prepared, signal?: AbortSignal): Promise<TestOutcome> {

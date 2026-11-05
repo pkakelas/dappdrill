@@ -25,6 +25,14 @@ export function keepActions(texts: string[], old: TestStep[]): TestStep[] {
   });
 }
 
+/** Where a path on the app opens. The app URL's query (`?chain=…`, a fork flag) stays unless the path has its own. */
+export function urlOnApp(path: string, appUrl: string): string {
+  const app = new URL(appUrl);
+  const url = new URL(path, app);
+  if (!url.search && url.origin === app.origin) url.search = app.search;
+  return url.href;
+}
+
 /** Whether a step's recorded actions include handling a signature request. */
 export function stepSigns(step: TestStep): boolean {
   return step.actions?.some((a) => a.kind === "wallet") ?? false;
@@ -53,7 +61,7 @@ export const TestSpec = z.object({
   /** Same-origin path the test opens first. */
   startPath: z.string().default("/"),
   steps: z.array(TestStep),
-  /** Text that proved the expected result last time; checked before asking a model. */
+  /** Unused: every run asks the judge. Kept until the column goes in a migration. */
   proof: z.string().optional(),
   /** An unhappy path: the base test's steps under a wallet or network condition. */
   condition: EdgeCaseId.optional(),
