@@ -2,9 +2,10 @@ import { join, resolve } from "node:path";
 import { CONDITIONS, newId, type DrillTarget } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
 import type { TestItem, TestOutcome } from "@dappdrill/engine";
-import { UsageError, loadTests, writeJson, writeText, type SavedTest, type TestsFile } from "../files.js";
+import { UsageError, loadTests, testLabels, writeJson, writeText, type SavedTest, type TestsFile } from "../files.js";
 import { renderJunit } from "../junit.js";
 import { renderMarkdown } from "../markdown.js";
+import { dangerous, exitCode, summaryText } from "../outcomes.js";
 import { buildTarget, dim, red, type TargetFlags } from "./target.js";
 import { interruptSignal } from "./util.js";
 
@@ -15,7 +16,7 @@ export interface RunFlags extends TargetFlags {
   junit?: string;
 }
 
-/** `dappdrill run`: run the tests in a tests file. Exits 1 when one fails. */
+/** `dappdrill run`: run the tests in a tests file. See `exitCode` for what it exits with. */
 export async function runCommand(file: string, flags: RunFlags): Promise<number> {
   const tests = await loadTests(file);
   if (flags.unhappy) addUnhappyPaths(tests);
@@ -38,10 +39,10 @@ export async function runTests(tests: TestsFile, target: DrillTarget, flags: Run
   });
 
   const out = resolve(flags.out);
-  const label = new Map(picked.map(({ flow, test }) => [test.id, `${flow} · ${test.name}`]));
+  const label = testLabels(tests);
   const started = new Map<string, number>();
   const seconds = new Map<string, number>();
-  const width = Math.min(60, Math.max(...[...label.values()].map((l) => l.length)));
+  const width = Math.min(60, Math.max(...picked.map(({ test }) => label.get(test.id)!.length)));
 
   console.log(`Running ${picked.length} ${picked.length === 1 ? "test" : "tests"} on ${target.url}\n`);
   const engine = await loadEngine();
@@ -63,6 +64,7 @@ export async function runTests(tests: TestsFile, target: DrillTarget, flags: Run
           console.log(red(`  ✗ ${name}  ${secs}s`));
           if (o.result.failure) console.log(red(`      ${o.result.failure}`));
         } else console.log(dim(`  - ${name}  ${o.status}`));
+        for (const r of dangerous(o)) console.log(red(`      Dangerous signature: ${r.title}`));
         learn(byId, o);
       },
     },
@@ -72,11 +74,10 @@ export async function runTests(tests: TestsFile, target: DrillTarget, flags: Run
   await writeText(join(out, "summary.md"), renderMarkdown(tests, outcomes));
   if (flags.junit) await writeText(flags.junit, renderJunit(tests, outcomes, seconds));
 
-  const count = (s: TestOutcome["status"][]) => outcomes.filter((o) => s.includes(o.status)).length;
-  const failed = count(["fail", "error"]);
-  const summary = [`${count(["pass"])} passed`, failed && `${failed} failed`, count(["skipped", "stopped"]) && `${count(["skipped", "stopped"])} not run`].filter(Boolean).join(", ");
-  console.log(`\n${failed ? red(summary) : summary}. Videos and screenshots: ${join(flags.out, "artifacts")}`);
-  return failed ? 1 : 0;
+  const code = exitCode(outcomes);
+  const summary = summaryText(outcomes);
+  console.log(`\n${code ? red(summary) : summary}. Videos and screenshots: ${join(flags.out, "artifacts")}`);
+  return code;
 }
 
 /** Keep what this run learned: the actions that worked, and the text that proved the result. */

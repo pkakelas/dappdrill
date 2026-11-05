@@ -23,6 +23,19 @@ export const TestsFile = z.object({
 });
 export type TestsFile = z.infer<typeof TestsFile>;
 
+/** "Flow · Test", or "Flow · Test · Condition": a condition's name alone can't tell two tests apart. */
+export function testLabels(tests: TestsFile): Map<string, string> {
+  const byId = new Map(tests.flows.flatMap((f) => f.tests).map((t) => [t.id, t]));
+  return new Map(
+    tests.flows.flatMap((f) =>
+      f.tests.map((t) => {
+        const base = t.baseId ? byId.get(t.baseId) : undefined;
+        return [t.id, [f.name, base?.name, t.name].filter(Boolean).join(" · ")] as const;
+      }),
+    ),
+  );
+}
+
 export async function loadTests(path: string): Promise<TestsFile> {
   let raw: unknown;
   try {

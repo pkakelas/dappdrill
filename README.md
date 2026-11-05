@@ -47,9 +47,22 @@ The engine runs without the web app or a database:
 
 ```bash
 dappdrill analyze <url>                 # find the flows, write .dappdrill/tests.json, run it
-dappdrill run                           # run .dappdrill/tests.json; exits 1 when a test fails
-dappdrill run --url <url> --only deposit --unhappy --junit junit.xml
+dappdrill run                           # run .dappdrill/tests.json
+dappdrill run --url <url> --only deposit --conditions --junit junit.xml
 ```
+
+`--conditions` adds the usual conditions (rejected in wallet, slow RPC…); `--unhappy` still works
+and means the same.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Everything passed |
+| 1 | A test failed, or a signature was Dangerous, even on a test that passed |
+| 2 | The only problem is a test that couldn't run, or DappDrill itself couldn't (bad flags, blocked, no flows found) |
+
+In JUnit output a case is named "Flow · Test · Condition", and a test with a Dangerous signature
+is a failure, whatever its own result. A signing verdict never changes a test's own status in
+`results.json`.
 
 The tests file is plain JSON: edit a test's goal, expected result or steps by hand and commit it.
 Runs save the browser actions that worked back into it, so the next run is fast. Results go to

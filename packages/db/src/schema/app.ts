@@ -18,6 +18,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -246,6 +247,18 @@ export const testRuns = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("test_runs_test_idx").on(t.testId, t.createdAt), index("test_runs_batch_idx").on(t.batchId)],
+);
+
+/** Dangerous signatures the team was told about, so later runs don't repeat the alert. */
+export const signingAlerts = pgTable(
+  "signing_alerts",
+  {
+    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
+    /** What was signed, not where: see `signatureKey` in the worker. */
+    key: text("key").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.appId, t.key] })],
 );
 
 // ---------------------------------------------------------------- agent

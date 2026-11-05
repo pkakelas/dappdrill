@@ -4,7 +4,7 @@ import { apps, flowsWithTests, specOf, testRuns, tests, type Db, type TestRunRow
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
-import { notifyRegressions } from "../notify/index.js";
+import { notifyBatch } from "../notify/index.js";
 import { buildTarget, loadApp } from "../target.js";
 import { logEvents } from "./sink.js";
 import { pollStops, throttle } from "./stop.js";
@@ -85,7 +85,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
   }
   await finishLeftovers(db, runOf, done, "stopped");
 
-  await notifyRegressions(db, app, [...runOf.values()].map((r) => r.id)).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));
+  await notifyBatch(db, app, [...runOf.values()].map((r) => r.id)).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));
 }
 
 /**

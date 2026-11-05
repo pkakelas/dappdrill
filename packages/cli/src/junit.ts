@@ -1,9 +1,14 @@
 import type { TestOutcome } from "@dappdrill/engine";
-import type { TestsFile } from "./files.js";
+import { testLabels, type TestsFile } from "./files.js";
+import { dangerous } from "./outcomes.js";
 
-/** JUnit XML: one suite per flow, one case per test that ran. */
+/**
+ * JUnit XML: one suite per flow, one case per test that ran. CI keeps a case's history by its
+ * name. JUnit has one word per case, so a Dangerous signature on a passing test is a failure.
+ */
 export function renderJunit(tests: TestsFile, outcomes: TestOutcome[], seconds: Map<string, number> = new Map()): string {
   const byId = new Map(outcomes.map((o) => [o.testId, o]));
+  const labels = testLabels(tests);
   const totals = { tests: 0, failures: 0, errors: 0, skipped: 0 };
   const suites = tests.flows.flatMap((flow) => {
     const ran = flow.tests.filter((t) => byId.has(t.id));
@@ -14,9 +19,11 @@ export function renderJunit(tests: TestsFile, outcomes: TestOutcome[], seconds: 
       const time = seconds.get(t.id) ?? 0;
       s.tests++;
       s.time += time;
-      const message = esc(o.result.failure ?? o.result.verdict?.reason ?? "");
+      const reason = o.status === "pass" ? undefined : (o.result.failure ?? o.result.verdict?.reason);
+      const flags = dangerous(o).map((r) => `Dangerous signature: ${r.title}`);
+      const message = esc([reason, ...flags].filter(Boolean).join(" "));
       let body = "";
-      if (o.status === "fail") {
+      if (o.status === "fail" || flags.length > 0) {
         s.failures++;
         body = `<failure message="${message}"/>`;
       } else if (o.status === "error") {
@@ -26,7 +33,7 @@ export function renderJunit(tests: TestsFile, outcomes: TestOutcome[], seconds: 
         s.skipped++;
         body = `<skipped message="${o.status}"/>`;
       }
-      return `    <testcase classname="${esc(flow.name)}" name="${esc(t.name)}" time="${time}">${body}</testcase>`;
+      return `    <testcase classname="${esc(flow.name)}" name="${esc(labels.get(t.id)!)}" time="${time}">${body}</testcase>`;
     });
     for (const k of ["tests", "failures", "errors", "skipped"] as const) totals[k] += s[k];
     return [

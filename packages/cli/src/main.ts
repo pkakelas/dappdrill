@@ -6,7 +6,12 @@ import { targetOptions } from "./commands/target.js";
 
 const TESTS_FILE = ".dappdrill/tests.json";
 
-/** Exit codes: 0 all passed, 1 a test failed, 2 usage or DappDrill couldn't run. */
+const EXIT_CODES = `
+Exit codes:
+  0  everything passed
+  1  a test failed, or a signature was Dangerous (even on a test that passed)
+  2  the only problem is a test that couldn't run, or DappDrill itself couldn't (bad flags, blocked, no flows found)`;
+
 function action<A extends unknown[]>(fn: (...args: A) => Promise<number>) {
   return async (...args: A) => {
     try {
@@ -29,21 +34,25 @@ targetOptions(
     .option("--file <path>", "where to write the tests", TESTS_FILE)
     .option("--hints <text>", "where things are, what to use")
     .option("--max-minutes <n>", "time to spend looking around")
-    .option("--unhappy", "also add the usual unhappy paths (rejected in wallet, slow RPC, …)")
+    .option("--conditions, --unhappy", "also add the usual conditions (rejected in wallet, slow RPC, …)")
     .option("--no-run", "only write the tests")
     .option("--junit <file>", "write JUnit XML")
     .option("--force", "replace an existing tests file"),
-).action(action((url: string, flags) => analyzeCommand(url, flags)));
+)
+  .addHelpText("after", EXIT_CODES)
+  .action(action((url: string, flags) => analyzeCommand(url, flags)));
 
 targetOptions(
   program
     .command("run")
-    .description("Run the tests in a tests file. Exits 1 when one fails.")
+    .description("Run the tests in a tests file.")
     .argument("[file]", "tests file", TESTS_FILE)
     .option("--url <url>", "run against this URL instead, e.g. a preview deploy")
     .option("--only <text>", "only tests whose flow or name contains this")
-    .option("--unhappy", "add the usual unhappy paths to tests that don't have them")
+    .option("--conditions, --unhappy", "add the usual conditions to tests that don't have them")
     .option("--junit <file>", "write JUnit XML"),
-).action(action((file: string, flags) => runCommand(file, flags)));
+)
+  .addHelpText("after", EXIT_CODES)
+  .action(action((file: string, flags) => runCommand(file, flags)));
 
 await program.parseAsync();
