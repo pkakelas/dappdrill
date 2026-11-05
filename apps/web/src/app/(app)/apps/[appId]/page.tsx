@@ -1,4 +1,4 @@
-import { appRollup, appText, signingOf, signingText, walletUse, type SigningFlag as Signing } from "@dappdrill/core";
+import { appRollup, signingOf, signingText, walletUse, type SigningFlag as Signing } from "@dappdrill/core";
 import { analyses, appTests, db, latestRuns, notWritten, runHistory, settledRuns, specOf, type RunSummary, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
 import { Wallet } from "lucide-react";
@@ -8,7 +8,8 @@ import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { AddTest } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
-import { AppStats, HISTORY_DAYS, RunTicks } from "@/components/tests/app-stats";
+import { AppHero } from "@/components/tests/app-hero";
+import { HISTORY_DAYS, RunTicks } from "@/components/tests/app-stats";
 import { ConditionGrid } from "@/components/tests/condition-grid";
 import { ConditionPills, failureParts } from "@/components/tests/condition-pills";
 import { RunButton } from "@/components/tests/run-button";
@@ -16,7 +17,7 @@ import { SetupCard } from "@/components/tests/setup-card";
 import { SigningFlag } from "@/components/tests/signing-flag";
 import { ActiveDot, readTest, REVEAL, STATE_LABEL, StateMark, type TestRead } from "@/components/tests/status";
 import { WriteTest } from "@/components/tests/write-test";
-import { cx, ItemList, ListItem, PageHeader } from "@/components/ui";
+import { cx, ItemList, ListItem } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
@@ -45,9 +46,11 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
     roots.map((t) => ({ read: reads.get(t.id)!, conditions: conditionsOf(t).map((c) => reads.get(c.id)!), signing: signingFor(t) })),
     untested.length,
   );
-  // Problems first; otherwise the order they were added.
+  // Worst first. A passed test can still need a look: a condition failed, or it signed something dangerous.
   const rank = (t: TestRow) => ["fail", "error"].indexOf(reads.get(t.id)!.settled) + 1 || 3;
-  const sorted = [...roots].sort((a, b) => rank(a) - rank(b));
+  const needsLook = (t: TestRow) => rank(t) < 3 || signingFor(t).dangerous > 0 || conditionsOf(t).some((c) => reads.get(c.id)!.settled === "fail");
+  const attention = roots.filter(needsLook).sort((a, b) => rank(a) - rank(b));
+  const others = roots.filter((t) => !needsLook(t));
   const host = hostFromUrl(app.url);
 
   const exploring = analysis && (analysis.status === "queued" || analysis.status === "running");
@@ -57,141 +60,124 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
     .map((r) => r.finishedAt)
     .filter((d) => d !== null)
     .sort((a, b) => b.getTime() - a.getTime())[0];
-  const signing = signingText(overall.signing);
   const grid = view === "grid";
+  const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
+  const setupRun = app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()]) : undefined;
+  const setupCard = setup && <SetupCard appId={appId} setup={setup} last={setupRun} />;
+  const line = (t: TestRow) => {
+    const conditions = conditionsOf(t);
+    return (
+      <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} history={history} signs={walletUse(t.steps) === "signs"} signing={signingFor(t)} hasConditions={conditions.length > 0}>
+        {conditions.length > 0 && <ConditionPills appId={appId} tests={conditions} reads={reads} runs={settled} className="relative z-10 mt-2" />}
+      </TestLine>
+    );
+  };
+  // Headings only help when there's more than one kind of row.
+  const headed = [attention, others, untested].filter((group) => group.length > 0).length > 1;
 
   return (
     <div className="page">
       {(exploring || anyActive) && <AutoRefresh every={2000} />}
 
-      <PageHeader
-        title={app.name}
-        description={
-          <p className="flex flex-wrap items-center gap-x-2 text-sm">
-            <a href={app.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
-              {host}
-            </a>
-            {tests.length > 0 && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span className={cx(overall.status === "fail" && "text-bad", overall.status === "error" && "text-warn")}>{appText(overall)}</span>
-                {signing && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <SigningFlag signing={overall.signing} />
-                  </>
-                )}
-                {lastRun && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <Link href={`/apps/${appId}/runs`} className="hover:text-foreground hover:underline">
-                      last run {timeAgo(lastRun)}
-                    </Link>
-                  </>
-                )}
-              </>
-            )}
-          </p>
-        }
-        actions={
-          roots.length > 0 && (
-            <>
-              <ViewSwitch appId={appId} grid={grid} />
-              <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />
-            </>
-          )
-        }
-      />
-
       <TooltipProvider>
-        <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-12">
+          <AppHero
+            appId={appId}
+            name={app.name}
+            url={app.url}
+            lastRun={lastRun}
+            rollup={roots.length > 0 ? overall : undefined}
+            running={activeIds.length}
+            runs={history}
+            action={roots.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
+          />
+
           {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasTests={tests.length > 0} />}
 
-          {roots.length > 0 && <AppStats states={roots.map((t) => reads.get(t.id)!.mark)} conditionsFailed={overall.conditionsFailed} runs={history} />}
-
-          {!grid && app.setup && (
-            <SetupCard appId={appId} setup={{ startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()])} />
-          )}
-
-          {grid ? (
-            <ConditionGrid appId={appId} tests={tests.filter((t) => !notWritten(t))} reads={reads} settled={settled} />
-          ) : (
-            sorted.length > 0 && (
-              <ItemList>
-                {sorted.map((t) => {
-                  const conditions = conditionsOf(t);
-                  return (
-                    <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} history={history} signs={walletUse(t.steps) === "signs"} signing={signingFor(t)} hasConditions={conditions.length > 0}>
-                      {conditions.length > 0 && <ConditionPills appId={appId} tests={conditions} reads={reads} runs={settled} className="relative z-10 mt-2" />}
-                    </TestLine>
-                  );
-                })}
-              </ItemList>
-            )
-          )}
-
-          {!grid && untested.length > 0 && (
-            <section aria-labelledby="not-tested" className="flex flex-col gap-3">
-              <h2 id="not-tested" className="font-semibold tracking-tight">
-                Not tested yet
-              </h2>
-              <ItemList>
-                {untested.map((t) => (
-                  <ListItem key={t.id} className="flex-nowrap items-start gap-3">
-                    <StateMark state="never" className="mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/apps/${appId}/tests/${t.id}`} className="block truncate font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
-                        {t.name}
-                      </Link>
-                      {t.goal && <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{t.goal}</p>}
-                    </div>
-                    <span className="relative z-10 -my-1">
-                      <WriteTest testId={t.id} />
-                    </span>
-                  </ListItem>
-                ))}
-              </ItemList>
-            </section>
-          )}
+          {/* A setup that failed is why the tests below can't be trusted, so it goes first. */}
+          {setupRun?.ok === false && setupCard}
 
           {tests.length > 0 ? (
-            !grid && (
-              <div className="flex flex-col gap-4">
-                <AddTest appId={appId} />
-                {!app.setup && <SetupCard appId={appId} setup={null} />}
+            <div className="flex flex-col gap-3">
+              {roots.length > 0 && <ViewSwitch appId={appId} grid={grid} tests={roots.length} />}
+              {grid ? (
+                <ConditionGrid appId={appId} tests={tests.filter((t) => !notWritten(t))} reads={reads} settled={settled} />
+              ) : (
+                <ItemList>
+                  {headed && attention.length > 0 && <GroupHeading>Needs attention</GroupHeading>}
+                  {attention.map(line)}
+                  {headed && others.length > 0 && <GroupHeading>{attention.length > 0 ? "Other tests" : "Tests"}</GroupHeading>}
+                  {others.map(line)}
+                  {headed && untested.length > 0 && <GroupHeading>Not tested yet</GroupHeading>}
+                  {untested.map((t) => (
+                    <ListItem key={t.id} className="flex-nowrap items-start gap-3">
+                      <StateMark state="never" className="mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/apps/${appId}/tests/${t.id}`} className="block truncate font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
+                          {t.name}
+                        </Link>
+                        {t.goal && <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{t.goal}</p>}
+                      </div>
+                      <span className="relative z-10 -my-1">
+                        <WriteTest testId={t.id} />
+                      </span>
+                    </ListItem>
+                  ))}
+                  <ListItem className="min-h-0 py-2 hover:bg-transparent">
+                    <AddTest appId={appId} />
+                  </ListItem>
+                </ItemList>
+              )}
+            </div>
+          ) : (
+            !exploring && (
+              <div className="flex flex-col gap-8">
+                {!analysis && (
+                  <section className="flex flex-col items-start gap-4">
+                    <div className="flex flex-col gap-2">
+                      <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">No tests yet</h2>
+                      <p className="text-base text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a test yourself.</p>
+                    </div>
+                    <form action={analyzeAction.bind(null, appId)}>
+                      <Button type="submit">Explore the app</Button>
+                    </form>
+                  </section>
+                )}
+                <ItemList>
+                  <ListItem className="min-h-0 py-2 hover:bg-transparent">
+                    <AddTest appId={appId} />
+                  </ListItem>
+                </ItemList>
               </div>
             )
-          ) : !exploring ? (
-            <div className="flex flex-col gap-4">
-              {!analysis && (
-                <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-6 shadow-xs">
-                  <div className="flex flex-col gap-1">
-                    <h2 className="text-base font-semibold">No tests yet</h2>
-                    <p className="text-sm text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a test yourself.</p>
-                  </div>
-                  <form action={analyzeAction.bind(null, appId)}>
-                    <Button type="submit">Explore the app</Button>
-                  </form>
-                </section>
-              )}
-              <AddTest appId={appId} />
-            </div>
-          ) : null}
+          )}
+
+          {!grid && tests.length > 0 && setupRun?.ok !== false && (setupCard ?? <SetupCard appId={appId} setup={null} />)}
         </div>
       </TooltipProvider>
     </div>
   );
 }
 
-function ViewSwitch({ appId, grid }: { appId: string; grid: boolean }) {
-  const item = (href: string, label: string, on: boolean) => (
-    <Link href={href} aria-current={on ? "page" : undefined} className={cx("rounded-md px-2.5 py-1 text-sm transition-colors", on ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
+function GroupHeading({ children }: { children: React.ReactNode }) {
+  return <ListItem className="min-h-0 bg-muted/40 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/40">{children}</ListItem>;
+}
+
+function ViewSwitch({ appId, grid, tests }: { appId: string; grid: boolean; tests: number }) {
+  const item = (href: string, label: React.ReactNode, on: boolean) => (
+    <Link href={href} aria-current={on ? "page" : undefined} className={cx("rounded-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "text-foreground" : "text-muted-foreground hover:text-foreground")}>
       {label}
     </Link>
   );
   return (
-    <nav aria-label="View" className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
-      {item(`/apps/${appId}`, "List", !grid)}
+    <nav aria-label="View" className="flex items-baseline gap-4 px-4">
+      {item(
+        `/apps/${appId}`,
+        <>
+          Tests <span className="font-normal text-muted-foreground tabular-nums">{tests}</span>
+        </>,
+        !grid,
+      )}
       {item(`/apps/${appId}?view=grid`, "Conditions", grid)}
     </nav>
   );
@@ -266,6 +252,9 @@ function TestLine({ appId, test, read, run, live, history, signs, signing, hasCo
     );
   } else if (read.settled === "skipped") detail = <span className="text-muted-foreground">Doesn&apos;t apply{run?.result?.failure ? `: ${run.result.failure}` : ""}</span>;
 
+  // Where it stopped, so a failure can be read without opening it.
+  const stoppedAt = (read.settled === "fail" || read.settled === "error") && run ? artifactUrl("runs", run.batchId, run.result?.steps.findLast((s) => s.screenshot)?.screenshot) : undefined;
+
   return (
     <ListItem className="group/test flex-nowrap items-start gap-3">
       <StateMark state={read.mark} className="mt-0.5" />
@@ -281,6 +270,10 @@ function TestLine({ appId, test, read, run, live, history, signs, signing, hasCo
         {detail ? <p className="mt-0.5 line-clamp-2 text-sm sm:line-clamp-1">{detail}</p> : test.goal && <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{test.goal}</p>}
         {children}
       </div>
+      {stoppedAt && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={stoppedAt} alt="" className="hidden h-10 w-16 shrink-0 rounded-md border object-cover object-top sm:block" />
+      )}
       <span className={cx("relative z-10 -my-1", !read.active && REVEAL, "group-hover/test:opacity-100")}>
         <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} stopIds={[test.id]} label="Run test" disabled={read.drafting} />
       </span>

@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { plural } from "@/lib/format";
 import { StepList, type StepWithResult } from "./setup-steps";
-import { RAIL } from "./status";
 
 interface Setup {
   startPath: string;
@@ -33,7 +32,7 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
 
   if (!setup)
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="px-4 text-sm text-muted-foreground">
         Every test needs the same first steps, like signing in or getting test funds?{" "}
         <button type="button" onClick={() => setEditing(true)} className="text-foreground underline underline-offset-4">
           Add a setup
@@ -42,28 +41,26 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
     );
 
   return (
-    <section aria-label="Setup" className={RAIL}>
-      <div className="min-w-0 self-start md:pt-2.5">
-        <h2 className="font-semibold tracking-tight">Setup</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+    <section aria-label="Setup" className="flex flex-col gap-1 px-4">
+      <div className="flex flex-wrap items-center gap-x-2.5">
+        <h2 className="font-medium">Setup</h2>
+        <p className="text-sm text-muted-foreground">
           {SETUP_WHEN_LABEL[setup.when]}
           {last && <> · {last.label}</>}
         </p>
-        <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="mt-1.5 -ml-2 text-muted-foreground">
+        <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)} className="text-muted-foreground">
           Edit
         </Button>
       </div>
-      <div className="min-w-0 md:pt-2.5">
-        {setup.why && <p className="text-sm leading-relaxed text-pretty text-muted-foreground">{setup.why}</p>}
-        {/* Folded unless it failed: the tests below are what matters otherwise. */}
-        <details open={last?.ok === false} className="group/setup mt-1">
-          <summary className="-mx-3 flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60">
-            <span className="min-w-0 truncate">{plural(setup.steps.length, "step")}: {setup.steps.join(" → ")}</span>
-            <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open/setup:rotate-90" />
-          </summary>
-          <StepList steps={last?.steps ?? setup.steps.map((text) => ({ text }))} className="-mx-3 mt-1 [&>li]:rounded-lg [&>li]:border-0 [&>li]:px-3 [&>li]:py-2" />
-        </details>
-      </div>
+      {setup.why && <p className="text-sm text-pretty text-muted-foreground">{setup.why}</p>}
+      {/* Folded unless it failed: the tests are what matters otherwise. */}
+      <details open={last?.ok === false} className="group/setup">
+        <summary className="-mx-3 flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60">
+          <span className="min-w-0 truncate">{plural(setup.steps.length, "step")}: {setup.steps.join(" → ")}</span>
+          <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open/setup:rotate-90" />
+        </summary>
+        <StepList steps={last?.steps ?? setup.steps.map((text) => ({ text }))} className="-mx-3 mt-1 [&>li]:rounded-lg [&>li]:border-0 [&>li]:px-3 [&>li]:py-2" />
+      </details>
     </section>
   );
 }
