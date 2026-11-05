@@ -105,7 +105,7 @@ describe("newDangerous", () => {
 describe("signatureKey", () => {
   it("is the same across runs, paths through the test and moving quotes", () => {
     const first = signatureKey(review());
-    expect(signatureKey(review({ id: "sgr_2", requestId: "req_2", fingerprint: "fp_2", stepIndex: 3, flowId: "test_9", createdAt: "2026-11-06T00:00:00Z" }))).toBe(first);
+    expect(signatureKey(review({ id: "sgr_2", requestId: "req_2", fingerprint: "fp_2", stepIndex: 3, testId: "test_9", createdAt: "2026-11-06T00:00:00Z" }))).toBe(first);
     expect(signatureKey(review({ approvals: [approval(BAD.toUpperCase().replace("0X", "0x"))] }))).toBe(first);
     const limited = (amount: string) => signatureKey(review({ approvals: [approval(BAD, amount)] }));
     expect(limited("100")).toBe(limited("250"));

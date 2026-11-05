@@ -195,9 +195,9 @@ function approval(facts: Facts): SigningCheck {
 }
 
 function expectation(facts: Facts): SigningCheck {
-  const flow = facts.input.flow;
-  const exp = flow?.expectation;
-  if (!flow || !exp) return { id: "expectation", label: "Test expectation", status: "skip", detail: "No expectation set for this step." };
+  const script = facts.input.script;
+  const exp = script?.expectation;
+  if (!script || !exp) return { id: "expectation", label: "Test expectation", status: "skip", detail: "No expectation set for this step." };
   const problems: string[] = [];
   const d = facts.decoded;
   const isPermit2 = facts.approvals.some((a) => a.standard === "permit2") || same(d.to, "0x000000000022D473030F116dDEE9F6B43aC78BA3");
@@ -211,7 +211,7 @@ function expectation(facts: Facts): SigningCheck {
   }
   if (exp.failIfUnlimited && facts.approvals.some((a) => a.unlimited)) problems.push("the approval is unlimited");
   if (exp.amountMustEqual) {
-    const want = Number(applyParams(exp.amountMustEqual, flow.params).replace(/,/g, ""));
+    const want = Number(applyParams(exp.amountMustEqual, script.params).replace(/,/g, ""));
     const got = expectedAmounts(facts);
     const close = (n: number) => Math.abs(n - want) <= Math.max(1e-9, want * 1e-6);
     if (!Number.isFinite(want)) problems.push(`amountMustEqual "${exp.amountMustEqual}" isn't a number`);
@@ -223,7 +223,7 @@ function expectation(facts: Facts): SigningCheck {
 }
 
 /**
- * The amounts the flow expectation can refer to, in human units: the approval
+ * The amounts the test expectation can refer to, in human units: the approval
  * if there is one, else the native value and every balance change. A withdraw
  * of 5 assets burns 4.9 shares and pays out 5, so either side may be the typed amount.
  */

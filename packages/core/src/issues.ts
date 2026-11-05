@@ -44,8 +44,8 @@ export const Issue = z.object({
   title: z.string(),
   /** Plain description of what went wrong and why it matters. */
   summary: z.string(),
-  flowId: z.string().optional(),
-  flowName: z.string().optional(),
+  testId: z.string().optional(),
+  testName: z.string().optional(),
   edgeCase: EdgeCaseId.optional(),
   runId: z.string().optional(),
   stepIndex: z.number().int().optional(),

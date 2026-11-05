@@ -20,7 +20,7 @@ export const Locator = z.object({
 });
 export type Locator = z.infer<typeof Locator>;
 
-/** What a wallet request inside a flow must look like. Checked on every replay. */
+/** What a wallet request inside a test must look like. Checked on every replay. */
 export const WalletExpectation = z.object({
   kind: z.enum(["transaction", "message", "typedData"]).optional(),
   /** Contract the transaction must go to. */
@@ -88,36 +88,36 @@ export const ParamDef = z.object({
 });
 export type ParamDef = z.infer<typeof ParamDef>;
 
-export const FlowOrigin = z.enum(["discovered", "described", "recorded", "code"]);
-export type FlowOrigin = z.infer<typeof FlowOrigin>;
+export const ScriptOrigin = z.enum(["discovered", "described", "recorded", "code"]);
+export type ScriptOrigin = z.infer<typeof ScriptOrigin>;
 
-const FlowBase = z.object({
+const ScriptBase = z.object({
   id: z.string(),
   name: z.string(),
-  origin: FlowOrigin,
+  origin: ScriptOrigin,
   /** Absolute URL, or a path relative to the app URL. */
   startUrl: z.string(),
   params: z.array(ParamDef).default([]),
   steps: z.array(Step),
-  /** Chain the flow expects the wallet to be on. */
+  /** Chain the test expects the wallet to be on. */
   chainId: z.number().int().optional(),
 });
 
 /** A deterministic, replayable script. Replays make no model calls. */
-export const Flow = FlowBase.extend({
+export const ReplayScript = ScriptBase.extend({
   /**
-   * Flows replayed first, with default params, to put the chain in the state
-   * this one needs (a deposit before a withdraw). Copies, so a flow file is
-   * self-contained. Edge cases apply only to the flow itself.
+   * Scripts replayed first, with default params, to put the chain in the state
+   * this one needs (a deposit before a withdraw). Copies, so a script file is
+   * self-contained. Edge cases apply only to the script itself.
    */
-  setup: z.array(FlowBase).optional(),
+  setup: z.array(ScriptBase).optional(),
 });
-export type Flow = z.infer<typeof Flow>;
+export type ReplayScript = z.infer<typeof ReplayScript>;
 
 export const WalletProfileId = z.enum(["metamask", "rabby", "coinbase"]);
 export type WalletProfileId = z.infer<typeof WalletProfileId>;
 
-/** One row of the "Variations" table: run the same flow with other inputs. */
+/** One row of the "Variations" table: run the same test with other inputs. */
 export const Variation = z.object({
   id: z.string(),
   name: z.string(),
@@ -143,13 +143,13 @@ export function applyParams(text: string, values: Record<string, string>): strin
   return text.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (m, name: string) => values[name] ?? m);
 }
 
-export function paramValues(flow: Flow, inputs: Record<string, string> = {}): Record<string, string> {
+export function paramValues(script: ReplayScript, inputs: Record<string, string> = {}): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const p of flow.params) out[p.name] = inputs[p.name] ?? p.default;
+  for (const p of script.params) out[p.name] = inputs[p.name] ?? p.default;
   return { ...out, ...inputs };
 }
 
-/** Short human description of a step, used in logs, reports and the flow editor. */
+/** Short human description of a step, used in logs, reports and the test editor. */
 export function describeStep(step: Step): string {
   if (step.note) return step.note;
   const t = (l?: Locator) => (l ? (l.name ?? l.text ?? l.label ?? l.placeholder ?? l.testId ?? l.css ?? "element") : "page");

@@ -6,7 +6,7 @@
 import os from "node:os";
 import path from "node:path";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { chainInfo, nowIso, stallReasons, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type FlowRun, type Issue } from "@dappdrill/core";
+import { chainInfo, nowIso, stallReasons, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type ConditionRun, type Issue } from "@dappdrill/core";
 import { createLlm } from "../agent/index.js";
 import { openInbox } from "../inbox/index.js";
 import { detectChains, startChains } from "../runtime.js";
@@ -33,10 +33,10 @@ export interface Env {
   /** Runs test steps and judges results (Sonnet by default). */
   fastLlm(): Llm;
   costUsd(): number;
-  /** True for a repeat of an app-wide issue another flow already reported. */
+  /** True for a repeat of an app-wide issue another test already reported. */
   isDuplicate(issue: Issue): boolean;
   /** The run with repeated issues replaced by the one that was reported. */
-  canonical(run: FlowRun): FlowRun;
+  canonical(run: ConditionRun): ConditionRun;
   log(message: string, level?: "info" | "warn" | "error"): Promise<void>;
   /** Put forks the app added mid-run (other than `pinned`) back to how they were when added. */
   resetAddedChains(pinned: number[]): Promise<void>;
@@ -57,7 +57,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   const costUsd = () => llms.reduce((sum, l) => sum + l.costUsd(), 0);
 
   // Wallet-setup problems (wrong network, account switch, two wallets) are the
-  // same bug in every flow: report them once for the app, and point later runs
+  // same bug in every test: report them once for the app, and point later runs
   // at that issue.
   const firstByKey = new Map<string, string>();
   const alias = new Map<string, string>();
@@ -69,7 +69,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
     if (first !== issue.id) alias.set(issue.id, first);
     return first !== issue.id;
   };
-  const canonical = (run: FlowRun): FlowRun =>
+  const canonical = (run: ConditionRun): ConditionRun =>
     run.issueIds.some((id) => alias.has(id)) ? { ...run, issueIds: [...new Set(run.issueIds.map((id) => alias.get(id) ?? id))] } : run;
 
   const wrapped: DrillEventSink = (event: DrillEvent) => {
@@ -117,7 +117,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   const target: DrillTarget = {
     ...input,
     chains: chains.configs(),
-    // Keys stay the same for the whole call so setup flows, edge cases and approvals line up.
+    // Keys stay the same for the whole call so setup tests, edge cases and approvals line up.
     accounts: freshAccounts(live.length > 0, input) ?? input.accounts ?? { A: generatePrivateKey(), B: generatePrivateKey() },
   };
   await wrapped({ type: "chains", chains: target.chains });
@@ -159,8 +159,8 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
 }
 
 /**
- * Issues that are one bug however many flows hit it: wallet-setup problems, and
- * the same finding on a step several flows share (a sign-in every flow starts with).
+ * Issues that are one bug however many tests hit it: wallet-setup problems, and
+ * the same finding on a step several tests share (a sign-in every test starts with).
  */
 export function dedupKey(issue: Issue): string | undefined {
   if (!issue.edgeCase) return undefined;

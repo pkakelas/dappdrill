@@ -5,7 +5,7 @@
  * without a model.
  */
 import { z } from "zod";
-import { applyParams, type Blocked, type Flow, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
+import { applyParams, type Blocked, type ReplayScript, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
 import { detectBotCheck } from "../browser/access.js";
 import type { AgentTool, AgentToolResult, DrillSession, Inbox } from "../types.js";
 import { elementByRef, formatSnapshot, locatorFor, takeSnapshot } from "./snapshot.js";
@@ -14,15 +14,15 @@ import { decodeWalletRequest, matchTypedAmount, short } from "./wallet-decode.js
 const SETTLE_MS = 600;
 const ACTION_SNAPSHOT_CHARS = 9_000;
 
-export interface RecordedFlow {
+export interface RecordedScript {
   name: string;
   startUrl: string;
   steps: Step[];
-  params: Flow["params"];
+  params: ReplayScript["params"];
   chainId: number;
 }
 
-/** Records the steps of the flow currently being captured. */
+/** Records the steps of the script currently being captured. */
 export class Recorder {
   private active?: { name: string; startUrl: string; steps: Step[] };
   private typed: string[] = [];
@@ -33,7 +33,7 @@ export class Recorder {
     return !!this.active;
   }
 
-  /** Begin a flow at the current URL. `prefix` steps (already replayed) count as part of it. */
+  /** Begin a script at the current URL. `prefix` steps (already replayed) count as part of it. */
   start(name: string, prefix: Step[] = [], params: Record<string, string> = {}) {
     this.active = { name, startUrl: this.session.page.url(), steps: [...prefix] };
     this.typed = prefix.flatMap((s) => (s.kind === "fill" ? [applyParams(s.value, params)] : []));
@@ -67,16 +67,16 @@ export class Recorder {
   }
 
   /**
-   * Close the flow: amounts the user typed that showed up in a transaction
+   * Close the script: amounts the user typed that showed up in a transaction
    * become {{amount}}, and the wallet's address becomes {{account}} so the
-   * flow replays with any test account.
+   * script replays with any test account.
    */
-  end(): RecordedFlow | undefined {
+  end(): RecordedScript | undefined {
     const a = this.active;
     if (!a) return undefined;
     this.active = undefined;
     this.generic(a.steps);
-    const params: Flow["params"] = [];
+    const params: ReplayScript["params"] = [];
     const amountStep = a.steps.find((s) => s.kind === "wallet" && s.expect?.amountMustEqual && !s.expect.amountMustEqual.includes("{{"));
     if (amountStep?.kind === "wallet" && amountStep.expect?.amountMustEqual) {
       const typed = amountStep.expect.amountMustEqual;
@@ -124,7 +124,7 @@ export interface ToolContext {
   inbox?: Inbox;
   /** Called when the agent reports a bot check; the tool loop should stop afterwards. */
   onBlocked?: (blocked: Blocked) => void;
-  /** Returns a message when the time/flow budget is spent, shown with every tool result. */
+  /** Returns a message when the time/test budget is spent, shown with every tool result. */
   budgetNote?: () => string | undefined;
   /** Runs before the wallet approves a signing request (the signing review). */
   beforeApprove?: (request: WalletRequest) => Promise<void>;
@@ -379,7 +379,7 @@ export async function settle(session: DrillSession): Promise<void> {
   await session.page.waitForLoadState("networkidle", { timeout: 2_500 }).catch(() => null);
 }
 
-/** Render a flow's steps for the model, one per line with indices. */
+/** Render a script's steps for the model, one per line with indices. */
 export function listSteps(steps: Step[], params: Record<string, string> = {}): string {
   return steps
     .map((s, i) => {

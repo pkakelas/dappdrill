@@ -8,7 +8,7 @@ describe("hints", () => {
   });
 
   it("reads back what it wrote", () => {
-    const answers: HintAnswers = { tests: ["Swap ETH", "Claim"], tips: { access: "Invite code in the footer", notes: "A popup covers every page.\nPrices take a minute.", tokens: "USDC on Base", avoid: "The referral flow" } };
+    const answers: HintAnswers = { tests: ["Swap ETH", "Claim"], tips: { access: "Invite code in the footer", notes: "A popup covers every page.\nPrices take a minute.", tokens: "USDC on Base", avoid: "The referral page" } };
     expect(parseHints(formatHints(answers))).toEqual(answers);
   });
 

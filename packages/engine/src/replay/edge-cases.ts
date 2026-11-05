@@ -1,5 +1,5 @@
 /**
- * Run one flow under each requested edge case, each in a fresh session on
+ * Run one test under each requested edge case, each in a fresh session on
  * pinned fork state, and turn what we see into issues with plain titles.
  */
 import { readFile } from "node:fs/promises";
@@ -16,8 +16,8 @@ import {
   type DrillEventSink,
   type DrillTarget,
   type EdgeCaseId,
-  type Flow,
-  type FlowRun,
+  type ReplayScript,
+  type ConditionRun,
   type Issue,
   type SigningReview,
   type Variation,
@@ -32,7 +32,7 @@ import type { Wallet } from "../wallet/controller.js";
 import { decodeBuiltin, spenderOf } from "./expectation.js";
 import { edgeLabel, inspectRecovery, makeIssue, pickConsole, pickRpc, type IssueContext, type IssueDraft } from "./issues.js";
 import { resolveLocator } from "./locators.js";
-import { replayFlow, sameRequest, type ReplayFlowResult, type ReplayHooks } from "./replay.js";
+import { replayScript, sameRequest, type ReplayScriptResult, type ReplayHooks } from "./replay.js";
 
 /** Playwright errors end in a multi-line call log; summaries keep only what failed. */
 const firstLine = (text?: string) => text?.split("\n")[0]?.trim();
@@ -40,7 +40,7 @@ const firstLine = (text?: string) => text?.split("\n")[0]?.trim();
 export interface RunEdgeCasesOptions {
   target: DrillTarget;
   chains: ChainController;
-  flow: Flow;
+  script: ReplayScript;
   edgeCases: EdgeCaseId[];
   variation?: Variation;
   reviewer?: SigningReviewer;
@@ -60,14 +60,14 @@ export interface RunEdgeCasesOptions {
 }
 
 export interface RunEdgeCasesResult {
-  runs: FlowRun[];
+  runs: ConditionRun[];
   issues: Issue[];
   signingReviews: SigningReview[];
 }
 
 const ERC20_ABI = parseAbi(["function approve(address spender, uint256 amount) returns (bool)", "function balanceOf(address) view returns (uint256)"]);
 
-/** An ERC-20 approval the flow makes, learned from the happy run. */
+/** An ERC-20 approval the test makes, learned from the happy run. */
 interface ApprovalInfo {
   token: Hex;
   spender: Hex;
@@ -75,8 +75,8 @@ interface ApprovalInfo {
 }
 
 interface Plan {
-  flow: Flow;
-  flowChain: number;
+  script: ReplayScript;
+  testChain: number;
   otherChain: number;
   params: Record<string, string>;
   profile: WalletProfileId;
@@ -89,35 +89,35 @@ interface Plan {
 }
 
 export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCasesResult> {
-  const { flow, chains, sink } = opts;
+  const { script, chains, sink } = opts;
   const log = opts.log ?? (() => {});
   const configs = chains.configs();
   if (configs.length === 0) throw new Error("runEdgeCases needs at least one chain");
-  const flowChain = opts.variation?.chainId ?? flow.chainId ?? configs[0]!.id;
-  if (!chains.has(flowChain)) throw new Error(`flow "${flow.name}" expects chain ${flowChain}, which is not running`);
+  const testChain = opts.variation?.chainId ?? script.chainId ?? configs[0]!.id;
+  if (!chains.has(testChain)) throw new Error(`test "${script.name}" expects chain ${testChain}, which is not running`);
 
   // Keys must be stable across the sessions of this matrix (approvals are set up outside the session).
   const accounts = opts.target.accounts ?? { A: generatePrivateKey(), B: generatePrivateKey() };
   const plan: Plan = {
-    flow,
-    flowChain,
-    otherChain: configs.find((c) => c.id !== flowChain)?.id ?? (flowChain === 1 ? 11155111 : 1),
-    params: paramValues(flow, opts.variation?.inputs),
+    script,
+    testChain,
+    otherChain: configs.find((c) => c.id !== testChain)?.id ?? (testChain === 1 ? 11155111 : 1),
+    params: paramValues(script, opts.variation?.inputs),
     profile: opts.variation?.wallet ?? opts.target.wallets[0] ?? "metamask",
     account: opts.variation?.account ?? "A",
     accounts,
-    walletSteps: flow.steps.flatMap((s, i) => (s.kind === "wallet" ? [i] : [])),
+    walletSteps: script.steps.flatMap((s, i) => (s.kind === "wallet" ? [i] : [])),
   };
 
   const ordered = [...new Set(opts.edgeCases)].sort((a, b) => CONDITIONS.findIndex((e) => e.id === a) - CONDITIONS.findIndex((e) => e.id === b));
   const result: RunEdgeCasesResult = { runs: [], issues: [], signingReviews: [] };
-  await sink({ type: "flow-status", flowId: flow.id, status: "running" });
+  await sink({ type: "test-status", testId: script.id, status: "running" });
 
   for (const edgeCase of ordered) {
     if (opts.signal?.aborted) break;
     const skip = skipReason(edgeCase, plan, chains);
     if (skip) {
-      const run = skippedRun(flow, edgeCase, opts.variation, skip, chains, flowChain);
+      const run = skippedRun(script, edgeCase, opts.variation, skip, chains, testChain);
       result.runs.push(run);
       await sink({ type: "run", run });
       log(`${edgeCase}: skipped (${skip})`);
@@ -137,7 +137,7 @@ export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCa
 
   const happy = result.runs.find((r) => r.edgeCase === "happy");
   const status = happy && (happy.status === "fail" || happy.status === "error") ? "failed" : result.issues.length > 0 ? "issue" : result.runs.length ? "tested" : "queued";
-  await sink({ type: "flow-status", flowId: flow.id, status });
+  await sink({ type: "test-status", testId: script.id, status });
   return result;
 }
 
@@ -145,22 +145,22 @@ export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCa
 
 function skipReason(edge: EdgeCaseId, plan: Plan, chains: ChainController): string | undefined {
   const info = conditionInfo(edge);
-  const live = chains.mode(plan.flowChain) === "live";
-  if (info.needsFork && live) return `needs a fork; ${chainName(plan.flowChain)} runs in live mode`;
+  const live = chains.mode(plan.testChain) === "live";
+  if (info.needsFork && live) return `needs a fork; ${chainName(plan.testChain)} runs in live mode`;
   const needsWallet = !["happy", "slow-rpc", "failing-rpc"].includes(edge);
   if (needsWallet && plan.walletSteps.length === 0) return "the test has no wallet step";
   if ((edge === "existing-approval" || edge === "revoked-approval") && !plan.approval) {
     return plan.txSignIndexes ? "the test doesn't approve a token" : "needs the happy path first to learn the test's approval";
   }
-  if ((edge === "speed-up" || edge === "reload-mid-flow" || edge === "low-gas") && plan.txSignIndexes && plan.txSignIndexes.length === 0) return "the test sends no transaction";
+  if ((edge === "speed-up" || edge === "reload-while-pending" || edge === "low-gas") && plan.txSignIndexes && plan.txSignIndexes.length === 0) return "the test sends no transaction";
   return undefined;
 }
 
-function skippedRun(flow: Flow, edgeCase: EdgeCaseId, variation: Variation | undefined, reason: string, chains: ChainController, flowChain: number): FlowRun {
+function skippedRun(script: ReplayScript, edgeCase: EdgeCaseId, variation: Variation | undefined, reason: string, chains: ChainController, testChain: number): ConditionRun {
   const at = nowIso();
   return {
     id: newId("run"),
-    flowId: flow.id,
+    testId: script.id,
     edgeCase,
     variationId: variation?.id,
     status: "skipped",
@@ -172,7 +172,7 @@ function skippedRun(flow: Flow, edgeCase: EdgeCaseId, variation: Variation | und
     console: [],
     rpc: [],
     forkBlocks: forkBlocks(chains),
-    mode: chains.mode(flowChain),
+    mode: chains.mode(testChain),
     startedAt: at,
     finishedAt: at,
   };
@@ -195,17 +195,17 @@ interface CaseSetup {
   prepare?: (session: EngineSession) => Promise<void>;
   hooks?: ReplayHooks;
   /** Extra checks after the replay. */
-  inspect?: (session: EngineSession, replay: ReplayFlowResult, drafts: IssueDraft[]) => Promise<void>;
+  inspect?: (session: EngineSession, replay: ReplayScriptResult, drafts: IssueDraft[]) => Promise<void>;
 }
 
 interface CaseOutcome {
-  run: FlowRun;
+  run: ConditionRun;
   issues: Issue[];
   reviews: SigningReview[];
 }
 
 async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): Promise<CaseOutcome> {
-  const { chains, flow } = opts;
+  const { chains, script } = opts;
   const runId = newId("run");
   const startedAt = nowIso();
   const log = opts.log ?? (() => {});
@@ -218,7 +218,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
   for (const c of chains.configs()) if (c.mode === "fork") snapshots.push([c.id, await chains.snapshot(c.id)]);
 
   let session: EngineSession | undefined;
-  let replay: ReplayFlowResult | undefined;
+  let replay: ReplayScriptResult | undefined;
   let artifacts: { video?: string; trace?: string } = {};
   let finalScreenshot: string | undefined;
   let error: string | undefined;
@@ -230,7 +230,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
       video: opts.video,
       wallet: plan.profile,
       twoWallets: setup.twoWallets,
-      startChainId: setup.startChainId ?? plan.flowChain,
+      startChainId: setup.startChainId ?? plan.testChain,
       policy: setup.policy,
       storageState: opts.storageState,
       runId,
@@ -240,7 +240,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
     await setup.prepare?.(session);
     if (setup.faults) chains.setFaults(setup.faults);
 
-    replay = await replayFlow(session, flow, {
+    replay = await replayScript(session, script, {
       params: plan.params,
       reviewer: opts.reviewer,
       reviewLlm: opts.reviewLlm,
@@ -256,7 +256,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
     });
     chains.setFaults({});
     finalScreenshot = await session.screenshot(`${runId}-final`);
-    // A bot check isn't the flow breaking: say so instead of judging the page behind it.
+    // A bot check isn't the test breaking: say so instead of judging the page behind it.
     const blocked = replay.completed ? undefined : await detectBotCheck(session.page);
     if (blocked) throw new Error(blockedLine(blocked).replace(", so exploring stopped there", ""));
     if (edge === "happy") learnFromHappy(plan, replay);
@@ -264,7 +264,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
     await setup.inspect?.(session, replay, drafts);
     commonChecks(edge, plan, session, replay, drafts);
     await blankCheck(edge, session, replay, drafts);
-    // A flow that still completed was recovered from; the judge only looks at where it stopped.
+    // A test that still completed was recovered from; the judge only looks at where it stopped.
     if (edge !== "happy" && opts.judge && drafts.length === 0 && !replay.completed && replay.walletSteps.length > 0) {
       await askJudge(opts.judge, session, edge, conditionInfo(edge).expected, drafts, finalScreenshot, opts.artifactsDir);
     }
@@ -281,7 +281,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
   }
 
   const ctx: IssueContext = {
-    flow,
+    script,
     edgeCase: edge,
     runId,
     setup: setup.setup,
@@ -303,9 +303,9 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
   const wallet = session?.wallet;
   const status = runStatus(edge, replay, issues, error, wallet);
 
-  const run: FlowRun = {
+  const run: ConditionRun = {
     id: runId,
-    flowId: flow.id,
+    testId: script.id,
     edgeCase: edge,
     variationId: opts.variation?.id,
     status: status.status,
@@ -320,7 +320,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
     trace: artifacts.trace,
     finalScreenshot,
     forkBlocks: forkBlocks(chains),
-    mode: chains.mode(plan.flowChain),
+    mode: chains.mode(plan.testChain),
     startedAt,
     finishedAt: nowIso(),
   };
@@ -328,7 +328,7 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
   return { run, issues, reviews: replay?.signingReviews ?? [] };
 }
 
-function runStatus(edge: EdgeCaseId, replay: ReplayFlowResult | undefined, issues: Issue[], error: string | undefined, wallet?: Wallet): { status: FlowRun["status"]; reason?: string } {
+function runStatus(edge: EdgeCaseId, replay: ReplayScriptResult | undefined, issues: Issue[], error: string | undefined, wallet?: Wallet): { status: ConditionRun["status"]; reason?: string } {
   if (wallet?.needsLiveKey) return { status: "skipped", reason: `needs a funded test key for ${chainName(wallet.chainId())} (live mode)` };
   if (error) return { status: "error", reason: error };
   if (!replay) return { status: "error", reason: "no replay result" };
@@ -339,11 +339,11 @@ function runStatus(edge: EdgeCaseId, replay: ReplayFlowResult | undefined, issue
   return { status: "fail", reason: replay.error ?? `the test did not complete under ${edgeLabel(edge)}` };
 }
 
-/** What the happy run teaches us about the flow: which sign steps send transactions and whether one is an ERC-20 approval. */
-function learnFromHappy(plan: Plan, replay: ReplayFlowResult): void {
+/** What the happy run teaches us about the test: which sign steps send transactions and whether one is an ERC-20 approval. */
+function learnFromHappy(plan: Plan, replay: ReplayScriptResult): void {
   plan.txSignIndexes = [];
   replay.walletSteps.forEach((ws, signIndex) => {
-    // A transaction the flow rejects is never sent, so it needs no gas and can't be sped up.
+    // A transaction the test rejects is never sent, so it needs no gas and can't be sped up.
     const sent = ws.response === "approve" && (ws.request.method === "eth_sendTransaction" || ws.request.method === "wallet_sendCalls");
     if (sent) plan.txSignIndexes!.push(signIndex);
     const decoded = decodeBuiltin(ws.request);
@@ -363,15 +363,15 @@ interface CaseState {
 
 function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, state: CaseState): CaseSetup {
   const { chains } = opts;
-  // The flow's main request: its last transaction, or its last signature when it sends none
+  // The test's main request: its last transaction, or its last signature when it sends none
   // (an order on an off-chain book comes after the sign-in signature, not before).
   const lastTxSign = plan.txSignIndexes?.at(-1) ?? Math.max(0, plan.walletSteps.length - 1);
   const firstWalletStep = plan.walletSteps[0] ?? -1;
   /** Index of the step that triggers the first signing request (the one before the first wallet step). */
   const triggerStep = Math.max(0, firstWalletStep - 1);
-  /** The wallet step of the flow's main transaction, and the click that asks for it. */
+  /** The wallet step of the test's main transaction, and the click that asks for it. */
   const mainWalletStep = plan.walletSteps[lastTxSign] ?? firstWalletStep;
-  const mainClick = plan.flow.steps.findLastIndex((st, i) => i < mainWalletStep && st.kind === "click");
+  const mainClick = plan.script.steps.findLastIndex((st, i) => i < mainWalletStep && st.kind === "click");
 
   switch (edge) {
     case "happy":
@@ -392,7 +392,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
       return {
         setup: ["Leave the wallet with almost no ETH for gas."],
         prepare: async (session) => {
-          await chains.setBalance(plan.flowChain, session.wallet.accounts[plan.account], 1_000n);
+          await chains.setBalance(plan.testChain, session.wallet.accounts[plan.account], 1_000n);
         },
         hooks: {
           afterStep: async (ctx, r) => (ctx.step.kind === "wallet" ? "stop" : r.status === "fail" ? "stop" : undefined),
@@ -402,7 +402,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
 
     case "wrong-network":
       return {
-        setup: [`Start with the wallet on ${chainName(plan.otherChain)} instead of ${chainName(plan.flowChain)}.`],
+        setup: [`Start with the wallet on ${chainName(plan.otherChain)} instead of ${chainName(plan.testChain)}.`],
         startChainId: plan.otherChain,
         hooks: wrongChainGuard(plan, state),
         inspect: async (session, replay, drafts) => {
@@ -416,7 +416,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               category: "wallet",
               title: `Doesn't handle the wallet being on ${chainName(plan.otherChain)}`,
               summary: `With the wallet on the wrong network the test broke (${replay.error}) and the dApp neither asked to switch nor told the user.`,
-              expected: `Ask the wallet to switch to ${chainName(plan.flowChain)} or show a "wrong network" message.`,
+              expected: `Ask the wallet to switch to ${chainName(plan.testChain)} or show a "wrong network" message.`,
               actual: replay.error,
             });
           }
@@ -439,7 +439,7 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
               kind: "no-add-chain",
               severity: "high",
               category: "wallet",
-              title: `Gives up when the wallet doesn't know ${chainName(plan.flowChain)} (error 4902)`,
+              title: `Gives up when the wallet doesn't know ${chainName(plan.testChain)} (error 4902)`,
               summary: `The wallet answered wallet_switchEthereumChain with 4902 and the dApp never called wallet_addEthereumChain; the test then broke (${replay.error}).`,
               expected: "Call wallet_addEthereumChain and retry the switch.",
               actual: replay.error,
@@ -571,19 +571,19 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
         },
       };
 
-    case "reload-mid-flow":
+    case "reload-while-pending":
       return {
         setup: ["Turn off automatic mining, send the transaction, reload the page while it is pending, then mine it."],
         hooks: {
           beforeStep: async (ctx) => {
-            if (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign) await chains.setAutomine(plan.flowChain, false);
+            if (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign) await chains.setAutomine(plan.testChain, false);
           },
           afterStep: async (ctx, r) => {
             if (ctx.step.kind !== "wallet" || ctx.signIndex !== lastTxSign || r.status !== "pass") return;
             await ctx.session.page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
             await ctx.session.page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
-            await chains.setAutomine(plan.flowChain, true);
-            await chains.mine(plan.flowChain);
+            await chains.setAutomine(plan.testChain, true);
+            await chains.mine(plan.testChain);
           },
         },
         inspect: async (_s, replay, drafts) => {
@@ -606,13 +606,13 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
         setup: ["Turn off automatic mining, send the transaction, replace it with a higher-fee copy (same nonce), then mine."],
         hooks: {
           beforeStep: async (ctx) => {
-            if (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign) await chains.setAutomine(plan.flowChain, false);
+            if (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign) await chains.setAutomine(plan.testChain, false);
           },
           afterStep: async (ctx, r) => {
             if (ctx.step.kind !== "wallet" || ctx.signIndex !== lastTxSign || r.status !== "pass") return;
             await ctx.session.wallet.speedUpLast();
-            await chains.setAutomine(plan.flowChain, true);
-            await chains.mine(plan.flowChain);
+            await chains.setAutomine(plan.testChain, true);
+            await chains.mine(plan.testChain);
           },
         },
         inspect: async (_s, replay, drafts) => {
@@ -702,14 +702,14 @@ function wrongChainGuard(plan: Plan, state: CaseState): ReplayHooks {
   return {
     respond: async (ctx) => {
       const req = ctx.pending.request;
-      if (req.method === "eth_sendTransaction" && req.chainId !== plan.flowChain) {
+      if (req.method === "eth_sendTransaction" && req.chainId !== plan.testChain) {
         state.drafts.push({
           kind: "wrong-chain-tx",
           severity: "critical",
           category: "wallet",
-          title: `Sends ${requestVerb(req)} on ${chainName(req.chainId)} instead of ${chainName(plan.flowChain)}`,
+          title: `Sends ${requestVerb(req)} on ${chainName(req.chainId)} instead of ${chainName(plan.testChain)}`,
           summary: `The wallet was on ${chainName(req.chainId)} and the dApp asked it to send the transaction there without switching first. On a real wallet this goes to the wrong network and can lose funds.`,
-          expected: `Ask the wallet to switch to ${chainName(plan.flowChain)} before sending.`,
+          expected: `Ask the wallet to switch to ${chainName(plan.testChain)} before sending.`,
           actual: `eth_sendTransaction arrived with the wallet on chain ${req.chainId}.`,
           stepIndex: ctx.index,
           evidence: { buttonLabel: ctx.pending.buttonLabel, walletAsked: `eth_sendTransaction on chain ${req.chainId}` },
@@ -726,8 +726,8 @@ function wrongChainGuard(plan: Plan, state: CaseState): ReplayHooks {
 // ---------------------------------------------------------------- checks
 
 /** After a rejection / failed send: is the UI stuck, and did it tell the user? */
-async function recoveryChecks(edge: EdgeCaseId, session: EngineSession, replay: ReplayFlowResult, drafts: IssueDraft[], verb: string): Promise<void> {
-  // The flow broke before its request (Lido: "access is currently unavailable"), so nothing was rejected to recover from.
+async function recoveryChecks(edge: EdgeCaseId, session: EngineSession, replay: ReplayScriptResult, drafts: IssueDraft[], verb: string): Promise<void> {
+  // The test broke before its request (Lido: "access is currently unavailable"), so nothing was rejected to recover from.
   if (edge === "reject" && !session.wallet.requests().some((r) => r.outcome === "rejected")) return;
   const ws = replay.walletSteps[0];
   const trigger = ws?.pending.buttonLabel ?? session.lastClickedLabel();
@@ -778,7 +778,7 @@ async function recoveryChecks(edge: EdgeCaseId, session: EngineSession, replay: 
 }
 
 /** Checks that apply to every edge case. */
-function commonChecks(edge: EdgeCaseId, plan: Plan, session: EngineSession, replay: ReplayFlowResult, drafts: IssueDraft[]): void {
+function commonChecks(edge: EdgeCaseId, plan: Plan, session: EngineSession, replay: ReplayScriptResult, drafts: IssueDraft[]): void {
   const pageErrors = session.console.filter((c) => c.level === "pageerror");
   if (pageErrors.length > 0) {
     drafts.push({
@@ -805,13 +805,13 @@ function commonChecks(edge: EdgeCaseId, plan: Plan, session: EngineSession, repl
         evidence: { buttonLabel: ws.pending.buttonLabel, walletAsked: ws.asked },
       });
     }
-    if (edge === "happy" && ws.request.method === "eth_sendTransaction" && ws.request.outcome === "approved" && ws.request.chainId !== plan.flowChain) {
+    if (edge === "happy" && ws.request.method === "eth_sendTransaction" && ws.request.outcome === "approved" && ws.request.chainId !== plan.testChain) {
       drafts.push({
         kind: "wrong-chain-tx",
         severity: "critical",
         category: "wallet",
-        title: `Sends ${requestVerb(ws.request)} on ${chainName(ws.request.chainId)} instead of ${chainName(plan.flowChain)}`,
-        summary: `The transaction went out on chain ${ws.request.chainId} although the test is for ${chainName(plan.flowChain)}.`,
+        title: `Sends ${requestVerb(ws.request)} on ${chainName(ws.request.chainId)} instead of ${chainName(plan.testChain)}`,
+        summary: `The transaction went out on chain ${ws.request.chainId} although the test is for ${chainName(plan.testChain)}.`,
         stepIndex: ws.stepIndex,
         evidence: { walletAsked: ws.asked },
       });
@@ -819,8 +819,8 @@ function commonChecks(edge: EdgeCaseId, plan: Plan, session: EngineSession, repl
   }
 }
 
-/** A page that went blank after the edge case hit is a problem whatever the flow says. */
-async function blankCheck(edge: EdgeCaseId, session: EngineSession, replay: ReplayFlowResult, drafts: IssueDraft[]): Promise<void> {
+/** A page that went blank after the edge case hit is a problem whatever the test says. */
+async function blankCheck(edge: EdgeCaseId, session: EngineSession, replay: ReplayScriptResult, drafts: IssueDraft[]): Promise<void> {
   if (replay.completed) return;
   const rec = await inspectRecovery(session.page);
   if (rec.blank) {
@@ -860,13 +860,13 @@ async function askJudge(judge: RecoveryJudge, session: EngineSession, edge: Edge
 
 // ---------------------------------------------------------------- helpers
 
-/** Account B gets the same token balance as A (from the happy run's approval token) so it can do the flow too. */
+/** Account B gets the same token balance as A (from the happy run's approval token) so it can do the test too. */
 async function giveTokensLikeA(plan: Plan, chains: ChainController, wallet: Wallet): Promise<void> {
-  if (!plan.approval || chains.mode(plan.flowChain) !== "fork") return;
+  if (!plan.approval || chains.mode(plan.testChain) !== "fork") return;
   try {
-    const client = chains.client(plan.flowChain);
+    const client = chains.client(plan.testChain);
     const balance = await client.readContract({ address: plan.approval.token, abi: ERC20_ABI, functionName: "balanceOf", args: [wallet.accounts.A] });
-    if (balance > 0n) await chains.dealErc20(plan.flowChain, plan.approval.token, wallet.accounts.B, balance);
+    if (balance > 0n) await chains.dealErc20(plan.testChain, plan.approval.token, wallet.accounts.B, balance);
   } catch {
     /* best effort */
   }
@@ -877,14 +877,14 @@ async function setAllowance(chains: ChainController, plan: Plan, wallet: Wallet,
   const key = plan.accounts[plan.account] as ViemHex;
   const account = privateKeyToAccount(key);
   if (account.address.toLowerCase() !== wallet.accounts[plan.account].toLowerCase()) throw new Error("account key mismatch");
-  const client = createWalletClient({ account, transport: http(chains.rpcUrl(plan.flowChain)) });
-  const chain = { id: plan.flowChain, name: chainName(plan.flowChain), nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [chains.rpcUrl(plan.flowChain)] } } };
+  const client = createWalletClient({ account, transport: http(chains.rpcUrl(plan.testChain)) });
+  const chain = { id: plan.testChain, name: chainName(plan.testChain), nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [chains.rpcUrl(plan.testChain)] } } };
   const hash = await client.sendTransaction({
     chain,
     to: approval.token,
     data: encodeFunctionData({ abi: ERC20_ABI, functionName: "approve", args: [approval.spender, amount] }),
   });
-  await chains.client(plan.flowChain).waitForTransactionReceipt({ hash, timeout: 20_000 });
+  await chains.client(plan.testChain).waitForTransactionReceipt({ hash, timeout: 20_000 });
 }
 
 async function waitForQueuedSign(wallet: Wallet, timeoutMs: number) {

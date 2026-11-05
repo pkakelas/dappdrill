@@ -152,7 +152,7 @@ export const analyses = pgTable(
   (t) => [index("analyses_app_idx").on(t.appId, t.createdAt)],
 );
 
-// ---------------------------------------------------------------- flows & tests
+// ---------------------------------------------------------------- tests
 
 /**
  * A test: a goal, an expected result and steps. With no steps it is something users do that

@@ -26,7 +26,7 @@ import { createLlm } from "./agent/index.js";
 import { draftTest, type DraftInput } from "./agent/writer.js";
 import { diagnoseStall } from "./browser/traffic.js";
 import { openEnv, withoutFallback, type Env } from "./pipeline/env.js";
-import { pin } from "./pipeline/flows.js";
+import { pin } from "./pipeline/pin.js";
 import { landingBotCheck, runTestItems, type RunTestsOptions, type TestHooks, type TestItem, type TestOutcome } from "./pipeline/tests.js";
 import { createSession, type EngineSession } from "./runtime.js";
 import type { Llm } from "./types.js";

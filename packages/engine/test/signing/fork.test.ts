@@ -101,9 +101,9 @@ describe.skipIf(!enabled)("signing reviewer on a mainnet fork", () => {
   }, 120_000);
 
   it("baseline diff: spender changed from Permit2 to the V3 SwapRouter → check", async () => {
-    const flow = { id: "flw_fork", name: "Swap", stepIndex: 1, params: {} };
-    const first = await reviewer.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.PERMIT2_ADDRESS, F.usdc(250)), { from: WHALE }), { buttonLabel: "Approve 250 USDC" }, { flow }));
-    const second = await reviewer.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(SWAP_ROUTER_V3, F.usdc(250)), { from: WHALE }), { buttonLabel: "Approve 250 USDC" }, { flow, baselines: { [first.fingerprint]: first } }));
+    const script = { id: "test_fork", name: "Swap", stepIndex: 1, params: {} };
+    const first = await reviewer.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.PERMIT2_ADDRESS, F.usdc(250)), { from: WHALE }), { buttonLabel: "Approve 250 USDC" }, { script }));
+    const second = await reviewer.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(SWAP_ROUTER_V3, F.usdc(250)), { from: WHALE }), { buttonLabel: "Approve 250 USDC" }, { script, baselines: { [first.fingerprint]: first } }));
     log("baseline-diff", second);
     expect(first.verdict).toBe("consistent");
     expect(second.verdict).toBe("check");

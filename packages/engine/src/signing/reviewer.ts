@@ -104,7 +104,7 @@ export class Reviewer implements SigningReviewer {
       this.tokens(contracts, approvals, targetAddress),
     ]);
 
-    const fp = fingerprint(input.flow?.id, input.flow?.stepIndex, request.method, targetAddress?.toLowerCase(), calls[0]?.selector ?? typed?.primaryType);
+    const fp = fingerprint(input.script?.id, input.script?.stepIndex, request.method, targetAddress?.toLowerCase(), calls[0]?.selector ?? typed?.primaryType);
     const decoded = toDecoded(parsed, calls, typed, message, target);
     const facts: Facts = {
       input,
@@ -148,8 +148,8 @@ export class Reviewer implements SigningReviewer {
     return SigningReview.parse({
       id: newId("sgr"),
       requestId: request.id,
-      flowId: input.flow?.id,
-      stepIndex: input.flow?.stepIndex,
+      testId: input.script?.id,
+      stepIndex: input.script?.stepIndex,
       chainId,
       method: request.method,
       verdict: decision.verdict,
@@ -281,8 +281,8 @@ function fallback(input: SigningInput, error: Error): SigningReview {
   return SigningReview.parse({
     id: newId("sgr"),
     requestId: request.id,
-    flowId: input.flow?.id,
-    stepIndex: input.flow?.stepIndex,
+    testId: input.script?.id,
+    stepIndex: input.script?.stepIndex,
     chainId: request.chainId,
     method: request.method,
     verdict: "check",
@@ -294,7 +294,7 @@ function fallback(input: SigningInput, error: Error): SigningReview {
     checks: [{ id: "ui-match", label: "Matches the button", status: "unverified", detail }],
     explanation: `Worth a look. ${detail}.`,
     advice: "Re-run the review; if it keeps failing, report the request shape to DappDrill.",
-    fingerprint: fingerprint(input.flow?.id, input.flow?.stepIndex, request.method),
+    fingerprint: fingerprint(input.script?.id, input.script?.stepIndex, request.method),
     createdAt: new Date().toISOString(),
   });
 }

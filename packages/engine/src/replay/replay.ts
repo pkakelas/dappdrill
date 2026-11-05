@@ -1,9 +1,9 @@
 /**
- * Deterministic replay of a saved Flow inside a session. No model calls.
+ * Deterministic replay of a saved script inside a session. No model calls.
  * Edge cases plug in through `hooks` to change how wallet requests are
  * answered or to act between steps (switch account, reload, …).
  */
-import { applyParams, describeStep, newId, paramValues, type Flow, type SigningReview, type Step, type StepResult, type WalletRequest } from "@dappdrill/core";
+import { applyParams, describeStep, newId, paramValues, type ReplayScript, type SigningReview, type Step, type StepResult, type WalletRequest } from "@dappdrill/core";
 import type { Inbox, Llm, SigningReviewer } from "../types.js";
 import type { EngineSession } from "../browser/session.js";
 import type { PendingSignRequest } from "../wallet/controller.js";
@@ -14,12 +14,12 @@ import { checkExpectation, decodeBuiltin, describeAsked } from "./expectation.js
 const OPTIONAL_TIMEOUT_MS = 4_000;
 
 export interface StepContext {
-  flow: Flow;
+  script: ReplayScript;
   index: number;
   step: Step;
   session: EngineSession;
   params: Record<string, string>;
-  /** 0-based index among the flow's wallet steps. */
+  /** 0-based index among the script's wallet steps. */
   signIndex: number;
 }
 
@@ -32,7 +32,7 @@ export interface ReplayHooks {
   afterStep?(ctx: StepContext, result: StepResult): Promise<void | "stop">;
 }
 
-export interface ReplayFlowOptions {
+export interface ReplayScriptOptions {
   params?: Record<string, string>;
   reviewer?: SigningReviewer;
   /** Lets the reviewer compare vague button labels with the request. Scans only: CI replays stay model-free. */
@@ -44,7 +44,7 @@ export interface ReplayFlowOptions {
   /** How long a `wallet` step waits for the dApp to ask (default 30s). */
   signTimeoutMs?: number;
   hooks?: ReplayHooks;
-  /** Continue on the page the session is on instead of opening the flow's start URL. */
+  /** Continue on the page the session is on instead of opening the script's start URL. */
   here?: boolean;
   runId?: string;
   signal?: AbortSignal;
@@ -67,7 +67,7 @@ export interface WalletStepInfo {
   expectationWarnings: string[];
 }
 
-export interface ReplayFlowResult {
+export interface ReplayScriptResult {
   steps: StepResult[];
   signingReviews: SigningReview[];
   walletRequests: WalletRequest[];
@@ -80,36 +80,36 @@ export interface ReplayFlowResult {
   stoppedByHook: boolean;
 }
 
-export async function replayFlow(session: EngineSession, flow: Flow, opts: ReplayFlowOptions = {}): Promise<ReplayFlowResult> {
+export async function replayScript(session: EngineSession, script: ReplayScript, opts: ReplayScriptOptions = {}): Promise<ReplayScriptResult> {
   // {{account}} is whichever test account this replay runs with; head and tail make up its short form.
   const account = session.wallet.address();
-  const params = { account, "account-head": account.slice(0, 6), "account-tail": account.slice(-4), ...paramValues(flow, opts.params) };
+  const params = { account, "account-head": account.slice(0, 6), "account-tail": account.slice(-4), ...paramValues(script, opts.params) };
   const stepTimeout = opts.stepTimeoutMs ?? 15_000;
   const signTimeout = opts.signTimeoutMs ?? 30_000;
   const log = opts.log ?? (() => {});
   const runId = opts.runId ?? newId("rpl");
   const startedAt = Date.now();
 
-  const result: ReplayFlowResult = { steps: [], signingReviews: [], walletRequests: [], walletSteps: [], completed: false, stoppedByHook: false };
+  const result: ReplayScriptResult = { steps: [], signingReviews: [], walletRequests: [], walletSteps: [], completed: false, stoppedByHook: false };
   let signIndex = 0;
   let stopped = false;
   // An optional one-time prompt (terms, cookie banner) that didn't show also asks for nothing.
   let triggerSkipped = false;
 
-  // A saved flow starts at its startUrl even when the first step isn't an explicit goto.
-  if (!opts.here && flow.steps[0]?.kind !== "goto") {
+  // A saved script starts at its startUrl even when the first step isn't an explicit goto.
+  if (!opts.here && script.steps[0]?.kind !== "goto") {
     try {
-      await gotoUrl(session, flow.startUrl, params, stepTimeout);
+      await gotoUrl(session, script.startUrl, params, stepTimeout);
     } catch (e) {
-      result.error = `Could not open ${flow.startUrl}: ${e instanceof Error ? e.message : e}`;
+      result.error = `Could not open ${script.startUrl}: ${e instanceof Error ? e.message : e}`;
       result.walletRequests = session.wallet.requests();
       return result;
     }
   }
 
-  for (let index = 0; index < flow.steps.length && !stopped; index++) {
-    const step = flow.steps[index]!;
-    const ctx: StepContext = { flow, index, step, session, params, signIndex };
+  for (let index = 0; index < script.steps.length && !stopped; index++) {
+    const step = script.steps[index]!;
+    const ctx: StepContext = { script, index, step, session, params, signIndex };
     const t0 = Date.now();
     if (opts.signal?.aborted) {
       result.error = "cancelled";
@@ -171,8 +171,8 @@ async function gotoUrl(session: EngineSession, url: string, params: Record<strin
 interface RunEnv {
   stepTimeout: number;
   signTimeout: number;
-  opts: ReplayFlowOptions;
-  result: ReplayFlowResult;
+  opts: ReplayScriptOptions;
+  result: ReplayScriptResult;
   runId: string;
   startedAt: number;
 }
@@ -258,7 +258,7 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
 }
 
 async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
-  const { step, session, flow, index, params } = ctx;
+  const { step, session, script, index, params } = ctx;
   if (step.kind !== "wallet") throw new Error("not a wallet step");
   const { wallet, chains } = session;
   const log = env.opts.log ?? (() => {});
@@ -276,7 +276,7 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
         request: req,
         chains,
         ui: { buttonLabel, pageUrl: pending.pageUrl, screenshot },
-        flow: { id: flow.id, name: flow.name, stepIndex: index, expectation: step.expect, params },
+        script: { id: script.id, name: script.name, stepIndex: index, expectation: step.expect, params },
         baselines: env.opts.baselines ?? {},
         artifactsDir: session.artifactsDir,
         llm: env.opts.reviewLlm,

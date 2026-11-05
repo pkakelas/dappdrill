@@ -177,7 +177,7 @@ function review(request: WalletRequest, testName: string): SigningReview {
   return {
     id: newId("sig"),
     requestId: request.id,
-    flowId: "fake",
+    testId: "fake",
     stepIndex: 0,
     chainId: request.chainId ?? 8453,
     method: "eth_sendTransaction",
@@ -201,7 +201,7 @@ function dangerousReview(request: WalletRequest, testName: string): SigningRevie
   return {
     id: newId("sig"),
     requestId: request.id,
-    flowId: "fake",
+    testId: "fake",
     stepIndex: 0,
     chainId: request.chainId ?? 8453,
     method: "eth_sendTransaction",

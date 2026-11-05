@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { WalletProfileId } from "./flow.js";
+import { WalletProfileId } from "./script.js";
 
 /** A request the dApp sent to the wallet. */
 export const WalletRequest = z.object({
@@ -133,7 +133,7 @@ export type BaselineChange = z.infer<typeof BaselineChange>;
 export const SigningReview = z.object({
   id: z.string(),
   requestId: z.string(),
-  flowId: z.string().optional(),
+  testId: z.string().optional(),
   stepIndex: z.number().int().optional(),
   runId: z.string().optional(),
   chainId: z.number().int(),
@@ -169,7 +169,7 @@ export const SigningReview = z.object({
   baseline: z
     .object({ previousAt: z.string().optional(), changes: z.array(BaselineChange).default([]) })
     .optional(),
-  /** Stable key for baseline matching: flow + step + method + target. */
+  /** Stable key for baseline matching: test + step + method + target. */
   fingerprint: z.string(),
   createdAt: z.string(),
 });

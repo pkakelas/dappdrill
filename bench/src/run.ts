@@ -14,8 +14,12 @@ import { createWriteStream, existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { EdgeCaseId, FlowRun, Issue, ScanReport, SigningReview, Verdict } from "@dappdrill/core";
+import type { ConditionRun, EdgeCaseId, Issue, ReplayScript, ScanReport as CoreReport, SigningReview, Verdict } from "@dappdrill/core";
 import { FIRED_MARK, MUTATIONS, type Mutation } from "./mutations.js";
+
+/** report.json as the CLI saved it for the committed results, which keep these field names. */
+type SavedRun = Omit<ConditionRun, "testId"> & { flowId: string };
+type SavedReport = Omit<CoreReport, "scripts" | "runs"> & { flows: ReplayScript[]; runs: SavedRun[] };
 
 const BENCH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ROOT = path.resolve(BENCH, "..");
@@ -155,7 +159,7 @@ async function replayDapp(d: Dapp): Promise<void> {
 }
 
 /** Only replay a bug on flows whose unmutated run does the thing it breaks. */
-function applies(m: Mutation, flowId: string, control: ScanReport): boolean {
+function applies(m: Mutation, flowId: string, control: SavedReport): boolean {
   const runs = control.runs.filter((r) => r.flowId === flowId);
   const happy = runs.find((r) => r.edgeCase === "happy");
   const reqs = happy?.walletRequests ?? [];
@@ -225,7 +229,7 @@ interface MutationScore {
 }
 
 /** The signal a mutation should produce when DappDrill really understands the bug. */
-function diagnoses(m: Mutation, run: FlowRun, newIssues: Issue[], reviews: SigningReview[], control: Ctl): string | undefined {
+function diagnoses(m: Mutation, run: SavedRun, newIssues: Issue[], reviews: SigningReview[], control: Ctl): string | undefined {
   const fresh = reviews.filter((r) => VERDICT_RANK[r.verdict] > control.maxVerdict || newChecks(r, control).length);
   const flagged = (pred: (r: SigningReview) => boolean) => fresh.find(pred);
   switch (m.id) {
@@ -261,7 +265,7 @@ const SIGNAL_CHECK = new Set(["warn", "fail"]);
  * saved before the engine stamped reviews with their run have no runId on
  * reviews or on the signing issues made from them.
  */
-function ofRun(report: ScanReport, run: FlowRun): { issues: Issue[]; reviews: SigningReview[] } {
+function ofRun(report: SavedReport, run: SavedRun): { issues: Issue[]; reviews: SigningReview[] } {
   const reviewIds = new Set(run.signingReviewIds);
   const issueIds = new Set(run.issueIds);
   return {
@@ -272,13 +276,13 @@ function ofRun(report: ScanReport, run: FlowRun): { issues: Issue[]; reviews: Si
 
 /** What the unmutated replays of one flow + edge case looked like. */
 interface Ctl {
-  statuses: FlowRun["status"][];
+  statuses: SavedRun["status"][];
   fingerprints: Set<string>;
   maxVerdict: number;
   checks: Set<string>;
 }
 
-function controlFor(controls: ScanReport[], flowId: string, edgeCase: EdgeCaseId): Ctl {
+function controlFor(controls: SavedReport[], flowId: string, edgeCase: EdgeCaseId): Ctl {
   const owned = controls.flatMap((c) => c.runs.filter((r) => r.flowId === flowId).map((run) => ({ run, ...ofRun(c, run) })));
   const same = owned.filter((o) => o.run.edgeCase === edgeCase);
   const runs = same.map((o) => o.run);
@@ -293,7 +297,7 @@ function controlFor(controls: ScanReport[], flowId: string, edgeCase: EdgeCaseId
   };
 }
 
-function scoreMutation(d: Dapp, m: Mutation, variant: MutationScore["variant"], mutated: ScanReport, controls: ScanReport[]): MutationScore[] {
+function scoreMutation(d: Dapp, m: Mutation, variant: MutationScore["variant"], mutated: SavedReport, controls: SavedReport[]): MutationScore[] {
   return mutated.runs.map((run) => {
     const base = { dapp: d.id, mutation: m.id, flowId: run.flowId, edgeCase: run.edgeCase, variant };
     if (!run.console.some((c) => c.text.includes(FIRED_MARK))) return { ...base, outcome: "not-fired", why: `run ${run.status}: ${run.reason ?? ""}`.trim() };
@@ -320,12 +324,12 @@ interface Cell {
   flowId: string;
   flowName: string;
   edgeCase: EdgeCaseId;
-  statuses: FlowRun["status"][];
+  statuses: SavedRun["status"][];
   sameStatus: boolean;
   sameIssues: boolean;
 }
 
-function stability(controls: ScanReport[]): Cell[] {
+function stability(controls: SavedReport[]): Cell[] {
   const first = controls[0];
   if (!first) return [];
   const cells: Cell[] = [];
@@ -370,7 +374,7 @@ async function report(dapps: Dapp[]): Promise<void> {
     for (const entry of await readdir(dir)) if (entry.startsWith("scan")) spentUsd += (await readReport(path.join(dir, entry)))?.costUsd ?? 0;
     const verdicts = countBy(scan.signingReviews.map((r) => r.verdict));
 
-    const controls = (await Promise.all(Array.from({ length: CONTROL_RUNS }, (_, i) => readReport(path.join(dir, `control-${i + 1}`))))).filter((r): r is ScanReport => !!r);
+    const controls = (await Promise.all(Array.from({ length: CONTROL_RUNS }, (_, i) => readReport(path.join(dir, `control-${i + 1}`))))).filter((r): r is SavedReport => !!r);
     const cells = controls.length === CONTROL_RUNS ? stability(controls) : [];
     // The control replays run on the engine as committed, so their findings re-measure precision after the fixes.
     const replayIssues = label(controls.flatMap((c) => c.issues));
@@ -511,9 +515,9 @@ function markdown(s: Summary): string {
 
 // ── files ────────────────────────────────────────────────────────────────────
 
-async function readReport(dir: string): Promise<ScanReport | undefined> {
+async function readReport(dir: string): Promise<SavedReport | undefined> {
   try {
-    return JSON.parse(await readFile(path.join(dir, "report.json"), "utf8")) as ScanReport;
+    return JSON.parse(await readFile(path.join(dir, "report.json"), "utf8")) as SavedReport;
   } catch {
     return undefined;
   }

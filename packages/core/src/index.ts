@@ -1,4 +1,4 @@
-export * from "./flow.js";
+export * from "./script.js";
 export * from "./chains.js";
 export * from "./edge-cases.js";
 export * from "./signing.js";

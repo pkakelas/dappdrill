@@ -1,8 +1,8 @@
 /** Going through a test's plain-English steps in an open session; shared by tests and the app's setup. */
-import { newId, type AppMap, type Blocked, type DrillEvent, type Flow, type SigningReview, type Step, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
+import { newId, type AppMap, type Blocked, type DrillEvent, type ReplayScript, type SigningReview, type Step, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
 import { runStep } from "../agent/tester.js";
 import { detectBotCheck } from "../browser/access.js";
-import { createSession, replayFlow, type EngineSession, type SessionOptions } from "../runtime.js";
+import { createSession, replayScript, type EngineSession, type SessionOptions } from "../runtime.js";
 import type { Env } from "./env.js";
 
 export const debug = (m: string) => {
@@ -58,7 +58,7 @@ export async function walkSteps(
     if (review) reviews.push(review);
   };
   const replay = async (actions: Step[]) => {
-    const r = await replayFlow(session, flowOf(spec, actions), { here: true, reviewer: env.reviewer, baselines: opts.baselines, inbox: env.inbox, signal, log: debug });
+    const r = await replayScript(session, scriptOf(spec, actions), { here: true, reviewer: env.reviewer, baselines: opts.baselines, inbox: env.inbox, signal, log: debug });
     reviews.push(...r.signingReviews);
     return { ok: r.completed, error: r.error };
   };
@@ -93,7 +93,7 @@ export async function walkSteps(
   return {};
 }
 
-export function flowOf(spec: Pick<TestSpec, "id" | "name" | "startPath">, steps: Step[]): Flow {
+export function scriptOf(spec: Pick<TestSpec, "id" | "name" | "startPath">, steps: Step[]): ReplayScript {
   return { id: spec.id, name: spec.name, origin: "described", startUrl: spec.startPath, params: [], steps };
 }
 

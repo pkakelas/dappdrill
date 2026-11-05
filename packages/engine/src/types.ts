@@ -72,7 +72,7 @@ export interface ChainController {
 // ---------------------------------------------------------------- wallet
 
 export interface WalletPolicy {
-  /** Approve eth_requestAccounts / permissions without a flow step. Default true. */
+  /** Approve eth_requestAccounts / permissions without a test step. Default true. */
   autoConnect: boolean;
   /** Approve wallet_switchEthereumChain / addEthereumChain for chains we have. Default true. */
   autoSwitch: boolean;
@@ -140,7 +140,7 @@ export interface SigningInput {
   request: WalletRequest;
   chains: ChainController;
   ui: { buttonLabel?: string; pageUrl?: string; screenshot?: string; context?: string };
-  flow?: {
+  script?: {
     id: string;
     name: string;
     stepIndex: number;

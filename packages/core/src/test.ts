@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EdgeCaseId } from "./edge-cases.js";
-import { Step } from "./flow.js";
+import { Step } from "./script.js";
 import { ConsoleEntry, Issue } from "./issues.js";
 import { SigningReview, WalletRequest } from "./signing.js";
 
