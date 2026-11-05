@@ -25,6 +25,21 @@ export function keepActions(texts: string[], old: TestStep[]): TestStep[] {
   });
 }
 
+/** Whether a step's recorded actions include handling a signature request. */
+export function stepSigns(step: TestStep): boolean {
+  return step.actions?.some((a) => a.kind === "wallet") ?? false;
+}
+
+/**
+ * Whether a test asks the wallet to sign, from what its runs recorded. Connecting
+ * doesn't count: it's approved automatically and there's nothing to reject or pay for.
+ * "unknown" until every step has run, since the wallet may come after where it stopped.
+ */
+export function walletUse(steps: TestStep[]): "signs" | "none" | "unknown" {
+  if (steps.some(stepSigns)) return "signs";
+  return steps.length > 0 && steps.every((s) => s.actions) ? "none" : "unknown";
+}
+
 function norm(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.!]$/, "");
 }
@@ -40,7 +55,7 @@ export const TestSpec = z.object({
   steps: z.array(TestStep),
   /** Text that proved the expected result last time; checked before asking a model. */
   proof: z.string().optional(),
-  /** An unhappy path: the base test's steps under a wallet or network condition. */
+  /** A condition row: the base test's steps under a wallet or network condition. */
   condition: EdgeCaseId.optional(),
 });
 export type TestSpec = z.infer<typeof TestSpec>;
@@ -130,7 +145,7 @@ export const TestRunResult = z.object({
   failure: z.string().optional(),
   walletRequests: z.array(WalletRequest).default([]),
   signingReviews: z.array(SigningReview).default([]),
-  /** Problems an unhappy path found (a stuck button, a missing error). */
+  /** Problems a condition found (a stuck button, a missing error). */
   issues: z.array(Issue).default([]),
   console: z.array(ConsoleEntry).default([]),
   video: z.string().optional(),

@@ -6,6 +6,7 @@ export * from "./issues.js";
 export * from "./run.js";
 export * from "./ids.js";
 export * from "./format.js";
+export * from "./hints.js";
 export * from "./setup.js";
 export * from "./test.js";
 export * from "./rollup.js";

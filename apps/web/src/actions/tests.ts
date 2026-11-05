@@ -1,6 +1,6 @@
 "use server";
 
-import { EdgeCaseId, OFFERED_CONDITIONS, keepActions, newId } from "@dappdrill/core";
+import { EdgeCaseId, OFFERED_CONDITIONS, keepActions, newId, walletUse } from "@dappdrill/core";
 import { addConditions, db, flows, nextPosition, queueRuns, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -183,6 +183,7 @@ export async function updateTestAction(testId: string, input: z.input<typeof Edi
 export async function addConditionsAction(testId: string, conditions: string[]): Promise<{ error?: string }> {
   const t = await ownTest(testId);
   if (t.baseId) return { error: "Add conditions on the test, not on a condition." };
+  if (walletUse(t.steps) !== "signs") return { error: "Conditions need a test that asks the wallet to sign." };
   const picked = conditions.map((c) => EdgeCaseId.safeParse(c)).flatMap((r) => (r.success && OFFERED_CONDITIONS.some((c) => c.id === r.data) ? [r.data] : []));
   if (picked.length === 0) return { error: "Pick at least one." };
   const ids = await addConditions(db(), testId, picked);

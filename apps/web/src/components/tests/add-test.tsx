@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-/** "+ Add a test": one sentence; the worker writes the steps and runs it. `first` for a flow that has none yet. */
-export function AddTest({ appId, flowId, flowName, first }: { appId: string; flowId: string; flowName: string; first?: boolean }) {
-  const [open, setOpen] = useState(false);
+/** One sentence; the worker writes the steps and runs it. */
+export function AddTest({ appId, flowId, flowName, onClose }: { appId: string; flowId: string; flowName: string; onClose: () => void }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
@@ -20,19 +19,12 @@ export function AddTest({ appId, flowId, flowName, first }: { appId: string; flo
       if (r.error) return setError(r.error);
       setText("");
       setError(undefined);
-      setOpen(false);
+      onClose();
     });
 
-  if (!open)
-    return (
-      <Button type="button" variant="ghost" onClick={() => setOpen(true)} className="h-auto w-full justify-start gap-2.5 rounded-none px-4 py-3 font-normal text-muted-foreground has-[>svg]:px-4">
-        <Plus className="size-4" aria-hidden="true" />
-        {first ? "Add the first test" : "Add a test"}
-      </Button>
-    );
   return (
     <form
-      className="flex flex-col gap-2 px-4 py-3"
+      className="flex flex-col gap-2 pb-3"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -47,7 +39,7 @@ export function AddTest({ appId, flowId, flowName, first }: { appId: string; flo
           autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+          onKeyDown={(e) => e.key === "Escape" && onClose()}
           disabled={pending}
           placeholder="Describe it in a sentence, e.g. withdraw half and check the balance"
           className="sm:w-auto sm:flex-1"
@@ -55,7 +47,7 @@ export function AddTest({ appId, flowId, flowName, first }: { appId: string; flo
         <Button type="submit" size="sm" disabled={pending || text.trim().length < 3}>
           {pending ? "Adding…" : "Add"}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>
           Cancel
         </Button>
       </div>

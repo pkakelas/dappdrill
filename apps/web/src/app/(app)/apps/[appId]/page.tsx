@@ -1,24 +1,26 @@
-import { appRollup, appText, conditionsText, flowRollup, flowStatusText, signingOf, signingText, type FlowRollup } from "@dappdrill/core";
-import { analyses, db, flowsWithTests, latestRuns, settledRuns, specOf, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { appRollup, appText, conditionsText, flowRollup, flowStatusText, signingOf, signingText, walletUse, type FlowRollup } from "@dappdrill/core";
+import { analyses, db, flowsWithTests, latestRuns, runHistory, settledRuns, specOf, type RunSummary, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
-import { ChevronRight } from "lucide-react";
+import { Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { analyzeAction } from "@/actions/apps";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { AddTest, NewFlow } from "@/components/tests/add-test";
+import { NewFlow } from "@/components/tests/add-test";
 import { AnalysisPanel } from "@/components/tests/analysis-panel";
+import { AppStats, HISTORY_DAYS, RunTicks } from "@/components/tests/app-stats";
 import { ConditionGrid } from "@/components/tests/condition-grid";
-import { FlowHeader } from "@/components/tests/flow-header";
+import { ConditionPills, failureParts } from "@/components/tests/condition-pills";
+import { FlowSection } from "@/components/tests/flow-section";
 import { RunButton } from "@/components/tests/run-button";
 import { SetupCard } from "@/components/tests/setup-card";
 import { SigningFlag } from "@/components/tests/signing-flag";
-import { ActiveDot, isActive, readTest, StateMark, type TestRead } from "@/components/tests/status";
-import { cx, ListItem, PageHeader } from "@/components/ui";
+import { ActiveDot, readTest, REVEAL, STATE_LABEL, StateMark, type TestRead } from "@/components/tests/status";
+import { cx, PageHeader } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { ItemActions, ItemContent, ItemGroup, ItemMedia } from "@/components/ui/item";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
-import { hostFromUrl, plural, timeAgo } from "@/lib/format";
+import { hostFromUrl, timeAgo } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
@@ -33,7 +35,7 @@ export default async function FlowsPage({ params, searchParams }: { params: Prom
   const [[analysis], all] = await Promise.all([db().select().from(analyses).where(eq(analyses.appId, appId)).orderBy(desc(analyses.createdAt)).limit(1), flowsWithTests(db(), appId)]);
   const tests = all.flatMap((f) => f.tests);
   const ids = tests.map((t) => t.id);
-  const [latest, settled] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids)]);
+  const [latest, settled, history] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000))]);
   const reads = new Map(tests.map((t) => [t.id, readTest(t, latest.get(t.id), settled.get(t.id))]));
   const rollups = new Map(all.map((f) => [f.id, rollupOf(f.tests, reads, settled)]));
   const overall = appRollup([...rollups.values()]);
@@ -92,62 +94,65 @@ export default async function FlowsPage({ params, searchParams }: { params: Prom
         }
       />
 
-      <div className="flex flex-col gap-6">
-        {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasFlows={all.length > 0} />}
+      <TooltipProvider>
+        <div className="flex flex-col gap-10">
+          {analysis && <AnalysisPanel analysis={analysis} appId={appId} host={host} url={app.url} hasFlows={all.length > 0} />}
 
-        {!grid && (app.setup || all.length > 0) && (
-          <SetupCard appId={appId} setup={app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()]) : undefined} />
-        )}
+          {tests.length > 0 && <AppStats states={tests.filter((t) => !t.baseId).map((t) => reads.get(t.id)!.mark)} conditionsFailed={overall.conditionsFailed} runs={history} />}
 
-        {grid ? (
-          <ConditionGrid appId={appId} flows={all} reads={reads} settled={settled} />
-        ) : (
-          all.map((f) => {
-            const r = rollups.get(f.id)!;
-            const flowActive = f.tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
-            return (
-              <section key={f.id} aria-label={f.name} className="overflow-hidden rounded-xl border bg-card shadow-xs">
-                <FlowHeader appId={appId} flow={f} count={f.tests.filter((t) => !t.baseId).length} summary={<FlowSummary rollup={r} />} activeIds={flowActive} />
-                {f.tests.length > 0 && (
-                  <ItemGroup className="divide-y">
-                    {f.tests
-                      .filter((t) => !t.baseId)
-                      .map((t) => {
-                        const children = f.tests.filter((c) => c.baseId === t.id);
-                        return [
-                          <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} />,
-                          children.length > 0 && <ConditionGroup key={`${t.id}-conditions`} appId={appId} tests={children} reads={reads} settled={settled} latest={latest} />,
-                        ];
-                      })}
-                  </ItemGroup>
-                )}
-                <div className={cx(f.tests.length > 0 && "border-t")}>
-                  <AddTest appId={appId} flowId={f.id} flowName={f.name} first={f.tests.length === 0} />
-                </div>
-              </section>
-            );
-          })
-        )}
+          {!grid && app.setup && (
+            <SetupCard appId={appId} setup={{ startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why }} last={lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()])} />
+          )}
 
-        {all.length > 0 ? (
-          !grid && <NewFlow appId={appId} />
-        ) : !exploring ? (
-          <div className="flex flex-col gap-4">
-            {!analysis && (
-              <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-6 shadow-xs">
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-base font-semibold">No flows yet</h2>
-                  <p className="text-sm text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a flow yourself.</p>
-                </div>
-                <form action={analyzeAction.bind(null, appId)}>
-                  <Button type="submit">Explore the app</Button>
-                </form>
-              </section>
-            )}
-            <NewFlow appId={appId} first />
-          </div>
-        ) : null}
-      </div>
+          {grid ? (
+            <ConditionGrid appId={appId} flows={all} reads={reads} settled={settled} />
+          ) : (
+            all.map((f) => {
+              const base = f.tests.filter((t) => !t.baseId);
+              const flowActive = f.tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
+              return (
+                <FlowSection key={f.id} appId={appId} flow={f} states={base.map((t) => reads.get(t.id)!.mark)} summary={<FlowSummary rollup={rollups.get(f.id)!} />} activeIds={flowActive}>
+                  <ul className="flex flex-col gap-1">
+                    {base.map((t) => {
+                      const conditions = f.tests.filter((c) => c.baseId === t.id);
+                      return (
+                        <li key={t.id}>
+                          <TestLine appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} history={history} signs={walletUse(t.steps) === "signs"} hasConditions={conditions.length > 0} />
+                          {conditions.length > 0 && <ConditionPills appId={appId} tests={conditions} reads={reads} runs={settled} className="ml-7 pb-3" />}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </FlowSection>
+              );
+            })
+          )}
+
+          {all.length > 0 ? (
+            !grid && (
+              <div className="flex flex-col gap-4 md:px-5">
+                <NewFlow appId={appId} />
+                {!app.setup && <SetupCard appId={appId} setup={null} />}
+              </div>
+            )
+          ) : !exploring ? (
+            <div className="flex flex-col gap-4">
+              {!analysis && (
+                <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-6 shadow-xs">
+                  <div className="flex flex-col gap-1">
+                    <h2 className="text-base font-semibold">No flows yet</h2>
+                    <p className="text-sm text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a flow yourself.</p>
+                  </div>
+                  <form action={analyzeAction.bind(null, appId)}>
+                    <Button type="submit">Explore the app</Button>
+                  </form>
+                </section>
+              )}
+              <NewFlow appId={appId} first />
+            </div>
+          ) : null}
+        </div>
+      </TooltipProvider>
     </div>
   );
 }
@@ -214,43 +219,30 @@ function lastSetup(texts: string[], runs: TestRunRow[]) {
   return { label, ok: setup.ok && !running, steps: texts.map((text, i) => ({ text, result: setup.steps[i], shot: artifactUrl("runs", run.batchId, setup.steps[i]?.screenshot) })) };
 }
 
-const branch = <span aria-hidden="true" className="-mt-0.5 ml-1.5 h-4 w-3 shrink-0 self-start border-b border-l border-muted-foreground/30" />;
-
-/** A test's conditions: one quiet row with the counts, opened when one failed, couldn't run or is running. */
-function ConditionGroup({ appId, tests, reads, settled, latest }: { appId: string; tests: TestRow[]; reads: Map<string, TestRead>; settled: Map<string, TestRunRow>; latest: Map<string, TestRunRow> }) {
-  const rs = tests.map((t) => reads.get(t.id)!);
-  const open = rs.some((r) => r.settled === "fail" || r.settled === "error" || isActive(r));
-  const active = tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
-  const rollup = flowRollup([{ read: { settled: "never" }, conditions: rs, signing: { dangerous: 0, check: 0 } }]);
+/** Says the test signs. With no conditions yet it's also the way to add them, in words on hover. */
+function WalletMark({ href }: { href?: string }) {
+  const icon = <Wallet className="size-3.5 shrink-0" aria-hidden="true" />;
   return (
-    <div role="listitem">
-      <details open={open} className="group/conditions">
-        <summary className="flex items-center gap-2.5 px-4 py-2 hover:bg-accent/40">
-          {branch}
-          <span className="flex flex-1 flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
-            <span>{plural(tests.length, "condition")}</span>
-            <span aria-hidden="true">·</span>
-            <span className={cx(rollup.conditions.failed > 0 && "text-warn")}>{conditionsText(rollup)}</span>
-            {active.length > 0 && <ActiveDot active="running" />}
-            <ChevronRight aria-hidden="true" className="size-3.5 transition-transform group-open/conditions:rotate-90" />
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {href ? (
+          <Link href={href} className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+            {icon}
+            <span className={cx("max-sm:sr-only", REVEAL, "group-hover/test:opacity-100")}>Add conditions</span>
+          </Link>
+        ) : (
+          <span role="img" aria-label="Asks the wallet to sign" className="relative z-10 shrink-0 text-muted-foreground">
+            {icon}
           </span>
-          <span className="relative z-10">
-            <RunButton target={{ appId, testIds: tests.map((t) => t.id) }} active={active.length > 0} stopIds={active} label="Run conditions" />
-          </span>
-        </summary>
-        <ItemGroup className="divide-y border-t">
-          {tests.map((t) => (
-            <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} />
-          ))}
-        </ItemGroup>
-      </details>
-    </div>
+        )}
+      </TooltipTrigger>
+      <TooltipContent>Asks the wallet to sign</TooltipContent>
+    </Tooltip>
   );
 }
 
-/** One test or condition row. `run` is the result its status reads from; `live` the newest run, for progress. */
-function TestLine({ appId, test, read, run, live }: { appId: string; test: TestRow; read: TestRead; run?: TestRunRow; live?: TestRunRow }) {
-  const condition = Boolean(test.baseId);
+/** One test. `run` is the result its status reads from; `live` the newest run, for progress. */
+function TestLine({ appId, test, read, run, live, history, signs, hasConditions }: { appId: string; test: TestRow; read: TestRead; run?: TestRunRow; live?: TestRunRow; history: RunSummary[]; signs: boolean; hasConditions: boolean }) {
   const steps = live?.result?.steps ?? [];
   const current = steps.findIndex((s) => s.status === "running");
   const setupSteps = live?.result?.setup?.steps ?? [];
@@ -271,29 +263,37 @@ function TestLine({ appId, test, read, run, live }: { appId: string; test: TestR
       </span>
     );
   else if (read.active === "queued" && read.settled === "never") detail = <span className="text-live">Queued</span>;
-  else if ((read.settled === "fail" || read.settled === "error") && run?.result?.failure) detail = <span className={read.settled === "fail" ? "text-bad" : "text-warn"}>{run.result.failure}</span>;
-  else if (read.settled === "skipped") detail = <span className="text-muted-foreground">Doesn&apos;t apply{run?.result?.failure ? `: ${run.result.failure}` : ""}</span>;
+  else if ((read.settled === "fail" || read.settled === "error") && run?.result?.failure) {
+    const { where, why } = failureParts(run.result.failure);
+    detail = (
+      <span title={run.result.failure}>
+        <span className={cx("font-medium", read.settled === "fail" ? "text-bad" : "text-warn")}>{where ?? STATE_LABEL[read.settled]}</span>
+        <span className="text-muted-foreground"> · {why}</span>
+      </span>
+    );
+  } else if (read.settled === "skipped") detail = <span className="text-muted-foreground">Doesn&apos;t apply{run?.result?.failure ? `: ${run.result.failure}` : ""}</span>;
 
   return (
-    <ListItem className="flex-nowrap">
-      {condition && branch}
-      <ItemMedia>
-        <StateMark state={read.mark} />
-      </ItemMedia>
-      <ItemContent className="min-w-0 gap-0.5">
-        <span className="flex min-w-0 items-center gap-2">
-          <Link href={`/apps/${appId}/tests/${test.id}`} className={cx("truncate outline-none after:absolute after:inset-0 focus-visible:underline", condition ? "text-muted-foreground" : "font-medium")}>
+    <div className="group/test relative -mx-3 flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/60">
+      <StateMark state={read.mark} className="mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <Link href={`/apps/${appId}/tests/${test.id}`} className="truncate font-medium outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
             {specOf(test).name}
           </Link>
           {read.settled !== "never" && <ActiveDot active={read.active} />}
           {signingText(signing) && <SigningFlag signing={signing} short />}
-        </span>
-        {detail && <span className="truncate text-sm">{detail}</span>}
-      </ItemContent>
-      <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">{run?.finishedAt && !read.active ? timeAgo(run.finishedAt) : ""}</span>
-      <ItemActions>
+          {signs && <WalletMark href={hasConditions ? undefined : `/apps/${appId}/tests/${test.id}?add=conditions#conditions`} />}
+        </div>
+        {detail && <p className="mt-0.5 line-clamp-2 text-sm sm:line-clamp-1">{detail}</p>}
+      </div>
+      <span className={cx("relative z-10 -my-1", !read.active && REVEAL, "group-hover/test:opacity-100")}>
         <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} stopIds={[test.id]} label="Run test" disabled={read.drafting} />
-      </ItemActions>
-    </ListItem>
+      </span>
+      <span className="mt-1 hidden shrink-0 items-center gap-3 text-xs text-muted-foreground tabular-nums sm:flex">
+        <RunTicks runs={history.filter((r) => r.testId === test.id)} />
+        <span className="w-16 text-right">{run?.finishedAt && !read.active ? timeAgo(run.finishedAt) : ""}</span>
+      </span>
+    </div>
   );
 }

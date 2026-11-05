@@ -50,8 +50,8 @@ screenshots, traces) are files under an `artifactsDir`; paths in results are rel
   Test status vocabulary: Passed / Failed / Couldn't run (plus Running, Queued, Not run yet). Only problems get colour.
 - Keep it clean, but don't overengineer: small modules, few abstractions, comments only where they help.
 - Three models: thinking `claude-opus-5-5` (env `DAPPDRILL_MODEL`) analyzes apps; fast
-  `claude-haiku-5-5` (env `DAPPDRILL_FAST_MODEL`) runs test steps, judges results, writes tests and
-  answers the assistant; acting `claude-sonnet-5-5` (env `DAPPDRILL_ACT_MODEL`) takes over steps the
+  `claude-sonnet-5-5` (env `DAPPDRILL_FAST_MODEL`) runs test steps, judges results, writes tests and
+  answers the assistant; acting `claude-opus-5-5` (env `DAPPDRILL_ACT_MODEL`) takes over steps the
   fast model can't do. Signing review gets no model during test runs, so a button label too vague for
   the rules stays unverified. With `ANTHROPIC_API_KEY` set we use the Anthropic SDK; otherwise the
   Claude Agent SDK and the local Claude Code login.

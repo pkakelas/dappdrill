@@ -17,7 +17,7 @@ interface Spec {
 
 /**
  * The test's goal, expected result and steps. `view` is the server-rendered read view (steps with
- * the run's results); Edit swaps it for fields. Unhappy paths run their base's steps, so theirs are fixed.
+ * the run's results); Edit swaps it for fields. Conditions run their test's steps, so theirs are fixed.
  */
 export function SpecEditor({ testId, spec, stepsFixed, view, disabled }: { testId: string; spec: Spec; stepsFixed: boolean; view: ReactNode; disabled?: boolean }) {
   const [editing, setEditing] = useState(false);

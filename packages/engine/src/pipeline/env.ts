@@ -7,12 +7,12 @@ import os from "node:os";
 import path from "node:path";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { chainInfo, nowIso, stallReasons, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type FlowRun, type Issue } from "@dappdrill/core";
-import { createLlm, createRecoveryJudge } from "../agent/index.js";
+import { createLlm } from "../agent/index.js";
 import { openInbox } from "../inbox/index.js";
 import { detectChains, startChains } from "../runtime.js";
 import { createSigningReviewer } from "../signing/index.js";
 import { fundOnFork } from "../wallet/controller.js";
-import type { ChainController, Hex, Inbox, Llm, RecoveryJudge, SigningReviewer } from "../types.js";
+import type { ChainController, Hex, Inbox, Llm, SigningReviewer } from "../types.js";
 
 /** Empty-block cadence on forks: keeps the chain clock current and gives dApps confirmations. */
 const FORK_HEARTBEAT_MS = 4_000;
@@ -28,13 +28,10 @@ export interface Env {
   readonly sink: DrillEventSink;
   /** Analyzes apps (Opus by default). */
   thinkLlm(): Llm;
-  /** Takes over steps the fast model can't do (Sonnet by default). */
+  /** Takes over steps the fast model can't do (Opus by default). */
   actLlm(): Llm;
-  /** The acting model at low effort, for short yes/no checks. */
-  cheapLlm(): Llm;
-  /** Runs test steps and judges results (Haiku by default). */
+  /** Runs test steps and judges results (Sonnet by default). */
   fastLlm(): Llm;
-  judge(): RecoveryJudge;
   costUsd(): number;
   /** True for a repeat of an app-wide issue another flow already reported. */
   isDuplicate(issue: Issue): boolean;
@@ -56,14 +53,8 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   const llms: Llm[] = [];
   let think: Llm | undefined;
   let act: Llm | undefined;
-  let cheap: Llm | undefined;
   let fast: Llm | undefined;
-  let judge: RecoveryJudge | undefined;
   const costUsd = () => llms.reduce((sum, l) => sum + l.costUsd(), 0);
-  const cheapLlm = () => {
-    if (!cheap) llms.push((cheap = createLlm({ role: "act", effort: "low" })));
-    return cheap;
-  };
 
   // Wallet-setup problems (wrong network, account switch, two wallets) are the
   // same bug in every flow: report them once for the app, and point later runs
@@ -147,14 +138,9 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
       if (!act) llms.push((act = createLlm({ role: "act" })));
       return act;
     },
-    cheapLlm,
     fastLlm() {
-      if (!fast) llms.push((fast = createLlm({ role: "fast", effort: "low" })));
+      if (!fast) llms.push((fast = createLlm({ role: "fast" })));
       return fast;
-    },
-    judge() {
-      judge ??= createRecoveryJudge(cheapLlm());
-      return judge;
     },
     costUsd,
     isDuplicate,
