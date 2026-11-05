@@ -18,7 +18,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
   if (runs.length === 0) return log.warn("nothing queued; skipping");
   const app = await loadApp(db, runs[0]!.appId);
 
-  // Page order: flows, then each test followed by its unhappy paths.
+  // Page order: flows, then each test followed by its condition rows.
   const ordered = (await flowsWithTests(db, app.id)).flatMap((f) => f.tests);
   const rank = new Map(ordered.map((t, i) => [t.id, i]));
   const byTest = new Map(ordered.map((t) => [t.id, t]));

@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DrillTarget, EDGE_CASES, chainName, type DrillEvent, type EdgeCaseId, type Flow, type Issue } from "@dappdrill/core";
+import { DrillTarget, CONDITIONS, chainName, type DrillEvent, type EdgeCaseId, type Flow, type Issue } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { startChains } from "../../src/chain/controller.js";
 import { runEdgeCases, type RunEdgeCasesResult } from "../../src/replay/edge-cases.js";
@@ -57,9 +57,9 @@ const titles = (issues: Issue[]) => issues.map((i) => `${i.severity}: ${i.title}
 
 describe("runEdgeCases", () => {
   it("passes every edge case on the well-behaved dApp", async () => {
-    const r = await matrix([], EDGE_CASES.map((e) => e.id));
+    const r = await matrix([], CONDITIONS.map((e) => e.id));
     expect(titles(r.issues)).toEqual([]);
-    expect(r.runs).toHaveLength(EDGE_CASES.length);
+    expect(r.runs).toHaveLength(CONDITIONS.length);
     expect(r.runs.map((x) => x.status)).toEqual(r.runs.map(() => "pass"));
     expect(r.runs.every((x) => x.forkBlocks[String(CHAIN_ID)] !== undefined && x.mode === "fork")).toBe(true);
     // artifacts and events
@@ -70,7 +70,7 @@ describe("runEdgeCases", () => {
     expect(happy.rpc.length).toBeGreaterThan(0);
     const statuses = r.events.filter((e) => e.type === "flow-status").map((e) => (e as { status: string }).status);
     expect(statuses).toEqual(["running", "tested"]);
-    expect(r.events.filter((e) => e.type === "run")).toHaveLength(EDGE_CASES.length);
+    expect(r.events.filter((e) => e.type === "run")).toHaveLength(CONDITIONS.length);
     // every case ran on pristine state: the vault only holds what the last run left, and that was reverted
     const shares = await chains.client(CHAIN_ID).readContract({ address: fx.vault, abi: VAULT_ABI, functionName: "shares", args: [privateKeyToAccount(ACCOUNTS.A).address] });
     expect(shares).toBe(0n);

@@ -1,15 +1,15 @@
 "use client";
 
-import { CONDITIONS, type EdgeCaseId } from "@dappdrill/core";
+import { OFFERED_CONDITIONS, type EdgeCaseId } from "@dappdrill/core";
 import { Plus } from "lucide-react";
 import { useState, useTransition } from "react";
-import { addUnhappyAction } from "@/actions/tests";
+import { addConditionsAction } from "@/actions/tests";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
-/** Pick conditions to run this happy path under; the new tests run right away. */
-export function AddUnhappy({ testId, existing }: { testId: string; existing: EdgeCaseId[] }) {
-  const available = CONDITIONS.filter((c) => !existing.includes(c.id));
+/** Pick conditions to run this test under; they run right away. */
+export function AddConditions({ testId, existing }: { testId: string; existing: EdgeCaseId[] }) {
+  const available = OFFERED_CONDITIONS.filter((c) => !existing.includes(c.id));
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<EdgeCaseId[]>(() => available.filter((c) => c.default).map((c) => c.id));
   const [error, setError] = useState<string>();
@@ -20,7 +20,7 @@ export function AddUnhappy({ testId, existing }: { testId: string; existing: Edg
     return (
       <Button type="button" variant="ghost" onClick={() => setOpen(true)} className="h-auto w-full justify-start gap-2.5 rounded-none px-4 py-3 font-normal text-muted-foreground has-[>svg]:px-4">
         <Plus className="size-4" aria-hidden="true" />
-        Add unhappy paths
+        Add conditions
       </Button>
     );
   return (
@@ -29,14 +29,14 @@ export function AddUnhappy({ testId, existing }: { testId: string; existing: Edg
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const r = await addUnhappyAction(testId, picked);
+          const r = await addConditionsAction(testId, picked);
           if (r.error) return setError(r.error);
           setOpen(false);
         });
       }}
     >
       <fieldset className="flex flex-col gap-1" disabled={pending}>
-        <legend className="mb-2 text-sm text-muted-foreground">Runs this test&apos;s steps under each condition and checks the app copes.</legend>
+        <legend className="mb-2 text-sm text-muted-foreground">Each condition runs this test&apos;s steps with something going wrong, and checks the app copes.</legend>
         {available.map((c) => (
           <label key={c.id} htmlFor={`condition-${c.id}`} className="flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1.5 hover:bg-accent/50">
             <Checkbox

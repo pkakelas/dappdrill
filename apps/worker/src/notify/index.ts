@@ -1,4 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { conditionInfo } from "@dappdrill/core";
 import { decrypt, flows, integrations, teamMembers, testRuns, tests, user, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
@@ -7,14 +9,16 @@ import { sendEmail, sendSlack, sendTelegram } from "./channels.js";
 import { composeAlert, type Alert, type Regression } from "./compose.js";
 
 const log = logger("notify");
+const base = alias(tests, "base");
 
 /** After a batch: tell the team about tests that failed now and passed the time before. */
 export async function notifyRegressions(db: Db, app: AppRow, runIds: string[]): Promise<Alert | null> {
   if (runIds.length === 0) return null;
   const failed = await db
-    .select({ testId: testRuns.testId, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, flowName: flows.name })
+    .select({ testId: testRuns.testId, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, baseName: base.name, condition: tests.condition, flowName: flows.name })
     .from(testRuns)
     .innerJoin(tests, eq(tests.id, testRuns.testId))
+    .leftJoin(base, eq(base.id, tests.baseId))
     .innerJoin(flows, eq(flows.id, tests.flowId))
     .where(and(inArray(testRuns.id, runIds), eq(testRuns.status, "fail")));
 
@@ -26,7 +30,10 @@ export async function notifyRegressions(db: Db, app: AppRow, runIds: string[]): 
       .where(and(eq(testRuns.testId, run.testId), notInArray(testRuns.id, runIds), lt(testRuns.createdAt, run.createdAt), isNotNull(testRuns.finishedAt), inArray(testRuns.status, ["pass", "fail"])))
       .orderBy(desc(testRuns.createdAt))
       .limit(1);
-    if (previous?.status === "pass") regressions.push({ testName: run.testName, flowName: run.flowName, failure: run.result?.failure });
+    if (previous?.status === "pass") {
+      // A condition row is named "Flow · Test · Condition", like everywhere else.
+      regressions.push({ testName: run.baseName ?? run.testName, flowName: run.flowName, condition: run.condition ? conditionInfo(run.condition).name : undefined, failure: run.result?.failure });
+    }
   }
 
   const alert = composeAlert({ appName: app.name, regressions, link: `${config.appUrl}/apps/${app.id}` });

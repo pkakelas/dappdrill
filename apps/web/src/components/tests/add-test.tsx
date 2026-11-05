@@ -2,13 +2,13 @@
 
 import { Plus } from "lucide-react";
 import { useId, useState, useTransition } from "react";
-import { addTestAction } from "@/actions/tests";
+import { addFlowAction, addTestAction } from "@/actions/tests";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-/** "+ Add a test": one sentence; the worker writes the steps and runs it. */
-export function AddTest({ appId, flowId, flowName }: { appId: string; flowId: string; flowName: string }) {
+/** "+ Add a test": one sentence; the worker writes the steps and runs it. `first` for a flow that has none yet. */
+export function AddTest({ appId, flowId, flowName, first }: { appId: string; flowId: string; flowName: string; first?: boolean }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
@@ -27,7 +27,7 @@ export function AddTest({ appId, flowId, flowName }: { appId: string; flowId: st
     return (
       <Button type="button" variant="ghost" onClick={() => setOpen(true)} className="h-auto w-full justify-start gap-2.5 rounded-none px-4 py-3 font-normal text-muted-foreground has-[>svg]:px-4">
         <Plus className="size-4" aria-hidden="true" />
-        Add a test
+        {first ? "Add the first test" : "Add a test"}
       </Button>
     );
   return (
@@ -64,10 +64,11 @@ export function AddTest({ appId, flowId, flowName }: { appId: string; flowId: st
   );
 }
 
-/** A new flow with its first test. */
+/** A new flow, with its first test when you already know one. Without it the flow shows as Not tested. */
 export function NewFlow({ appId, first }: { appId: string; first?: boolean }) {
   const [open, setOpen] = useState(Boolean(first));
   const [name, setName] = useState("");
+  const [goal, setGoal] = useState("");
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
@@ -86,8 +87,9 @@ export function NewFlow({ appId, first }: { appId: string; first?: boolean }) {
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const r = await addTestAction(appId, { name }, text);
+          const r = text.trim() ? await addTestAction(appId, { name, goal }, text) : await addFlowAction(appId, name, goal);
           if (r.error) return setError(r.error);
+          setGoal("");
           setName("");
           setText("");
           setError(undefined);
@@ -101,13 +103,21 @@ export function NewFlow({ appId, first }: { appId: string; first?: boolean }) {
           <Input id={`${id}-flow`} autoFocus={!first} value={name} onChange={(e) => setName(e.target.value)} disabled={pending} placeholder="Borrow" maxLength={60} />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor={`${id}-test`}>First test</Label>
+          <Label htmlFor={`${id}-goal`}>
+            Goal <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Input id={`${id}-goal`} value={goal} onChange={(e) => setGoal(e.target.value)} disabled={pending} placeholder="Take a USDC loan against the deposit" maxLength={300} />
+        </div>
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label htmlFor={`${id}-test`}>
+            First test <span className="font-normal text-muted-foreground">(optional; without one the flow shows as Not tested)</span>
+          </Label>
           <Input id={`${id}-test`} value={text} onChange={(e) => setText(e.target.value)} disabled={pending} placeholder="Borrow 100 USDC against ETH and see the debt" />
         </div>
       </div>
       {error && <p className="text-sm text-bad">{error}</p>}
       <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={pending || !name.trim() || text.trim().length < 3}>
+        <Button type="submit" size="sm" disabled={pending || !name.trim() || (text.trim().length > 0 && text.trim().length < 3)}>
           {pending ? "Adding…" : "Add flow"}
         </Button>
         {!first && (

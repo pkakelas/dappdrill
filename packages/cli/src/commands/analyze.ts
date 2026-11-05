@@ -45,11 +45,13 @@ export async function analyzeCommand(url: string, flags: AnalyzeFlags): Promise<
     map: found.map,
     chains: found.chains,
     setup: found.setup && { startPath: found.setup.startPath || "/", steps: found.setup.steps.map((text) => ({ text })), when: found.setup.when, why: found.setup.why },
-    flows: found.flows.map((f) => ({ name: f.name, tests: [{ id: newId("test"), ...f.test, steps: f.test.steps.map((text) => ({ text })) }] })),
+    flows: found.flows.flatMap((f) => (f.test ? [{ name: f.name, goal: f.goal, tests: [{ id: newId("test"), ...f.test, steps: f.test.steps.map((text) => ({ text })) }] }] : [])),
   };
   if (flags.unhappy) addUnhappyPaths(tests);
   await writeJson(flags.file, tests);
   console.log(`\nFound ${tests.flows.map((f) => f.name).join(", ")}. Tests: ${flags.file}\n`);
+  const untested = found.flows.filter((f) => !f.test);
+  if (untested.length) console.log(`Seen but not tested: ${untested.map((f) => f.name).join(", ")}\n`);
   if (tests.setup) console.log(`Setup (${SETUP_WHEN_LABEL[tests.setup.when].toLowerCase()}): ${tests.setup.steps.map((s) => s.text).join(" → ")}\n`);
   if (!flags.run) return 0;
 

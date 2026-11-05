@@ -1,5 +1,5 @@
-import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
-import { db, flows, latestRuns, testRuns, tests, type TestRunRow } from "@dappdrill/db";
+import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { db, flows, latestRuns, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Check, X } from "lucide-react";
 import type { Metadata } from "next";
@@ -8,13 +8,14 @@ import { notFound } from "next/navigation";
 import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ConfirmButton } from "@/components/confirm-button";
-import { Fork } from "@/components/tests/fork";
+import { AddConditions } from "@/components/tests/conditions";
+import { Duplicate } from "@/components/tests/duplicate";
 import { RunButton } from "@/components/tests/run-button";
 import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/tests/run-details";
 import { StepList } from "@/components/tests/setup-steps";
+import { SigningFlag } from "@/components/tests/signing-flag";
 import { SpecEditor } from "@/components/tests/spec-editor";
-import { isActive, STATE_LABEL, STATE_TEXT, StateMark, stateOf } from "@/components/tests/status";
-import { AddUnhappy } from "@/components/tests/unhappy";
+import { isActive, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
@@ -35,7 +36,7 @@ async function load(appId: string, testId: string) {
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { appId, testId } = await params;
-  return { title: (await load(appId, testId)).name };
+  return { title: specOf(await load(appId, testId)).name };
 }
 
 export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string }> }) {
@@ -50,20 +51,23 @@ export default async function TestPage({ params, searchParams }: { params: Promi
     db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15),
     test.forkedFrom ? db().select({ id: tests.id, name: tests.name }).from(tests).where(eq(tests.id, test.forkedFrom)) : Promise.resolve([]),
   ]);
-  const childRuns = await latestRuns(
-    db(),
-    children.map((c) => c.id),
-  );
+  const childIds = children.map((c) => c.id);
+  const [childLatest, childSettled] = await Promise.all([latestRuns(db(), childIds), settledRuns(db(), childIds)]);
+  const childReads = new Map(children.map((c) => [c.id, readTest(c, childLatest.get(c.id), childSettled.get(c.id))]));
 
+  const spec = specOf(test);
   const latest = history[0];
-  const run = (runParam && history.find((r) => r.id === runParam)) || latest;
-  const viewingOld = run && latest && run.id !== latest.id;
-  const state = stateOf(test, latest);
+  // The status reads from the latest finished result; a queued, running or stopped run shows beside it.
+  const settled = history.find((r) => r.status === "pass" || r.status === "fail" || r.status === "error" || r.status === "skipped");
+  const run = (runParam && history.find((r) => r.id === runParam)) || settled || latest;
+  const viewingOld = run && settled && run.id !== settled.id && run.id !== latest?.id;
+  const state = readTest(test, latest, settled);
   const runState = run ? run.status : "never";
   const result = run?.result ?? undefined;
   const steps: TestStep[] = base ? base.steps : test.steps;
-  const childActive = children.some((c) => isActive(stateOf(c, childRuns.get(c.id))));
+  const childActive = children.some((c) => isActive(childReads.get(c.id)!));
   const condition = test.condition ? conditionInfo(test.condition) : undefined;
+  const signing = signingOf(result?.signingReviews.map((r) => r.verdict) ?? []);
   const url = (path?: string | null) => (run ? artifactUrl("runs", run.batchId, path) : null);
 
   return (
@@ -73,7 +77,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       <header className="flex flex-col gap-4">
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
           <Link href={`/apps/${appId}`} className="hover:text-foreground">
-            Tests
+            Flows
           </Link>
           <span aria-hidden="true">/</span>
           <span>{flow?.name}</span>
@@ -88,15 +92,16 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </nav>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{test.name}</h1>
-            <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state])}>
-              <StateMark state={state} />
-              <span>{STATE_LABEL[state]}</span>
-              {latest?.finishedAt && state !== "running" && state !== "queued" && <span className="text-muted-foreground">· {timeAgo(latest.finishedAt)}</span>}
-              {latest?.startedAt && latest.finishedAt && <span className="text-muted-foreground">· took {formatDuration(latest.finishedAt.getTime() - latest.startedAt.getTime())}</span>}
+            <h1 className="text-2xl font-semibold tracking-tight">{spec.name}</h1>
+            <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state.mark])}>
+              <StateMark state={state.mark} />
+              <span>{readLabel(state)}</span>
+              {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
+              {settled?.startedAt && settled.finishedAt && <span className="text-muted-foreground">· took {formatDuration(settled.finishedAt.getTime() - settled.startedAt.getTime())}</span>}
+              <SigningFlag signing={signing} className="before:mr-2 before:content-['·'] before:text-muted-foreground" />
               {forkedFrom && (
                 <span className="text-muted-foreground">
-                  · forked from{" "}
+                  · duplicated from{" "}
                   <Link href={`/apps/${appId}/tests/${forkedFrom.id}`} className="underline underline-offset-4 hover:text-foreground">
                     {forkedFrom.name}
                   </Link>
@@ -105,8 +110,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <RunButton target={{ appId, testIds: [test.id] }} active={state === "running" || state === "queued"} stopIds={[test.id]} label="Run" size="md" primary disabled={state === "drafting"} />
-            {!test.baseId && state !== "drafting" && <Fork testId={test.id} />}
+            <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />
+            {!test.baseId && !state.drafting && <Duplicate testId={test.id} />}
             <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
             </ConfirmButton>
@@ -124,7 +129,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       {viewingOld && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-5 py-3 text-muted-foreground">
           <span>
-            Showing the run from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
+            Showing the result from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
           </span>
           <Button asChild variant="link" size="sm" className="h-auto p-0">
             <Link href={`/apps/${appId}/tests/${test.id}`}>Back to the latest</Link>
@@ -140,40 +145,51 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           {result.failure}
         </div>
       )}
+      {runState === "skipped" && (
+        <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
+          <strong className="font-medium text-foreground">Doesn&apos;t apply here.</strong> {result?.failure ?? "This condition can't be set up for this test."} It is left out of the counts.
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-6">
+          {condition && base ? (
+            // A condition row has nothing of its own to edit: steps and goal are the test's, name and expected the condition's.
+            <div className="flex flex-col gap-6">
+              <p className="rounded-xl bg-muted px-4 py-3 text-muted-foreground">
+                Runs the steps of{" "}
+                <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
+                  {base.name}
+                </Link>{" "}
+                under the condition <strong className="font-semibold text-foreground">{condition.name}</strong>. Edit the test to change what runs.
+              </p>
+              <Block label="Goal">{base.goal}</Block>
+              <Block label="Expected result">
+                {condition.expected}
+                <Verdict result={result} />
+              </Block>
+              {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
+              <Steps steps={steps} result={result} url={url} />
+            </div>
+          ) : (
           <SpecEditor
             testId={test.id}
             spec={{ name: test.name, goal: test.goal, expected: test.expected, steps: test.steps.map((s) => s.text) }}
-            stepsFixed={Boolean(test.baseId)}
+            stepsFixed={false}
             disabled={Boolean(test.drafting)}
             view={
               <div className="flex flex-col gap-6">
-                {condition && base && (
-                  <p className="rounded-xl bg-muted px-4 py-3 text-muted-foreground">
-                    Runs the steps of{" "}
-                    <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
-                      {base.name}
-                    </Link>{" "}
-                    with this condition: <strong className="font-semibold text-foreground">{condition.name}</strong>.
-                  </p>
-                )}
                 <Block label="Goal">{test.goal || <span className="text-muted-foreground">Not written yet</span>}</Block>
                 <Block label="Expected result">
                   {test.expected || <span className="text-muted-foreground">Not written yet</span>}
-                  {result?.verdict && (
-                    <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
-                      {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
-                      <span>{result.verdict.reason}</span>
-                    </span>
-                  )}
+                  <Verdict result={result} />
                 </Block>
                 {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
                 <Steps steps={steps} result={result} url={url} />
               </div>
             }
           />
+          )}
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5">
@@ -183,24 +199,24 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           {result && <ConsoleErrors result={result} />}
 
           {!test.baseId && (
-            <Panel title="Unhappy paths" count={children.length || undefined}>
+            <Panel title="Conditions" count={children.length || undefined}>
               {children.length > 0 && (
                 <ul className="divide-y border-b">
                   {children.map((c) => {
-                    const s = stateOf(c, childRuns.get(c.id));
+                    const r = childReads.get(c.id)!;
                     return (
                       <li key={c.id}>
                         <Link href={`/apps/${appId}/tests/${c.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50">
-                          <StateMark state={s} />
-                          <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                          <span className={cx("text-xs", STATE_TEXT[s])}>{STATE_LABEL[s]}</span>
+                          <StateMark state={r.mark} />
+                          <span className="min-w-0 flex-1 truncate">{specOf(c).name}</span>
+                          <span className={cx("text-xs", STATE_TEXT[r.mark])}>{readLabel(r)}</span>
                         </Link>
                       </li>
                     );
                   })}
                 </ul>
               )}
-              <AddUnhappy testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} />
+              <AddConditions testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} />
             </Panel>
           )}
 
@@ -208,6 +224,17 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </aside>
       </div>
     </div>
+  );
+}
+
+/** What the judge or the proof check said about the expected result, under it. */
+function Verdict({ result }: { result?: TestRunResult }) {
+  if (!result?.verdict) return null;
+  return (
+    <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
+      {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
+      <span>{result.verdict.reason}</span>
+    </span>
   );
 }
 
@@ -290,9 +317,10 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
   );
 }
 
+/** Every result of this test, newest first. Each belongs to a run (a batch), which the Runs page lists. */
 function History({ appId, testId, runs, selected }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string }) {
   return (
-    <Panel title="Runs" count={runs.length}>
+    <Panel title="Results" count={runs.length}>
       <ul className="divide-y">
         {runs.map((r, i) => (
           <li key={r.id}>

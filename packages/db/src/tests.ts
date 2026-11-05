@@ -2,8 +2,8 @@
  * Test operations shared by the web app and the worker's assistant tools.
  * Anything that needs a job returns ids; the caller sends the job.
  */
-import { and, asc, desc, eq, inArray, max, sql } from "drizzle-orm";
-import { conditionInfo, newId, type EdgeCaseId, type TestSpec } from "@dappdrill/core";
+import { and, asc, count, desc, eq, inArray, max, min, sql } from "drizzle-orm";
+import { conditionInfo, newId, type EdgeCaseId, type TestRunStatus, type TestSpec } from "@dappdrill/core";
 import type { Db } from "./client.js";
 import { flows, testRuns, tests, type Trigger } from "./schema/app.js";
 
@@ -11,12 +11,14 @@ export type TestRow = typeof tests.$inferSelect;
 export type FlowRow = typeof flows.$inferSelect;
 export type TestRunRow = typeof testRuns.$inferSelect;
 
+/** A condition row reads its name and expected result from the shared list, not from what was stored. */
 export function specOf(t: TestRow): TestSpec {
+  const info = t.condition ? conditionInfo(t.condition) : undefined;
   return {
     id: t.id,
-    name: t.name,
+    name: info?.name ?? t.name,
     goal: t.goal,
-    expected: t.expected,
+    expected: info?.expected ?? t.expected,
     startPath: t.startPath,
     steps: t.steps,
     proof: t.proof ?? undefined,
@@ -24,35 +26,88 @@ export function specOf(t: TestRow): TestSpec {
   };
 }
 
-/** The app's flows in order, each with its tests in order (happy paths before their unhappy ones). */
+/** The app's flows in order, each with its tests in order (each test before its condition rows). */
 export async function flowsWithTests(db: Db, appId: string): Promise<(FlowRow & { tests: TestRow[] })[]> {
   const fs = await db.select().from(flows).where(eq(flows.appId, appId)).orderBy(asc(flows.position), asc(flows.createdAt));
   const ts = await db.select().from(tests).where(eq(tests.appId, appId)).orderBy(asc(tests.position), asc(tests.createdAt));
   return fs.map((f) => ({ ...f, tests: ordered(ts.filter((t) => t.flowId === f.id)) }));
 }
 
-/** Each test followed by its unhappy paths. */
+/** Each test followed by its condition rows. */
 function ordered(list: TestRow[]): TestRow[] {
   const out: TestRow[] = [];
   for (const t of list.filter((t) => !t.baseId)) out.push(t, ...list.filter((u) => u.baseId === t.id));
-  // Unhappy paths whose base is in another flow (shouldn't happen) still show.
+  // Condition rows whose base is in another flow (shouldn't happen) still show.
   for (const t of list) if (!out.includes(t)) out.push(t);
   return out;
 }
 
-/** The latest run of each test. */
+/** The latest result of each test, whatever its status. */
 export async function latestRuns(db: Db, testIds: string[]): Promise<Map<string, TestRunRow>> {
+  return newestRuns(db, testIds);
+}
+
+const FINISHED: TestRunStatus[] = ["pass", "fail", "error", "skipped"];
+
+/** The latest finished result of each test: what its status reads from. A queued or stopped run doesn't replace it. */
+export async function settledRuns(db: Db, testIds: string[]): Promise<Map<string, TestRunRow>> {
+  return newestRuns(db, testIds, inArray(testRuns.status, FINISHED));
+}
+
+async function newestRuns(db: Db, testIds: string[], extra?: ReturnType<typeof inArray>): Promise<Map<string, TestRunRow>> {
   if (testIds.length === 0) return new Map();
   const rows = await db
     .selectDistinctOn([testRuns.testId])
     .from(testRuns)
-    .where(inArray(testRuns.testId, testIds))
+    .where(and(inArray(testRuns.testId, testIds), extra))
     .orderBy(testRuns.testId, desc(testRuns.createdAt));
   return new Map(rows.map((r) => [r.testId, r]));
 }
 
+export interface Batch {
+  batchId: string;
+  trigger: Trigger;
+  total: number;
+  passed: number;
+  failed: number;
+  couldntRun: number;
+  skipped: number;
+  active: number;
+  startedAt: Date;
+  finishedAt: Date | null;
+}
+
+/** The app's runs (batches of results), newest first. Nothing is stored for a batch beyond its results. */
+export async function listBatches(db: Db, appId: string, limit = 50): Promise<Batch[]> {
+  const n = (status: TestRunStatus[]) => sql<number>`count(*) filter (where ${inArray(testRuns.status, status)})`.mapWith(Number);
+  const rows = await db
+    .select({
+      batchId: testRuns.batchId,
+      trigger: min(testRuns.trigger),
+      total: count(),
+      passed: n(["pass"]),
+      failed: n(["fail"]),
+      couldntRun: n(["error"]),
+      skipped: n(["skipped"]),
+      active: n(["queued", "running"]),
+      startedAt: min(testRuns.createdAt),
+      finishedAt: max(testRuns.finishedAt),
+    })
+    .from(testRuns)
+    .where(eq(testRuns.appId, appId))
+    .groupBy(testRuns.batchId)
+    .orderBy(desc(min(testRuns.createdAt)))
+    .limit(limit);
+  return rows.map((r) => ({
+    ...r,
+    trigger: (r.trigger ?? "manual") as Trigger,
+    startedAt: new Date(r.startedAt as unknown as string),
+    finishedAt: r.active > 0 || !r.finishedAt ? null : new Date(r.finishedAt as unknown as string),
+  }));
+}
+
 /**
- * Queued runs for the tests, as one batch. Unhappy paths go after their base,
+ * Queued results for the tests, as one batch (a run). Condition rows go after their base,
  * so a base that learns its actions in this batch hands them on.
  */
 export async function queueRuns(db: Db, appId: string, testIds: string[], trigger: Trigger): Promise<string | undefined> {
@@ -65,8 +120,11 @@ export async function queueRuns(db: Db, appId: string, testIds: string[], trigge
   return batchId;
 }
 
-/** Unhappy paths of a happy-path test, one per condition it doesn't have yet. Returns the new test ids. */
-export async function addUnhappyPaths(db: Db, baseId: string, conditions: EdgeCaseId[]): Promise<string[]> {
+/**
+ * Condition rows of a test, one per condition it doesn't have yet. Name and expected are copied
+ * from CONDITIONS, though `specOf` always reads them from the list. Returns the new ids.
+ */
+export async function addConditions(db: Db, baseId: string, conditions: EdgeCaseId[]): Promise<string[]> {
   const [base] = await db.select().from(tests).where(eq(tests.id, baseId));
   if (!base || base.baseId) return [];
   const existing = await db.select({ condition: tests.condition }).from(tests).where(eq(tests.baseId, baseId));
@@ -76,9 +134,9 @@ export async function addUnhappyPaths(db: Db, baseId: string, conditions: EdgeCa
     id: newId("test"),
     appId: base.appId,
     flowId: base.flowId,
-    name: conditionInfo(c)?.name ?? c,
+    name: conditionInfo(c).name,
     goal: base.goal,
-    expected: conditionInfo(c)?.expected ?? "The app handles it and tells the user what happened.",
+    expected: conditionInfo(c).expected,
     startPath: base.startPath,
     steps: [],
     condition: c,

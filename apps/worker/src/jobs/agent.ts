@@ -1,9 +1,10 @@
 import { and, asc, eq, lt, ne } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { z } from "zod";
-import { CONDITIONS, conditionInfo, keepActions, newId, type EdgeCaseId } from "@dappdrill/core";
+import { OFFERED_CONDITIONS, conditionInfo, keepActions, newId, type EdgeCaseId } from "@dappdrill/core";
 import {
-  addUnhappyPaths,
+  addConditions,
+  specOf,
   agentMessages,
   flows,
   flowsWithTests,
@@ -24,7 +25,7 @@ import { buildTarget, loadApp, type AppRow } from "../target.js";
 import { throttle } from "./stop.js";
 
 type MessageRow = typeof agentMessages.$inferSelect;
-const CONDITION_IDS = CONDITIONS.map((c) => c.id) as [EdgeCaseId, ...EdgeCaseId[]];
+const CONDITION_IDS = OFFERED_CONDITIONS.map((c) => c.id) as [EdgeCaseId, ...EdgeCaseId[]];
 
 /** agent.reply: answer the developer's latest message in the side panel, acting on the app's tests. */
 export async function runAgentReply(db: Db, engine: Engine, boss: PgBoss, messageId: string, signal: AbortSignal): Promise<void> {
@@ -71,7 +72,11 @@ async function describeContext(db: Db, ctx: MessageRow["context"]): Promise<stri
     const [t] = await db.select({ name: tests.name, flow: flows.name }).from(tests).innerJoin(flows, eq(flows.id, tests.flowId)).where(eq(tests.id, ctx.testId));
     if (t) return `viewing test “${t.name}” (${ctx.testId}) in flow “${t.flow}”`;
   }
-  return "on the app's test list";
+  if (ctx.flowId) {
+    const [f] = await db.select({ name: flows.name }).from(flows).where(eq(flows.id, ctx.flowId));
+    if (f) return `viewing flow “${f.name}” (${ctx.flowId})`;
+  }
+  return "on the app's flows page";
 }
 
 /** What the assistant can do with the app's tests. Changes are collected as links for the panel. */
@@ -95,14 +100,19 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
   return [
     {
       name: "list_tests",
-      description: "The app's flows and tests with ids and the latest result.",
+      description: "The app's flows (with goal) and their tests with ids and the latest result. Condition rows are listed under their test.",
       schema: z.object({}),
       handler: async () => {
         const all = await flowsWithTests(db, app.id);
         const last = await latestRuns(db, all.flatMap((f) => f.tests.map((t) => t.id)));
-        if (all.length === 0) return "No tests yet.";
+        if (all.length === 0) return "No flows yet.";
         return all
-          .map((f) => [`${f.name} (flow ${f.id})`, ...f.tests.map((t) => `- ${t.name} [${t.id}]${t.condition ? ` unhappy path of ${t.baseId}` : ""}: ${last.get(t.id)?.status ?? "never run"}`)].join("\n"))
+          .map((f) =>
+            [
+              `${f.name} (flow ${f.id})${f.goal ? `: ${f.goal}` : ""}${f.tests.length === 0 ? " — not tested" : ""}`,
+              ...f.tests.map((t) => `- ${specOf(t).name} [${t.id}]${t.condition ? ` condition of ${t.baseId}` : ""}: ${last.get(t.id)?.status ?? "never run"}`),
+            ].join("\n"),
+          )
           .join("\n\n");
       },
     },
@@ -112,11 +122,12 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
       schema: z.object({ testId: z.string() }),
       handler: async ({ testId }) => {
         const t = await own(testId);
+        const spec = specOf(t);
         const r = (await latestRuns(db, [testId])).get(testId);
         return [
-          `${t.name} [${t.id}]${t.condition ? ` — runs ${t.baseId}'s steps with: ${conditionInfo(t.condition)?.name}` : ""}`,
+          `${spec.name} [${t.id}]${t.condition ? ` — runs ${t.baseId}'s steps under the condition: ${conditionInfo(t.condition).name}` : ""}`,
           `Goal: ${t.goal}`,
-          `Expected: ${t.expected}`,
+          `Expected: ${spec.expected}`,
           `Starts at: ${t.startPath}`,
           t.steps.length ? `Steps:\n${t.steps.map((s, i) => `${i + 1}. ${s.text}`).join("\n")}` : "",
           r ? `Latest run: ${r.status}${r.result?.failure ? `. ${r.result.failure}` : ""}` : "Never run.",
@@ -132,29 +143,30 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
         const flows_ = await db.select().from(flows).where(eq(flows.appId, app.id));
         let target = flows_.find((f) => f.name.toLowerCase() === flow.toLowerCase());
         if (!target) {
-          target = { id: newId("flow"), appId: app.id, name: flow, position: await nextPosition(db, app.id), createdAt: new Date() };
+          target = { id: newId("flow"), appId: app.id, name: flow, goal: null, position: await nextPosition(db, app.id), createdAt: new Date() };
           await db.insert(flows).values(target);
         }
+        const flowId = target.id;
         const id = newId("test");
-        await draft({ id, appId: app.id, flowId: target.id, name: request.slice(0, 60), goal: request, expected: "", steps: [], drafting: request, position: await nextPosition(db, app.id, target.id) });
+        await draft({ id, appId: app.id, flowId, name: request.slice(0, 60), goal: request, expected: "", steps: [], drafting: request, position: await nextPosition(db, app.id, flowId) });
         return `Writing it now as ${id} in “${target.name}”; it runs when written.`;
       },
     },
     {
-      name: "fork_test",
+      name: "duplicate_test",
       description: "Copy a test with a change, e.g. 'the same but a limit sell'. The copy is written, then run.",
       schema: z.object({ testId: z.string(), change: z.string() }),
       handler: async ({ testId, change }) => {
         const base = await own(testId);
-        if (base.baseId) return "That is an unhappy path; fork its base test instead.";
+        if (base.baseId) return "That is a condition row; duplicate its test instead.";
         const id = newId("test");
-        await draft({ id, appId: app.id, flowId: base.flowId, name: `${base.name} (fork)`, goal: base.goal, expected: base.expected, startPath: base.startPath, steps: base.steps, forkedFrom: base.id, drafting: change, position: base.position });
-        return `Forking “${base.name}” as ${id}; it runs when written.`;
+        await draft({ id, appId: app.id, flowId: base.flowId, name: `${base.name} (copy)`, goal: base.goal, expected: base.expected, startPath: base.startPath, steps: base.steps, forkedFrom: base.id, drafting: change, position: base.position });
+        return `Duplicating “${base.name}” as ${id}; it runs when written.`;
       },
     },
     {
       name: "update_test",
-      description: "Change a test's name, goal, expected result or steps. Steps replace the whole list.",
+      description: "Change a test's name, goal, expected result or steps. Steps replace the whole list. Condition rows can't be edited: they read from their test and the condition.",
       schema: z.object({
         testId: z.string(),
         name: z.string().optional(),
@@ -164,6 +176,7 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
       }),
       handler: async ({ testId, name, goal, expected, steps }) => {
         const t = await own(testId);
+        if (t.condition) return "That is a condition row; its name, goal, expected result and steps come from its test and the condition. Edit the test instead.";
         await db
           .update(tests)
           .set({
@@ -179,13 +192,13 @@ function testTools(db: Db, boss: PgBoss, app: AppRow, links: AgentLink[]): Agent
       },
     },
     {
-      name: "add_unhappy_paths",
-      description: `Add unhappy paths to a happy-path test (its steps under a condition) and run them. Conditions: ${CONDITIONS.map((c) => `${c.id} (${c.name})`).join(", ")}. Leave out for the usual ones.`,
+      name: "add_conditions",
+      description: `Add conditions to a test (its steps run under each: a rejected signature, a slow RPC…) and run them. Conditions: ${OFFERED_CONDITIONS.map((c) => `${c.id} (${c.name})`).join(", ")}. Leave out for the usual ones.`,
       schema: z.object({ testId: z.string(), conditions: z.array(z.enum(CONDITION_IDS)).optional() }),
       handler: async ({ testId, conditions }) => {
         const base = await own(testId);
-        if (base.baseId) return "That is already an unhappy path.";
-        const ids = await addUnhappyPaths(db, testId, conditions ?? CONDITIONS.filter((c) => c.default).map((c) => c.id));
+        if (base.baseId) return "That is a condition row; add conditions to its test instead.";
+        const ids = await addConditions(db, testId, conditions ?? OFFERED_CONDITIONS.filter((c) => c.default).map((c) => c.id));
         if (ids.length === 0) return "It already has those.";
         await run(ids);
         testLink(testId, base.name);

@@ -19,7 +19,7 @@ export const TestsFile = z.object({
   chains: z.array(ChainConfig).default([]),
   /** Steps every test needs first (sign in, get test funds), and when they run. */
   setup: AppSetup.optional(),
-  flows: z.array(z.object({ name: z.string(), tests: z.array(SavedTest) })),
+  flows: z.array(z.object({ name: z.string(), goal: z.string().optional(), tests: z.array(SavedTest) })),
 });
 export type TestsFile = z.infer<typeof TestsFile>;
 

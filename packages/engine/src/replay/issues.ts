@@ -5,7 +5,7 @@
 import type { Page } from "playwright";
 import {
   describeStep,
-  edgeCaseInfo,
+  conditionInfo,
   fingerprint,
   newId,
   nowIso,
@@ -108,7 +108,7 @@ export function feedbackMessage(pageText: string): string | undefined {
 }
 
 export function edgeLabel(id: EdgeCaseId): string {
-  return edgeCaseInfo(id).label.toLowerCase();
+  return conditionInfo(id).name.toLowerCase();
 }
 
 export function pickConsole(entries: ConsoleEntry[]): ConsoleEntry[] {

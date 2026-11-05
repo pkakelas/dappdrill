@@ -92,17 +92,28 @@ function setupOf(draft: SetupDraft): AppSetup {
   return { startPath: draft.startPath || "/", steps: draft.steps.map((text) => ({ text })), when: draft.when, why: draft.why };
 }
 
-/** A flow per draft, skipping names the app already has. Returns the new test ids. */
+/**
+ * A flow per draft. A name the app already has is reused: it gets the draft's goal if it has none,
+ * and the draft's test if it has no tests. Flows without a test stay as Not tested. Returns the new test ids.
+ */
 async function addFlows(db: Db, appId: string, drafts: Awaited<ReturnType<Engine["analyze"]>>["flows"]): Promise<string[]> {
-  const have = new Set((await db.select({ name: flows.name }).from(flows).where(eq(flows.appId, appId))).map((f) => f.name.toLowerCase()));
+  const existing = await db.select({ id: flows.id, name: flows.name, goal: flows.goal }).from(flows).where(eq(flows.appId, appId));
+  const have = new Map(existing.map((f) => [f.name.toLowerCase(), f]));
+  const tested = new Set((await db.select({ flowId: tests.flowId }).from(tests).where(eq(tests.appId, appId))).map((t) => t.flowId));
   let position = await nextPosition(db, appId);
   const ids: string[] = [];
   for (const draft of drafts) {
-    if (have.has(draft.name.toLowerCase())) continue;
-    have.add(draft.name.toLowerCase());
-    const flowId = newId("flow");
+    const known = have.get(draft.name.toLowerCase());
+    if (known && !known.goal && draft.goal) await db.update(flows).set({ goal: draft.goal }).where(eq(flows.id, known.id));
+    const flowId = known?.id ?? newId("flow");
+    if (!known) {
+      have.set(draft.name.toLowerCase(), { id: flowId, name: draft.name, goal: draft.goal });
+      await db.insert(flows).values({ id: flowId, appId, name: draft.name, goal: draft.goal, position: position++ });
+    }
+    // A flow that was Not tested takes the new test; one that has tests keeps them.
+    if (!draft.test || tested.has(flowId)) continue;
+    tested.add(flowId);
     const testId = newId("test");
-    await db.insert(flows).values({ id: flowId, appId, name: draft.name, position: position++ });
     await db.insert(tests).values({
       id: testId,
       appId,

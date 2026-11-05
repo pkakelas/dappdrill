@@ -20,8 +20,9 @@ export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a w
      - once (the default): one time per run. Also pick once when a step can't be repeated often, like a faucet with a limit ("once every 24h") or a sign-in that emails a code.
      - each: before every test, when the tests use up what setup gives on a live chain and setup is cheap to repeat (a mint button with no limit).
      Say why in one short sentence. Leave setup out when the core flows work right after connecting the wallet.
-   - the 2 or 3 flows users most need to work (the app's core value: trade, swap, deposit, mint, borrow), each with one happy-path test. A flow's own needs (an open position before closing it) go in its steps; what every flow needs goes in setup.
-     When the developer lists flows to test, those come first: find where each one happens and keep their wording in the name. Add your own only if they listed fewer than 3. If a listed flow isn't in the app, leave it out and say so with note.
+   - the flows you found. A flow is something a user can go away happy having done: trade, swap, deposit, mint, borrow, claim. "Connect wallet", "Open the markets page" or "Switch network" are not flows, they are steps inside one. Each flow has a name and a one-sentence goal.
+     Write a happy-path test for the 2 or 3 flows users most need to work (the app's core value); list the other flows you saw with name and goal only, so the developer can see what isn't tested yet. A flow's own needs (an open position before closing it) go in its test's steps; what every flow needs goes in setup.
+     When the developer lists flows to test, those come first: find where each one happens and keep their wording in the name. Write tests for your own picks only if they listed fewer than 3. If a listed flow isn't in the app, leave it out and say so with note.
      When the developer says what keeps breaking or what just changed, prefer flows that go through it.
      Use the rest of their notes too: leave alone what they say to avoid, use the tokens and amounts they give, and take expected from what they say success looks like.
 
@@ -38,7 +39,7 @@ const Submission = z.object({
   summary: AppMap.shape.summary,
   pages: AppMap.shape.pages.describe("The pages that matter, with their purpose"),
   setup: SetupDraft.optional().describe("Steps every test needs first (sign in, get test funds); leave out when there are none"),
-  flows: z.array(FlowDraft).min(1).max(3),
+  flows: z.array(FlowDraft).min(1).max(8),
 });
 type Submission = z.infer<typeof Submission>;
 
@@ -99,7 +100,7 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
     },
     {
       name: "submit",
-      description: "Submit the summary, the pages that matter, the setup if any, and 2-3 flows with their happy-path tests. Ends the analysis.",
+      description: "Submit the summary, the pages that matter, the setup if any, and the flows: 2-3 with a happy-path test, the rest with name and goal only. Ends the analysis.",
       schema: Submission,
       handler: async (input) => {
         submitted = input;

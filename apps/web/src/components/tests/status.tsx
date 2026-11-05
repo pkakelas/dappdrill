@@ -1,19 +1,14 @@
-import type { TestRunStatus } from "@dappdrill/core";
-import { Check, CircleAlert, X } from "lucide-react";
+import { ACTIVE_LABEL, readOf, SETTLED_LABEL, type Active, type Read, type Settled, type TestRunStatus } from "@dappdrill/core";
+import { Check, CircleAlert, Minus, X } from "lucide-react";
 import { cx } from "@/components/ui";
 
-/** A test's state on the page: its latest run, or what's happening to it. */
+/** Anything a mark can show: a finished result, a run in progress, a result list's stopped run, a draft being written. */
 export type TestState = TestRunStatus | "never" | "drafting";
 
 export const STATE_LABEL: Record<TestState, string> = {
-  pass: "Passed",
-  fail: "Failed",
-  error: "Couldn't run",
-  running: "Running",
-  queued: "Queued",
+  ...SETTLED_LABEL,
+  ...ACTIVE_LABEL,
   stopped: "Stopped",
-  skipped: "Skipped",
-  never: "Not run yet",
   drafting: "Writing…",
 };
 
@@ -30,12 +25,33 @@ export const STATE_TEXT: Record<TestState, string> = {
   drafting: "text-muted-foreground",
 };
 
-export function stateOf(test: { drafting: string | null }, run?: { status: TestRunStatus }): TestState {
-  if (test.drafting) return "drafting";
-  return run?.status ?? "never";
+/**
+ * What a test shows on a page: its latest finished result, and beside it whatever is happening now.
+ * A queued or running run never erases the last result; a stopped run doesn't replace it either.
+ */
+export interface TestRead extends Read {
+  drafting: boolean;
+  /** The mark to draw: the finished result, or the live state when there is no result yet. */
+  mark: TestState;
 }
 
-export const isActive = (s: TestState) => s === "running" || s === "queued" || s === "drafting";
+export function readTest(test: { drafting: string | null }, latest?: { status: TestRunStatus }, settled?: { status: TestRunStatus }): TestRead {
+  const read = readOf(latest, settled);
+  const drafting = Boolean(test.drafting);
+  const mark: TestState = drafting ? "drafting" : read.settled === "never" && read.active ? read.active : read.settled;
+  return { ...read, drafting, mark };
+}
+
+export const isActive = (r: TestRead) => Boolean(r.active) || r.drafting;
+
+/** "Passed", "Failed · Running", "Queued"… */
+export function readLabel(r: TestRead): string {
+  if (r.drafting) return STATE_LABEL.drafting;
+  if (r.settled === "never") return r.active ? ACTIVE_LABEL[r.active] : SETTLED_LABEL.never;
+  return r.active ? `${SETTLED_LABEL[r.settled]} · ${ACTIVE_LABEL[r.active]}` : SETTLED_LABEL[r.settled];
+}
+
+export type { Active, Settled };
 
 /** A 16px mark. Only problems get colour; a pass is a quiet check. */
 export function StateMark({ state, className }: { state: TestState; className?: string }) {
@@ -60,6 +76,12 @@ export function StateMark({ state, className }: { state: TestState; className?: 
       return (
         <span className={cx(box, "text-warn-icon")} role="img" aria-label={label}>
           <CircleAlert className="size-4" strokeWidth={2.25} aria-hidden="true" />
+        </span>
+      );
+    case "skipped":
+      return (
+        <span className={cx(box, "text-muted-foreground/60")} role="img" aria-label={label}>
+          <Minus className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
         </span>
       );
     case "running":
@@ -90,4 +112,15 @@ export function StateMark({ state, className }: { state: TestState; className?: 
         </span>
       );
   }
+}
+
+/** The small live dot shown beside a finished result while a new run is queued or running. */
+export function ActiveDot({ active }: { active?: Active }) {
+  if (!active) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-live">
+      <StateMark state={active} className="size-3" />
+      {ACTIVE_LABEL[active]}
+    </span>
+  );
 }

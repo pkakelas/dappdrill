@@ -26,7 +26,8 @@ export interface ShellProps {
 }
 
 const NAV = [
-  { label: "Tests", path: "" },
+  { label: "Flows", path: "" },
+  { label: "Runs", path: "/runs" },
   { label: "Settings", path: "/settings" },
 ];
 

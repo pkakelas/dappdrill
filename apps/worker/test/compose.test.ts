@@ -11,11 +11,17 @@ describe("composeAlert", () => {
   it("names each test that stopped passing, with why", () => {
     const alert = composeAlert({
       appName: "Harbor",
-      regressions: [{ testName: "Withdraw everything", flowName: "Withdraw", failure: "The Withdraw button stays disabled." }],
+      regressions: [
+        { testName: "Withdraw everything", flowName: "Withdraw", failure: "The Withdraw button stays disabled." },
+        { testName: "Deposit USDC", flowName: "Deposit", condition: "Slow RPC", failure: "The spinner never stops." },
+      ],
       link,
     })!;
-    expect(alert.title).toBe("Harbor: a test stopped passing");
-    expect(alert.lines).toEqual(["Withdraw · Withdraw everything: The Withdraw button stays disabled."]);
+    expect(alert.title).toBe("Harbor: 2 tests stopped passing");
+    expect(alert.lines).toEqual([
+      "Withdraw · Withdraw everything: The Withdraw button stays disabled.",
+      "Deposit · Deposit USDC · Slow RPC: The spinner never stops.",
+    ]);
     expect(alertText(alert)).toContain(link);
   });
 

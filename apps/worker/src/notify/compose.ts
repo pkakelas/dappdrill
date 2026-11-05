@@ -1,6 +1,8 @@
 export interface Regression {
   testName: string;
   flowName: string;
+  /** Set for a condition row: the condition's name. */
+  condition?: string;
   /** What went wrong, one plain sentence. */
   failure?: string;
 }
@@ -19,7 +21,7 @@ export function composeAlert(input: { appName: string; regressions: Regression[]
   const { regressions } = input;
   if (regressions.length === 0) return null;
   const title = `${input.appName}: ${regressions.length === 1 ? "a test" : `${regressions.length} tests`} stopped passing`;
-  const lines = regressions.map((r) => `${r.flowName} · ${r.testName}${r.failure ? `: ${r.failure}` : ""}`);
+  const lines = regressions.map((r) => `${r.flowName} · ${r.testName}${r.condition ? ` · ${r.condition}` : ""}${r.failure ? `: ${r.failure}` : ""}`);
   const shown = lines.slice(0, MAX_LINES);
   if (lines.length > MAX_LINES) shown.push(`and ${lines.length - MAX_LINES} more`);
   return { title, lines: shown, link: input.link };

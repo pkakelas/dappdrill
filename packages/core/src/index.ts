@@ -8,3 +8,4 @@ export * from "./ids.js";
 export * from "./format.js";
 export * from "./setup.js";
 export * from "./test.js";
+export * from "./rollup.js";

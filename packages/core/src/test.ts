@@ -146,27 +146,10 @@ export const AppMap = z.object({
 });
 export type AppMap = z.infer<typeof AppMap>;
 
-/** One group of tests around a thing users do, with its happy path. */
+/** A thing users do in the app. Comes with its happy-path test when the analyst wrote one. */
 export const FlowDraft = z.object({
   name: z.string().describe("What the user does, 2-4 words, e.g. 'Trade perps'"),
-  test: TestDraft,
+  goal: z.string().describe("One sentence: what the user wants to have done at the end"),
+  test: TestDraft.optional().describe("The happy-path test, for the flows that matter most"),
 });
 export type FlowDraft = z.infer<typeof FlowDraft>;
-
-/** Unhappy paths we offer, in the order shown. `default` ones are pre-selected. */
-export const CONDITIONS: { id: EdgeCaseId; name: string; expected: string; default: boolean }[] = [
-  { id: "reject", name: "Rejected in wallet", expected: "The app shows that the request was rejected and lets the user try again.", default: true },
-  { id: "slow-rpc", name: "Slow RPC", expected: "The app keeps working, just slower, and shows that it is loading.", default: true },
-  { id: "wrong-network", name: "Wrong network", expected: "The app notices the wrong network and asks the wallet to switch before sending anything.", default: true },
-  { id: "low-gas", name: "Not enough gas", expected: "The app tells the user there isn't enough ETH for gas and lets them try again.", default: true },
-  { id: "switch-account", name: "Account switched", expected: "The app uses the newly selected account for everything that follows.", default: false },
-  { id: "failing-rpc", name: "Failing RPC", expected: "The app retries, or shows a clear error, when an RPC call fails.", default: false },
-  { id: "reload-mid-flow", name: "Reload while pending", expected: "After a reload the app shows the pending transaction and then its confirmation.", default: false },
-  { id: "two-wallets", name: "Two wallets installed", expected: "The app uses the wallet the user picked when two are installed.", default: false },
-  { id: "unknown-chain", name: "Chain unknown to wallet", expected: "The app adds the chain to the wallet when the wallet doesn't know it yet.", default: false },
-  { id: "speed-up", name: "Sped-up transaction", expected: "The app notices the replaced transaction and shows it as confirmed.", default: false },
-];
-
-export function conditionInfo(id: EdgeCaseId) {
-  return CONDITIONS.find((c) => c.id === id);
-}

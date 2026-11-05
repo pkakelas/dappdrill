@@ -7,9 +7,9 @@ import path from "node:path";
 import { createWalletClient, encodeFunctionData, http, maxUint256, parseAbi, type Hex as ViemHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import {
-  EDGE_CASES,
+  CONDITIONS,
   chainName,
-  edgeCaseInfo,
+  conditionInfo,
   newId,
   nowIso,
   paramValues,
@@ -109,7 +109,7 @@ export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCa
     walletSteps: flow.steps.flatMap((s, i) => (s.kind === "wallet" ? [i] : [])),
   };
 
-  const ordered = [...new Set(opts.edgeCases)].sort((a, b) => EDGE_CASES.findIndex((e) => e.id === a) - EDGE_CASES.findIndex((e) => e.id === b));
+  const ordered = [...new Set(opts.edgeCases)].sort((a, b) => CONDITIONS.findIndex((e) => e.id === a) - CONDITIONS.findIndex((e) => e.id === b));
   const result: RunEdgeCasesResult = { runs: [], issues: [], signingReviews: [] };
   await sink({ type: "flow-status", flowId: flow.id, status: "running" });
 
@@ -144,7 +144,7 @@ export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCa
 // ---------------------------------------------------------------- applicability
 
 function skipReason(edge: EdgeCaseId, plan: Plan, chains: ChainController): string | undefined {
-  const info = edgeCaseInfo(edge);
+  const info = conditionInfo(edge);
   const live = chains.mode(plan.flowChain) === "live";
   if (info.needsFork && live) return `needs a fork; ${chainName(plan.flowChain)} runs in live mode`;
   const needsWallet = !["happy", "slow-rpc", "failing-rpc"].includes(edge);
@@ -192,8 +192,6 @@ interface CaseSetup {
   twoWallets?: boolean;
   faults?: { latencyMs?: number; failureRate?: number };
   stepTimeoutFactor?: number;
-  /** What a good app would do; also the judge's prompt. */
-  expected?: string;
   prepare?: (session: EngineSession) => Promise<void>;
   hooks?: ReplayHooks;
   /** Extra checks after the replay. */
@@ -267,8 +265,8 @@ async function runOne(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions): 
     commonChecks(edge, plan, session, replay, drafts);
     await blankCheck(edge, session, replay, drafts);
     // A flow that still completed was recovered from; the judge only looks at where it stopped.
-    if (setup.expected && opts.judge && drafts.length === 0 && !replay.completed && replay.walletSteps.length > 0) {
-      await askJudge(opts.judge, session, edge, setup.expected, drafts, finalScreenshot, opts.artifactsDir);
+    if (edge !== "happy" && opts.judge && drafts.length === 0 && !replay.completed && replay.walletSteps.length > 0) {
+      await askJudge(opts.judge, session, edge, conditionInfo(edge).expected, drafts, finalScreenshot, opts.artifactsDir);
     }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
@@ -383,7 +381,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
       return {
         // The main transaction (the deposit, not the approval before it) is where a rejection most often leaves the UI stuck.
         setup: ["Reject the flow's main request in the wallet (error 4001)."],
-        expected: "Show that the request was rejected and let the user try again.",
         hooks: {
           respond: async (ctx) => (ctx.signIndex === lastTxSign ? "reject" : "default"),
           afterStep: async (ctx) => (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign ? "stop" : undefined),
@@ -394,7 +391,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
     case "low-gas":
       return {
         setup: ["Leave the wallet with almost no ETH for gas."],
-        expected: "Tell the user there isn't enough ETH for gas and let them try again.",
         prepare: async (session) => {
           await chains.setBalance(plan.flowChain, session.wallet.accounts[plan.account], 1_000n);
         },
@@ -408,7 +404,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
       return {
         setup: [`Start with the wallet on ${chainName(plan.otherChain)} instead of ${chainName(plan.flowChain)}.`],
         startChainId: plan.otherChain,
-        expected: "Notice the wrong network and ask the wallet to switch before sending anything.",
         hooks: wrongChainGuard(plan, state),
         inspect: async (session, replay, drafts) => {
           if (replay.completed || replay.stoppedByHook) return;
@@ -433,7 +428,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
         setup: [`Start with the wallet on ${chainName(plan.otherChain)}; the wallet answers the first switch with 4902 (unknown chain).`],
         startChainId: plan.otherChain,
         policy: { unknownChainOnce: true },
-        expected: "Add the chain to the wallet (wallet_addEthereumChain) when the wallet doesn't know it yet.",
         hooks: wrongChainGuard(plan, state),
         inspect: async (session, replay, drafts) => {
           if (replay.completed || replay.stoppedByHook) return;
@@ -458,7 +452,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
       let switched = false;
       return {
         setup: ["Switch the wallet to account B right before the step that triggers the first signing request."],
-        expected: "Use the newly selected account for everything that follows.",
         hooks: {
           beforeStep: async (ctx) => {
             if (ctx.index !== triggerStep || switched) return;
@@ -563,7 +556,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
         setup: ["About 30% of RPC calls fail with an internal error."],
         faults: { failureRate: 0.3 },
         stepTimeoutFactor: 2,
-        expected: "Retry or show a clear error when an RPC call fails.",
         inspect: async (_s, replay, drafts) => {
           if (!replay.completed && !replay.stoppedByHook) {
             drafts.push({
@@ -582,7 +574,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
     case "reload-mid-flow":
       return {
         setup: ["Turn off automatic mining, send the transaction, reload the page while it is pending, then mine it."],
-        expected: "After the reload, show the pending transaction and then its confirmation.",
         hooks: {
           beforeStep: async (ctx) => {
             if (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign) await chains.setAutomine(plan.flowChain, false);
@@ -613,7 +604,6 @@ function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, stat
     case "speed-up":
       return {
         setup: ["Turn off automatic mining, send the transaction, replace it with a higher-fee copy (same nonce), then mine."],
-        expected: "Notice the replacement and show the transaction as confirmed.",
         hooks: {
           beforeStep: async (ctx) => {
             if (ctx.step.kind === "wallet" && ctx.signIndex === lastTxSign) await chains.setAutomine(plan.flowChain, false);

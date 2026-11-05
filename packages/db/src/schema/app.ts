@@ -191,6 +191,8 @@ export const flows = pgTable(
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /** One sentence: what the user wants to have done. Flows found by analysis have one even without a test. */
+    goal: text("goal"),
     position: integer("position").notNull().default(0),
     createdAt: createdAt(),
   },
@@ -208,7 +210,7 @@ export const tests = pgTable(
     expected: text("expected").notNull(),
     startPath: text("start_path").notNull().default("/"),
     steps: jsonb("steps").$type<TestStep[]>().notNull(),
-    /** Unhappy path: runs `baseId`'s steps under this condition. */
+    /** Condition row: runs `baseId`'s steps under this condition. Name and expected come from CONDITIONS. */
     condition: text("condition").$type<EdgeCaseId>(),
     baseId: text("base_id").references((): AnyPgColumn => tests.id, { onDelete: "cascade" }),
     /** The test this one was forked from. */
@@ -226,7 +228,7 @@ export const tests = pgTable(
 
 export type Trigger = "manual" | "analysis" | "schedule" | "agent";
 
-/** One run of one test. Runs started together (a flow's play button) share a batch id. */
+/** One result: one execution of one test. Results started together share a batch id, which is what the Runs page calls a run. */
 export const testRuns = pgTable(
   "test_runs",
   {
