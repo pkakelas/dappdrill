@@ -10,6 +10,7 @@ import { describeStep, forkBlindLine, type AppMap, type Blocked, type Step, type
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, Recorder, settle } from "./tools.js";
+import { NO_LIVE_KEY } from "../wallet/errors.js";
 import { decodeWalletRequest } from "./wallet-decode.js";
 
 const FAST_TURNS = 14;
@@ -65,6 +66,7 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
     broke = r.error;
   }
 
+  const asked = deps.session.wallet.requests().length;
   const recorder = new Recorder(deps.session);
   recorder.start(step.text);
   let blocked: Blocked | undefined;
@@ -77,14 +79,18 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   if (done && !done.ok && stuckOn) done.cause = "unsure";
   // The model's word alone doesn't excuse a wrong balance: a backend must really have been asked about the wallet.
   const blindTo = () => (done && !done.ok && done.cause === "fork" ? (deps.walletBackends?.() ?? []) : []);
+  // Our wallet not being able to pay says nothing about the app, and a retry can't change it.
+  const unpaid = () => deps.session.wallet.requests().slice(asked).find((r) => r.error?.includes(NO_LIVE_KEY))?.error;
   // A step that has never worked is more likely our misreading than the app's fault, whatever the fast model says.
-  if (!blocked && !blindTo().length && deps.strong && (!done || (!done.ok && (done.cause === "unsure" || !step.actions)))) {
+  if (!blocked && !blindTo().length && !unpaid() && deps.strong && (!done || (!done.ok && (done.cause === "unsure" || !step.actions)))) {
     const hint = done ? `A quicker attempt gave up: ${done.reason}` : "A quicker attempt ran out of actions before finishing.";
     done = (await attempt(deps.strong, STRONG_TURNS, deps, test, index, recorder, hooks, broke, hint)).done;
   }
   const actions = recorder.take();
   const did = actions.map(describeStep);
   if (blocked) return { ok: false, via: "agent", did, note: `Blocked: ${blocked.reason}`, blocked };
+  const noKey = done?.ok ? undefined : unpaid();
+  if (noKey) return { ok: false, via: "agent", did, note: noKey.replace(/^\d+ /, ""), stuck: true };
   const hosts = blindTo();
   if (done && hosts.length) return { ok: false, via: "agent", did, note: forkBlindLine(done.reason, hosts), stuck: true };
   if (stuckOn && !done?.ok && done?.cause !== "app") return { ok: false, via: "agent", did, note: `Couldn't click “${stuckOn}”, so this step didn't finish.`, stuck: true };
@@ -165,7 +171,7 @@ async function attempt(
   return { done: done ?? (res.stopReason === "end_turn" && res.text ? { ok: false, cause: "unsure", reason: res.text.slice(0, 200) } : undefined) };
 }
 
-async function walletLine(session: DrillSession): Promise<string> {
+export async function walletLine(session: DrillSession): Promise<string> {
   try {
     const address = session.wallet.address();
     const wei = await session.chains.client(session.wallet.chainId()).getBalance({ address });

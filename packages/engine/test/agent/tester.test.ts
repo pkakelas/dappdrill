@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { Step, TestSpec } from "@dappdrill/core";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { Step, TestSpec, WalletRequest } from "@dappdrill/core";
 import { judgeExpected, runStep, type StepDeps } from "../../src/agent/tester.js";
 import { createStubSession, type StubSession } from "./fixture/session.js";
 import { refOf, scriptedRuns } from "./fixture/scripted-llm.js";
@@ -84,6 +84,25 @@ describe("runStep", () => {
     const noBackend = await runStep(deps({ fast: scriptedRuns([[blind]]), walletBackends: () => [] }), spec([{ text: "Click Supply" }]), 0);
     expect(noBackend).toMatchObject({ ok: false, note: "The page shows 0 ETH." });
     expect(noBackend.stuck).toBeUndefined();
+  });
+
+  it("calls a transaction our wallet couldn't pay for Couldn't run, without a retry", async () => {
+    await open();
+    let requests: WalletRequest[] = [];
+    const spy = vi.spyOn(session.wallet, "requests").mockImplementation(() => requests);
+    const refused = { id: "r1", method: "eth_sendTransaction", chainId: 129302, kind: "sign", at: "", outcome: "errored", error: "4100 DappDrill has no funded test key for pod testnet; transactions are unavailable until a live key is added." } as WalletRequest;
+    const fast = scriptedRuns([
+      [
+        () => ((requests = [refused]), { tool: "look" }),
+        { tool: "step_done", input: { ok: false, cause: "app", reason: "The wallet returned an error." } },
+      ],
+    ]);
+    const strong = scriptedRuns([]);
+    const out = await runStep(deps({ fast, strong }), spec([{ text: "Approve in the wallet" }]), 0);
+    spy.mockRestore();
+    expect(out).toMatchObject({ ok: false, stuck: true });
+    expect(out.note).toMatch(/^DappDrill has no funded test key for pod testnet/);
+    expect(strong.results).toHaveLength(0);
   });
 
   it("doesn't take the fast model's word that the app is at fault on a step that never worked", async () => {

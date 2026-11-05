@@ -9,21 +9,24 @@ import { AppMap, SetupDraft, TestDraft, TestIdea, describeBlock, type Blocked } 
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, inboxTool, Recorder } from "./tools.js";
+import { walletLine } from "./tester.js";
 
 export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a web3 dApp, with a test wallet injected on a local fork) to learn it and pick what to test.
 
-1. Look around like a new user: the landing page, the main navigation, the pages where the real work happens. Connect the wallet if that unlocks the app. Don't send transactions.
+1. Look around like a new user: the landing page, the main navigation, the pages where the real work happens. Connect the wallet if that unlocks the app. Don't send transactions, but do approve what a new user needs to get going (a sign-in, enabling the account, a faucet or mint for test funds) and see what it gives you: you can't tell what setup needs without it. The wallet is a throwaway test account.
 2. Call note with one line each time you learn something that matters (a page and its purpose, what needs the wallet).
 3. Call submit with:
    - a two-sentence summary of the app and the pages that matter,
    - setup, only when the app makes a new user do something before its core features work: sign in, mint or claim test funds from a faucet, make a first deposit. Its steps run before every test, so the tests start already signed in and funded and don't repeat them. Pick when it runs:
      - once (the default): one time per run. Also pick once when a step can't be repeated often, like a faucet with a limit ("once every 24h") or a sign-in that emails a code.
      - each: before every test, when the tests use up what setup gives on a live chain and setup is cheap to repeat (a mint button with no limit).
-     Say why in one short sentence. Leave setup out when the core features work right after connecting the wallet.
+     Say why in one short sentence. Leave setup out when the core features work right after connecting the wallet. Keep only steps you saw were needed: once the core feature is usable, stop, so a faucet that already gives buying power needs no deposit after it.
    - what you found to test. Each one is something a user can go away happy having done: trade, swap, deposit, mint, borrow, claim. "Connect wallet", "Open the markets page" or "Switch network" are not tests of their own, they are steps inside one.
      tests: a happy-path test for the 3 to 5 things users most need to work (the app's core value), one test each. Where users put something in, include the way back out (withdraw, repay, close, unstake).
      untested: the other things you saw, with name and goal only, so the developer can see what isn't tested yet.
      A test's own needs (an open position before closing it) go in its steps; what every test needs goes in setup.
+     You are told what the test wallet holds on the test chain. When the page shows less (0 ETH while it holds 100), the app reads balances from somewhere other than the test chain: that doesn't mean the action can't be tested, so still write the test for the real action (swap, deposit, trade), never a quote in its place. The run reports it if the page stops it.
+     Apart from that, the test wallet has only the native coin and what setup gives it. Something that needs more ("No USDC on Arbitrum Sepolia", a card payment) goes under untested, and never in setup.
      When the developer lists what to test, those come first: find where each one happens and keep their wording in the name. Write tests for your own picks only if they listed fewer than 3. If a listed item isn't in the app, leave it out and say so with note.
      When the developer says what keeps breaking or what just changed, prefer tests that go through it.
      Use the rest of their notes too: leave alone what they say to avoid, use the tokens and amounts they give, and take expected from what they say success looks like.
@@ -118,6 +121,7 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
   const snap = formatSnapshot(await takeSnapshot(session.page, { maxChars: 9_000 }));
   const prompt = [
     `App: ${session.target.url}`,
+    await walletLine(session),
     opts.hints ? `Hints from the developer: ${opts.hints}` : "",
     opts.known?.length ? `The app already has these tests, so don't propose them again. You may write one marked not written yet; keep its name exactly:\n${opts.known.map((n) => `- ${n}`).join("\n")}` : "",
     "",

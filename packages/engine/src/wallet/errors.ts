@@ -1,5 +1,8 @@
 import { JsonRpcError } from "../chain/rpc.js";
 
+/** How a step can tell our wallet couldn't pay from an app failure. */
+export const NO_LIVE_KEY = "no funded test key";
+
 /** EIP-1193 / MetaMask error codes with MetaMask's wording. */
 export const WalletErrors = {
   userRejected: () => new JsonRpcError(4001, "User rejected the request."),
@@ -14,5 +17,5 @@ export const WalletErrors = {
   internal: (detail: string, data?: unknown) => new JsonRpcError(-32603, "Internal JSON-RPC error.", data ?? { message: detail }),
   /** Live chain without a funded key: the throwaway wallet can't pay for transactions. */
   needsLiveKey: (chainName: string) =>
-    new JsonRpcError(4100, `DappDrill has no funded test key for ${chainName}; transactions are unavailable until a live key is added.`),
+    new JsonRpcError(4100, `DappDrill has ${NO_LIVE_KEY} for ${chainName}; transactions are unavailable until a live key is added.`),
 };

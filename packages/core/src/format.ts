@@ -30,11 +30,13 @@ export const BOT_GUIDE_URL = "https://dappdrill.com/bot";
 
 /** "Blocked by Cloudflare's bot check" */
 export function describeBlock(b: Blocked): string {
-  return `Blocked by ${b.provider ? `${b.provider}'s` : "a"} bot check`;
+  return b.provider ? `Blocked by ${b.provider}'s bot check` : "Blocked";
 }
 
 /** The full sentence reports show for a blocked scan. */
 export function blockedLine(b: Blocked): string {
+  // With no provider it may be the app refusing this wallet, which a header won't fix.
+  if (!b.provider) return `Blocked at ${b.url}: ${b.reason} If a bot check did this, let DappDrill in with an allowlist header: ${BOT_GUIDE_URL}`;
   return `${describeBlock(b)} at ${b.url}, so exploring stopped there. DappDrill doesn't solve CAPTCHAs; let it in with an allowlist header: ${BOT_GUIDE_URL}`;
 }
 
