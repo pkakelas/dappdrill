@@ -2,30 +2,23 @@
  * Job contract shared with the web app (apps/web/src/lib/jobs.ts). The web writes the row first,
  * then sends its id:
  *
- *   "analysis.run"   { analysisId }  analyses row, status "queued".
  *   "tests.run"      { batchId }     test_runs rows sharing the batch id, status "queued" (queueRuns in @dappdrill/db).
  *   "test-draft.run" { testId }      tests row with `drafting` = the developer's sentence; forkedFrom set for a fork.
  *   "agent.reply"    { messageId }   agent_messages row, role "agent", status "pending", after the user's message.
  *   "exploration.run" { explorationId } explorations row, status "queued".
- *   "sweep.run"      { explorationId } a finished exploration whose checks get repeated.
  *
- * Stopping is not a job: the web sets stop_requested on the analysis or run and the worker polls it.
+ * Stopping is not a job: the web sets stop_requested on the exploration or run and the worker polls it.
  */
 import { PgBoss, type Queue } from "pg-boss";
 
 export const QUEUES = {
-  analysis: "analysis.run",
   tests: "tests.run",
   draft: "test-draft.run",
   agent: "agent.reply",
   scheduleTick: "schedule.tick",
   exploration: "exploration.run",
-  sweep: "sweep.run",
 } as const;
 
-export interface AnalysisJob {
-  analysisId: string;
-}
 export interface ExplorationJob {
   explorationId: string;
 }
@@ -50,13 +43,11 @@ const HOUR = 3600;
  * a failed job leaves its row failed with the error.
  */
 const QUEUE_OPTIONS: Record<(typeof QUEUES)[keyof typeof QUEUES], Omit<Queue, "name">> = {
-  "analysis.run": { retryLimit: 0, expireInSeconds: HOUR / 2 },
   "tests.run": { retryLimit: 0, expireInSeconds: 4 * HOUR },
   "test-draft.run": { retryLimit: 0, expireInSeconds: 600 },
   "agent.reply": { retryLimit: 0, expireInSeconds: HOUR / 4 },
   "schedule.tick": { retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: HOUR },
   "exploration.run": { retryLimit: 0, expireInSeconds: 3 * HOUR },
-  "sweep.run": { retryLimit: 0, expireInSeconds: HOUR },
 };
 
 /**

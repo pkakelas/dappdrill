@@ -1,6 +1,6 @@
 "use client";
 
-import { EXPLORE_PHASE_LABEL, TIER_LABEL, type ExplorePhase, type ExploreFeedLine } from "@dappdrill/core";
+import { EXPLORE_PHASE_LABEL, type ExploreFeedLine } from "@dappdrill/core";
 import { useEffect, useRef, useState } from "react";
 import { stopExplorationAction } from "@/actions/explore";
 import { Elapsed } from "@/components/elapsed";
@@ -8,18 +8,16 @@ import { BrowserWindow, SiteLoading } from "@/components/site-preview";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { ExplorerTile, FlowCover, LiveView } from "@/lib/explore";
+import type { ExplorerTile, LiveView } from "@/lib/explore";
 import { plural } from "@/lib/format";
 
 /** How long the big window stays on one explorer before it may jump to a busier one. */
 const HOLD_MS = 8000;
 
-const PHASES: ExplorePhase[] = ["setup", "planning", "exploring", "extracting", "proving", "confirming", "closing"];
-
 const FEED_DOT: Record<ExploreFeedLine["kind"], string> = {
   note: "bg-border",
-  pass: "bg-muted-foreground",
-  test: "bg-foreground",
+  pass: "bg-good",
+  test: "bg-good",
   wallet: "bg-live",
   error: "bg-warn",
   fail: "bg-bad",
@@ -43,108 +41,60 @@ function TimeLeft({ until }: { until: string }) {
   }, []);
   const minutes = Math.ceil((new Date(until).getTime() - now) / 60_000);
   if (minutes <= 0) return null;
-  return <span suppressHydrationWarning>{plural(minutes, "minute")} of exploring left</span>;
+  return <span suppressHydrationWarning>· {plural(minutes, "minute")} left</span>;
 }
 
-function Phases({ phase }: { phase: ExplorePhase }) {
-  const at = PHASES.indexOf(phase);
+/** Newest first, right under the headline; older lines fade out at the bottom instead of growing the page. */
+function Feed({ lines }: { lines: ExploreFeedLine[] }) {
   return (
-    <ol aria-label="Stages" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-      {PHASES.map((p, i) => (
-        <li key={p} aria-current={i === at ? "step" : undefined} className={cx("flex items-center gap-2", i === at ? "font-medium text-foreground" : i < at ? "text-muted-foreground" : "text-muted-foreground/50")}>
-          {i > 0 && (
-            <span aria-hidden="true" className="text-muted-foreground/40">
-              ›
-            </span>
-          )}
-          {EXPLORE_PHASE_LABEL[p]}
+    <ol aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden text-sm max-md:[&>li:nth-child(n+6)]:hidden md:[mask-image:linear-gradient(to_top,transparent,#000_3rem)]">
+      {[...lines].reverse().map((l, i) => (
+        <li key={`${l.at}-${l.text}`} className="relative shrink-0 animate-in pl-4 duration-500 fade-in-0 slide-in-from-top-1 motion-reduce:animate-none">
+          <span aria-hidden="true" className={cx("absolute top-[7px] left-0 size-[7px] rounded-full", FEED_DOT[l.kind])} />
+          <span className={cx("line-clamp-2 leading-snug break-words", i > 0 && l.kind !== "bug" && "text-muted-foreground")}>{l.text}</span>
         </li>
       ))}
     </ol>
   );
 }
 
-function Count({ label, value, bad }: { label: string; value: number; bad?: boolean }) {
+function Thumb({ tile, focused, onPick }: { tile: ExplorerTile; focused: boolean; onPick: () => void }) {
   return (
-    <div className="flex flex-col">
-      <span className={cx("text-2xl font-semibold tracking-tight tabular-nums", bad && value > 0 && "text-bad")}>{value}</span>
-      <span className="text-sm text-muted-foreground">{label}</span>
-    </div>
-  );
-}
-
-function Feed({ lines }: { lines: ExploreFeedLine[] }) {
-  return (
-    <ol aria-live="polite" className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden text-sm max-md:[&>li:nth-last-child(n+6)]:hidden md:[mask-image:linear-gradient(to_bottom,transparent,#000_3rem)]">
-      {lines.map((l, i) => {
-        const last = i === lines.length - 1;
-        return (
-          <li key={`${l.at}-${l.text}`} className="relative shrink-0 animate-in pl-4 duration-500 fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none">
-            <span aria-hidden="true" className={cx("absolute top-[7px] left-0 size-[7px] rounded-full", FEED_DOT[l.kind])} />
-            <span className={cx("line-clamp-2 leading-snug break-words", !last && l.kind !== "bug" && "text-muted-foreground")}>{l.text}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function Tile({ tile, focused, onPick }: { tile: ExplorerTile; focused: boolean; onPick: () => void }) {
-  const running = tile.status === "running";
-  return (
-    <button type="button" aria-pressed={focused} onClick={onPick} className={cx("flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-left transition-colors hover:bg-muted/50", focused ? "border-foreground/40" : "border-border", !running && "opacity-70")}>
+    <button type="button" aria-pressed={focused} title={tile.doing ?? tile.title} onClick={onPick} className={cx("flex w-32 shrink-0 flex-col gap-1 rounded-lg border p-1 text-left transition-colors hover:bg-foreground/5", focused ? "border-foreground/40" : "border-border")}>
       <div className="relative aspect-[16/10] overflow-hidden rounded bg-muted">
         {tile.frame && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={tile.frame} alt="" className="absolute inset-0 size-full object-cover object-top" />
         )}
       </div>
-      <div className="flex min-w-0 flex-col gap-0.5 px-0.5">
-        <span className="flex items-center gap-1.5 text-sm font-medium">
-          {running && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-live" />}
-          <span className="truncate">{tile.title}</span>
-        </span>
-        <span className="truncate text-xs text-muted-foreground">{tile.status === "queued" ? "Waiting for a browser" : running ? (tile.doing ?? "Starting") : tile.status === "failed" ? "Couldn't finish" : tile.status === "stopped" ? "Stopped" : `${plural(tile.checks, "check")}${tile.bugs ? `, ${plural(tile.bugs, "bug")}` : ""}`}</span>
-      </div>
+      <span className="truncate px-0.5 text-xs">{tile.title}</span>
     </button>
   );
 }
 
-/** One line per flow: how much of it has been covered so far. */
-export function Coverage({ flows }: { flows: FlowCover[] }) {
-  return (
-    <ul className="flex flex-col divide-y">
-      {flows.map((f) => (
-        <li key={f.name} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2.5 text-sm">
-          <span className="flex min-w-0 items-baseline gap-2">
-            <span className="font-medium">{f.name}</span>
-            <span className="text-xs text-muted-foreground">{TIER_LABEL[f.tier]}</span>
-          </span>
-          <span className="text-muted-foreground tabular-nums">
-            {f.checks === 0 && !f.gap ? (
-              "Nothing checked yet"
-            ) : (
-              <>
-                {plural(f.checks, "check")}
-                {f.tests > 0 && ` · ${plural(f.tests, "test")}`}
-                {f.bugs > 0 && <span className="text-bad"> · {plural(f.bugs, "bug")}</span>}
-              </>
-            )}
-          </span>
-          {f.gap && <span className="basis-full text-muted-foreground">Not covered: {f.gap}</span>}
-        </li>
-      ))}
-    </ul>
-  );
-}
+const HEADLINE: Record<LiveView["phase"], string> = {
+  looking: "Finding what to test",
+  setup: "Checking the setup",
+  exploring: "Trying the tests",
+  finishing: "Finishing up",
+  done: "Finishing up",
+};
 
-/** The exploration as it happens: what one explorer sees, what they've all found, and how far it's got. */
-export function ExploreLive({ view }: { view: LiveView }) {
+const DETAIL: Record<LiveView["phase"], string> = {
+  looking: "Tests show up below once they pass on a clean fork.",
+  setup: "The steps every test starts from have to work first.",
+  exploring: "Each feature has its own browser. A test is saved once it passes again on a clean fork.",
+  finishing: "Waiting for the last tests and bug reviews.",
+  done: "Waiting for the last tests and bug reviews.",
+};
+
+/** The pass as it happens: what one browser sees, and what they've all found so far. */
+export function PassBand({ view }: { view: LiveView }) {
   const [followed, setFollowed] = useState<string>();
   const [picked, setPicked] = useState<string>();
   const since = useRef(0);
 
-  // Tiles come busiest first, but cutting between explorers on every refresh is unwatchable.
+  // Tiles come busiest first, but cutting between browsers on every refresh is unwatchable.
   useEffect(() => {
     const current = view.explorers.find((e) => e.id === followed);
     const next = view.explorers.find((e) => e.status === "running") ?? view.explorers[0];
@@ -157,76 +107,73 @@ export function ExploreLive({ view }: { view: LiveView }) {
   const pinned = view.explorers.find((e) => e.id === picked);
   const focus = pinned ?? view.explorers.find((e) => e.id === followed) ?? view.explorers[0];
   const queued = view.status === "queued";
+  const running = view.explorers.filter((e) => e.status === "running");
   const { counts } = view;
 
   return (
-    <section aria-label="Exploring the app in depth" className="flex flex-col gap-6">
-      <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 className="text-xl font-semibold tracking-tight">Exploring in depth</h2>
-            <span className="flex items-center gap-3 text-sm text-muted-foreground">
-              <LiveDot />
-              {view.startedAt ? <Elapsed since={view.startedAt} /> : "Queued"}
-              {view.phase === "exploring" && view.deadline && <TimeLeft until={view.deadline} />}
-            </span>
-          </div>
-          <form action={stopExplorationAction.bind(null, view.id)}>
-            <Button type="submit" variant="outline" size="sm" disabled={view.stopping}>
-              {view.stopping ? "Stopping…" : "Stop exploring"}
-            </Button>
-          </form>
-        </div>
-        <Phases phase={view.phase} />
-      </header>
-
-      <div className="grid gap-8 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] md:gap-10">
-        <div className="flex min-w-0 flex-col gap-2">
-          <BrowserWindow url={focus?.url ?? view.appUrl}>
-            <div className="relative aspect-[16/10] overflow-hidden bg-card">
-              {focus?.frame ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={focus.frame} alt={`What ${focus.title} sees right now`} className="absolute inset-0 size-full object-cover object-top" />
-              ) : (
-                <SiteLoading />
-              )}
-              <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border bg-background/85 px-3 py-2 text-sm shadow-md backdrop-blur-md">
-                {!focus?.frame && <Spinner className="size-3.5 shrink-0 text-muted-foreground" />}
-                <span className="truncate">{focus?.status === "running" ? (focus.doing ?? focus.title) : queued ? "Waiting for a browser…" : `${EXPLORE_PHASE_LABEL[view.phase]}…`}</span>
-              </div>
-            </div>
-          </BrowserWindow>
-          <p className="flex min-h-5 items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span className="truncate">{focus?.title}</span>
-            {pinned && (
-              <button type="button" onClick={() => setPicked(undefined)} className="shrink-0 underline underline-offset-4 hover:text-foreground">
-                Follow the action
-              </button>
+    <section aria-label="Exploring the app" className="flex flex-col gap-4">
+      <div className="grid gap-8 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-10">
+        <BrowserWindow url={focus?.url ?? view.appUrl}>
+          <div className="relative aspect-[16/10] overflow-hidden bg-card">
+            {focus?.frame ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={focus.frame} alt={`What ${focus.title} sees right now`} className="absolute inset-0 size-full object-cover object-top" />
+            ) : (
+              <SiteLoading />
             )}
-          </p>
-        </div>
+            <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border bg-background/85 px-3 py-2 text-sm shadow-md backdrop-blur-md">
+              {!focus?.frame && <Spinner className="size-3.5 shrink-0 text-muted-foreground" />}
+              <span className="truncate">{focus?.status === "running" ? (focus.doing ?? focus.title) : queued ? "Waiting for a browser…" : `${EXPLORE_PHASE_LABEL[view.phase]}…`}</span>
+            </div>
+          </div>
+        </BrowserWindow>
 
-        {/* On wide screens the browser sets the height; old lines fade out of the top instead of growing the page. */}
-        <div className="flex flex-col gap-6 md:h-0 md:min-h-full">
-          <div className="grid grid-cols-4 gap-3">
-            <Count label={counts.checks === 1 ? "check" : "checks"} value={counts.checks} />
-            <Count label={counts.bugs === 1 ? "bug" : "bugs"} value={counts.bugs} bad />
-            <Count label={counts.tests === 1 ? "test" : "tests"} value={counts.tests} />
-            <Count label="dangerous" value={counts.dangerous} bad />
+        {/* On wide screens the browser sets the height. */}
+        <div className="flex flex-col gap-6 md:h-0 md:min-h-full md:py-1">
+          <div className="flex flex-col gap-2">
+            <div className="flex min-h-8 items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span className="flex flex-wrap items-center gap-x-2">
+                <LiveDot />
+                {queued ? "Queued" : EXPLORE_PHASE_LABEL[view.phase]}
+                {view.startedAt && (
+                  <>
+                    {" · "}
+                    <Elapsed since={view.startedAt} />
+                  </>
+                )}
+                {view.phase === "exploring" && view.deadline && <TimeLeft until={view.deadline} />}
+              </span>
+              <form action={stopExplorationAction.bind(null, view.id)}>
+                <Button type="submit" variant="outline" size="sm" disabled={view.stopping}>
+                  {view.stopping ? "Stopping…" : "Stop"}
+                </Button>
+              </form>
+            </div>
+            <h2 className="text-xl font-semibold tracking-tight">{queued ? "Waiting for a browser" : HEADLINE[view.phase]}</h2>
+            {counts.tried > 0 ? (
+              <p className="text-sm text-muted-foreground tabular-nums">
+                {counts.tried} tried · {plural(counts.tests, "test")} saved{counts.bugs > 0 && <span className="text-bad"> · {plural(counts.bugs, "bug")}</span>}
+              </p>
+            ) : (
+              <p className="text-sm leading-relaxed text-pretty text-muted-foreground">{DETAIL[view.phase]}</p>
+            )}
           </div>
           <Feed lines={view.feed} />
         </div>
       </div>
 
-      {view.explorers.length > 1 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {view.explorers.map((e) => (
-            <Tile key={e.id} tile={e} focused={e.id === focus?.id} onPick={() => setPicked(e.id === picked ? undefined : e.id)} />
+      {running.length > 1 && (
+        <div className="flex items-end gap-2 overflow-x-auto pb-1">
+          {running.map((e) => (
+            <Thumb key={e.id} tile={e} focused={e.id === focus?.id} onPick={() => setPicked(e.id === picked ? undefined : e.id)} />
           ))}
+          {pinned && (
+            <button type="button" onClick={() => setPicked(undefined)} className="shrink-0 px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+              Follow the action
+            </button>
+          )}
         </div>
       )}
-
-      {view.flows.length > 0 && <Coverage flows={view.flows} />}
     </section>
   );
 }

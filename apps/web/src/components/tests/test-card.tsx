@@ -78,7 +78,7 @@ export function TestList({ filter, children }: { filter: ReactNode; children: Re
   return (
     <div className="rounded-xl border bg-card shadow-sm">
       {filter}
-      <ul className="divide-y border-t">{children}</ul>
+      <ul className={cx("divide-y", filter && "border-t")}>{children}</ul>
     </div>
   );
 }
@@ -97,7 +97,7 @@ export function TestLine(props: TestCardProps) {
         name={
           <div className="flex min-w-0 flex-col gap-0.5">
             <Title {...props} />
-            {stopped && <p className={cx("truncate text-xs", STATE_TEXT[read.settled])}>{stopped.where ?? stopped.why}</p>}
+            {test.draftNote ? <p className="truncate text-xs text-muted-foreground">{test.draftNote}</p> : stopped && <p className={cx("truncate text-xs", STATE_TEXT[read.settled])}>{stopped.where ?? stopped.why}</p>}
           </div>
         }
         status={

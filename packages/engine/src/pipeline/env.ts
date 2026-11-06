@@ -33,6 +33,8 @@ export interface Env {
   /** Runs test steps and judges results (Sonnet by default). */
   fastLlm(): Llm;
   costUsd(): number;
+  /** The same spend, by which model did the work. */
+  costs(): Record<"think" | "act" | "fast", number>;
   /** True for a repeat of an app-wide issue another test already reported. */
   isDuplicate(issue: Issue): boolean;
   /** The run with repeated issues replaced by the one that was reported. */
@@ -143,6 +145,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
       return fast;
     },
     costUsd,
+    costs: () => ({ think: think?.costUsd() ?? 0, act: act?.costUsd() ?? 0, fast: fast?.costUsd() ?? 0 }),
     isDuplicate,
     canonical,
     log,

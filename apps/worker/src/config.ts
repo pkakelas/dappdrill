@@ -24,12 +24,11 @@ export const config = {
   artifactsRoot: isAbsolute(artifacts) ? artifacts : resolve(repoRoot(), artifacts),
   appUrl: (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
   dev: process.env.DAPPDRILL_DEV === "1",
-  analysisConcurrency: int("DAPPDRILL_ANALYSIS_CONCURRENCY", 1),
   testsConcurrency: int("DAPPDRILL_TESTS_CONCURRENCY", 2),
   /** Drafts and assistant replies: small model calls, sometimes a short browse. */
   chatConcurrency: int("DAPPDRILL_CHAT_CONCURRENCY", 4),
-  /** Explorations at once; each runs up to `explorers` browsers and forks. */
+  /** Passes at once; each runs up to `explorers` browsers and forks. */
   explorationConcurrency: int("DAPPDRILL_EXPLORATION_CONCURRENCY", 1),
-  explorers: int("DAPPDRILL_EXPLORERS", 3),
+  explorers: int("DAPPDRILL_EXPLORERS", 5),
   stopPollMs: int("DAPPDRILL_STOP_POLL_MS", 2000),
 };

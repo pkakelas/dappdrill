@@ -2,7 +2,8 @@
  * The exploration's shared state. Explorers change it as they go; it reaches the sink at most
  * once a second, so a dozen explorers and their frames don't turn into a write each.
  */
-import { ExploreState, nowIso, type DrillEventSink, type Explorer, type ExploreFeedLine, type ExplorePhase } from "@dappdrill/core";
+import type { z } from "zod";
+import { Explorer, ExploreState, nowIso, type DrillEventSink, type ExploreFeedLine, type ExplorePhase } from "@dappdrill/core";
 
 const EMIT_EVERY_MS = 1000;
 const FEED_KEPT = 80;
@@ -33,8 +34,8 @@ export class Board {
     });
   }
 
-  addExplorer(explorer: Explorer): void {
-    this.change((s) => void s.explorers.push(explorer));
+  addExplorer(explorer: z.input<typeof Explorer>): void {
+    this.change((s) => void s.explorers.push(Explorer.parse(explorer)));
   }
 
   explorer(id: string, patch: Partial<Explorer>): void {
@@ -55,14 +56,4 @@ export class Board {
     this.last = Date.now();
     await this.sink({ type: "explore", state: structuredClone(this.state) });
   }
-}
-
-/** Runs `fn` over `items`, at most `n` at a time, each worker keeping its slot number. */
-export async function pool<T>(items: T[], n: number, fn: (item: T, slot: number) => Promise<void>): Promise<void> {
-  const queue = [...items];
-  await Promise.all(
-    Array.from({ length: Math.min(n, queue.length) }, async (_, slot) => {
-      for (let item = queue.shift(); item !== undefined; item = queue.shift()) await fn(item, slot);
-    }),
-  );
 }

@@ -7,7 +7,7 @@ import { config } from "./config.js";
  * step screenshots, videos) stays relative to that directory. Test runs write per
  * batch: runs/<batchId>/. The web serves /api/artifacts/<kind>/<id>/<path>.
  */
-export type ArtifactKind = "analyses" | "runs" | "agent" | "explorations";
+export type ArtifactKind = "runs" | "agent" | "explorations";
 
 export function artifactsDir(kind: ArtifactKind, id: string, root = config.artifactsRoot): string {
   return join(root, kind, id);

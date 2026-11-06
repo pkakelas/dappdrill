@@ -261,7 +261,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="size-3.5" />
-              First tests ready in 5–7 minutes
+              First tests in a few minutes
             </p>
             <Button type="submit" size="lg" disabled={pending} className="group max-sm:w-full">
               {pending ? (

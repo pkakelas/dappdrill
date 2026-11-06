@@ -1,11 +1,14 @@
 import { formatFixedResponse, KNOWN_CHAINS } from "@dappdrill/core";
-import { analyses, db } from "@dappdrill/db";
-import { desc, eq, isNotNull, and } from "drizzle-orm";
+import { db, explorations, latestRuns, tests } from "@dappdrill/db";
+import { desc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { analyzeAction, deleteAppAction } from "@/actions/apps";
+import { deleteAppAction } from "@/actions/apps";
+import { exploreAction } from "@/actions/explore";
 import { ConfirmButton } from "@/components/confirm-button";
 import { SettingsForm } from "@/components/settings-form";
+import { lastSetup } from "@/components/tests/last-setup";
+import { SetupCard } from "@/components/tests/setup-card";
 import { PageHeader, SettingsSection } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
@@ -23,15 +26,15 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
   const { appId } = await params;
   const { app, role } = await requireApp(appId);
   const manage = can(role, "apps.manage");
-  const [verified, [seen]] = await Promise.all([
+  const [verified, [seen], testIds] = await Promise.all([
     isHostVerified(app.organizationId, app.host),
-    db()
-      .select()
-      .from(analyses)
-      .where(and(eq(analyses.appId, app.id), isNotNull(analyses.liveFrame)))
-      .orderBy(desc(analyses.createdAt))
-      .limit(1),
+    db().select({ id: explorations.id, state: explorations.state, finishedAt: explorations.finishedAt, createdAt: explorations.createdAt }).from(explorations).where(eq(explorations.appId, app.id)).orderBy(desc(explorations.createdAt)).limit(1),
+    db().select({ id: tests.id }).from(tests).where(eq(tests.appId, app.id)),
   ]);
+  // What the first browser of the last pass saw: the app as it opens.
+  const frame = seen ? artifactUrl("explorations", seen.id, seen.state?.explorers.find((e) => e.frame)?.frame) : null;
+  const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
+  const setupRun = setup ? lastSetup(setup.steps, [...(await latestRuns(db(), testIds.map((t) => t.id))).values()]) : undefined;
   const others = app.settings.chains.filter((c) => !CHAINS.some((k) => k.id === c.id && k.rpcUrl === c.rpcUrl));
 
   return (
@@ -58,12 +61,16 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
           schedule: app.scheduleTime ?? "",
           verified,
         }}
-        frame={seen ? artifactUrl("analyses", seen.id, seen.liveFrame) : null}
+        frame={frame}
         seen={seen ? `Last explored ${timeAgo(seen.finishedAt ?? seen.createdAt)}` : "Not explored yet"}
       />
 
+      <SettingsSection id="setup" title="Setup" hint="Steps every test needs first, like signing in or getting test funds. They run before your tests, so the tests don't repeat them.">
+        <SetupCard appId={app.id} setup={setup ?? null} last={setupRun} />
+      </SettingsSection>
+
       <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds what it hasn't seen. Your tests stay as they are.">
-        <form action={analyzeAction.bind(null, app.id)}>
+        <form action={exploreAction.bind(null, app.id)}>
           <Button type="submit" variant="outline" size="sm" className="w-fit">
             Explore again
           </Button>

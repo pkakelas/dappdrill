@@ -3,10 +3,13 @@ import type { RunSummary } from "@dappdrill/db";
 import { ArrowUpRight, Check, CircleDashed, GitFork, PenLine, Play, TriangleAlert, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { cx } from "@/components/ui";
 import { ChainIcon, WalletIcon } from "@/components/web3-icons";
 import { hostFromUrl, plural, timeAgo } from "@/lib/format";
 import { RunHistory } from "./app-stats";
 import { Tile, type TINT } from "./tile";
+
+const DAY = 24 * 60 * 60 * 1000;
 
 /** The answer to "is my app OK?", as big as the page gets. */
 function Verdict({ rollup }: { rollup: AppRollup }) {
@@ -73,6 +76,8 @@ function Stats({ rollup, running }: { rollup: AppRollup; running: number }) {
 
 /** The top of an app: what it is, how it's doing, and what you can do next. */
 export function AppHero({ appId, name, url, lastRun, wallet, chainId, rollup, running, runs, action }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; rollup?: AppRollup; running: number; runs: RunSummary[]; action?: ReactNode }) {
+  // A chart of the last two weeks says nothing about an app that has only run today.
+  const charted = new Set(runs.map((r) => Math.floor(r.createdAt.getTime() / DAY))).size > 1;
   return (
     <header className="flex flex-col gap-8">
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -93,14 +98,14 @@ export function AppHero({ appId, name, url, lastRun, wallet, chainId, rollup, ru
         {action}
       </div>
       {rollup && (
-        <div className="grid items-center gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className={cx("grid items-center gap-x-10 gap-y-8", charted && "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]")}>
           <div className="flex min-w-0 flex-col gap-6">
             <p className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
               <Verdict rollup={rollup} />
             </p>
             <Stats rollup={rollup} running={running} />
           </div>
-          <RunHistory runs={runs} />
+          {charted && <RunHistory runs={runs} />}
         </div>
       )}
     </header>

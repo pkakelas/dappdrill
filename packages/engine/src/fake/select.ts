@@ -4,5 +4,5 @@ import type { Engine } from "./index.js";
 export async function loadEngine(): Promise<Engine> {
   if (process.env.DAPPDRILL_FAKE_ENGINE === "1") return (await import("./index.js")).fakeEngine;
   const real = await import("../api.js");
-  return { analyze: real.analyze, runTests: real.runTests, writeTest: real.writeTest, chatTurn: real.chatTurn, explore: real.explore, sweep: real.sweep };
+  return { analyze: real.analyze, runTests: real.runTests, writeTest: real.writeTest, chatTurn: real.chatTurn, explore: real.explore };
 }

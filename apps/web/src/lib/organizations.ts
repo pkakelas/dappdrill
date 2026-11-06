@@ -1,5 +1,5 @@
 import "server-only";
-import { analyses, apps, db, encrypt, member, organization, testRuns, testWallets } from "@dappdrill/db";
+import { apps, db, encrypt, explorations, member, organization, testRuns, testWallets } from "@dappdrill/db";
 import { newId } from "@dappdrill/core";
 import { and, eq, inArray } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
@@ -47,5 +47,5 @@ export async function stopOrganizationJobs(orgId: string): Promise<void> {
   const ids = (await db().select({ id: apps.id }).from(apps).where(eq(apps.organizationId, orgId))).map((a) => a.id);
   if (ids.length === 0) return;
   await db().update(testRuns).set({ stopRequested: true }).where(and(inArray(testRuns.appId, ids), eq(testRuns.status, "running")));
-  await db().update(analyses).set({ stopRequested: true }).where(and(inArray(analyses.appId, ids), eq(analyses.status, "running")));
+  await db().update(explorations).set({ stopRequested: true }).where(and(inArray(explorations.appId, ids), inArray(explorations.status, ["queued", "running"])));
 }

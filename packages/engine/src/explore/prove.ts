@@ -1,122 +1,126 @@
 /**
- * A candidate becomes a saved test by passing on a fresh fork from its plain steps alone, with
- * none of the explorer's memory, and then again from the actions that run recorded. Its goal never
- * changes to make it pass: a failure stays a draft with the reason, or a suspected bug.
+ * A suggested test that worked for an explorer becomes a saved test by passing on a clean fork,
+ * with none of the explorer's memory. What the explorer did is replayed first, which is cheap;
+ * when that doesn't pass, the test runs from its plain steps alone. Its goal never changes to make
+ * it pass: a failure is a draft with the reason, or a bug when the chain says so.
  */
-import { CONDITIONS, newId, nowIso, type EdgeCaseId, type ExploreCandidate, type ExploreState, type TestSpec } from "@dappdrill/core";
+import { CONDITIONS, newId, nowIso, type EdgeCaseId, type ExploreState, type ExploreSuggestion, type TestSpec, type Tier } from "@dappdrill/core";
 import type { Env } from "../pipeline/env.js";
-import { runTestItems, type TestItem, type TestOutcome } from "../pipeline/tests.js";
-import { evidenceOf } from "./bugs.js";
+import { runTestItems, type TestOutcome } from "../pipeline/tests.js";
+import { evidenceOf, fileBug } from "./bugs.js";
+import { lineUp } from "./recorded.js";
 import type { ExploreRun } from "./run-context.js";
 
-export async function proveCandidates(run: ExploreRun): Promise<void> {
-  const { board } = run;
-  const waiting = board.state.candidates.filter((c) => c.status === "waiting");
-  const shares = Array.from({ length: Math.min(run.slots, waiting.length) }, (_, i) => waiting.filter((_c, n) => n % run.slots === i));
-  await Promise.all(shares.map((share, i) => run.withEnv((env) => proveShare(run, env, share, `prove_${i + 1}`))));
+/** Proves it as soon as a browser is free, while the explorers carry on. */
+export function queueProof(run: ExploreRun, suggestionId: string): void {
+  run.work(() => run.withEnv("prove", (env) => prove(run, env, suggestionId)));
 }
 
-async function proveShare(run: ExploreRun, env: Env, share: ExploreCandidate[], worker: string): Promise<void> {
-  const { board, signal } = run;
-  const { artifactsDir, map, baselines, setup } = run.opts;
-  board.addExplorer({ id: worker, title: "Proving tests", flow: "", tier: "critical", status: "running", checks: 0, bugs: 0, startedAt: nowIso(), activeAt: nowIso() });
-  const update = (id: string, fn: (c: ExploreCandidate) => void) => board.change((s) => {
-    const c = s.candidates.find((x) => x.id === id);
-    if (c) fn(c);
-  });
-  const hooks = (pass: string) => ({
-    onStart: async (id: string) => {
-      const c = share.find((x) => x.id === id)!;
-      update(id, (x) => (x.status = "proving"));
-      board.explorer(worker, { doing: `${pass}: ${c.draft.name}`, flow: c.flow, activeAt: nowIso() });
-    },
-    onFrame: async (_id: string, frame: string) => board.explorer(worker, { frame, activeAt: nowIso() }),
-  });
-  const opts = { artifactsDir, map, baselines, signal, setup: setup?.steps.length ? setup : undefined };
+async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
+  const { board, signal, map } = run;
+  const { artifactsDir, baselines } = run.opts;
+  const s = board.state.suggested.find((x) => x.id === id);
+  if (!s || s.status !== "worked" || signal?.aborted) return;
+  const worker = `prove_${id}`;
+  const update = (fn: (x: ExploreSuggestion) => void) => board.change((state) => void fn(state.suggested.find((x) => x.id === id)!));
+  const end = (status: "done" | "stopped") => board.explorer(worker, { status, doing: undefined, finishedAt: nowIso() });
+  update((x) => (x.status = "proving"));
+  board.addExplorer({ id: worker, title: `Proving: ${s.draft.name}`, feature: s.feature, tier: s.tier, status: "running", doing: "Running it on a clean fork", startedAt: nowIso(), activeAt: nowIso() });
 
-  // First pass: plain steps, the way a new reader of the test would do them.
-  const fresh = await runTestItems(env, share.map(plainItem), opts, hooks("First run"));
-  const passed: TestItem[] = [];
-  for (const o of fresh) {
-    const c = share.find((x) => x.id === o.testId)!;
-    if (o.status === "stopped") continue;
-    if (o.status === "pass" && o.steps) {
-      update(c.id, (x) => (x.steps = o.steps));
-      passed.push({ spec: { ...plainItem(c).spec, steps: o.steps, proof: o.proof } });
-      continue;
-    }
-    const why = o.result.failure ?? "It didn't pass on a fresh fork.";
-    const bugId = o.status === "fail" && o.result.verdict?.ok === false ? fileProveBug(run, c, why, o) : undefined;
-    update(c.id, (x) => {
-      x.status = "draft";
-      x.note = why;
-      x.bugId = bugId;
+  const attempt = async (spec: TestSpec) => {
+    const [o] = await runTestItems(env, [{ spec }], { artifactsDir, map, baselines, signal, setup: run.setup }, {
+      onFrame: async (_id, frame) => board.explorer(worker, { frame, activeAt: nowIso() }),
+      onProgress: async (_id, result) => {
+        const at = result.steps.findIndex((r) => r.status === "running");
+        if (at >= 0) board.explorer(worker, { doing: s.draft.steps[at], activeAt: nowIso() });
+      },
     });
-    board.feed("fail", `${c.draft.name} stays a draft: ${why}`);
-    await run.hooks.onTest?.(current(board.state, c.id));
+    return o;
+  };
+  const plain = plainSpec(s);
+  const recorded = run.recorded.get(id);
+  const replayed = recorded && (await lineUp(env.fastLlm(), s.draft, recorded).catch(() => undefined));
+  let o = replayed ? await attempt({ ...plain, steps: replayed }) : undefined;
+  // What an explorer did can include a wrong turn, so a replay that fails says little about the test.
+  if (!o || (o.status !== "pass" && o.status !== "stopped")) o = await attempt(plain);
+  if (!o || o.status === "stopped") {
+    update((x) => (x.status = "worked"));
+    return end("stopped");
   }
-
-  // Second pass: the recorded actions. A test that can't repeat itself isn't a test.
-  const again = await runTestItems(env, passed, opts, hooks("Second run"));
-  for (const o of again) {
-    const c = share.find((x) => x.id === o.testId)!;
-    if (o.status === "stopped") continue;
-    if (o.status !== "pass") {
-      update(c.id, (x) => {
-        x.status = "demoted";
-        x.note = `Passed once, then failed: ${o.result.failure ?? "no reason given"}`;
-      });
-      board.feed("note", `${c.draft.name} stays a check: it passed once, then failed`);
-      continue;
-    }
-    update(c.id, (x) => {
+  if (o.status === "pass" && o.steps) {
+    update((x) => {
       x.status = "proved";
-      x.steps = o.steps ?? x.steps;
-      x.proof = o.proof;
-      x.conditions = conditionsFor(x, board.state, env);
+      x.steps = o.steps;
+      x.conditions = conditionsFor(x.tier, o, env);
+      x.provedAt = nowIso();
     });
-    board.feed("test", `Saved ${c.draft.name}`);
-    await run.hooks.onTest?.(current(board.state, c.id));
+    board.feed("test", `Saved as a test: ${s.draft.name}`);
+    await run.hooks.onTest?.(current(board.state, id));
+    return end("done");
   }
-  board.explorer(worker, { status: signal?.aborted ? "stopped" : "done", doing: undefined, finishedAt: nowIso() });
-}
 
-function plainItem(c: ExploreCandidate): { spec: TestSpec } {
-  const { name, goal, expected, startPath, steps } = c.draft;
-  return { spec: { id: c.id, name, goal, expected, startPath, steps: steps.map((text) => ({ text })) } };
-}
-
-const current = (state: ExploreState, id: string) => structuredClone(state.candidates.find((c) => c.id === id)!);
-
-/** All the steps ran and the result still wasn't there: that may be the app, so it gets reviewed. */
-function fileProveBug(run: ExploreRun, c: ExploreCandidate, why: string, o: TestOutcome): string {
-  const id = newId("bug");
-  run.board.change((s) => {
-    s.bugs.push({
-      id,
+  const why = o.result.failure ?? o.result.verdict?.reason ?? "It didn't pass on a clean fork.";
+  const hard = hardEvidence(o);
+  if (hard) {
+    const bugId = fileBug(run, {
+      id: newId("bug"),
       explorerId: "",
-      flow: c.flow,
-      name: c.draft.name,
-      summary: why,
-      steps: c.draft.steps,
-      expected: c.draft.expected,
+      feature: s.feature,
+      name: s.draft.name,
+      summary: hard,
+      steps: s.draft.steps,
+      expected: s.draft.expected,
       actual: why,
-      severity: c.tier === "critical" ? "high" : "medium",
+      severity: s.tier === "critical" ? "high" : "medium",
       status: "suspected",
-      source: "check",
+      source: "prove",
+      seen: 1,
       evidence: evidenceOf(o),
       at: nowIso(),
     });
+    update((x) => {
+      x.status = "bug";
+      x.note = why;
+      x.bugId = bugId;
+    });
+    return end("done");
+  }
+  update((x) => {
+    x.status = "draft";
+    x.note = why;
   });
-  run.board.feed("bug", c.draft.name);
-  return id;
+  board.feed("fail", `${s.draft.name} is a draft: ${why}`);
+  await run.hooks.onTest?.(current(board.state, id));
+  end("done");
 }
 
-/** Conditions change a result only where something is signed, so only the main signing paths of Critical flows get them. */
-export function conditionsFor(c: ExploreCandidate, state: ExploreState, env: Pick<Env, "chains">): EdgeCaseId[] {
-  if (c.tier !== "critical") return [];
-  const from = state.checks.filter((k) => c.checkIds.includes(k.id));
-  if (!from.some((k) => k.signs && (k.variation === "happy" || k.variation === "round-trip"))) return [];
+function plainSpec(s: ExploreSuggestion): TestSpec {
+  const { name, goal, expected, startPath, steps } = s.draft;
+  return { id: s.id, name, goal, expected, startPath, steps: steps.map((text) => ({ text })) };
+}
+
+const current = (state: ExploreState, id: string) => structuredClone(state.suggested.find((x) => x.id === id)!);
+
+/**
+ * What makes a failed proof the app's fault rather than a wrong guess: the chain refused a
+ * transaction the app asked for. A dangerous signature doesn't count: explorers file those when
+ * they see them, and a test that signs one can fail for any other reason.
+ */
+export function hardEvidence(o: Pick<TestOutcome, "result">): string | undefined {
+  const reverted = o.result.walletRequests.find((r) => r.kind === "sign" && r.outcome === "errored" && /revert/i.test(r.error ?? ""));
+  return reverted ? `The transaction reverted: ${(reverted.error ?? "").slice(0, 200)}` : undefined;
+}
+
+/**
+ * Conditions change a result only where the test itself sends a transaction, so only those tests
+ * of Critical features get them. The setup's requests come first in a result, so the test's own
+ * are the last ones, one for each wallet step.
+ */
+export function conditionsFor(tier: Tier, o: Pick<TestOutcome, "result" | "steps">, env: Pick<Env, "chains">): EdgeCaseId[] {
+  const answers = (o.steps ?? []).flatMap((s) => s.actions ?? []).filter((a) => a.kind === "wallet").length;
+  if (tier !== "critical" || answers === 0) return [];
+  const own = o.result.walletRequests.filter((r) => r.kind === "sign").slice(-answers);
+  if (!own.some((r) => r.method === "eth_sendTransaction" && r.outcome === "approved")) return [];
   const live = env.chains.configs().some((x) => x.mode !== "fork");
   return CONDITIONS.filter((x) => x.default && !(live && x.needsFork)).map((x) => x.id);
 }

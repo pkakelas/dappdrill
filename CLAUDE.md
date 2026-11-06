@@ -22,18 +22,20 @@ packages/engine   The backend that drills a dApp. No DB. Public API in src/api.t
   src/chain/        Anvil forks, live-mode passthrough, RPC faults, chain detection
   src/wallet/       Injected EIP-1193/EIP-6963 provider (page side) + controller (node side)
   src/browser/      Playwright session: video, trace, console + RPC capture, page JSON-RPC routing
-  src/pipeline/     analyze (find what to test, write tests) and runTests (cached actions first, the agent when they stop working)
+  src/pipeline/     analyze (the CLI's quick look: find what to test, write tests) and runTests (cached actions first, the agent when they stop working)
   src/replay/       Replaying recorded actions + unhappy-path conditions, used by pipeline/
+  src/explore/      One pass over an app: look around and suggest tests, check the setup, an explorer per feature,
+                    prove each test on a fresh fork (replaying the explorer's actions first), confirm bugs
   src/agent/        Claude: LLM backends, analyst, tester, judge, test writer, assistant chat
   src/fake/         Canned engine for UI work (DAPPDRILL_FAKE_ENGINE=1)
   src/signing/      Signing review: decode, simulate, approvals, source/proxy/age, known-bad, UI match, baseline diff
 packages/cli      `dappdrill analyze` / `dappdrill run` over a committed tests file (JSON + Markdown + JUnit output)
-apps/worker       pg-boss jobs: analysis, test runs, test drafts, assistant turns, scheduled runs. Engine events → DB
+apps/worker       pg-boss jobs: explorations, test runs, test drafts, assistant turns, scheduled runs. Engine events → DB
 apps/web          Next.js app: auth (Better Auth, email/password + Google), organizations, all product pages
 fixtures/harbor-vault  Local test dApp with seeded bugs, used to measure what we catch
 ```
 
-Engine contract: the worker and CLI call only `analyze`, `runTests`, `writeTest`, `chatTurn`
+Engine contract: the worker and CLI call only `explore`, `analyze` (CLI only), `runTests`, `writeTest`, `chatTurn`
 (via `loadEngine()` from `@dappdrill/engine/fake`). Events stream through a `DrillEventSink`. Artifacts (videos,
 screenshots, traces) are files under an `artifactsDir`; paths in results are relative to it.
 
@@ -55,9 +57,9 @@ or `requireApp(appId)` from `apps/web/src/lib/session.ts`; forms send their `org
 - UI copy is plain: no "AI" badges or gradients, and "simulate" only means transaction simulation.
   Test status vocabulary: Passed / Failed / Couldn't run (plus Running, Queued, Not run yet).
 - Keep it clean, but don't overengineer: small modules, few abstractions, comments only where they help.
-- Three models: thinking `claude-opus-5-5` (env `DAPPDRILL_MODEL`) analyzes apps; fast
-  `claude-sonnet-5-5` (env `DAPPDRILL_FAST_MODEL`) runs test steps, judges results, writes tests and
-  answers the assistant; acting `claude-opus-5-5` (env `DAPPDRILL_ACT_MODEL`) takes over steps the
+- Three models: thinking `claude-opus-5-5` (env `DAPPDRILL_MODEL`) looks around an app and suggests tests; fast
+  `claude-sonnet-5-5` (env `DAPPDRILL_FAST_MODEL`) explores each feature, runs test steps, judges results, writes
+  tests and answers the assistant; acting `claude-opus-5-5` (env `DAPPDRILL_ACT_MODEL`) takes over steps the
   fast model can't do. Signing review gets no model during test runs, so a button label too vague for
   the rules stays unverified. With `ANTHROPIC_API_KEY` set we use the Anthropic SDK; otherwise the
   Claude Agent SDK and the local Claude Code login.

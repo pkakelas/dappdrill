@@ -4,12 +4,9 @@ import type {
   Blocked,
   BugTriage,
   ChainConfig,
-  CheckReplay,
   EdgeCaseId,
   ExploreState,
   FixedResponse,
-  Stalled,
-  SweepResults,
   TestRunResult,
   TestRunStatus,
   TestStep,
@@ -128,49 +125,21 @@ export const domains = pgTable(
   (t) => [uniqueIndex("domains_org_host").on(t.organizationId, t.host)],
 );
 
-
-// ---------------------------------------------------------------- analysis
+// ---------------------------------------------------------------- exploring
 
 export type JobStatus = "queued" | "running" | "done" | "failed" | "stopped";
 
-/** The first look at an app: a couple of minutes of browsing that maps it and writes the first tests. */
-export const analyses = pgTable(
-  "analyses",
-  {
-    id: id(),
-    appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
-    status: text("status").$type<JobStatus>().notNull().default("queued"),
-    /** Latest live-view frame (artifact path). */
-    liveFrame: text("live_frame"),
-    /** What it's doing, newest last. */
-    log: jsonb("log").$type<{ at: string; text: string }[]>().notNull().default([]),
-    blocked: jsonb("blocked").$type<Blocked>(),
-    stalled: jsonb("stalled").$type<Stalled>(),
-    costUsd: real("cost_usd").notNull().default(0),
-    error: text("error"),
-    stopRequested: boolean("stop_requested").notNull().default(false),
-    startedAt: ts("started_at"),
-    finishedAt: ts("finished_at"),
-    createdAt: createdAt(),
-  },
-  (t) => [index("analyses_app_idx").on(t.appId, t.createdAt)],
-);
-
-/** Exploring an app in depth, after the first look: explorers, what they checked, the tests and bugs that came of it. */
+/** One pass over an app: what was mapped and suggested, what explorers tried, and the tests and bugs that came of it. */
 export const explorations = pgTable(
   "explorations",
   {
     id: id(),
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
     status: text("status").$type<JobStatus>().notNull().default("queued"),
-    /** Time for the exploring itself; proving and confirming bugs come after it. */
-    budgetMinutes: integer("budget_minutes").notNull().default(30),
-    /** Everything the live view and the report draw. */
+    /** The most minutes explorers get; a pass ends sooner when nothing new turns up. */
+    budgetMinutes: integer("budget_minutes").notNull().default(15),
+    /** Everything the app page draws of the pass. */
     state: jsonb("state").$type<ExploreState>(),
-    /** Checks that can be repeated without a model, for sweeps. */
-    replays: jsonb("replays").$type<CheckReplay[]>().notNull().default([]),
-    /** The latest sweep of those checks. */
-    sweep: jsonb("sweep").$type<SweepResults>(),
     /** What a person decided about each bug, by bug id. Apart from state, which the worker overwrites. */
     triage: jsonb("triage").$type<Record<string, BugTriage>>().notNull().default({}),
     blocked: jsonb("blocked").$type<Blocked>(),

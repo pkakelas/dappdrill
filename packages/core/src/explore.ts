@@ -1,18 +1,17 @@
 /**
- * Exploring an app in depth, after the first look. A coordinator gives explorers an area each;
- * every explorer has its own browser, fork and wallet. What they check is cut into records of
- * one path plus one check, the ones that matter become tests, and each of those has to pass
- * again on a fresh fork, with none of the explorer's memory, before it is saved.
+ * Exploring an app: one pass that looks around, checks the setup, and gives each feature an
+ * explorer with its own browser, fork and wallet. The look suggests tests; explorers try them and
+ * find more. A suggested test is saved once it passes again on a clean fork from its plain steps,
+ * with none of the explorer's memory. Everything else that was tried stays visible as a check.
  *
  * The whole picture is one ExploreState, stored on the exploration row and drawn live.
  */
 import { z } from "zod";
 import { EdgeCaseId } from "./edge-cases.js";
-import { Step } from "./flow.js";
 import { TestDraft, TestStep } from "./test.js";
 
 /**
- * How much a flow matters. Critical: it signs, moves funds, or gates that. Important: balances,
+ * How much a feature matters. Critical: it signs, moves funds, or gates that. Important: balances,
  * positions, market data. Supporting: docs, legal, marketing; checked, never saved as tests.
  */
 export const Tier = z.enum(["critical", "important", "supporting"]);
@@ -20,27 +19,24 @@ export type Tier = z.infer<typeof Tier>;
 
 export const TIER_LABEL: Record<Tier, string> = { critical: "Critical", important: "Important", supporting: "Supporting" };
 
-/** Most saved tests per flow. A guess to tune. */
-export const TIER_TESTS: Record<Tier, number> = { critical: 12, important: 4, supporting: 0 };
+/** Most tests one pass saves per feature. A guess to tune. */
+export const TIER_TESTS: Record<Tier, number> = { critical: 6, important: 3, supporting: 0 };
 
-/** Share of the exploring time per tier, handed out to that tier's areas. A guess to tune. */
-export const TIER_TIME: Record<Tier, number> = { critical: 0.7, important: 0.2, supporting: 0.1 };
+/** The share of the pass's time one explorer of this tier may use. A guess to tune. */
+export const TIER_TIME: Record<Tier, number> = { critical: 0.5, important: 0.3, supporting: 0.15 };
 
-export const ExplorePhase = z.enum(["setup", "planning", "exploring", "extracting", "proving", "confirming", "closing", "done"]);
+export const ExplorePhase = z.enum(["looking", "setup", "exploring", "finishing", "done"]);
 export type ExplorePhase = z.infer<typeof ExplorePhase>;
 
 export const EXPLORE_PHASE_LABEL: Record<ExplorePhase, string> = {
-  setup: "Connecting",
-  planning: "Planning",
+  looking: "Looking around",
+  setup: "Checking the setup",
   exploring: "Exploring",
-  extracting: "Sorting checks",
-  proving: "Proving tests",
-  confirming: "Confirming bugs",
-  closing: "Closing",
+  finishing: "Finishing up",
   done: "Done",
 };
 
-/** What an explorer tries around a flow. */
+/** What an explorer tries around a feature. */
 export const ExploreVariation = z.enum(["happy", "input", "path", "state", "agreement", "round-trip"]);
 export type ExploreVariation = z.infer<typeof ExploreVariation>;
 
@@ -53,30 +49,30 @@ export const VARIATION_LABEL: Record<ExploreVariation, string> = {
   "round-trip": "Round trip",
 };
 
-/** A piece of the app given to one explorer. */
-export const ExploreArea = z.object({
-  id: z.string(),
-  title: z.string(),
-  flow: z.string(),
+/** Something users do in one part of the app. Each gets an explorer. */
+export const ExploreFeature = z.object({
+  name: z.string(),
   tier: Tier,
-  brief: z.string(),
+  /** What put it in this tier. */
+  why: z.string(),
   startPath: z.string().default("/"),
-  exclude: z.array(z.string()).default([]),
-  /** 1 for the plan; higher when spare time goes back into a flow. */
-  round: z.number().int().default(1),
+  /** What it holds and what to look out for, for its explorer. */
+  brief: z.string().default(""),
 });
-export type ExploreArea = z.infer<typeof ExploreArea>;
+export type ExploreFeature = z.infer<typeof ExploreFeature>;
 
 export const ExplorerStatus = z.enum(["queued", "running", "done", "stopped", "failed"]);
 export type ExplorerStatus = z.infer<typeof ExplorerStatus>;
 
-/** One explorer as the live view draws it. */
+/** One browser as the live view draws it: the look, the setup, an explorer, or a test being proved. */
 export const Explorer = z.object({
   id: z.string(),
   title: z.string(),
-  flow: z.string(),
+  feature: z.string(),
   tier: Tier,
   status: ExplorerStatus,
+  /** 1 for a feature's first explorer; higher when it earned another go. */
+  round: z.number().int().default(1),
   /** Latest frame, relative to the exploration's artifacts. */
   frame: z.string().optional(),
   url: z.string().optional(),
@@ -113,11 +109,11 @@ export type CheckAssert = z.infer<typeof CheckAssert>;
 export const ExploreCheckStatus = z.enum(["pass", "fail", "error"]);
 export type ExploreCheckStatus = z.infer<typeof ExploreCheckStatus>;
 
-/** One path plus one check. Its status comes only from that check's result. */
+/** One thing an explorer tried: a path plus one check. Its status comes only from that check's result. */
 export const ExploreCheck = z.object({
   id: z.string(),
   explorerId: z.string(),
-  flow: z.string(),
+  feature: z.string(),
   name: z.string(),
   variation: ExploreVariation,
   startPath: z.string(),
@@ -129,21 +125,12 @@ export const ExploreCheck = z.object({
   evidence: z.string(),
   /** The path handled a signature. */
   signs: z.boolean().default(false),
+  /** The suggested test this path was trying. */
+  suggestionId: z.string().optional(),
   screenshot: z.string().optional(),
   at: z.string(),
 });
 export type ExploreCheck = z.infer<typeof ExploreCheck>;
-
-/** What a sweep needs to repeat a check without a model. Kept apart from the state: the live view has no use for it. */
-export const CheckReplay = z.object({
-  id: z.string(),
-  name: z.string(),
-  flow: z.string(),
-  startPath: z.string(),
-  actions: z.array(Step),
-  assert: CheckAssert,
-});
-export type CheckReplay = z.infer<typeof CheckReplay>;
 
 export const BugSeverity = z.enum(["critical", "high", "medium", "low"]);
 export type BugSeverity = z.infer<typeof BugSeverity>;
@@ -175,7 +162,7 @@ export type BugEvidence = z.infer<typeof BugEvidence>;
 export const ExploreBug = z.object({
   id: z.string(),
   explorerId: z.string(),
-  flow: z.string(),
+  feature: z.string(),
   name: z.string(),
   summary: z.string(),
   steps: z.array(z.string()),
@@ -183,8 +170,10 @@ export const ExploreBug = z.object({
   actual: z.string(),
   severity: BugSeverity,
   status: BugStatus,
-  /** Who filed it: an explorer, a failed check nobody filed, or the signing review. */
-  source: z.enum(["explorer", "check", "signing"]).default("explorer"),
+  /** Who filed it: an explorer, a test that failed on a clean fork with the wallet or chain against it, or the signing review. */
+  source: z.enum(["explorer", "prove", "signing"]).default("explorer"),
+  /** How many times it came up. A signature shows on every path that reaches it. */
+  seen: z.number().int().default(1),
   evidence: BugEvidence,
   /** Why it was settled the way it was. */
   reasoning: z.string().optional(),
@@ -193,7 +182,7 @@ export const ExploreBug = z.object({
 });
 export type ExploreBug = z.infer<typeof ExploreBug>;
 
-/** Set by a person on a finished exploration. */
+/** Set by a person on a bug. */
 export const BugTriage = z.enum(["open", "accepted", "duplicate", "cant-reproduce", "works-as-intended"]);
 export type BugTriage = z.infer<typeof BugTriage>;
 
@@ -205,60 +194,45 @@ export const BUG_TRIAGE_LABEL: Record<BugTriage, string> = {
   "works-as-intended": "Works as intended",
 };
 
-/** Something that wasn't checked, and why. A Critical flow ends with a verdict or one of these. */
+/** Something that wasn't covered, and why. A Critical feature ends with a verdict or one of these. */
 export const ExploreGap = z.object({
-  flow: z.string(),
+  feature: z.string(),
   what: z.string(),
   why: z.string(),
 });
 export type ExploreGap = z.infer<typeof ExploreGap>;
 
-/** Work an explorer found outside its area. */
-export const ExploreProposal = z.object({
-  title: z.string(),
-  evidence: z.string(),
-  startPath: z.string().default("/"),
-  status: z.enum(["open", "accepted", "declined"]).default("open"),
-  note: z.string().optional(),
-});
-export type ExploreProposal = z.infer<typeof ExploreProposal>;
-
 /**
- * A test on its way to being saved. proving: on a fresh fork now. proved: passed twice.
- * draft: it failed, the reason stays with it. demoted: it passed once then failed, so it stays a check.
+ * A suggested test on its way to being saved.
+ * suggested: written, not tried yet (or tried and it didn't work; the note says why).
+ * trying: an explorer is on it. worked: it worked once for the explorer. proving: on a clean fork now.
+ * proved: it passed there, so it is saved. draft: it didn't, and is saved with the reason.
+ * bug: it failed because the app did the wrong thing. dropped: it doesn't apply to this app.
  */
-export const CandidateStatus = z.enum(["waiting", "proving", "proved", "draft", "demoted"]);
-export type CandidateStatus = z.infer<typeof CandidateStatus>;
+export const SuggestionStatus = z.enum(["suggested", "trying", "worked", "proving", "proved", "draft", "bug", "dropped"]);
+export type SuggestionStatus = z.infer<typeof SuggestionStatus>;
 
-export const ExploreCandidate = z.object({
+export const ExploreSuggestion = z.object({
   id: z.string(),
-  flow: z.string(),
+  feature: z.string(),
   tier: Tier,
   draft: TestDraft,
-  /** The checks it came from. */
-  checkIds: z.array(z.string()).default([]),
-  /** Why it earned a test of its own. */
-  why: z.string(),
-  status: CandidateStatus,
-  /** Why it isn't proved. */
+  /** The explorer that found it; none when the look wrote it. */
+  explorerId: z.string().optional(),
+  status: SuggestionStatus,
+  /** Why it isn't a test. */
   note: z.string().optional(),
-  /** A regression test for a confirmed bug: it fails until the bug is fixed. */
   bugId: z.string().optional(),
   /** Steps with the actions that worked, once proved. */
   steps: z.array(TestStep).optional(),
-  proof: z.string().optional(),
   /** Conditions that could change its result. */
   conditions: z.array(EdgeCaseId).default([]),
+  provedAt: z.string().optional(),
 });
-export type ExploreCandidate = z.infer<typeof ExploreCandidate>;
+export type ExploreSuggestion = z.infer<typeof ExploreSuggestion>;
 
-export const ExploreFlow = z.object({
-  name: z.string(),
-  tier: Tier,
-  /** What put it in this tier. */
-  why: z.string(),
-});
-export type ExploreFlow = z.infer<typeof ExploreFlow>;
+/** Still on offer: nothing has settled it. */
+export const openSuggestion = (s: Pick<ExploreSuggestion, "status">) => s.status === "suggested" || s.status === "trying" || s.status === "worked" || s.status === "proving";
 
 /** A line in the live feed. */
 export const ExploreFeedLine = z.object({
@@ -269,45 +243,52 @@ export const ExploreFeedLine = z.object({
 });
 export type ExploreFeedLine = z.infer<typeof ExploreFeedLine>;
 
+/** What the pass spent, in USD, by stage and by model role. */
+export const ExploreCosts = z.object({
+  stage: z.record(z.string(), z.number()).default({}),
+  model: z.record(z.string(), z.number()).default({}),
+});
+export type ExploreCosts = z.infer<typeof ExploreCosts>;
+
 export const ExploreState = z.object({
-  phase: ExplorePhase.default("setup"),
-  /** Ends when exploring has to stop; proving and confirming come after it. */
+  phase: ExplorePhase.default("looking"),
+  /** When exploring has to stop, whatever is left. */
   deadline: z.string().optional(),
-  flows: z.array(ExploreFlow).default([]),
-  areas: z.array(ExploreArea).default([]),
+  features: z.array(ExploreFeature).default([]),
   explorers: z.array(Explorer).default([]),
+  suggested: z.array(ExploreSuggestion).default([]),
   checks: z.array(ExploreCheck).default([]),
   bugs: z.array(ExploreBug).default([]),
   gaps: z.array(ExploreGap).default([]),
-  proposals: z.array(ExploreProposal).default([]),
-  candidates: z.array(ExploreCandidate).default([]),
-  /** Tests that look out of date. A person decides. */
-  retire: z.array(z.object({ testId: z.string(), name: z.string(), reason: z.string() })).default([]),
   /** Signing review verdicts seen while exploring. */
   signing: z.object({ dangerous: z.number().int().default(0), check: z.number().int().default(0), consistent: z.number().int().default(0) }).prefault({}),
   feed: z.array(ExploreFeedLine).default([]),
   /** Why it stopped before exploring, when it did. */
   stopped: z.string().optional(),
+  costs: ExploreCosts.optional(),
 });
 export type ExploreState = z.infer<typeof ExploreState>;
 
-/** What must be settled before an exploration may finish. */
-export function closeGate(state: Pick<ExploreState, "bugs" | "flows" | "checks" | "gaps">): { unreviewed: ExploreBug[]; unsettled: ExploreFlow[] } {
-  const settled = (f: ExploreFlow) => state.checks.some((c) => c.flow === f.name && c.status !== "error") || state.gaps.some((g) => g.flow === f.name);
+/** What must be settled before a pass may finish. */
+export function closeGate(state: Pick<ExploreState, "bugs" | "features" | "checks" | "gaps">): { unreviewed: ExploreBug[]; unsettled: ExploreFeature[] } {
+  const settled = (f: ExploreFeature) => state.checks.some((c) => c.feature === f.name && c.status !== "error") || state.gaps.some((g) => g.feature === f.name);
   return {
     unreviewed: state.bugs.filter((b) => b.status === "suspected" || b.status === "reproducing"),
-    unsettled: state.flows.filter((f) => f.tier === "critical" && !settled(f)),
+    unsettled: state.features.filter((f) => f.tier === "critical" && !settled(f)),
   };
 }
 
 /** "Open login from BTC-USD" and "Open login from ETH-USD" read as the same thing here. */
-export function checkKey(c: Pick<ExploreCheck, "flow" | "name" | "assert">): string {
-  return [c.flow, c.assert.kind, c.assert.value ?? "", c.name].join("\n").toLowerCase().replace(/\s+/g, " ");
+export function checkKey(c: Pick<ExploreCheck, "feature" | "name" | "assert">): string {
+  return [c.feature, c.assert.kind, c.assert.value ?? "", c.name].join("\n").toLowerCase().replace(/\s+/g, " ");
 }
 
-/** What a later sweep found for each check, by check id. */
-export const SweepResults = z.object({
-  at: z.string(),
-  results: z.record(z.string(), z.object({ status: ExploreCheckStatus, evidence: z.string() })),
-});
-export type SweepResults = z.infer<typeof SweepResults>;
+/** What became of a check, for the list of everything tried. */
+export type CheckFate = "test" | "suggested" | "bug" | "none";
+
+export function checkFate(check: Pick<ExploreCheck, "suggestionId">, suggested: Pick<ExploreSuggestion, "id" | "status">[]): CheckFate {
+  const s = suggested.find((x) => x.id === check.suggestionId);
+  if (!s || s.status === "dropped") return "none";
+  if (s.status === "proved" || s.status === "draft") return "test";
+  return s.status === "bug" ? "bug" : "suggested";
+}

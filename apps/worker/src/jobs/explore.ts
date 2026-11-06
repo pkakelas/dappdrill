@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
-import { ExploreState, newId, type DrillEvent, type ExploreCandidate, type TestStep } from "@dappdrill/core";
-import { addConditions, apps, explorations, flows, flowsWithTests, nextPosition, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
+import { ExploreState, newId, type AppMap, type AppSetup, type DrillEvent, type ExploreSuggestion, type TestStep } from "@dappdrill/core";
+import { addConditions, appTests, apps, explorations, nextPosition, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
+import type { KnownBug } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { config } from "../config.js";
@@ -17,8 +18,9 @@ type ExplorationRow = typeof explorations.$inferSelect;
 const STATE_EVERY_MS = 1200;
 
 /**
- * exploration.run: explore the app in depth. Tests are saved as they prove themselves, and
- * drafts with their reason; at the end the proved tests get a first run with their conditions.
+ * exploration.run: one pass over the app. What the look learns is saved first. A test is saved
+ * the moment it proves itself and gets a run with its conditions right away, so the page fills
+ * while the pass goes on; a test that didn't pass is saved as a draft with the reason.
  */
 export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explorationId: string, signal: AbortSignal): Promise<void> {
   const log = logger(`exploration ${explorationId}`);
@@ -48,12 +50,18 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
     else if (event.type === "log" && event.level !== "info") log.warn(event.message);
   }, log);
 
-  const known = await flowsWithTests(db, app.id);
-  const created: string[] = [];
-  const save = (c: ExploreCandidate) => saveTest(db, app.id, c).then((ids) => void created.push(...ids));
+  const known = await appTests(db, app.id);
+  let created = 0;
+  const save = async (suggestion: ExploreSuggestion) => {
+    const ids = await saveTest(db, app.id, suggestion);
+    created++;
+    // Drafts wait for a person; a proved test shows a real run straight away.
+    const batchId = ids.length ? await queueRuns(db, app.id, ids, "explore") : undefined;
+    if (batchId) await boss.send(QUEUES.tests, { batchId } satisfies TestsJob);
+  };
 
   await update({ status: "running", startedAt: new Date() });
-  log.info(`started: ${app.url}, ${row.budgetMinutes} minutes`);
+  log.info(`started: ${app.url}, up to ${row.budgetMinutes} minutes`);
 
   let status: JobStatus = "done";
   let error: string | null = null;
@@ -64,12 +72,13 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
         artifactsDir: artifactsDir("explorations", explorationId),
         budgetMinutes: row.budgetMinutes,
         hints: targetHints(app.settings),
-        map: app.map ?? undefined,
         setup: app.setup ?? undefined,
         slots: config.explorers,
-        tests: known.flatMap((f) => f.tests.filter((t) => !t.baseId).map((t) => ({ id: t.id, name: t.name, goal: t.goal, flow: f.name }))),
+        tests: known.filter((t) => !t.baseId).map((t) => ({ id: t.id, name: t.name, goal: t.goal })),
+        bugs: await knownBugs(db, app.id, explorationId),
       },
       {
+        onMap: (map, setup) => saveMap(db, app.id, map, setup),
         onTest: save,
         onSetupSteps: (steps) => saveSetup(db, app.id, steps),
       },
@@ -78,7 +87,8 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
     );
     await drain();
     await state.flush();
-    await update({ state: out.state, replays: out.replays, blocked: out.blocked ?? null, costUsd: out.costUsd });
+    await update({ state: out.state, blocked: out.blocked ?? null, costUsd: out.costUsd });
+    if (out.chains.length) await db.update(apps).set({ chains: out.chains }).where(eq(apps.id, app.id));
     if (out.state.stopped) error = out.state.stopped;
   } catch (e) {
     await drain();
@@ -92,57 +102,47 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
   else if (signal.aborted) [status, error] = ["failed", "The worker shut down during the exploration."];
   else if (error) status = "failed";
   await update({ status, error, finishedAt: new Date() });
-  log.info(`${status}: ${created.length} new tests`);
-
-  // Show them on the page with a real run. Drafts wait for a person.
-  if (status === "done" && created.length) {
-    const batchId = await queueRuns(db, app.id, created, "explore");
-    if (batchId) await boss.send(QUEUES.tests, { batchId } satisfies TestsJob);
-  }
+  log.info(`${status}: ${created} new tests`);
 }
 
-/** Puts a candidate in its flow, making the flow if it's new. Returns what should run next: a proved test and its conditions. */
-async function saveTest(db: Db, appId: string, c: ExploreCandidate): Promise<string[]> {
-  const [known] = await db.select({ id: flows.id }).from(flows).where(and(eq(flows.appId, appId), eq(flows.name, c.flow)));
-  let flowId = known?.id;
-  if (!flowId) {
-    flowId = newId("flow");
-    await db.insert(flows).values({ id: flowId, appId, name: c.flow, goal: "", position: await nextPosition(db, appId) });
+/** Bugs earlier passes confirmed and nobody dismissed, so they aren't filed again. */
+async function knownBugs(db: Db, appId: string, but: string): Promise<KnownBug[]> {
+  const rows = await db.select({ state: explorations.state, triage: explorations.triage }).from(explorations).where(and(eq(explorations.appId, appId), ne(explorations.id, but)));
+  const bugs = new Map<string, KnownBug>();
+  for (const row of rows) {
+    for (const b of row.state?.bugs ?? []) {
+      const triage = row.triage[b.id] ?? "open";
+      if (b.status === "confirmed" && (triage === "open" || triage === "accepted")) bugs.set(b.name.toLowerCase(), { id: b.id, name: b.name, summary: b.summary });
+    }
   }
+  return [...bugs.values()];
+}
+
+/** What the look learned. A setup the developer already has (maybe edited) wins over a new proposal. */
+async function saveMap(db: Db, appId: string, map: AppMap, setup?: AppSetup): Promise<void> {
+  const [current] = await db.select({ setup: apps.setup }).from(apps).where(eq(apps.id, appId));
+  await db.update(apps).set({ map, ...(setup && !current?.setup ? { setup } : {}) }).where(eq(apps.id, appId));
+}
+
+/** Saves a suggested test. Returns what should run next: a proved test and its conditions. */
+async function saveTest(db: Db, appId: string, s: ExploreSuggestion): Promise<string[]> {
   const testId = newId("test");
-  const proved = c.status === "proved";
+  const proved = s.status === "proved";
   await db.insert(tests).values({
     id: testId,
     appId,
-    flowId,
-    name: c.draft.name,
-    goal: c.draft.goal,
-    expected: c.draft.expected,
-    startPath: c.draft.startPath,
-    steps: c.steps ?? c.draft.steps.map((text) => ({ text })),
-    proof: c.proof,
-    position: await nextPosition(db, appId, flowId),
-    draftNote: proved ? null : (c.note ?? "It didn't pass on a fresh fork."),
+    name: s.draft.name,
+    goal: s.draft.goal,
+    expected: s.draft.expected,
+    startPath: s.draft.startPath,
+    steps: s.steps ?? s.draft.steps.map((text) => ({ text })),
+    position: await nextPosition(db, appId),
+    draftNote: proved ? null : (s.note ?? "It didn't pass on a clean fork."),
   });
-  return proved ? [testId, ...(await addConditions(db, testId, c.conditions))] : [];
+  return proved ? [testId, ...(await addConditions(db, testId, s.conditions))] : [];
 }
 
 async function saveSetup(db: Db, appId: string, steps: TestStep[]): Promise<void> {
   const [current] = await db.select({ setup: apps.setup }).from(apps).where(eq(apps.id, appId));
   if (current?.setup) await db.update(apps).set({ setup: { ...current.setup, steps } }).where(eq(apps.id, appId));
-}
-
-/** sweep.run: repeat a finished exploration's checks with no model. */
-export async function runSweep(db: Db, engine: Engine, explorationId: string, signal: AbortSignal): Promise<void> {
-  const log = logger(`sweep ${explorationId}`);
-  const [row] = await db.select().from(explorations).where(eq(explorations.id, explorationId));
-  if (!row || row.replays.length === 0) return;
-  const app = await loadApp(db, row.appId);
-  try {
-    const out = await engine.sweep(await buildTarget(db, app, "tests"), row.replays, { artifactsDir: artifactsDir("explorations", explorationId), setup: app.setup ?? undefined }, undefined, signal);
-    await db.update(explorations).set({ sweep: out.sweep }).where(eq(explorations.id, explorationId));
-    log.info(`${Object.keys(out.sweep.results).length} checks repeated`);
-  } catch (e) {
-    if (!signal.aborted) log.error("failed", e);
-  }
 }

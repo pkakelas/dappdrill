@@ -27,7 +27,7 @@ import {
   type WalletRequest,
 } from "@dappdrill/core";
 import type * as api from "../api.js";
-import { fakeExplore, fakeSweep } from "./explore.js";
+import { fakeExplore } from "./explore.js";
 import { stripedPng } from "./png.js";
 
 export interface Engine {
@@ -36,7 +36,6 @@ export interface Engine {
   writeTest: typeof api.writeTest;
   chatTurn: typeof api.chatTurn;
   explore: typeof api.explore;
-  sweep: typeof api.sweep;
 }
 
 const ACCOUNT = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
@@ -390,6 +389,6 @@ const chatTurn: Engine["chatTurn"] = async (_target, input) => {
   return { text, costUsd: 0.001 };
 };
 
-export const fakeEngine: Engine = { analyze, runTests, writeTest, chatTurn, explore: fakeExplore, sweep: fakeSweep };
+export const fakeEngine: Engine = { analyze, runTests, writeTest, chatTurn, explore: fakeExplore };
 
 export { loadEngine } from "./select.js";

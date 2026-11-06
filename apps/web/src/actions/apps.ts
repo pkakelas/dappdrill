@@ -13,7 +13,7 @@ import {
   type ChainConfig,
   type FixedResponse,
 } from "@dappdrill/core";
-import { analyses, apps, db, encrypt, testRuns, tests, type AppSettings } from "@dappdrill/db";
+import { apps, db, encrypt, explorations, testRuns, tests, type AppSettings } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -21,7 +21,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { hostOf } from "@/lib/domains";
-import { enqueue } from "@/lib/jobs";
+import { startPass } from "@/lib/pass";
 import { readChainId } from "@/lib/rpc";
 import { looksLikeKey } from "@/lib/secrets";
 import { can, denied } from "@/lib/permissions";
@@ -44,18 +44,6 @@ function nameFromHost(host: string): string {
   const parts = host.replace(/^www\./, "").replace(/:\d+$/, "").split(".");
   const word = parts.length > 2 ? parts[parts.length - 2]! : parts[0]!;
   return word.charAt(0).toUpperCase() + word.slice(1);
-}
-
-/** Starts the first look at an app; the page shows it live. */
-async function analyze(appId: string): Promise<void> {
-  const running = await db()
-    .select({ id: analyses.id })
-    .from(analyses)
-    .where(and(eq(analyses.appId, appId), inArray(analyses.status, ["queued", "running"])));
-  if (running.length) return;
-  const id = newId("ana");
-  await db().insert(analyses).values({ id, appId });
-  await enqueue("analysis.run", { analysisId: id });
 }
 
 /** /new: what the form's preview shows once a URL is in. */
@@ -153,15 +141,9 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
       .where(eq(apps.id, existing.id));
   }
   const hasTests = existing ? (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, existing.id)).limit(1)).length > 0 : false;
-  if (!hasTests) await analyze(appId!);
+  if (!hasTests) await startPass(appId!);
   revalidatePath("/", "layout"); // the app switcher lists it
   redirect(`/apps/${appId}`);
-}
-
-export async function analyzeAction(appId: string): Promise<void> {
-  await requireApp(appId);
-  await analyze(appId);
-  revalidatePath(`/apps/${appId}`);
 }
 
 // ---------------------------------------------------------------- settings
@@ -278,7 +260,7 @@ export async function deleteAppAction(appId: string): Promise<void> {
   if (!can(role, "apps.manage")) return;
   // Stop anything in flight first; the rows go with the app.
   await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.appId, app.id), eq(testRuns.status, "running")));
-  await db().update(analyses).set({ stopRequested: true }).where(and(eq(analyses.appId, app.id), eq(analyses.status, "running")));
+  await db().update(explorations).set({ stopRequested: true }).where(and(eq(explorations.appId, app.id), inArray(explorations.status, ["queued", "running"])));
   await db().delete(apps).where(eq(apps.id, app.id));
   revalidatePath("/", "layout");
   redirect("/");

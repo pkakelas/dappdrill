@@ -1,14 +1,19 @@
-import type { ExploreBug, ExploreCheck, ExploreFlow, ExploreState } from "@dappdrill/core";
+import type { ExploreBug, ExploreFeature, ExploreState, ExploreSuggestion } from "@dappdrill/core";
 import { describe, expect, it } from "vitest";
-import { settleDecision } from "../../src/explore/bugs.js";
+import { matchReport, settleDecision } from "../../src/explore/bugs.js";
 import { agrees } from "../../src/explore/checks.js";
-import { areaBudgetMs } from "../../src/explore/plan.js";
-import { enforceRule, extractChecks } from "../../src/explore/promote.js";
+import { MAX_CRITICAL, settleFeatures, type Found } from "../../src/explore/look.js";
+import { conditionsFor, hardEvidence } from "../../src/explore/prove.js";
+import { assign } from "../../src/explore/recorded.js";
+import { firstJobs, MAX_ROUNDS, nextRound } from "../../src/explore/run.js";
 
-const check = (id: string, over: Partial<ExploreCheck> = {}): ExploreCheck => ({ id, explorerId: "e", flow: "Deposit", name: "Shows a balance", variation: "happy", startPath: "/", path: ["Open"], assert: { kind: "shows", value: "Balance" }, status: "pass", evidence: "", signs: false, at: "", ...over });
-const flow = (tier: ExploreFlow["tier"]): ExploreFlow => ({ name: "Deposit", tier, why: "" });
-const state = (over: Partial<ExploreState>) => ({ flows: [], checks: [], bugs: [], ...over }) as ExploreState;
-const pick = (name: string, checkIds: string[], over = {}) => ({ test: { name, goal: "", expected: "", startPath: "/", steps: [] }, checkIds, why: "", canFailOnItsOwn: true, provesOutcome: true, ...over });
+const feature = (name: string, tier: ExploreFeature["tier"] = "critical"): ExploreFeature => ({ name, tier, why: "", startPath: "/", brief: "" });
+const draft = (name: string) => ({ name, goal: "", expected: "", startPath: "/", steps: ["Do it"] });
+const suggestion = (over: Partial<ExploreSuggestion> = {}): ExploreSuggestion => ({ id: "s", feature: "Deposit", tier: "critical", draft: draft("Deposit"), status: "suggested", conditions: [], ...over });
+const state = (over: Partial<ExploreState> = {}) => ({ suggested: [], bugs: [], checks: [], ...over }) as unknown as ExploreState;
+const outcome = (result: object, steps: object[] = []) => ({ result: { walletRequests: [], signingReviews: [], ...result }, steps }) as never;
+const forks = { chains: { configs: () => [{ mode: "fork" }] } } as never;
+const live = { chains: { configs: () => [{ mode: "live" }] } } as never;
 
 describe("agrees", () => {
   it("allows the rounding a page shows", () => {
@@ -22,45 +27,38 @@ describe("agrees", () => {
   });
 });
 
-describe("extractChecks", () => {
-  it("merges repeats and keeps the failure", () => {
-    const s = state({ checks: [check("a"), check("b", { status: "fail", evidence: "No balance" })] });
-    extractChecks(s, new Set());
-    expect(s.checks.map((c) => c.id)).toEqual(["b"]);
+describe("settleFeatures", () => {
+  const found = (features: Found["features"]): Found => ({ summary: "", pages: [], features });
+  const f = (name: string, tier: ExploreFeature["tier"], tests = 3) => ({ ...feature(name, tier), tests: Array.from({ length: tests }, (_, i) => draft(`${name} ${i}`)) });
+
+  it("keeps a short Critical list and moves the rest to Important", () => {
+    const out = settleFeatures(found(["A", "B", "C", "D", "E"].map((n) => f(n, "critical"))));
+    expect(out.features.map((x) => x.tier)).toEqual([...Array(MAX_CRITICAL).fill("critical"), "important"]);
+    expect(out.features.at(-1)!.tests).toHaveLength(2);
   });
 
-  it("files a failed check nobody filed, and leaves one that was", () => {
-    const s = state({ checks: [check("a", { status: "fail" }), check("b", { status: "fail", name: "Other" })] });
-    extractChecks(s, new Set(["a"]));
-    expect(s.bugs.map((b) => b.name)).toEqual(["Other"]);
-    expect(s.bugs[0]).toMatchObject({ source: "check", status: "suspected" });
-  });
-
-  it("moves a flow that signed up to Critical", () => {
-    const s = state({ flows: [flow("important")], checks: [check("a", { signs: true })] });
-    extractChecks(s, new Set());
-    expect(s.flows[0]!.tier).toBe("critical");
+  it("writes no tests for supporting pages, and drops a feature named twice", () => {
+    const out = settleFeatures(found([f("Docs", "supporting"), f("docs", "supporting")]));
+    expect(out.features).toHaveLength(1);
+    expect(out.features[0]!.tests).toEqual([]);
   });
 });
 
-describe("enforceRule", () => {
-  const checks = [check("a"), check("b", { status: "fail" })];
+describe("matchReport", () => {
+  const bugs = [{ id: "bug_1" }];
 
-  it("saves nothing for a Supporting flow", () => {
-    expect(enforceRule(flow("supporting"), { candidates: [pick("One", ["a"])] } as never, checks, [])).toEqual([]);
+  it("files the first bug straight away", () => {
+    expect(matchReport([], undefined)).toBe("new");
   });
 
-  it("needs both parts of the rule and a check that passed", () => {
-    const picks = [pick("Shallow", ["a"], { provesOutcome: false }), pick("Tied", ["a"], { canFailOnItsOwn: false }), pick("Failing", ["b"]), pick("Good", ["a", "b"])];
-    const out = enforceRule(flow("critical"), { candidates: picks } as never, checks, []);
-    expect(out.map((c) => c.draft.name)).toEqual(["Good"]);
-    expect(out[0]!.checkIds).toEqual(["a"]);
+  it("asks once something is filed", () => {
+    expect(matchReport(bugs, undefined)).toBe("ask");
   });
 
-  it("won't save a name twice, or past the tier's limit", () => {
-    const existing = [{ id: "t", name: "good", goal: "", flow: "Deposit" }, { id: "u", name: "x", goal: "", flow: "Deposit" }, { id: "v", name: "y", goal: "", flow: "Deposit" }];
-    const out = enforceRule(flow("important"), { candidates: [pick("Good", ["a"]), pick("One", ["a"]), pick("Two", ["a"])] } as never, checks, existing);
-    expect(out.map((c) => c.draft.name)).toEqual(["One"]);
+  it("takes the explorer's answer, and files a bug whose match doesn't exist", () => {
+    expect(matchReport(bugs, "bug_1")).toBe("bug_1");
+    expect(matchReport(bugs, "new")).toBe("new");
+    expect(matchReport(bugs, "bug_9")).toBe("new");
   });
 });
 
@@ -74,20 +72,89 @@ describe("settleDecision", () => {
 
   it("only calls something a duplicate of a bug that's settled", () => {
     expect(settleDecision(bug(), "duplicate", "bug_1", [])).toBe("reproduce");
-    expect(settleDecision(bug(), "duplicate", "bug_1", [{ id: "bug_1" } as ExploreBug])).toBe("duplicate");
+    expect(settleDecision(bug(), "duplicate", "bug_1", [{ id: "bug_1" }])).toBe("duplicate");
   });
 });
 
-describe("areaBudgetMs", () => {
-  const areas = [{ tier: "critical" }, { tier: "critical" }, { tier: "important" }, { tier: "supporting" }] as const;
-  const hour = 3_600_000;
-
-  it("gives Critical areas the larger share, split between them", () => {
-    expect(areaBudgetMs(areas[0], [...areas], hour, 1)).toBeCloseTo(hour * 0.35);
-    expect(areaBudgetMs(areas[2], [...areas], hour, 1)).toBeCloseTo(hour * 0.2);
+describe("hardEvidence", () => {
+  it("takes a revert as the app's fault", () => {
+    expect(hardEvidence(outcome({ walletRequests: [{ kind: "sign", outcome: "errored", error: "execution reverted: paused" }] }))).toMatch(/reverted/);
   });
 
-  it("hands a missing tier's time to the others", () => {
-    expect(areaBudgetMs(areas[0], [areas[0]], hour, 1)).toBeCloseTo(hour);
+  it("leaves a test that just didn't get there as a draft", () => {
+    expect(hardEvidence(outcome({ failure: "The button wasn't there" }))).toBeUndefined();
+    expect(hardEvidence(outcome({ walletRequests: [{ kind: "sign", outcome: "rejected" }] }))).toBeUndefined();
+    expect(hardEvidence(outcome({ signingReviews: [{ verdict: "dangerous", title: "Unlimited approval", summary: "" }] }))).toBeUndefined();
+  });
+});
+
+describe("conditionsFor", () => {
+  const wallet = (respond = "approve") => ({ text: "In the wallet", actions: [{ kind: "wallet", respond }] });
+  const request = (method: string, outcome = "approved") => ({ kind: "sign", method, outcome });
+  const sent = outcome({ walletRequests: [request("eth_sendTransaction")] }, [wallet()]);
+
+  it("gives conditions only to Critical tests that send a transaction", () => {
+    expect(conditionsFor("critical", sent, forks).length).toBeGreaterThan(0);
+    expect(conditionsFor("important", sent, forks)).toEqual([]);
+    expect(conditionsFor("critical", outcome({}), forks)).toEqual([]);
+  });
+
+  it("doesn't count the setup's transaction, a signed message or a rejection", () => {
+    const setupOnly = outcome({ walletRequests: [request("eth_sendTransaction")] }, [{ text: "Type too much" }]);
+    const message = outcome({ walletRequests: [request("eth_sendTransaction"), request("personal_sign")] }, [wallet()]);
+    const rejected = outcome({ walletRequests: [request("eth_sendTransaction"), request("eth_sendTransaction", "rejected")] }, [wallet("reject")]);
+    for (const o of [setupOnly, message, rejected]) expect(conditionsFor("critical", o, forks)).toEqual([]);
+  });
+
+  it("leaves out what needs a fork on a live chain", () => {
+    expect(conditionsFor("critical", sent, live).length).toBeLessThan(conditionsFor("critical", sent, forks).length);
+  });
+});
+
+describe("assign", () => {
+  const click = (text: string) => ({ kind: "click", target: { text } }) as never;
+  const actions = [click("Connect"), click("Oops"), click("Deposit")];
+
+  it("gives each step its actions and leaves a step without any to the model", () => {
+    const steps = assign(["Connect the wallet", "Enter 5", "Deposit"], actions, [1, 0, 3]);
+    expect(steps?.map((s) => s.actions?.length)).toEqual([1, undefined, 1]);
+  });
+
+  it("refuses an answer that doesn't fit", () => {
+    expect(assign(["A", "B"], actions, [1, 2])).toBeUndefined();
+    expect(assign(["A", "B"], actions, [2, 1, 2])).toBeUndefined();
+    expect(assign(["A", "B"], actions, [1, 2, 3])).toBeUndefined();
+    expect(assign(["A", "B"], actions, [0, 0, 0])).toBeUndefined();
+  });
+});
+
+describe("firstJobs", () => {
+  it("puts Critical first and gives all supporting pages one explorer", () => {
+    const jobs = firstJobs([feature("Docs", "supporting"), feature("Balances", "important"), feature("Terms", "supporting"), feature("Deposit")]);
+    expect(jobs.map((j) => j.feature.name)).toEqual(["Deposit", "Balances", "Other pages"]);
+    expect(jobs.at(-1)!.feature.brief).toContain("Terms");
+  });
+});
+
+describe("nextRound", () => {
+  const job = (tier: ExploreFeature["tier"] = "critical", round = 1) => ({ feature: feature("Deposit", tier), round });
+
+  it("goes again while a suggested test is untried", () => {
+    expect(nextRound(state({ suggested: [suggestion()] }), job("important"), 0)?.round).toBe(2);
+  });
+
+  it("goes again on a Critical feature that kept finding things, and on no other", () => {
+    expect(nextRound(state(), job(), 1)?.round).toBe(2);
+    expect(nextRound(state(), job("important"), 1)).toBeUndefined();
+  });
+
+  it("stops when a round found nothing, at the last round, and for supporting pages", () => {
+    expect(nextRound(state(), job(), 0)).toBeUndefined();
+    expect(nextRound(state({ suggested: [suggestion()] }), job("critical", MAX_ROUNDS), 3)).toBeUndefined();
+    expect(nextRound(state({ suggested: [suggestion({ feature: "Deposit", tier: "supporting" })] }), job("supporting"), 3)).toBeUndefined();
+  });
+
+  it("doesn't retry a test that was tried and didn't work", () => {
+    expect(nextRound(state({ suggested: [suggestion({ note: "It looked like a bug to an explorer, but a second look disagreed." })] }), job("important"), 0)).toBeUndefined();
   });
 });
