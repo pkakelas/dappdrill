@@ -18,9 +18,9 @@ export function Line({ mark, name, status, action, className }: { mark: React.Re
       {mark}
       <div className="flex min-w-0 flex-1 flex-col gap-x-4 sm:flex-row sm:items-center sm:justify-between">
         {name}
-        <span className="shrink-0 text-xs text-muted-foreground sm:group-hover/line:invisible sm:group-has-[button:focus-visible]/line:invisible">{status}</span>
+        <span className={cx("shrink-0 text-xs text-muted-foreground", Boolean(action) && "sm:group-hover/line:invisible sm:group-has-[button:focus-visible]/line:invisible")}>{status}</span>
       </div>
-      <span className={cx("relative z-10 flex items-center [@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-2", REVEAL, "group-hover/line:opacity-100")}>{action}</span>
+      {Boolean(action) && <span className={cx("relative z-10 flex items-center [@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-2", REVEAL, "group-hover/line:opacity-100")}>{action}</span>}
     </div>
   );
 }
@@ -79,7 +79,7 @@ export function ConditionFork({ appId, tests, reads, runs, children }: { appId: 
 
 /** Why it didn't pass, on hover. */
 function WithReason({ read, run, children }: { read: TestRead; run?: TestRunRow; children: React.ReactElement }) {
-  const reason = (read.settled === "fail" || read.settled === "error" || read.settled === "skipped") && run?.result?.failure;
+  const reason = read.settled !== "pass" && run?.result?.failure;
   if (!reason) return children;
   return (
     <Tooltip>

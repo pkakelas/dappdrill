@@ -140,7 +140,7 @@ export const explorations = pgTable(
     budgetMinutes: integer("budget_minutes").notNull().default(15),
     /** Everything the app page draws of the pass. */
     state: jsonb("state").$type<ExploreState>(),
-    /** What a person decided about each bug, by bug id. Apart from state, which the worker overwrites. */
+    /** Where each bug stands, by bug id: dismissed by a person, or fixed. Apart from state, which the worker overwrites. */
     triage: jsonb("triage").$type<Record<string, BugTriage>>().notNull().default({}),
     blocked: jsonb("blocked").$type<Blocked>(),
     costUsd: real("cost_usd").notNull().default(0),
@@ -174,6 +174,8 @@ export const tests = pgTable(
     baseId: text("base_id").references((): AnyPgColumn => tests.id, { onDelete: "cascade" }),
     /** The test this one was forked from. */
     forkedFrom: text("forked_from"),
+    /** The bug this test was written from. The bug is marked fixed when the test passes. */
+    bugId: text("bug_id"),
     /** Text that proved the expected result last time. */
     proof: text("proof"),
     /** Set while the worker writes the test (a fork, a request to the agent); the page shows it. */

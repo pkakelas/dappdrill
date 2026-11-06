@@ -10,7 +10,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { TestRunResult, type AppSetup, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
+import { TestRunResult, type AppSetup, type Blame, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
 import type { Env } from "./env.js";
 import { BlockedError, landingBotCheck, openSession, plain, walkSteps, type WalkOptions } from "./steps.js";
 
@@ -43,6 +43,8 @@ interface SetupRun {
   results: TestStepResult[];
   steps: TestStep[];
   failure?: string;
+  /** Whose move a failed setup is: ours when something of ours broke, otherwise the owner's. */
+  blame?: Blame;
   storageState?: string;
   reviews: SigningReview[];
   walletRequests: WalletRequest[];
@@ -64,12 +66,12 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
   return {
     when: () => setup.when,
 
-    /** Runs the setup for this test when it needs to; an outcome when the test can't run. */
-    async prepare(spec: TestSpec, signal?: AbortSignal): Promise<{ pre: Prepared } | { outcome: SetupTestOutcome }> {
+    /** Runs the setup for this test when it needs to; an outcome when the test can't run. Quiet: no progress, for a run that already has its result. */
+    async prepare(spec: TestSpec, signal?: AbortSignal, quiet = false): Promise<{ pre: Prepared } | { outcome: SetupTestOutcome }> {
       // On a live chain every test after the first starts from what the earlier ones left.
       const shared = live && tests++ > 0;
       if (setup.when === "once" && once) {
-        if (!once.ok) return { outcome: failed(spec, summary(once, true, shared), once.failure) };
+        if (!once.ok) return { outcome: failed(spec, summary(once, true, shared), once.blame, once.failure) };
         return { pre: { storageState: once.storageState, setup: summary(once, true, shared) } };
       }
 
@@ -80,18 +82,19 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
         dir: (dir ??= await mkdtemp(path.join(tmpdir(), "dappdrill-setup-"))),
         n: ++runs,
         onFrame: (p) => hooks.onFrame?.(spec.id, p) ?? Promise.resolve(),
-        progress: (results) => hooks.onProgress?.(spec.id, { ...pending, setup: { ok: false, steps: results, when: setup.when, reused: false, shared } }),
+        progress: (results) => (quiet ? undefined : hooks.onProgress?.(spec.id, { ...pending, setup: { ok: false, steps: results, when: setup.when, reused: false, shared } })),
       });
       const learned = run.steps.some((s, i) => s.actions !== setup.steps[i]?.actions);
       setup = { ...setup, steps: run.steps };
       if (learned) await hooks.onSetupSteps?.(run.steps);
       const result = summary(run, false, shared);
       if (run.stopped) return { outcome: { testId: spec.id, status: "stopped", result: TestRunResult.parse({ setup: result }) } };
-      if (setup.when === "once") once = run;
+      // A setup we broke gets another go before the next test.
+      if (setup.when === "once" && run.blame !== "ours") once = run;
       if (!run.ok) {
         // A setup that worked earlier in this run and fails now often can't be repeated (a faucet limit).
         const hint = setup.when === "each" && passedBefore ? " It worked before an earlier test in this run, so it may not be repeatable: try running it once per run." : "";
-        return { outcome: failed(spec, result, `${run.failure ?? "it didn't finish"}${hint}`) };
+        return { outcome: failed(spec, result, run.blame, `${run.failure ?? "it didn't finish"}${hint}`) };
       }
       passedBefore = true;
       return { pre: { storageState: run.storageState, setup: result, reviews: run.reviews, walletRequests: run.walletRequests } };
@@ -106,11 +109,11 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
 
 export type SetupRunner = ReturnType<typeof setupRunner>;
 
-function failed(spec: TestSpec, setup: SetupRunResult, why?: string): SetupTestOutcome {
+function failed(spec: TestSpec, setup: SetupRunResult, blame: Blame = "input", why?: string): SetupTestOutcome {
   return {
     testId: spec.id,
     status: "error",
-    result: TestRunResult.parse({ setup, steps: spec.steps.map(() => ({ status: "skipped" })), failure: `Setup didn't finish. ${why ?? ""}`.trim() }),
+    result: TestRunResult.parse({ setup, steps: spec.steps.map(() => ({ status: "skipped" })), blame, failure: `Setup didn't finish. ${why ?? ""}`.trim() }),
   };
 }
 
@@ -139,6 +142,7 @@ async function runSetup(
   } catch (e) {
     run.stopped = Boolean(opts.signal?.aborted);
     run.failure = e instanceof BlockedError ? `Blocked: ${e.blocked.reason}` : plain(e);
+    if (!(e instanceof BlockedError)) run.blame = "ours";
     for (const r of results) if (r.status === "pending" || r.status === "running") r.status = "skipped";
   } finally {
     run.walletRequests = session.wallet.requests();

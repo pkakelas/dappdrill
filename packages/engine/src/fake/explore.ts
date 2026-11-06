@@ -144,9 +144,11 @@ export const fakeExplore: Engine["explore"] = async (target, opts, hooks, sink, 
       if (status !== "confirmed") for (const x of s.suggested) if (x.bugId === bugId && x.status === "bug") Object.assign(x, { status: "suggested", bugId: undefined });
     });
     board.feed(status === "confirmed" ? "bug" : "note", status === "confirmed" ? `Confirmed: ${name}` : `${name}: couldn't reproduce it`);
+    // The test an explorer was on when it found a bug that held is saved as the test that found it.
+    if (status === "confirmed") for (const x of board.state.suggested.filter((x) => x.bugId === bugId && x.status === "bug")) await hooks.onTest?.(structuredClone(x));
   };
 
-  const file = (bug: Pick<ExploreBug, "explorerId" | "feature" | "name" | "summary" | "steps" | "expected" | "actual" | "severity" | "source" | "evidence">, path: Path): string => {
+  const file = (bug: Pick<ExploreBug, "explorerId" | "feature" | "name" | "summary" | "steps" | "expected" | "actual" | "check" | "checkId" | "severity" | "source" | "evidence">, path: Path): string => {
     const id = newId("bug");
     board.change((s) => {
       s.bugs.push({ ...bug, id, status: "suspected", seen: 1, at: nowIso() });
@@ -194,7 +196,7 @@ export const fakeExplore: Engine["explore"] = async (target, opts, hooks, sink, 
           const e = s.explorers.find((x) => x.id === id);
           if (e) e.checks++;
         });
-        board.feed(pass ? "pass" : "fail", `${name}: ${evidence}`, id);
+        board.feed(pass ? "pass" : "fail", name, id);
       }
       if (path.signing) {
         board.change((s) => void s.signing.dangerous++);
@@ -207,6 +209,7 @@ export const fakeExplore: Engine["explore"] = async (target, opts, hooks, sink, 
             steps: ["Connect the wallet", "Click Claim rewards", "Look at what the wallet is asked"],
             expected: "The wallet is only asked for what the button says.",
             actual: "It is asked for an unlimited approval.",
+            check: "Sign only what the button says",
             severity: "critical",
             source: "signing",
             evidence: { console: [], network: [], chain: ["approve(0x9f3a…c2e1, unlimited)"] },
@@ -229,6 +232,8 @@ export const fakeExplore: Engine["explore"] = async (target, opts, hooks, sink, 
             steps: planned?.draft.steps ?? ["Connect the wallet", "Enter 1.0000001 as the amount", "Click Deposit"],
             expected: planned?.draft.expected ?? "The form refuses the amount.",
             actual: last.evidence,
+            check: planned ? undefined : "Refuse an amount with too many decimals",
+            checkId: last.id,
             severity: "high",
             source: "explorer",
             evidence: { screenshot: last.screenshot, console: planned ? ["Error: execution reverted"] : [], network: [], chain: [last.evidence] },
@@ -257,7 +262,7 @@ export const fakeExplore: Engine["explore"] = async (target, opts, hooks, sink, 
   try {
     board.phase("looking", "Looking around the app");
     board.addExplorer({ id: "look", title: "Looking around", feature: "", tier: "critical", status: "running", doing: "Opening the app", startedAt: nowIso(), activeAt: nowIso() });
-    for (const note of ["The landing page explains a USDC vault on Base", "The app lives at /vault, behind Connect wallet", "A faucet gives 1,000 test USDC once per account", "Rewards accrue per block and are claimed with a transaction"]) {
+    for (const note of ["USDC vault on Base", "Vault page behind Connect wallet", "Faucet gives test USDC once", "Rewards claimed with a transaction"]) {
       board.explorer("look", { doing: note, frame: await frame(artifactsDir), url: target.url, activeAt: nowIso() });
       board.feed("note", note, "look");
       await beat(signal, 8);

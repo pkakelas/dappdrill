@@ -1,6 +1,6 @@
 import { signingText, type SigningFlag as Signing } from "@dappdrill/core";
 import { specOf, type TestRow, type TestRunRow } from "@dappdrill/db";
-import { Wallet } from "lucide-react";
+import { Bug, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
@@ -9,7 +9,7 @@ import { timeAgo } from "@/lib/format";
 import { failureParts, Line } from "./condition-branches";
 import { RunButton } from "./run-button";
 import { SigningFlag } from "./signing-flag";
-import { readLabel, REVEAL, STATE_LABEL, STATE_TEXT, StateMark, type TestRead } from "./status";
+import { OUR_ERROR, readLabel, REVEAL, STATE_LABEL, STATE_TEXT, StateMark, type TestRead } from "./status";
 import { WriteTest } from "./write-test";
 
 /** `run` is the result its status reads from; `live` the newest run, for progress. `signing` covers its conditions too. */
@@ -22,7 +22,9 @@ export interface TestCardProps {
   signs: boolean;
   signing: Signing;
   hasConditions: boolean;
-  /** The test's conditions. */
+  /** The bug it found, and where that is listed. */
+  found?: { name: string; href: string };
+  /** What nests under the line: its conditions. */
   children?: ReactNode;
 }
 
@@ -83,12 +85,53 @@ export function TestList({ filter, children }: { filter: ReactNode; children: Re
   );
 }
 
-/** A test as one line, with its conditions nested under it. One that stopped says where, which is what lifts it out of the list. */
+/**
+ * The line under the name: where it stopped, and whose move it is. A failure that isn't confirmed
+ * says so; one whose test is at fault says what to change.
+ */
+function Under({ read, run, found }: Pick<TestCardProps, "read" | "run" | "found">) {
+  if (read.ours) return <p className="truncate text-xs text-muted-foreground">{OUR_ERROR}</p>;
+  const failure = run?.result?.failure;
+  const look = run?.result?.secondLook;
+  const at = failure ? failureParts(failure) : undefined;
+  const where = at && (at.where ?? at.why);
+  if (read.checking)
+    return (
+      <p className="flex items-center gap-2 text-xs text-live">
+        <span className="relative flex size-1.5 shrink-0">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-50 motion-reduce:animate-none" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-live" />
+        </span>
+        <span className="truncate">Checking again in a fresh browser</span>
+      </p>
+    );
+  if (read.settled === "fail" && found)
+    return (
+      <p className="flex min-w-0 items-center gap-1.5 text-xs text-bad">
+        <Bug className="size-3.5 shrink-0" aria-hidden="true" />
+        <Link href={found.href} className="relative z-10 min-w-0 truncate rounded-sm underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {found.name}
+        </Link>
+      </p>
+    );
+  if (read.settled === "probable")
+    return (
+      <p className="truncate text-xs text-muted-foreground" title={look?.reason}>
+        {where && <span className="text-bad">{where}</span>}
+        {where && " · "}
+        {look ? "Not confirmed when checked again" : "Not checked again yet"}
+      </p>
+    );
+  if (read.settled === "input" && look?.verdict === "test") return <p className="truncate text-xs text-warn">The app is fine, the test was wrong{look.reason ? `: ${look.reason}` : "."}</p>;
+  if ((read.settled === "fail" || read.settled === "input") && where) return <p className={cx("truncate text-xs", STATE_TEXT[read.settled])}>{where}</p>;
+  return null;
+}
+
+/** A test as one line, with the bug it found named under it and its conditions nested below. One that stopped says where, which is what lifts it out of the list. */
 export function TestLine(props: TestCardProps) {
   const { appId, test, read, run, children } = props;
   const now = progress(props);
-  const reason = read.settled === "fail" || read.settled === "error" || read.settled === "skipped" ? run?.result?.failure : undefined;
-  const stopped = reason && read.settled !== "skipped" ? failureParts(reason) : undefined;
+  const reason = read.settled !== "pass" ? run?.result?.failure : undefined;
   return (
     <li className="p-1.5">
       <Line
@@ -97,7 +140,7 @@ export function TestLine(props: TestCardProps) {
         name={
           <div className="flex min-w-0 flex-col gap-0.5">
             <Title {...props} />
-            {test.draftNote ? <p className="truncate text-xs text-muted-foreground">{test.draftNote}</p> : stopped && <p className={cx("truncate text-xs", STATE_TEXT[read.settled])}>{stopped.where ?? stopped.why}</p>}
+            <Under read={read} run={run} found={props.found} />
           </div>
         }
         status={

@@ -107,13 +107,17 @@ async function reviewBug(run: ExploreRun, id: string): Promise<void> {
 }
 
 /**
- * A suggested test that was written off as a bug comes back when the bug doesn't hold: as a draft
- * when it had already failed on a clean fork, as a suggestion when only an explorer said so.
+ * What happens to the suggested test a bug stood in for. When the bug holds, the test is saved as
+ * the test that found it. When it doesn't, the test comes back: as a draft when it had already
+ * failed on a clean fork, as a suggestion when only an explorer said so.
  */
 async function afterVerdict(run: ExploreRun, bugId: string): Promise<void> {
   const { board } = run;
   const bug = board.state.bugs.find((b) => b.id === bugId)!;
-  if (bug.status === "confirmed") return;
+  if (bug.status === "confirmed") {
+    for (const x of board.state.suggested.filter((x) => x.bugId === bugId && x.status === "bug")) await run.hooks.onTest?.(structuredClone(x));
+    return;
+  }
   const back: ExploreSuggestion[] = [];
   board.change((s) => {
     for (const x of s.suggested) {
@@ -180,7 +184,7 @@ async function reproduce(run: ExploreRun, env: Env, bugId: string): Promise<void
       await restore();
     }
     if (run.signal?.aborted) return board.explorer(worker, { status: "stopped", doing: undefined, finishedAt: nowIso() });
-    write(run, bugId, verdict?.reproduced ? { status: "confirmed", reasoning: verdict.what } : { status: "not-reproduced", reasoning: verdict?.what ?? "The reproducer didn't reach a verdict." });
+    write(run, bugId, verdict?.reproduced ? { status: "confirmed", reproduced: true, reasoning: verdict.what } : { status: "not-reproduced", reasoning: verdict?.what ?? "The reproducer didn't reach a verdict." });
     board.feed(verdict?.reproduced ? "bug" : "note", verdict?.reproduced ? `Confirmed: ${bug.name}` : `${bug.name}: couldn't reproduce it`);
     board.explorer(worker, { status: "done", doing: undefined, finishedAt: nowIso() });
     await afterVerdict(run, bugId);

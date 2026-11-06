@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   conditionInfo,
+  failedAt,
   newId,
   nowIso,
   parseBrief,
@@ -259,6 +260,7 @@ const runTests: Engine["runTests"] = async (target, items, opts, hooks) => {
         // The condition replays the base's steps; a base that fails can't lend them.
         await beat(signal ?? opts.signal, 3);
         status = "error";
+        result.blame = "base";
         result.failure = `“${source.name}” has to pass before its conditions can run.`;
         for (const s of result.steps) s.status = "skipped";
       } else {
@@ -317,8 +319,19 @@ const runTests: Engine["runTests"] = async (target, items, opts, hooks) => {
     result.costUsd = condition ? 0.002 : source.steps.some((s) => !s.actions) ? 0.011 : 0.003;
     const outcome: api.TestOutcome = { testId: spec.id, status, result, steps: condition || status === "stopped" ? undefined : steps };
     if (condition && item.base?.steps.some((s) => !s.actions)) outcome.baseSteps = item.base.steps.map((s) => ({ text: s.text, actions: s.actions ?? fakeActions(s.text) }));
+    const look = opts.secondLook && status === "fail" && !condition;
+    if (look) result.secondLook = item.known?.at === failedAt(result) ? item.known.look : { verdict: "checking" };
     outcomes.push(outcome);
     await hooks.onDone?.(outcome);
+    if (look && result.secondLook?.verdict === "checking") {
+      await beat(opts.signal, 12).catch(() => {});
+      result.secondLook = {
+        verdict: "app",
+        reason: "Deposited 5 USDC in a fresh browser. The balance updated and Withdraw stayed greyed out, with no message.",
+        bug: { name: "Withdraw stays disabled after a deposit", expected: "Withdraw can be clicked once the deposit confirms.", actual: "The button stays disabled until the page is reloaded." },
+      };
+      await hooks.onSecondLook?.(spec.id, result);
+    }
   }
   return { outcomes, chains, costUsd: outcomes.reduce((s, o) => s + o.result.costUsd, 0) };
 };

@@ -168,6 +168,12 @@ export const ExploreBug = z.object({
   steps: z.array(z.string()),
   expected: z.string(),
   actual: z.string(),
+  /** What a test of it is called: what the user does, not what is wrong. */
+  check: z.string().optional(),
+  /** The check that failed, when the explorer filed the bug right after one. */
+  checkId: z.string().optional(),
+  /** A fresh browser followed the steps and saw it. Without this, a reviewer confirmed it from the evidence. */
+  reproduced: z.boolean().optional(),
   severity: BugSeverity,
   status: BugStatus,
   /** Who filed it: an explorer, a test that failed on a clean fork with the wallet or chain against it, or the signing review. */
@@ -182,17 +188,22 @@ export const ExploreBug = z.object({
 });
 export type ExploreBug = z.infer<typeof ExploreBug>;
 
-/** Set by a person on a bug. */
-export const BugTriage = z.enum(["open", "accepted", "duplicate", "cant-reproduce", "works-as-intended"]);
-export type BugTriage = z.infer<typeof BugTriage>;
+/**
+ * What the test written from a bug is called. A test is named for what the user does, so it never
+ * takes the bug's name: `title` is the test the explorer was on when it found the bug, and without
+ * that or a name from the explorer it is what should have happened.
+ */
+export function bugTestName(bug: Pick<ExploreBug, "check" | "expected">, title?: string): string {
+  const expected = bug.expected.split(/(?<=[.!?])\s/)[0]!.replace(/[.!]$/, "");
+  return title ?? bug.check ?? expected;
+}
 
-export const BUG_TRIAGE_LABEL: Record<BugTriage, string> = {
-  open: "Open",
-  accepted: "Accepted",
-  duplicate: "Duplicate",
-  "cant-reproduce": "Can't reproduce",
-  "works-as-intended": "Works as intended",
-};
+/**
+ * Where a confirmed bug stands. A person dismisses one or brings it back; `fixed` is set when
+ * the test written from the bug passes.
+ */
+export const BugTriage = z.enum(["open", "fixed", "dismissed"]);
+export type BugTriage = z.infer<typeof BugTriage>;
 
 /** Something that wasn't covered, and why. A Critical feature ends with a verdict or one of these. */
 export const ExploreGap = z.object({

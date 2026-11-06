@@ -8,13 +8,13 @@ import { z } from "zod";
 import { AppMap, SetupDraft, TestDraft, TestIdea, describeBlock, type Blocked } from "@dappdrill/core";
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
-import { browserTools, inboxTool, Recorder } from "./tools.js";
+import { browserTools, inboxTool, noteTool, Recorder } from "./tools.js";
 import { walletLine } from "./tester.js";
 
 export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a web3 dApp, with a test wallet injected on a local fork) to learn it and pick what to test.
 
 1. Look around like a new user: the landing page, the main navigation, the pages where the real work happens. Connect the wallet if that unlocks the app. Don't send transactions, but do approve what a new user needs to get going (a sign-in, enabling the account, a faucet or mint for test funds) and see what it gives you: you can't tell what setup needs without it. The wallet is a throwaway test account.
-2. Call note with one line each time you learn something that matters (a page and its purpose, what needs the wallet).
+2. Call note each time you learn something that matters (a page and its purpose, what needs the wallet). People watch the titles come in, so write each like a heading of 3 to 7 words ("Swap and bridge on the landing page", "Wallet connects without signing") and put the specifics in detail, which only you see.
 3. Call submit with:
    - a two-sentence summary of the app and the pages that matter,
    - setup, only when the app makes a new user do something before its core features work: sign in, mint or claim test funds from a faucet, make a first deposit. Its steps run before every test, so the tests start already signed in and funded and don't repeat them. Pick when it runs:
@@ -76,9 +76,10 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
   const notes: string[] = [];
   let submitted: Submission | undefined;
   let blocked: Blocked | undefined;
-  const note = (text: string) => {
-    notes.push(text);
-    opts.onNote?.(text);
+  // The title is what people watch; the detail stays here for the summary if time runs out.
+  const note = (title: string, detail?: string) => {
+    notes.push(detail ? `${title}: ${detail}` : title);
+    opts.onNote?.(title);
   };
 
   // Past the budget plus a grace period, stop the loop; a summary from the notes follows.
@@ -93,20 +94,12 @@ export async function analyzeApp(session: DrillSession, llm: Llm, opts: AnalyzeO
       inbox: opts.inbox,
       onBlocked: (b) => {
         blocked = b;
-        note(`${describeBlock(b)}: ${b.reason}`);
+        note(describeBlock(b), b.reason);
       },
       budgetNote: () => (Date.now() - started > maxMs ? "Time is up. Call submit now with what you have." : undefined),
     }),
     ...(opts.inbox ? [inboxTool(opts.inbox)] : []),
-    {
-      name: "note",
-      description: "Record one short line about what you learned (shown live to the user).",
-      schema: z.object({ text: z.string().max(140) }),
-      handler: async ({ text }) => {
-        note(text);
-        return "Noted.";
-      },
-    },
+    noteTool(note),
     {
       name: "submit",
       description: "Submit the summary, the pages that matter, the setup if any, 3-5 happy-path tests, and the rest under untested with name and goal only. Ends the analysis.",

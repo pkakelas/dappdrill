@@ -5,11 +5,15 @@
  * erases it. An app reads from its tests, with failed conditions counted alongside them.
  * Signing verdicts are a flag next to the status, never part of it.
  */
-import type { TestRunStatus } from "./test.js";
+import type { TestRunResult, TestRunStatus } from "./test.js";
 import type { Verdict } from "./signing.js";
 
-/** What a test (or condition) shows: the latest finished result, plus whatever is in progress. */
-export type Settled = "pass" | "fail" | "error" | "skipped" | "never";
+/**
+ * What a test (or condition) shows: the latest finished result, plus whatever is in progress.
+ * probable: it failed and the failure isn't confirmed. input: it can't go further without its owner.
+ * The CLI reads a run's status as it is, so there a run that stopped early is still "error".
+ */
+export type Settled = "pass" | "fail" | "probable" | "input" | "error" | "skipped" | "never";
 export type Active = "queued" | "running";
 export interface Read {
   settled: Settled;
@@ -19,6 +23,8 @@ export interface Read {
 export const SETTLED_LABEL: Record<Settled, string> = {
   pass: "Passed",
   fail: "Failed",
+  probable: "Probably failed",
+  input: "Needs your input",
   error: "Couldn't run",
   skipped: "Doesn't apply",
   never: "Not run yet",
@@ -33,20 +39,42 @@ export function readOf(latest?: { status: TestRunStatus }, settled?: { status: T
   return read;
 }
 
+type Judged = { status: TestRunStatus; result?: Pick<TestRunResult, "blame" | "secondLook"> | null };
+
+/**
+ * What a finished run says once whose move it is has been read. Failed means the app: a second look
+ * confirmed it, or nobody asked for one (`checked` false: a condition, a CLI run). A run that
+ * stopped early is never the app's.
+ */
+export function settle(run: Judged | undefined, checked = true): Settled {
+  if (!run) return "never";
+  const look = run.result?.secondLook?.verdict;
+  if (run.status === "fail") return look === "test" ? "input" : look === "app" || !checked ? "fail" : "probable";
+  if (run.status === "error") return run.result?.blame === "input" || !run.result?.blame ? "input" : "never";
+  return run.status === "pass" || run.status === "skipped" ? run.status : "never";
+}
+
+/** Our side broke on this run, so it says nothing about the test. */
+export const oursBroke = (run: Judged | undefined) => run?.status === "error" && run.result?.blame === "ours";
+
 export interface Counts {
   total: number;
   passed: number;
   failed: number;
+  probable: number;
+  needsInput: number;
   couldntRun: number;
   notRun: number;
   active: number;
 }
 
 export function count(reads: Read[]): Counts {
-  const c: Counts = { total: reads.length, passed: 0, failed: 0, couldntRun: 0, notRun: 0, active: 0 };
+  const c: Counts = { total: reads.length, passed: 0, failed: 0, probable: 0, needsInput: 0, couldntRun: 0, notRun: 0, active: 0 };
   for (const r of reads) {
     if (r.settled === "pass") c.passed++;
     else if (r.settled === "fail") c.failed++;
+    else if (r.settled === "probable") c.probable++;
+    else if (r.settled === "input") c.needsInput++;
     else if (r.settled === "error") c.couldntRun++;
     else if (r.settled === "never") c.notRun++;
     if (r.active) c.active++;
@@ -95,8 +123,8 @@ export function appRollup(tests: TestInput[], untested = 0): AppRollup {
   const signing = tests.map((t) => t.signing).reduce(addSigning, { dangerous: 0, check: 0 });
   let status: AppRollup["status"];
   if (c.total === 0) status = "untested";
-  else if (c.failed > 0) status = "fail";
-  else if (c.couldntRun > 0) status = "error";
+  else if (c.failed + c.probable > 0) status = "fail";
+  else if (c.couldntRun + c.needsInput > 0) status = "error";
   else if (c.notRun === c.total) status = "never";
   else if (c.passed < c.total) status = "partial";
   else status = conditionsFailed > 0 ? "fail" : "pass";
@@ -108,19 +136,26 @@ export function appText(r: AppRollup): string {
   const c = r.tests;
   if (c.total === 0) return r.untested === 0 ? "No tests yet" : `${r.untested} not tested yet`;
   const parts = [`${c.passed} of ${c.total} ${c.total === 1 ? "test" : "tests"} passed`];
-  if (c.failed > 0) parts.push(`${c.failed} failed`);
-  if (c.couldntRun > 0) parts.push(`${c.couldntRun} couldn't run`);
+  parts.push(...problems(c));
   if (c.notRun > 0) parts.push(`${c.notRun} not run yet`);
   if (r.conditionsFailed > 0) parts.push(`${r.conditionsFailed} ${r.conditionsFailed === 1 ? "condition" : "conditions"} failed`);
   const text = parts.join(", ");
   return r.untested > 0 ? `${text} · ${r.untested} not tested yet` : text;
 }
 
+function problems(c: Counts): string[] {
+  const parts: string[] = [];
+  if (c.failed > 0) parts.push(`${c.failed} failed`);
+  if (c.probable > 0) parts.push(`${c.probable} probably failed`);
+  if (c.needsInput > 0) parts.push(`${c.needsInput} ${c.needsInput === 1 ? "needs" : "need"} your input`);
+  if (c.couldntRun > 0) parts.push(`${c.couldntRun} couldn't run`);
+  return parts;
+}
+
 /** "5 of 6 passed, 1 failed, 1 couldn't run" */
 export function countsText(c: Counts): string {
   const parts = [`${c.passed} of ${c.total} passed`];
-  if (c.failed > 0) parts.push(`${c.failed} failed`);
-  if (c.couldntRun > 0) parts.push(`${c.couldntRun} couldn't run`);
+  parts.push(...problems(c));
   if (c.notRun > 0) parts.push(`${c.notRun} not run yet`);
   return parts.join(", ");
 }

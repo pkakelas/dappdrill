@@ -1,7 +1,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { ExploreState, newId, type AppMap, type AppSetup, type DrillEvent, type ExploreSuggestion, type TestStep } from "@dappdrill/core";
-import { addConditions, appTests, apps, explorations, nextPosition, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
+import { addConditions, appTests, apps, BUG_TEST_NOTE, explorations, nextPosition, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
 import type { KnownBug } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
@@ -105,14 +105,16 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
   log.info(`${status}: ${created} new tests`);
 }
 
-/** Bugs earlier passes confirmed and nobody dismissed, so they aren't filed again. */
+/**
+ * Bugs earlier passes confirmed, so they aren't filed again: the open ones, and the ones somebody
+ * dismissed. A fixed bug is left out, so it is filed afresh if it comes back.
+ */
 async function knownBugs(db: Db, appId: string, but: string): Promise<KnownBug[]> {
   const rows = await db.select({ state: explorations.state, triage: explorations.triage }).from(explorations).where(and(eq(explorations.appId, appId), ne(explorations.id, but)));
   const bugs = new Map<string, KnownBug>();
   for (const row of rows) {
     for (const b of row.state?.bugs ?? []) {
-      const triage = row.triage[b.id] ?? "open";
-      if (b.status === "confirmed" && (triage === "open" || triage === "accepted")) bugs.set(b.name.toLowerCase(), { id: b.id, name: b.name, summary: b.summary });
+      if (b.status === "confirmed" && row.triage[b.id] !== "fixed") bugs.set(b.name.toLowerCase(), { id: b.id, name: b.name, summary: b.summary });
     }
   }
   return [...bugs.values()];
@@ -128,16 +130,19 @@ async function saveMap(db: Db, appId: string, map: AppMap, setup?: AppSetup): Pr
 async function saveTest(db: Db, appId: string, s: ExploreSuggestion): Promise<string[]> {
   const testId = newId("test");
   const proved = s.status === "proved";
+  // A test that found a bug is saved failing, tied to the bug: the bug is fixed when it passes.
+  const bug = s.status === "bug" ? s.bugId : undefined;
   await db.insert(tests).values({
     id: testId,
     appId,
+    bugId: bug,
     name: s.draft.name,
     goal: s.draft.goal,
     expected: s.draft.expected,
     startPath: s.draft.startPath,
     steps: s.steps ?? s.draft.steps.map((text) => ({ text })),
     position: await nextPosition(db, appId),
-    draftNote: proved ? null : (s.note ?? "It didn't pass on a clean fork."),
+    draftNote: proved ? null : bug ? BUG_TEST_NOTE : (s.note ?? "It didn't pass on a clean fork."),
   });
   return proved ? [testId, ...(await addConditions(db, testId, s.conditions))] : [];
 }

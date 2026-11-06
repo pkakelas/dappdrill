@@ -374,6 +374,25 @@ export function inboxTool(inbox: Inbox): AgentTool {
   };
 }
 
+/**
+ * What the agent learned, for the people watching. They read the title as it comes in, so it is
+ * written like a heading; the detail is only for the agent's own summary later.
+ */
+export function noteTool(onNote: (title: string, detail?: string) => void): AgentTool {
+  return {
+    name: "note",
+    description: "Record something you learned. The title is shown live to the people watching.",
+    schema: z.object({
+      title: z.string().max(80).describe("3 to 7 words, like a heading: 'Swap and bridge on the landing page', 'Wallet connects without signing'. Not a sentence, and no URLs, query strings or lists."),
+      detail: z.string().max(300).optional().describe("The specifics worth keeping for your own summary. Not shown to anyone."),
+    }),
+    handler: async ({ title, detail }) => {
+      onNote(title, detail);
+      return "Noted.";
+    },
+  };
+}
+
 export function pendingSign(session: DrillSession): WalletRequest | undefined {
   return session.wallet.requests().find((r) => r.kind === "sign" && r.outcome === "pending");
 }

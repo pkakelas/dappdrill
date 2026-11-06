@@ -144,6 +144,26 @@ export const SetupRunResult = z.object({
 });
 export type SetupRunResult = z.infer<typeof SetupRunResult>;
 
+/**
+ * Whose move it is when a run stopped before it could judge the app.
+ * ours: something on our side broke, so it says nothing about the test.
+ * input: the test can't go further without something from its owner (a clearer step, funds, a way past a bot check).
+ * base: a condition waiting for its test to pass.
+ */
+export const Blame = z.enum(["ours", "input", "base"]);
+export type Blame = z.infer<typeof Blame>;
+
+/** A second model's check of a failure, by hand in a fresh browser on a clean fork. */
+export const SecondLook = z.object({
+  /** checking: on it now. app: the app did the wrong thing. test: the app is fine and the test is wrong. unsure: it didn't fail again, or the look couldn't tell. */
+  verdict: z.enum(["checking", "app", "test", "unsure"]),
+  /** What it saw, in a plain sentence. */
+  reason: z.string().optional(),
+  /** What is wrong with the app, when it is. */
+  bug: z.object({ name: z.string(), expected: z.string(), actual: z.string() }).optional(),
+});
+export type SecondLook = z.infer<typeof SecondLook>;
+
 export const TestRunResult = z.object({
   setup: SetupRunResult.optional(),
   steps: z.array(TestStepResult).default([]),
@@ -151,6 +171,10 @@ export const TestRunResult = z.object({
   verdict: z.object({ ok: z.boolean(), reason: z.string() }).optional(),
   /** What went wrong, in one plain sentence. */
   failure: z.string().optional(),
+  /** Set when the run stopped early (status error). */
+  blame: Blame.optional(),
+  /** Set when a failure was checked again. */
+  secondLook: SecondLook.optional(),
   walletRequests: z.array(WalletRequest).default([]),
   signingReviews: z.array(SigningReview).default([]),
   /** Problems a condition found (a stuck button, a missing error). */
@@ -161,6 +185,9 @@ export const TestRunResult = z.object({
   costUsd: z.number().default(0),
 });
 export type TestRunResult = z.infer<typeof TestRunResult>;
+
+/** Where a run failed: the step, or -1 when the steps passed and the expected result didn't show. */
+export const failedAt = (result: Pick<TestRunResult, "steps">) => result.steps.findIndex((s) => s.status === "fail");
 
 /** What the analysis learned about the app; the fast model runs tests with it. */
 export const AppMap = z.object({

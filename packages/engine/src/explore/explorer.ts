@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import { BugSeverity, CheckAssert, ExploreVariation, TIER_TESTS, TestDraft, describeStep, newId, nowIso, type BugEvidence, type ExploreBug, type ExploreCheck, type ExploreFeature, type ExploreSuggestion } from "@dappdrill/core";
-import { describeRequest, createToolkit, inboxTool, pendingSign, Recorder } from "../agent/tools.js";
+import { describeRequest, createToolkit, inboxTool, noteTool, pendingSign, Recorder } from "../agent/tools.js";
 import type { Env } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
 import { setupRunner } from "../pipeline/setup.js";
@@ -64,7 +64,7 @@ Kinds of check:
 - balance: value is a number exactly as the page shows it, and it must match the chain. token is the ERC-20 address; leave it out for the native coin.
 Prefer tx and balance for anything that moves funds: a success message proves little.
 
-A check that fails may be your own wrong guess, so look at the page before deciding; a failed check isn't filed for you. Call report_bug only for what is really wrong for a user and you can point at: a transaction that reverted, a number on the page that disagrees with the chain, the wallet asked for something the button didn't say, an action that silently did nothing. When you can't check something, call record_gap with what and why. Call note now and then with one plain line about what you learned.
+A check that fails may be your own wrong guess, so look at the page before deciding; a failed check isn't filed for you. Call report_bug only for what is really wrong for a user and you can point at: a transaction that reverted, a number on the page that disagrees with the chain, the wallet asked for something the button didn't say, an action that silently did nothing. When you can't check something, call record_gap with what and why. Call note now and then with what you learned. People watch the titles come in, so write each like a heading of 3 to 7 words ("Withdrawals wait seven days").
 
 Write tests plainly: name is what the user does ("Deposit USDC into the vault"); goal and expected are one sentence, expected being what the page shows at the end; steps are 3 to 8 short imperative lines at the level a user thinks ("Connect the wallet", "Enter 5 as the amount", "Approve in the wallet"), no selectors. Name checks and bugs plainly too: "Deposit of 5 USDC shows in Deposited", not "verify deposit functionality".
 
@@ -183,6 +183,7 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
             steps: recorder.snapshot().map(describeStep),
             expected: "The wallet is only asked for what the button says.",
             actual: review.summary,
+            check: "Sign only what the button says",
             severity: "critical",
             source: "signing",
           },
@@ -264,7 +265,8 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
             const e = s.explorers.find((x) => x.id === id);
             if (e) e.checks++;
           });
-          board.feed(result.status, `${name}: ${result.evidence}`, id);
+          // The dot says how it went; the evidence is under Tried.
+          board.feed(result.status, name, id);
           return `${result.status.toUpperCase()}: ${result.evidence}`;
         },
       },
@@ -330,6 +332,7 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
           steps: z.array(z.string()),
           expected: z.string(),
           actual: z.string(),
+          check: z.string().describe("What a test of this is called, named like any test for what the user does: 'Open the Terms of Use from the banner', not what is wrong"),
           severity: BugSeverity,
           sameAs: z.string().optional().describe(`The id of the filed bug this is, or "new"`),
           test: z.string().optional().describe("The id of the suggested test this bug breaks"),
@@ -339,7 +342,7 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
           const match = matchReport(filed, sameAs);
           if (match === "ask") return `Already filed:\n${filed.map((b) => `- ${b.id}: ${b.name}: ${b.summary}`).join("\n")}\n\nThe same cause counts as the same bug, whatever the amount or page. Call report_bug again with sameAs set to the id if yours is one of these, or to "new" if it isn't.`;
           if (match !== "new") seenAgain(run, match);
-          const bugId = match === "new" ? await report({ ...bug, source: "explorer" }) : match;
+          const bugId = match === "new" ? await report({ ...bug, source: "explorer", checkId: path.lastFailed ? path.checkIds.at(-1) : undefined }) : match;
           const filedAs = match === "new" ? "Filed." : "Counted against that bug.";
           const s = test ? mine(test) : undefined;
           if (!s || (s.status !== "suggested" && s.status !== "trying")) return filedAs;
@@ -350,6 +353,8 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
             x.bugId = bugId;
             x.note = bug.summary;
           });
+          // A bug that is confirmed already won't be reviewed again, so its test is saved here.
+          if (board.state.bugs.some((b) => b.id === bugId && b.status === "confirmed")) await run.hooks.onTest?.(structuredClone(mine(s.id)!));
           return filedAs;
         },
       },
@@ -379,15 +384,7 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
           return [...hosts, ...rpc].join("\n") || "Nothing failed.";
         },
       },
-      {
-        name: "note",
-        description: "One plain line about what you learned, for the people watching.",
-        schema: z.object({ text: z.string() }),
-        handler: async ({ text }) => {
-          board.feed("note", text, id);
-          return "Noted.";
-        },
-      },
+      noteTool((title) => board.feed("note", title, id)),
       {
         name: "finish",
         description: "End your work with a two-sentence summary.",

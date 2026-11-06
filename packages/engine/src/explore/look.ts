@@ -7,7 +7,7 @@ import { z } from "zod";
 import { AppMap, SetupDraft, TestDraft, Tier, describeBlock, type Blocked } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { walletLine } from "../agent/tester.js";
-import { browserTools, inboxTool, Recorder } from "../agent/tools.js";
+import { browserTools, inboxTool, noteTool, Recorder } from "../agent/tools.js";
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import type { KnownTest } from "./run-context.js";
 
@@ -19,7 +19,7 @@ const GRACE_MS = 45_000;
 const LOOK_SYSTEM = `You get about ninety seconds in a web app (often a web3 dApp, with a test wallet injected on a local fork) to map it for the explorers who come after you. Each of them takes one feature, tries its tests and looks for bugs.
 
 1. Look around like a new user: the landing page, the main navigation, the pages where the real work happens. Connect the wallet if that unlocks the app. Don't send transactions, but do approve what a new user needs to get going (a sign-in, enabling the account, a faucet or mint for test funds) and see what it gives you: you can't tell what setup needs without it. The wallet is a throwaway test account.
-2. Call note with one line each time you learn something that matters (a page and its purpose, what needs the wallet).
+2. Call note each time you learn something that matters (a page and its purpose, what needs the wallet). People watch the titles come in, so write each like a heading of 3 to 7 words ("Swap and bridge on the landing page", "Wallet connects without signing") and put the specifics in detail, which only you see.
 3. Call submit with:
    - a two-sentence summary of the app and the pages that matter.
    - setup, only when the app makes a new user do something before its core features work: sign in, mint or claim test funds from a faucet, make a first deposit. Its steps run before every test. Pick when it runs: once (the default, and whenever a step can't be repeated often, like a faucet with a limit or a sign-in that emails a code), or each (before every test, when tests use up what setup gives on a live chain and it is cheap to repeat). Say why in one short sentence. Leave setup out when the core features work right after connecting the wallet, and keep only steps you saw were needed.
@@ -74,9 +74,10 @@ export async function lookAround(session: DrillSession, llm: Llm, opts: LookOpti
   const notes: string[] = [];
   let found: Found | undefined;
   let blocked: Blocked | undefined;
-  const note = (text: string) => {
-    notes.push(text);
-    opts.onNote?.(text);
+  // The title is what people watch; the detail stays here for the summary if time runs out.
+  const note = (title: string, detail?: string) => {
+    notes.push(detail ? `${title}: ${detail}` : title);
+    opts.onNote?.(title);
   };
 
   // Past the time plus a grace period the loop stops, and the notes are turned into a submission.
@@ -91,20 +92,12 @@ export async function lookAround(session: DrillSession, llm: Llm, opts: LookOpti
       inbox: opts.inbox,
       onBlocked: (b) => {
         blocked = b;
-        note(`${describeBlock(b)}: ${b.reason}`);
+        note(describeBlock(b), b.reason);
       },
       budgetNote: () => (Date.now() - started > LOOK_MS ? "Time is up. Call submit now with what you have." : undefined),
     }),
     ...(opts.inbox ? [inboxTool(opts.inbox)] : []),
-    {
-      name: "note",
-      description: "Record one short line about what you learned (shown live to the user).",
-      schema: z.object({ text: z.string().max(140) }),
-      handler: async ({ text }) => {
-        note(text);
-        return "Noted.";
-      },
-    },
+    noteTool(note),
     {
       name: "submit",
       description: "Submit the summary, the pages, the setup if any, and the features with their tests. Ends the look.",

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { ExplorerTile, LiveView } from "@/lib/explore";
 import { plural } from "@/lib/format";
+import { Outcomes, type Kind } from "./outcomes";
 
 /** How long the big window stays on one explorer before it may jump to a busier one. */
 const HOLD_MS = 8000;
@@ -75,21 +76,13 @@ function Thumb({ tile, focused, onPick }: { tile: ExplorerTile; focused: boolean
 const HEADLINE: Record<LiveView["phase"], string> = {
   looking: "Finding what to test",
   setup: "Checking the setup",
-  exploring: "Trying the tests",
+  exploring: "Running tests and checks",
   finishing: "Finishing up",
   done: "Finishing up",
 };
 
-const DETAIL: Record<LiveView["phase"], string> = {
-  looking: "Tests show up below once they pass on a clean fork.",
-  setup: "The steps every test starts from have to work first.",
-  exploring: "Each feature has its own browser. A test is saved once it passes again on a clean fork.",
-  finishing: "Waiting for the last tests and bug reviews.",
-  done: "Waiting for the last tests and bug reviews.",
-};
-
-/** The pass as it happens: what one browser sees, and what they've all found so far. */
-export function PassBand({ view }: { view: LiveView }) {
+/** The pass as it happens: what one browser sees, and what they've all found so far. `counts` are the tabs' own. */
+export function PassBand({ view, counts }: { view: LiveView; counts: Record<Kind, number> }) {
   const [followed, setFollowed] = useState<string>();
   const [picked, setPicked] = useState<string>();
   const since = useRef(0);
@@ -108,7 +101,6 @@ export function PassBand({ view }: { view: LiveView }) {
   const focus = pinned ?? view.explorers.find((e) => e.id === followed) ?? view.explorers[0];
   const queued = view.status === "queued";
   const running = view.explorers.filter((e) => e.status === "running");
-  const { counts } = view;
 
   return (
     <section aria-label="Exploring the app" className="flex flex-col gap-4">
@@ -130,7 +122,7 @@ export function PassBand({ view }: { view: LiveView }) {
 
         {/* On wide screens the browser sets the height. */}
         <div className="flex flex-col gap-6 md:h-0 md:min-h-full md:py-1">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-4">
             <div className="flex min-h-8 items-center justify-between gap-3 text-sm text-muted-foreground">
               <span className="flex flex-wrap items-center gap-x-2">
                 <LiveDot />
@@ -150,13 +142,7 @@ export function PassBand({ view }: { view: LiveView }) {
               </form>
             </div>
             <h2 className="text-xl font-semibold tracking-tight">{queued ? "Waiting for a browser" : HEADLINE[view.phase]}</h2>
-            {counts.tried > 0 ? (
-              <p className="text-sm text-muted-foreground tabular-nums">
-                {counts.tried} tried · {plural(counts.tests, "test")} saved{counts.bugs > 0 && <span className="text-bad"> · {plural(counts.bugs, "bug")}</span>}
-              </p>
-            ) : (
-              <p className="text-sm leading-relaxed text-pretty text-muted-foreground">{DETAIL[view.phase]}</p>
-            )}
+            <Outcomes counts={counts} />
           </div>
           <Feed lines={view.feed} />
         </div>

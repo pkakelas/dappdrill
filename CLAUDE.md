@@ -55,7 +55,12 @@ or `requireApp(appId)` from `apps/web/src/lib/session.ts`; forms send their `org
   Data from indexers or explorers that we couldn't confirm on the fork is marked unverified.
 - Never bypass CAPTCHAs or bot checks. If blocked, report it as blocked.
 - UI copy is plain: no "AI" badges or gradients, and "simulate" only means transaction simulation.
-  Test status vocabulary: Passed / Failed / Couldn't run (plus Running, Queued, Not run yet).
+  Test status vocabulary: Passed / Failed / Probably failed / Needs your input (plus Running, Queued, Not run yet).
+  A failure is Probably failed until a second look in a fresh browser confirms the app is wrong; then it is Failed,
+  and it has found a bug. Exploring gives back three things, each with its own tab on the app page: Tests (user flows, run again
+  on every change), Checks (what an explorer verified once while looking around) and Bugs. Every bug says where it came from:
+  a test, or a check. A bug from a check is not looked at again until a test is added for it.
+  A run that stopped early is Needs your input, or says nothing when our side broke. The CLI keeps Couldn't run.
 - Keep it clean, but don't overengineer: small modules, few abstractions, comments only where they help.
 - Three models: thinking `claude-opus-5-5` (env `DAPPDRILL_MODEL`) looks around an app and suggests tests; fast
   `claude-sonnet-5-5` (env `DAPPDRILL_FAST_MODEL`) explores each feature, runs test steps, judges results, writes

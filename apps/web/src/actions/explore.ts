@@ -1,7 +1,7 @@
 "use server";
 
-import { BugTriage, newId, openSuggestion, type ExploreBug } from "@dappdrill/core";
-import { db, explorations, NEW_TEST_NOTE, nextPosition, queueRuns, tests } from "@dappdrill/db";
+import { BugTriage, bugTestName, newId, openSuggestion } from "@dappdrill/core";
+import { BUG_TEST_NOTE, db, explorations, NEW_TEST_NOTE, nextPosition, queueRuns, tests } from "@dappdrill/db";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { enqueue } from "@/lib/jobs";
@@ -30,34 +30,53 @@ export async function stopExplorationAction(passId: string): Promise<void> {
   refresh(row.appId);
 }
 
-/** A bug somebody accepted becomes a draft test: it fails until the bug is fixed, then it is a test like any other. */
-async function testForBug(appId: string, bug: ExploreBug, startPath: string): Promise<void> {
-  const [taken] = await db().select({ id: tests.id }).from(tests).where(and(eq(tests.appId, appId), eq(tests.name, bug.name)));
-  if (taken) return;
-  await db()
-    .insert(tests)
-    .values({
-      id: newId("test"),
-      appId,
-      name: bug.name,
-      goal: bug.summary,
-      expected: bug.expected,
-      startPath,
-      steps: bug.steps.map((text) => ({ text })),
-      position: await nextPosition(db(), appId),
-      draftNote: "Written from a bug. It passes once the bug is fixed.",
-    });
-}
-
-/** Written as one key, so two people triaging different bugs don't overwrite each other. */
-export async function triageBugAction(passId: string, bugId: string, value: string): Promise<void> {
+async function ownBug(passId: string, bugId: string) {
   const row = await ownPass(passId);
   const bug = row.state?.bugs.find((b) => b.id === bugId);
   if (!bug) throw new Error("That bug no longer exists.");
-  const triage = BugTriage.parse(value);
-  const entry = JSON.stringify({ [bugId]: triage });
+  return { row, bug };
+}
+
+/**
+ * Writes a test for a bug the explorer found, and runs it. It is a draft that fails while the bug is there; its
+ * first pass marks the bug fixed (the worker does that), and from then on it is a test like any other.
+ */
+export async function addBugTestAction(passId: string, bugId: string): Promise<void> {
+  const { row, bug } = await ownBug(passId, bugId);
+  if (bug.steps.length === 0) throw new Error("This bug has no steps to write a test from.");
+  const [linked] = await db().select({ id: tests.id }).from(tests).where(and(eq(tests.appId, row.appId), eq(tests.bugId, bugId)));
+  if (linked) return;
+  // Named for what the user does: the test the explorer was on when it found the bug, when there was one.
+  const name = bugTestName(bug, row.state?.suggested.find((s) => s.bugId === bugId)?.draft.name);
+  const [named] = await db().select({ id: tests.id }).from(tests).where(and(eq(tests.appId, row.appId), eq(tests.name, name)));
+  const id = named?.id ?? newId("test");
+  // A test of that name is the bug's test already, from an earlier exploration: it only needs to run again.
+  if (named) await db().update(tests).set({ bugId }).where(eq(tests.id, id));
+  else
+    await db()
+      .insert(tests)
+      .values({
+        id,
+        appId: row.appId,
+        bugId,
+        name,
+        goal: bug.summary,
+        expected: bug.expected,
+        startPath: row.state?.features.find((f) => f.name === bug.feature)?.startPath ?? "/",
+        steps: bug.steps.map((text) => ({ text })),
+        position: await nextPosition(db(), row.appId),
+        draftNote: BUG_TEST_NOTE,
+      });
+  const batchId = await queueRuns(db(), row.appId, [id], "manual");
+  if (batchId) await enqueue("tests.run", { batchId });
+  refresh(row.appId);
+}
+
+/** Dismisses a bug, or brings a dismissed one back. Written as one key, so two people deciding on different bugs don't overwrite each other. */
+export async function setBugAction(passId: string, bugId: string, to: "open" | "dismissed"): Promise<void> {
+  const { row } = await ownBug(passId, bugId);
+  const entry = JSON.stringify({ [bugId]: BugTriage.extract(["open", "dismissed"]).parse(to) });
   await db().update(explorations).set({ triage: sql`${explorations.triage} || ${entry}::jsonb` }).where(eq(explorations.id, row.id));
-  if (triage === "accepted" && bug.steps.length > 0) await testForBug(row.appId, bug, row.state?.features.find((f) => f.name === bug.feature)?.startPath ?? "/");
   refresh(row.appId);
 }
 

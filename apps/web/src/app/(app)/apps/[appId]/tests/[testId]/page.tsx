@@ -1,4 +1,4 @@
-import { briefGoal, conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { briefGoal, conditionInfo, formatDuration, oursBroke, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SecondLook, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { db, latestRuns, notWritten, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Check, Wallet, X } from "lucide-react";
@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ConfirmButton } from "@/components/confirm-button";
+import { LookReport } from "@/components/explore/bugs";
 import { ConditionFork } from "@/components/tests/condition-branches";
 import { AddConditions } from "@/components/tests/conditions";
 import { Duplicate } from "@/components/tests/duplicate";
@@ -16,7 +17,7 @@ import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/te
 import { StepList } from "@/components/tests/setup-steps";
 import { SigningFlag } from "@/components/tests/signing-flag";
 import { SpecEditor } from "@/components/tests/spec-editor";
-import { isActive, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
+import { isActive, OUR_ERROR, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
 import { WriteTest } from "@/components/tests/write-test";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -60,7 +61,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const spec = specOf(test);
   const latest = history[0];
   // The status reads from the latest finished result; a queued, running or stopped run shows beside it.
-  const settled = history.find((r) => r.status === "pass" || r.status === "fail" || r.status === "error" || r.status === "skipped");
+  const settled = history.find((r) => (r.status === "pass" || r.status === "fail" || r.status === "error" || r.status === "skipped") && !oursBroke(r));
   const run = (runParam && history.find((r) => r.id === runParam)) || settled || latest;
   const viewingOld = run && settled && run.id !== settled.id && run.id !== latest?.id;
   const state = readTest(test, latest, settled);
@@ -114,7 +115,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                 </span>
               )}
             </p>
-            {state.draft && <p className="text-sm text-muted-foreground">{test.draftNote} It doesn&apos;t count towards the app&apos;s results or run on a schedule until it passes.</p>}
+            {state.draft && <p className="text-sm text-muted-foreground">{test.draftNote !== settled?.result?.failure && test.draftNote} It doesn&apos;t run on a schedule until it passes.</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {notWritten(test) ? <WriteTest testId={test.id} primary /> : <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />}
@@ -144,14 +145,22 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </div>
       )}
 
-      {result?.failure && (runState === "fail" || runState === "error") && (
-        <div
-          role="status"
-          className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
-        >
-          {result.failure}
+      {result?.blame === "ours" ? (
+        <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
+          <strong className="font-medium text-foreground">{OUR_ERROR}</strong> {result.failure}
         </div>
+      ) : (
+        result?.failure &&
+        (runState === "fail" || runState === "error") && (
+          <div
+            role="status"
+            className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
+          >
+            {result.failure}
+          </div>
+        )
       )}
+      {runState === "fail" && result?.secondLook && <Checked look={result.secondLook} checking={state.checking && run?.id === settled?.id} expected={spec.expected} failure={result.failure} />}
       {runState === "skipped" && (
         <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
           <strong className="font-medium text-foreground">Doesn&apos;t apply here.</strong> {result?.failure ?? "This condition can't be set up for this test."} It is left out of the counts.
@@ -213,6 +222,34 @@ export default async function TestPage({ params, searchParams }: { params: Promi
 }
 
 /** What the judge or the proof check said about the expected result, under it. */
+/** What the second look at a failure said: still on it, the app's bug, the test's fault, or not sure. */
+function Checked({ look, checking, expected, failure }: { look: SecondLook; checking: boolean; expected: string; failure?: string }) {
+  if (look.verdict === "app")
+    return (
+      <section className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="font-medium text-pretty">{look.bug?.name ?? "The app did the wrong thing"}</h2>
+        <LookReport look={look} expected={expected} failure={failure} />
+      </section>
+    );
+  if (look.verdict === "test")
+    return (
+      <div role="status" className="rounded-xl border border-warn-line bg-warn-soft px-5 py-4 leading-relaxed text-warn-ink">
+        <strong className="font-medium">The app is fine, the test was wrong.</strong> {look.reason}
+      </div>
+    );
+  return (
+    <div role="status" className={cx("rounded-xl px-5 py-4 leading-relaxed", checking ? "bg-live-soft text-live-ink" : "bg-muted text-muted-foreground")}>
+      {checking ? (
+        "Checking again in a fresh browser. Nothing for you to do yet."
+      ) : (
+        <>
+          <strong className="font-medium text-foreground">Not confirmed when checked again in a fresh browser.</strong> {look.verdict === "unsure" ? look.reason : "The check didn't report back."}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Verdict({ result }: { result?: TestRunResult }) {
   if (!result?.verdict) return null;
   return (

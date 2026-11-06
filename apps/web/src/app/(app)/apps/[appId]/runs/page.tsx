@@ -138,7 +138,7 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   {/* Only the latest exploration's log is on the app page. */}
                   {p.id === passes[0]?.id ? (
-                    <Link href={`/apps/${appId}?tab=tried`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
+                    <Link href={`/apps/${appId}?tab=checks`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
                       Explored the app
                     </Link>
                   ) : (

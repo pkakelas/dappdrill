@@ -1,4 +1,4 @@
-import { checkFate, openSuggestion, VARIATION_LABEL, type BugTriage, type ExploreBug, type ExploreCheckStatus, type ExploreFeedLine, type ExplorePhase, type ExploreState, type ExplorerStatus, type ExploreSuggestion } from "@dappdrill/core";
+import { BUG_STATUS_LABEL, checkFate, openSuggestion, VARIATION_LABEL, type Active, type BugTriage, type ExploreBug, type ExploreCheckStatus, type ExploreFeedLine, type ExplorePhase, type ExploreState, type ExplorerStatus, type ExploreSuggestion, type Settled } from "@dappdrill/core";
 import type { explorations } from "@dappdrill/db";
 import { artifactUrl } from "./artifacts";
 
@@ -29,7 +29,6 @@ export interface LiveView {
   appUrl: string;
   explorers: ExplorerTile[];
   feed: ExploreFeedLine[];
-  counts: { tried: number; tests: number; bugs: number };
 }
 
 const TILES = 8;
@@ -37,7 +36,6 @@ const FEED = 30;
 const ORDER: Record<ExplorerStatus, number> = { running: 0, queued: 1, done: 2, stopped: 2, failed: 2 };
 
 const DISMISSED = new Set<ExploreBug["status"]>(["not-reproduced", "not-a-bug", "duplicate"]);
-const SET_ASIDE = new Set<BugTriage>(["duplicate", "cant-reproduce", "works-as-intended"]);
 
 export function liveView(pass: Pass, appUrl: string): LiveView {
   const s = pass.state;
@@ -53,11 +51,6 @@ export function liveView(pass: Pass, appUrl: string): LiveView {
     appUrl,
     explorers: tiles.map((e) => ({ id: e.id, title: e.title, status: e.status, frame: artifactUrl("explorations", pass.id, e.frame), url: e.url, doing: e.doing })),
     feed: s?.feed.slice(-FEED) ?? [],
-    counts: {
-      tried: s?.checks.length ?? 0,
-      tests: s?.suggested.filter((x) => x.status === "proved").length ?? 0,
-      bugs: s?.bugs.filter((b) => !DISMISSED.has(b.status)).length ?? 0,
-    },
   };
 }
 
@@ -72,15 +65,31 @@ export interface SuggestedTest {
   now?: "trying" | "worked";
   /** Why it isn't a test, when it was tried and didn't work. */
   note?: string;
+  /** Somebody added it, or the pass saved it without a pass. It keeps its line here until a run says something about it. */
+  added?: Added;
+}
+
+export interface Added {
+  testId: string;
+  /** Queued or running now. */
+  active?: Active;
+  /** What its runs have said so far: nothing, or it wouldn't be here. */
+  settled: Settled;
+  /** Why its last run said nothing, when that is worth saying. */
+  why?: string;
 }
 
 const NOW: Partial<Record<ExploreSuggestion["status"], SuggestedTest["now"]>> = { trying: "trying", worked: "worked", proving: "worked" };
 
-/** Tests the pass wrote but hasn't saved, in the order it wrote them. One a person has added since is a test, not a suggestion. */
-export function suggestedTests(pass: Pass | undefined, saved: Set<string>): SuggestedTest[] {
+/**
+ * Tests that haven't run yet, in the order the pass wrote them: the ones it didn't save, and the
+ * saved ones (`added`) that no run has said anything about. A run that says something moves the
+ * test up into the list.
+ */
+export function suggestedTests(pass: Pass | undefined, saved: Set<string>, added: Map<string, Added>): SuggestedTest[] {
   return (pass?.state?.suggested ?? [])
-    .filter((s) => openSuggestion(s) && !saved.has(s.draft.name))
-    .map((s) => ({ id: s.id, name: s.draft.name, goal: s.draft.goal, feature: s.feature, now: NOW[s.status], note: s.note }));
+    .filter((s) => added.has(s.draft.name) || (openSuggestion(s) && !saved.has(s.draft.name)))
+    .map((s) => ({ id: s.id, name: s.draft.name, goal: s.draft.goal, feature: s.feature, now: NOW[s.status], note: s.note, added: added.get(s.draft.name) }));
 }
 
 // ---------------------------------------------------------------- bugs
@@ -90,21 +99,34 @@ export interface AppBug {
   passId: string;
   triage: BugTriage;
   shot: string | null;
+  /** The test the explorer was trying when it found the bug: what its line is called. */
+  title?: string;
+  /** The test written from it. */
+  test?: BugTest;
 }
 
-/** The slice of an earlier pass the page needs: only its bugs. */
-export type PassBugs = Pick<Pass, "id" | "triage"> & { bugs: ExploreBug[] | null };
+/** The test written from a bug, and how it last went. The bug is fixed once it passes. */
+export interface BugTest {
+  id: string;
+  appId: string;
+  active?: Active;
+  settled: Settled;
+}
+
+/** The slice of an earlier pass the page needs: its bugs, and the names of the tests they came from. */
+export type PassBugs = Pick<Pass, "id" | "triage"> & { bugs: ExploreBug[] | null; titles: Record<string, string> | null };
 
 /**
- * Bugs belong to the app, not to one pass: whatever any pass confirmed stays until a person sets it
- * aside. The latest pass adds what it still suspects. `passes` come newest first; a name shows once,
- * with the newest decision made about it.
+ * Bugs belong to the app, not to one pass: whatever any pass confirmed stays open until its test
+ * passes or a person dismisses it. The latest pass adds what it still suspects. `passes` come newest
+ * first; a name shows once. `setAside` is what is out of the list: fixed, dismissed, or a report of
+ * the latest pass that didn't hold up. `tests` are the tests written from bugs, by bug id.
  */
-export function appBugs(passes: PassBugs[]): { open: AppBug[]; setAside: AppBug[] } {
+export function appBugs(passes: PassBugs[], tests = new Map<string, BugTest>()): { open: AppBug[]; setAside: AppBug[] } {
   const open: AppBug[] = [];
   const setAside: AppBug[] = [];
   const seen = new Set<string>();
-  // A later pass finds the same bug again under a new id; what a person decided about it still stands.
+  // A later pass finds the same bug again under a new id. A dismissal still stands; a fix doesn't, because the bug is back.
   const decided = new Map<string, BugTriage>();
   for (const pass of passes)
     for (const bug of pass.bugs ?? []) {
@@ -116,8 +138,8 @@ export function appBugs(passes: PassBugs[]): { open: AppBug[]; setAside: AppBug[
     for (const bug of pass.bugs ?? []) {
       const key = bug.name.toLowerCase();
       if (seen.has(key)) continue;
-      const triage = pass.triage[bug.id] ?? decided.get(key) ?? "open";
-      const entry = { bug, passId: pass.id, triage, shot: artifactUrl("explorations", pass.id, bug.evidence.screenshot) };
+      const triage = pass.triage[bug.id] ?? (decided.get(key) === "dismissed" ? "dismissed" : "open");
+      const entry = { bug, passId: pass.id, triage, shot: artifactUrl("explorations", pass.id, bug.evidence.screenshot), title: pass.titles?.[bug.id], test: tests.get(bug.id) };
       const latest = i === 0;
       if (DISMISSED.has(bug.status)) {
         if (latest) setAside.push(entry);
@@ -125,7 +147,7 @@ export function appBugs(passes: PassBugs[]): { open: AppBug[]; setAside: AppBug[
       }
       if (bug.status !== "confirmed" && !latest) continue;
       seen.add(key);
-      (SET_ASIDE.has(triage) ? setAside : open).push(entry);
+      (triage === "open" ? open : setAside).push(entry);
     }
   });
   const rank = (b: AppBug) => (b.bug.status === "confirmed" ? 0 : 1) * 10 + ["critical", "high", "medium", "low"].indexOf(b.bug.severity);
@@ -144,24 +166,48 @@ export interface TriedLine {
   /** What the check found, or why it wasn't covered. */
   detail: string;
   variation?: string;
-  /** What became of it. */
-  became?: { text: string; testName?: string; tone?: "bad" };
+  /** What became of it: the test it was kept as, or the bug it turned into. */
+  became?: { text: string; testName?: string; bugId?: string; tone?: "bad" };
+}
+
+/**
+ * The check each bug came from. Bugs filed before that was recorded get the explorer's last check
+ * before it filed the bug, when that check failed.
+ */
+function bugChecks(state: ExploreState): Map<string, ExploreBug> {
+  const out = new Map<string, ExploreBug>();
+  for (const bug of state.bugs) {
+    if (bug.source !== "explorer") continue;
+    const last = state.checks.filter((c) => c.explorerId === bug.explorerId && c.at <= bug.at).at(-1);
+    const id = bug.checkId ?? (last?.status === "fail" ? last.id : undefined);
+    if (id && !out.has(id)) out.set(id, bug);
+  }
+  return out;
+}
+
+function bugFate(bug: ExploreBug): TriedLine["became"] {
+  if (bug.status === "confirmed") return { text: "Bug", bugId: bug.id, tone: "bad" };
+  return { text: DISMISSED.has(bug.status) ? BUG_STATUS_LABEL[bug.status] : "Being reviewed" };
 }
 
 function became(state: ExploreState, suggestionId?: string): TriedLine["became"] {
   const fate = checkFate({ suggestionId }, state.suggested);
   const s = state.suggested.find((x) => x.id === suggestionId);
-  if (fate === "test") return s?.status === "draft" ? { text: "Saved as a draft", testName: s.draft.name } : { text: "Saved as a test", testName: s?.draft.name };
-  if (fate === "bug") return { text: "Bug", tone: "bad" };
+  if (fate === "test") return s?.status === "draft" ? { text: "Saved as a draft", testName: s.draft.name } : { text: "Kept as a test", testName: s?.draft.name };
+  if (fate === "bug") return { text: "Bug", bugId: s?.bugId, tone: "bad" };
   if (fate === "suggested") return { text: "Suggested" };
   return undefined;
 }
 
-/** Everything the pass tried, newest first, then what it couldn't cover. */
+/** Every check the pass made, newest first, then what it couldn't cover. */
 export function triedLines(state: ExploreState): TriedLine[] {
-  const checks = [...state.checks].reverse().map(
-    (c): TriedLine => ({ id: c.id, kind: c.status, name: c.name, feature: c.feature, detail: c.evidence, variation: VARIATION_LABEL[c.variation], became: became(state, c.suggestionId) }),
-  );
+  const bugs = bugChecks(state);
+  const checks = [...state.checks].reverse().map((c): TriedLine => {
+    const bug = bugs.get(c.id);
+    // A check that failed on the way to a test that was kept says nothing: only the ones that passed are in the test.
+    const fate = bug ? bugFate(bug) : became(state, c.suggestionId);
+    return { id: c.id, kind: c.status, name: c.name, feature: c.feature, detail: c.evidence, variation: VARIATION_LABEL[c.variation], became: c.status === "pass" || bug || fate?.bugId ? fate : undefined };
+  });
   const gaps = state.gaps.map((g, i): TriedLine => ({ id: `gap-${i}`, kind: "gap", name: g.what, feature: g.feature, detail: g.why }));
   return [...checks, ...gaps];
 }

@@ -2,7 +2,7 @@
  * Test operations shared by the web app and the worker's assistant tools.
  * Anything that needs a job returns ids; the caller sends the job.
  */
-import { and, asc, count, desc, eq, gte, inArray, max, min, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, max, min, sql, type SQL } from "drizzle-orm";
 import { conditionInfo, newId, type EdgeCaseId, type TestRunStatus, type TestSpec, type Verdict } from "@dappdrill/core";
 import type { Db } from "./client.js";
 import { testRuns, tests, type Trigger } from "./schema/app.js";
@@ -53,12 +53,15 @@ export async function latestRuns(db: Db, testIds: string[]): Promise<Map<string,
 
 const FINISHED: TestRunStatus[] = ["pass", "fail", "error", "skipped"];
 
-/** The latest finished result of each test: what its status reads from. A queued or stopped run doesn't replace it. */
+/** A run our side broke says nothing about the test, so it never becomes the test's result. */
+export const SAYS_SOMETHING = sql`${testRuns.result}->>'blame' is distinct from 'ours'`;
+
+/** The latest finished result of each test: what its status reads from. A queued or stopped run doesn't replace it, nor does one we broke. */
 export async function settledRuns(db: Db, testIds: string[]): Promise<Map<string, TestRunRow>> {
-  return newestRuns(db, testIds, inArray(testRuns.status, FINISHED));
+  return newestRuns(db, testIds, and(inArray(testRuns.status, FINISHED), SAYS_SOMETHING));
 }
 
-async function newestRuns(db: Db, testIds: string[], extra?: ReturnType<typeof inArray>): Promise<Map<string, TestRunRow>> {
+async function newestRuns(db: Db, testIds: string[], extra?: SQL): Promise<Map<string, TestRunRow>> {
   if (testIds.length === 0) return new Map();
   const rows = await db
     .selectDistinctOn([testRuns.testId])
@@ -177,6 +180,9 @@ export async function nextPosition(db: Db, appId: string): Promise<number> {
 
 /** On a new test until its first pass. */
 export const NEW_TEST_NOTE = "Hasn't passed yet.";
+
+/** On a test that checks a bug, until the bug is fixed and it passes. */
+export const BUG_TEST_NOTE = "It checks a bug. It passes once the bug is fixed.";
 
 /** Bumps updated_at; used with every edit of a test. */
 export const touched = () => ({ updatedAt: sql`now()` });

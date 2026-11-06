@@ -4,8 +4,8 @@ import { cx } from "@/components/ui";
 import type { TriedKind, TriedLine } from "@/lib/explore";
 
 const KINDS: { kind: TriedKind; label: string }[] = [
-  { kind: "pass", label: "Worked" },
-  { kind: "fail", label: "Didn't work" },
+  { kind: "pass", label: "Passed" },
+  { kind: "fail", label: "Failed" },
   { kind: "error", label: "Couldn't check" },
   { kind: "gap", label: "Not covered" },
 ];
@@ -29,6 +29,8 @@ function Chip({ href, on, label, n, bad }: { href: string; on: boolean; label: s
 
 function Row({ line, tests, appId }: { line: TriedLine; tests: Map<string, string>; appId: string }) {
   const testId = line.became?.testName ? tests.get(line.became.testName) : undefined;
+  const bugId = line.became?.bugId;
+  const href = testId ? `/apps/${appId}/tests/${testId}` : bugId && `/apps/${appId}?tab=bugs&bug=${bugId}#${bugId}`;
   return (
     <li className="flex items-start gap-3 px-3.5 py-2.5">
       <StateMark state={line.kind === "gap" ? "skipped" : line.kind} className="mt-0.5" />
@@ -39,8 +41,8 @@ function Row({ line, tests, appId }: { line: TriedLine; tests: Map<string, strin
         </div>
         <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground sm:pt-0.5">
           {line.became &&
-            (testId ? (
-              <Link href={`/apps/${appId}/tests/${testId}`} className="rounded-sm text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
+            (href ? (
+              <Link href={href} className={cx("rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring", line.became.tone === "bad" ? "text-bad" : "text-foreground")}>
                 {line.became.text}
               </Link>
             ) : (
@@ -55,20 +57,20 @@ function Row({ line, tests, appId }: { line: TriedLine; tests: Map<string, strin
 }
 
 /**
- * Everything the pass tried, as a log: most of it never becomes a test, and this is where it shows.
- * `tests` maps a saved test's name to its id.
+ * Every check the explorers made, as a log. A check runs once: one that passed may have been kept
+ * as a test, one that failed may have turned into a bug. `tests` maps a saved test's name to its id.
  */
 export function Tried({ appId, lines, kind, tests, running }: { appId: string; lines: TriedLine[]; kind?: TriedKind; tests: Map<string, string>; running: boolean }) {
   const count = (k: TriedKind) => lines.filter((l) => l.kind === k).length;
   const shown = kind ? lines.filter((l) => l.kind === kind) : lines;
-  const href = (k?: TriedKind) => `/apps/${appId}?tab=tried${k ? `&kind=${k}` : ""}`;
+  const href = (k?: TriedKind) => `/apps/${appId}?tab=checks${k ? `&kind=${k}` : ""}`;
 
   if (lines.length === 0)
-    return <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">{running ? "Nothing tried yet. Each thing the explorers check shows here as it happens." : "Nothing was tried."}</p>;
+    return <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">{running ? "Checks show here as they happen." : "No checks were made."}</p>;
 
   return (
     <div className="rounded-xl border bg-card shadow-sm">
-      <nav aria-label="Filter what was tried" className="flex flex-wrap items-center gap-0.5 p-1.5">
+      <nav aria-label="Filter checks" className="flex flex-wrap items-center gap-0.5 p-1.5">
         <Chip href={href()} on={!kind} label="All" />
         {KINDS.filter((k) => count(k.kind) > 0).map((k) => (
           <Chip key={k.kind} href={href(k.kind)} on={kind === k.kind} label={k.label} n={count(k.kind)} />

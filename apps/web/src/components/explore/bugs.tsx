@@ -1,20 +1,16 @@
-import { BUG_STATUS_LABEL, BUG_TRIAGE_LABEL, type ExploreBug } from "@dappdrill/core";
-import { BadgeCheck, Bug, ChevronRight, CircleCheck, CircleDashed, CircleX, CloudOff, Compass, FlaskConical, Maximize2, Repeat2, ScanSearch, SquareTerminal, Wallet, type LucideIcon } from "lucide-react";
+import { BUG_STATUS_LABEL, type SecondLook } from "@dappdrill/core";
+import { BadgeCheck, Bug, ChevronRight, CircleCheck, CircleDashed, CircleX, CloudOff, Compass, ListChecks, Maximize2, Repeat2, ScanSearch, SquareTerminal, Wallet, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BrowserWindow } from "@/components/site-preview";
-import { Tile, type TINT } from "@/components/tests/tile";
 import { cx, SeverityTag } from "@/components/ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import type { AppBug } from "@/lib/explore";
+import type { AppBug, BugTest } from "@/lib/explore";
 import { plural } from "@/lib/format";
-import { TriageSelect } from "./controls";
-
-/** The tile takes the severity's colour once the bug held up; until then it stays quiet. */
-const SEVERITY_TINT: Record<ExploreBug["severity"], keyof typeof TINT> = { critical: "bad", high: "bad", medium: "warn", low: "quiet" };
+import { AddBugTest, BugActions } from "./controls";
 
 function Chip({ icon: Icon, tone, children }: { icon: LucideIcon; tone?: string; children: ReactNode }) {
   return (
@@ -32,6 +28,33 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
       <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
       {children}
     </section>
+  );
+}
+
+/** What the second look made of it, in the look's own words. */
+function Saw({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Alert role="note" className="border-transparent bg-live-soft lg:col-span-full">
+      <ScanSearch className="text-live" aria-hidden="true" />
+      <AlertTitle className="text-live-ink">{title}</AlertTitle>
+      <AlertDescription className="text-foreground/80">
+        <p className="max-w-3xl text-pretty break-words">{children}</p>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/** Expected against got, side by side. */
+function Sides({ expected, actual, className }: { expected: string; actual: string; className?: string }) {
+  return (
+    <div className={cx("grid gap-3 sm:grid-cols-2", className)}>
+      <Side title="Expected" icon={CircleCheck} tone="good">
+        {expected}
+      </Side>
+      <Side title="Got" icon={CircleX} tone="bad">
+        {actual}
+      </Side>
+    </div>
   );
 }
 
@@ -135,29 +158,14 @@ function Evidence({ bug, shot, appUrl }: AppBug & { appUrl: string }) {
             </Part>
           )}
           {/* These two take up the slack when the screenshot is the taller side. */}
-          <div className="grid grow gap-3 sm:grid-cols-2">
-            <Side title="Expected" icon={CircleCheck} tone="good">
-              {bug.expected}
-            </Side>
-            <Side title="Got" icon={CircleX} tone="bad">
-              {bug.actual}
-            </Side>
-          </div>
+          <Sides expected={bug.expected} actual={bug.actual} className="grow" />
         </div>
         {shot && (
           <Part title="The page when it happened">
             <Shot src={shot} name={bug.name} appUrl={appUrl} />
           </Part>
         )}
-        {bug.reasoning && (
-          <Alert role="note" className="border-transparent bg-live-soft lg:col-span-full">
-            <ScanSearch className="text-live" aria-hidden="true" />
-            <AlertTitle className="text-live-ink">{confirmed ? "What the fresh browser saw" : "Review"}</AlertTitle>
-            <AlertDescription className="text-foreground/80">
-              <p className="max-w-3xl text-pretty break-words">{bug.reasoning}</p>
-            </AlertDescription>
-          </Alert>
-        )}
+        {bug.reasoning && <Saw title={confirmed ? "What the fresh browser saw" : "Review"}>{bug.reasoning}</Saw>}
         {logged && (
           <div className="divide-y rounded-lg border bg-muted/40 lg:col-span-full">
             <Log title="Wallet and chain" icon={Wallet} tone="text-fork" lines={chain} />
@@ -170,87 +178,225 @@ function Evidence({ bug, shot, appUrl }: AppBug & { appUrl: string }) {
   );
 }
 
-function BugLine({ appUrl, ...entry }: AppBug & { appUrl: string }) {
-  const { bug, passId, triage } = entry;
-  const confirmed = bug.status === "confirmed";
+/** The test a bug belongs with: the one that found it, or the one that checks it now. */
+export interface BugsTest {
+  id: string;
+  name: string;
+}
+
+/**
+ * A bug as a line of the Bugs list: what is wrong, and under it who found it. Closed it is one
+ * line; open it is the report. `action` is what can be done from the line without opening it.
+ */
+function BugLine({ id, name, source, meta, action, dashed, open, children }: { id: string; name: string; source: ReactNode; meta?: ReactNode; action?: ReactNode; dashed?: boolean; open?: boolean; children: ReactNode }) {
   return (
-    <li className="flex gap-3 p-4">
-      <Tile icon={Bug} tint={confirmed ? SEVERITY_TINT[bug.severity] : "quiet"} />
-      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-          <div className="flex min-w-0 flex-col gap-2">
-            <h3 className="leading-snug font-medium text-pretty">{bug.name}</h3>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <SeverityTag severity={bug.severity} />
-              {confirmed ? (
-                <Chip icon={BadgeCheck} tone="text-live">
-                  Confirmed in a fresh browser
-                </Chip>
-              ) : (
-                <Chip icon={CircleDashed}>{BUG_STATUS_LABEL[bug.status]}</Chip>
-              )}
-              <Chip icon={Compass} tone="text-fork">
-                {bug.feature}
-              </Chip>
-              {bug.seen > 1 && <Chip icon={Repeat2}>Seen {bug.seen} times</Chip>}
-            </div>
-          </div>
-          <TriageSelect passId={passId} bugId={bug.id} value={triage} />
-        </div>
-        <p className="max-w-prose text-sm text-pretty">{bug.summary}</p>
-        {triage === "accepted" && bug.steps.length > 0 && (
-          <p className="flex w-fit items-center gap-1.5 rounded-md bg-good-soft px-2 py-1 text-sm text-good-ink">
-            <FlaskConical className="size-3.5 shrink-0" aria-hidden="true" />
-            <span>
-              A{" "}
-              <Link href="?show=drafts" className="underline underline-offset-4">
-                draft test
-              </Link>{" "}
-              was written from it. It passes once the bug is fixed.
-            </span>
-          </p>
-        )}
-        <Evidence {...entry} appUrl={appUrl} />
-      </div>
+    <li id={id} className="scroll-mt-24 p-1.5">
+      <details open={open} className="group/bug">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg px-2 py-2 transition-colors outline-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <span className={cx("inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-rose-600", dashed ? "border border-dashed border-rose-500/50" : "bg-rose-500/10")}>
+            <Bug className="size-4" aria-hidden="true" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="min-w-0 font-medium text-pretty">{name}</span>
+            <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">{source}</span>
+          </span>
+          {meta}
+          {action}
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open/bug:rotate-90" aria-hidden="true" />
+        </summary>
+        <div className="flex flex-col gap-3 pt-1.5 pr-2 pb-3 pl-12 text-sm">{children}</div>
+      </details>
     </li>
   );
 }
 
-/** The app's bugs: things it did wrong that held up when tried again in a fresh browser. */
-export function Bugs({ open, setAside, running, explored, appUrl }: { open: AppBug[]; setAside: AppBug[]; running: boolean; explored: boolean; appUrl: string }) {
+/** "Found by the test …", with the way to it. */
+function ByTest({ appId, test, children }: { appId: string; test: BugsTest; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-4">
-      {open.length === 0 ? (
-        <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {running ? "No bugs so far. One shows here once it has been reviewed and tried again in a fresh browser." : explored ? "No bugs held up when tried again in a fresh browser." : "Bugs show here once the app has been explored."}
-        </p>
-      ) : (
-        <ul className="divide-y rounded-xl border bg-card shadow-sm">
-          {open.map((b) => (
-            <BugLine key={b.bug.id} {...b} appUrl={appUrl} />
-          ))}
-        </ul>
-      )}
-      {setAside.length > 0 && (
-        <details className="px-1 text-sm">
-          <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{plural(setAside.length, "report")} set aside</summary>
-          <ul className="flex flex-col gap-3 pt-3">
-            {setAside.map(({ bug, triage, passId }) => (
-              <li key={bug.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                <p className="min-w-0 flex-1 basis-80 text-pretty">
-                  {bug.name}
-                  <span className="text-muted-foreground">
-                    {" · "}
-                    {triage === "open" ? BUG_STATUS_LABEL[bug.status] : BUG_TRIAGE_LABEL[triage]}
-                    {triage === "open" && bug.reasoning && ` · ${bug.reasoning}`}
-                  </span>
-                </p>
-                {triage !== "open" && <TriageSelect passId={passId} bugId={bug.id} value={triage} />}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+    <>
+      <ListChecks className="size-3.5 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+      <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 truncate rounded-sm text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {test.name}
+      </Link>
+    </>
+  );
+}
+
+/** What a second look found wrong with the app. A look that named no bug gets the test's own expected result and failure. */
+export const lookBug = (look: SecondLook, expected: string, failure?: string) => look.bug ?? { name: "The app did the wrong thing", expected, actual: failure ?? "Something else." };
+
+/** The bug a second look confirmed, as a report: expected against got, then what the fresh browser saw. */
+export function LookReport({ look, expected, failure }: { look: SecondLook; expected: string; failure?: string }) {
+  const bug = lookBug(look, expected, failure);
+  return (
+    <>
+      <Sides expected={bug.expected} actual={bug.actual} />
+      {look.reason && <Saw title="What the fresh browser saw">{look.reason}</Saw>}
+    </>
+  );
+}
+
+/** A bug a test found: it failed, and a second look by hand in a fresh browser said the app is wrong. */
+export function TestBug({ appId, test, look, expected, failure, open }: { appId: string; test: BugsTest; look: SecondLook; expected: string; failure?: string; open?: boolean }) {
+  return (
+    <BugLine
+      id={test.id}
+      name={lookBug(look, expected, failure).name}
+      open={open}
+      source={
+        <ByTest appId={appId} test={test}>
+          From the test
+        </ByTest>
+      }
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Chip icon={BadgeCheck} tone="text-live">
+          Confirmed in a fresh browser
+        </Chip>
+      </div>
+      <LookReport look={look} expected={expected} failure={failure} />
+    </BugLine>
+  );
+}
+
+/**
+ * A bug the explorers found. One found while trying a test (`byTest`) belongs to that test; the
+ * rest came from a check, which runs once, so nothing looks at them again until a test is added.
+ */
+export function ExploredBug({ appId, appUrl, linked, byTest, open, ...entry }: AppBug & { appId: string; appUrl: string; linked?: BugsTest; byTest?: boolean; open?: boolean }) {
+  const { bug, passId, triage, title } = entry;
+  const confirmed = bug.status === "confirmed";
+  const from = bug.source === "signing" ? "From a signature check" : "From a check";
+  return (
+    <BugLine
+      id={bug.id}
+      name={bug.name}
+      open={open}
+      dashed={!confirmed}
+      meta={<SeverityTag severity={bug.severity} />}
+      action={!linked && bug.steps.length > 0 && <AddBugTest passId={passId} bugId={bug.id} label={byTest && title ? "Save the test" : "Add a test"} />}
+      source={
+        byTest && linked ? (
+          <ByTest appId={appId} test={linked}>
+            From the test
+          </ByTest>
+        ) : byTest && title ? (
+          <>
+            <ListChecks className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 truncate">From the test {title}</span>
+          </>
+        ) : (
+          <>
+            <Compass className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              {from} · {bug.feature}
+            </span>
+            {linked && (
+              <>
+                <span aria-hidden="true">·</span>
+                <ByTest appId={appId} test={linked}>
+                  Tested by
+                </ByTest>
+              </>
+            )}
+          </>
+        )
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {confirmed ? (
+            <Chip icon={BadgeCheck} tone="text-live">
+              {bug.reproduced ? "Reproduced in a fresh browser" : "Confirmed"}
+            </Chip>
+          ) : (
+            <Chip icon={CircleDashed}>{BUG_STATUS_LABEL[bug.status]}</Chip>
+          )}
+          {bug.seen > 1 && <Chip icon={Repeat2}>Seen {bug.seen} times</Chip>}
+          {linked && <Chip icon={CircleCheck}>Closes when its test passes</Chip>}
+        </div>
+        <BugActions passId={passId} bugId={bug.id} triage={triage} />
+      </div>
+      <p className="max-w-prose text-pretty">{bug.summary}</p>
+      <Evidence {...entry} appUrl={appUrl} />
+    </BugLine>
+  );
+}
+
+function TestLink({ test, children }: { test: BugTest; children: ReactNode }) {
+  return (
+    <Link href={`/apps/${test.appId}/tests/${test.id}`} className="rounded-sm text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {children}
+    </Link>
+  );
+}
+
+/** One kind of bug that is out of the list, folded away under its count. */
+function Aside({ summary, bugs, row }: { summary: ReactNode; bugs: AppBug[]; row: (b: AppBug) => ReactNode }) {
+  if (bugs.length === 0) return null;
+  return (
+    <details>
+      <summary className="flex w-fit cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{summary}</summary>
+      <ul className="flex flex-col gap-3 pt-3 pb-1">
+        {bugs.map((b) => (
+          <li key={b.bug.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            {row(b)}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/** What is out of the list: bugs whose test passed, bugs somebody dismissed, and reports that didn't hold up. */
+export function SetAside({ bugs }: { bugs: AppBug[] }) {
+  if (bugs.length === 0) return null;
+  const name = "min-w-0 flex-1 basis-80 text-pretty";
+  return (
+    <div className="flex flex-col gap-3 px-1 text-sm">
+      <Aside
+        bugs={bugs.filter((b) => b.triage === "fixed")}
+        summary={
+          <>
+            <CircleCheck className="size-3.5 text-good" aria-hidden="true" />
+            {bugs.filter((b) => b.triage === "fixed").length} fixed
+          </>
+        }
+        row={({ bug, test }) => (
+          <>
+            <p className={name}>
+              {bug.name}
+              <span className="text-muted-foreground"> · Its test passed</span>
+            </p>
+            {test && <TestLink test={test}>See the test</TestLink>}
+          </>
+        )}
+      />
+      <Aside
+        bugs={bugs.filter((b) => b.triage === "dismissed")}
+        summary={`${bugs.filter((b) => b.triage === "dismissed").length} dismissed`}
+        row={({ bug, passId }) => (
+          <>
+            <p className={name}>{bug.name}</p>
+            <BugActions passId={passId} bugId={bug.id} triage="dismissed" />
+          </>
+        )}
+      />
+      <Aside
+        bugs={bugs.filter((b) => b.triage === "open")}
+        summary={`${plural(bugs.filter((b) => b.triage === "open").length, "report")} didn't hold up`}
+        row={({ bug }) => (
+          <p className={name}>
+            {bug.name}
+            <span className="text-muted-foreground">
+              {" · "}
+              {BUG_STATUS_LABEL[bug.status]}
+              {bug.reasoning && ` · ${bug.reasoning}`}
+            </span>
+          </p>
+        )}
+      />
     </div>
   );
 }
