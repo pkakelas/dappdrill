@@ -24,7 +24,7 @@ export default function ForkPage() {
         <ul className="m-0 flex flex-col gap-2.5 pl-5">
           <li>
             <strong>The fork&apos;s upstream gave up.</strong> The fork pulls state from an RPC the first time each contract is read. Public endpoints rate-limit or time out on a real dApp&apos;s
-            multicalls, and some drop old block state within minutes. Fork from a dedicated or archive RPC: in the app&apos;s Settings, under Chains, add a line with the chain ID and your RPC URL.
+            multicalls, and some drop old block state within minutes. Fork from a dedicated or archive RPC: in the app&apos;s Settings, under Chains, choose <strong>Other chain</strong> and paste your RPC URL.
           </li>
           <li>
             <strong>The app reads from its own backend.</strong> Markets, balances and prices often come from an indexer, a GraphQL API or a price service. Those read the real chain, so they disagree

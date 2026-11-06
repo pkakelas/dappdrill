@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { agentMessagesAction, clearAgentAction, sendAgentMessageAction, type AgentMessage } from "@/actions/agent";
+import { ConfirmButton } from "@/components/confirm-button";
 import { cx } from "@/components/ui";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 const ON_TEST = ["Why did this fail?", "Duplicate it with a different amount", "Add conditions and run them"];
 const ON_LIST = ["Which tests are failing?", "Add a test for withdrawing everything", "Run every test"];
@@ -87,17 +88,17 @@ export function Assistant({ appId }: { appId: string }) {
           <p className="text-sm text-muted-foreground">{testId ? "About this test, or anything in the app." : "About your tests, or anything in the app."}</p>
         </div>
         {messages && messages.length > 0 && !waiting && (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={async () => {
+          <ConfirmButton
+            className={buttonVariants({ variant: "outline", size: "xs" })}
+            confirm="Click again to clear"
+            busy="Clearing…"
+            onConfirm={async () => {
               await clearAgentAction(appId);
               await load();
             }}
           >
             Clear
-          </Button>
+          </ConfirmButton>
         )}
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={() => setOpen(false)}>
           <X aria-hidden="true" />
@@ -141,6 +142,7 @@ export function Assistant({ appId }: { appId: string }) {
                 send(draft);
               }
             }}
+            aria-label="Message"
             rows={Math.min(6, Math.max(1, draft.split("\n").length))}
             placeholder={testId ? "e.g. the same but sell half" : "e.g. add a test for claiming rewards"}
             className="max-h-40 min-h-8 flex-1 resize-none border-0 bg-transparent py-1.5 text-sm leading-snug outline-none placeholder:text-muted-foreground"
@@ -149,7 +151,11 @@ export function Assistant({ appId }: { appId: string }) {
             <ArrowUp aria-hidden="true" />
           </Button>
         </div>
-        {error && <p className="px-1 pt-2 text-sm text-bad">{error}</p>}
+        {error && (
+          <p role="alert" className="px-1 pt-2 text-sm text-bad">
+            {error}
+          </p>
+        )}
       </form>
     </aside>
   );

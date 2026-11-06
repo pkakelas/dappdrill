@@ -128,11 +128,11 @@ export async function inviteAction(_prev: ActionResult, form: FormData): Promise
   return { ok: `Invite sent to ${email.data}. You can also share the link, which only they can use:`, secret: `${env.appUrl}/invite/${res.data.id}` };
 }
 
-export async function cancelInviteAction(form: FormData): Promise<void> {
+export async function cancelInviteAction(invitationId: string): Promise<{ error?: string }> {
   await requireUser();
-  const invitationId = Id.parse(form.get("invitationId"));
-  await ask(async () => auth.api.cancelInvitation({ body: { invitationId }, headers: await headers() }));
+  const res = await ask(async () => auth.api.cancelInvitation({ body: { invitationId: Id.parse(invitationId) }, headers: await headers() }));
   revalidatePath("/organization");
+  return "error" in res ? res : {};
 }
 
 /** Joins the invite's organization. The plugin checks it is still open and meant for this email. */
@@ -149,12 +149,12 @@ export async function acceptInviteAction(_prev: ActionResult, form: FormData): P
 
 // ---------------------------------------------------------------- members
 
-export async function removeMemberAction(form: FormData): Promise<void> {
-  const a = await orgAccess(form.get("orgId"), "members.manage");
-  if ("error" in a) return;
-  const memberId = Id.parse(form.get("memberId"));
-  await ask(async () => auth.api.removeMember({ body: { memberIdOrEmail: memberId, organizationId: a.org.id }, headers: await headers() }));
+export async function removeMemberAction(orgId: string, memberId: string): Promise<{ error?: string }> {
+  const a = await orgAccess(orgId, "members.manage");
+  if ("error" in a) return a;
+  const res = await ask(async () => auth.api.removeMember({ body: { memberIdOrEmail: Id.parse(memberId), organizationId: a.org.id }, headers: await headers() }));
   revalidatePath("/organization");
+  return "error" in res ? res : {};
 }
 
 export async function setMemberRoleAction(orgId: string, memberId: string, role: string): Promise<{ error?: string }> {

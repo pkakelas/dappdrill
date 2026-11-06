@@ -7,10 +7,11 @@ import { deleteAppAction } from "@/actions/apps";
 import { exploreAction } from "@/actions/explore";
 import { ConfirmButton } from "@/components/confirm-button";
 import { SettingsForm } from "@/components/settings-form";
+import { SubmitButton } from "@/components/submit-button";
 import { lastSetup } from "@/components/tests/last-setup";
 import { SetupCard } from "@/components/tests/setup-card";
 import { PageHeader, SettingsSection } from "@/components/ui";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
 import { isHostVerified } from "@/lib/domains";
 import { timeAgo } from "@/lib/format";
@@ -28,10 +29,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
   const manage = can(role, "apps.manage");
   const [verified, [seen], testIds] = await Promise.all([
     isHostVerified(app.organizationId, app.host),
-    db().select({ id: explorations.id, state: explorations.state, finishedAt: explorations.finishedAt, createdAt: explorations.createdAt }).from(explorations).where(eq(explorations.appId, app.id)).orderBy(desc(explorations.createdAt)).limit(1),
+    db().select({ id: explorations.id, status: explorations.status, state: explorations.state, finishedAt: explorations.finishedAt, createdAt: explorations.createdAt }).from(explorations).where(eq(explorations.appId, app.id)).orderBy(desc(explorations.createdAt)).limit(1),
     db().select({ id: tests.id }).from(tests).where(eq(tests.appId, app.id)),
   ]);
   // What the first browser of the last pass saw: the app as it opens.
+  const exploring = seen?.status === "queued" || seen?.status === "running";
   const frame = seen ? artifactUrl("explorations", seen.id, seen.state?.explorers.find((e) => e.frame)?.frame) : null;
   const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
   const setupRun = setup ? lastSetup(setup.steps, [...(await latestRuns(db(), testIds.map((t) => t.id))).values()]) : undefined;
@@ -62,19 +64,29 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
           verified,
         }}
         frame={frame}
-        seen={seen ? `Last explored ${timeAgo(seen.finishedAt ?? seen.createdAt)}` : "Not explored yet"}
+        seen={!seen ? "Not explored yet" : exploring ? "Exploring now" : `Last explored ${timeAgo(seen.finishedAt ?? seen.createdAt)}`}
       />
 
+      {/* The app page links here as #setup. */}
       <SettingsSection id="setup" title="Setup" hint="Steps every test needs first, like signing in or getting test funds. They run before your tests, so the tests don't repeat them.">
         <SetupCard appId={app.id} setup={setup ?? null} last={setupRun} />
       </SettingsSection>
 
       <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds what it hasn't seen. Your tests stay as they are.">
-        <form action={exploreAction.bind(null, app.id)}>
-          <Button type="submit" variant="outline" size="sm" className="w-fit">
-            Explore again
-          </Button>
-        </form>
+        {exploring ? (
+          <p className="text-sm text-muted-foreground">
+            Exploring now.{" "}
+            <Link href={`/apps/${app.id}`} className="text-foreground underline underline-offset-4">
+              Watch it
+            </Link>
+          </p>
+        ) : (
+          <form action={exploreAction.bind(null, app.id)}>
+            <SubmitButton variant="outline" size="sm" className="w-fit" busy="Starting…">
+              Explore again
+            </SubmitButton>
+          </form>
+        )}
       </SettingsSection>
 
       {manage && (

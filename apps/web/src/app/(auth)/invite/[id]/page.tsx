@@ -76,15 +76,15 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
         ) : !mine ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm">
-              You&apos;re signed in as {session.user.email}, and this invite only works for {row.invite.email}.
+              You&apos;re logged in as {session.user.email}, and this invite only works for {row.invite.email}.
             </p>
-            <SignOutButton next={`/login?next=${next}`}>Sign in with another account</SignOutButton>
+            <SignOutButton next={`/login?next=${next}`}>Log in with another account</SignOutButton>
           </div>
         ) : (
           <ActionForm action={acceptInviteAction}>
             <input type="hidden" name="invitationId" value={id} />
             <Button type="submit">Join {row.org}</Button>
-            <span className="text-sm text-muted-foreground">Signed in as {session.user.email}.</span>
+            <span className="text-sm text-muted-foreground">Logged in as {session.user.email}.</span>
           </ActionForm>
         )}
       </CardContent>

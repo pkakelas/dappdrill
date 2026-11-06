@@ -1,8 +1,6 @@
 import { VERDICT_LABEL, shortAddress, type Severity, type Verdict } from "@dappdrill/core";
-import Link from "next/link";
-import { Children, Fragment, type ComponentProps, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Item, ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
 
 export { cn as cx };
@@ -15,11 +13,6 @@ export function Logo({ size = 20, mono }: { size?: number; mono?: boolean }) {
       <path d="M10 1.5a8.5 8.5 0 0 1 0 17z" fill={mono ? "currentColor" : "var(--color-red)"} />
     </svg>
   );
-}
-
-/** Addresses and code are the only monospace text. */
-export function Mono({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={cn("font-mono", className)}>{children}</span>;
 }
 
 export function Addr({ value, chars = 4, className }: { value?: string | null; chars?: number; className?: string }) {
@@ -60,7 +53,6 @@ export function SeverityTag({ severity }: { severity: Severity }) {
 }
 
 const VERDICT_TONE: Record<Verdict, keyof typeof TONE> = { dangerous: "bad", check: "warn", consistent: "quiet" };
-export const VERDICT_TEXT: Record<Verdict, string> = { dangerous: "text-bad", check: "text-warn", consistent: "text-muted-foreground" };
 
 export function VerdictTag({ verdict, large }: { verdict: Verdict; large?: boolean }) {
   return (
@@ -83,23 +75,6 @@ export function PageHeader({ title, description, actions, children }: { title: R
   );
 }
 
-/** A page section: title, count and hint on the left on wide screens, content on the right. */
-export function Section({ title, count, hint, aside, children }: { title: string; count?: number; hint?: ReactNode; aside?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="grid gap-4 py-10 first:pt-2 last:pb-0 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-12">
-      <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 lg:flex-col lg:flex-nowrap lg:justify-start lg:gap-1.5">
-        <h2 className="flex items-baseline gap-2 text-base font-semibold tracking-tight">
-          {title}
-          {count !== undefined && <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>}
-        </h2>
-        {hint && <p className="order-last basis-full text-sm text-pretty text-muted-foreground lg:order-none lg:basis-auto">{hint}</p>}
-        {aside && <div className="lg:mt-2">{aside}</div>}
-      </header>
-      <div className="min-w-0">{children}</div>
-    </section>
-  );
-}
-
 /** Two-column settings section: title and hint on the left, fields on the right. */
 export function SettingsSection({ id, title, hint, children }: { id: string; title: string; hint?: ReactNode; children: ReactNode }) {
   return (
@@ -112,40 +87,6 @@ export function SettingsSection({ id, title, hint, children }: { id: string; tit
       </div>
       <div className="flex min-w-0 flex-col gap-4">{children}</div>
     </section>
-  );
-}
-
-export function ItemList({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <ItemGroup className={cn("overflow-hidden rounded-xl border bg-card shadow-xs", className)}>
-      {Children.toArray(children).map((child, i) => (
-        <Fragment key={i}>
-          {i > 0 && <ItemSeparator />}
-          {child}
-        </Fragment>
-      ))}
-    </ItemGroup>
-  );
-}
-
-/** One row of an ItemList. Put a RowLink in it to make the whole row clickable; ItemActions stay clickable above it. */
-export function ListItem({ className, ...props }: ComponentProps<typeof Item>) {
-  return (
-    <Item
-      size="sm"
-      role="listitem"
-      className={cn("relative min-h-14 rounded-none hover:bg-accent/40 [&_[data-slot=item-actions]]:relative [&_[data-slot=item-actions]]:z-10", className)}
-      {...props}
-    />
-  );
-}
-
-/** The row's main link, stretched over the whole ListItem. */
-export function RowLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
-  return (
-    <Link href={href} scroll={false} className={cn("outline-none after:absolute after:inset-0 focus-visible:underline", className)}>
-      {children}
-    </Link>
   );
 }
 

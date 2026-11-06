@@ -11,13 +11,23 @@ import { Label } from "@/components/ui/label";
 export function ForgotForm() {
   const [sent, setSent] = useState(false);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string>();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
+    setError(undefined);
     const email = String(new FormData(e.currentTarget).get("email") ?? "").trim();
-    await authClient.requestPasswordReset({ email, redirectTo: "/reset-password" });
-    setSent(true);
+    // Whether the email has an account is never said. Only a request that didn't get through is.
+    try {
+      const res = await authClient.requestPasswordReset({ email, redirectTo: "/reset-password" });
+      if (res.error && (res.error.status === 429 || res.error.status >= 500)) throw new Error();
+      setSent(true);
+    } catch {
+      setError("Couldn't send the link. Check your connection and try again.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -34,8 +44,13 @@ export function ForgotForm() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" required autoComplete="email" />
             </div>
+            {error && (
+              <p role="alert" className="text-sm text-bad">
+                {error}
+              </p>
+            )}
             <Button className="w-full" disabled={pending}>
-              Send reset link
+              {pending ? "Sending…" : "Send reset link"}
             </Button>
           </form>
         )}

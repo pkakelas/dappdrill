@@ -341,7 +341,7 @@ function SetupRun({ appId, run, setup, url }: { appId: string; run: SetupRunResu
       <div className="mt-2 flex flex-col gap-2">
         {notes.length > 0 && <p className="text-sm text-muted-foreground">It {notes.join("; ")}.</p>}
         <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={texts.map((text, i) => ({ text, result: run.steps[i], shot: url(run.steps[i]?.screenshot) }))} />
-        <Link href={`/apps/${appId}`} className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+        <Link href={`/apps/${appId}/settings#setup`} className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
           Edit the setup
         </Link>
       </div>

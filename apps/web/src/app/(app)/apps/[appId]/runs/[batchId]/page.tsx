@@ -1,9 +1,11 @@
 import { conditionInfo } from "@dappdrill/core";
 import { appTests, db, listBatches, specOf, testRuns, tests } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { alias } from "drizzle-orm/pg-core";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { BatchStatus } from "@/components/tests/batch-status";
@@ -12,16 +14,28 @@ import { cx, PageHeader } from "@/components/ui";
 import { dateTime, minutesBetween, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Run" };
-
 const base = alias(tests, "base");
 
-/** One run: its results, one per test or condition, named Test · Condition, in page order. */
-export default async function RunPage({ params }: { params: Promise<{ appId: string; batchId: string }> }) {
-  const { appId, batchId } = await params;
+type Params = { appId: string; batchId: string };
+
+const load = cache(async (appId: string, batchId: string) => {
   await requireApp(appId);
   const [batch] = (await listBatches(db(), appId, 500)).filter((b) => b.batchId === batchId);
   if (!batch) notFound();
+  return batch;
+});
+
+/** The tab says which run: there are often several open side by side. */
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
+  const { appId, batchId } = await params;
+  const batch = await load(appId, batchId);
+  return { title: `${TRIGGER_LABEL[batch.trigger]}, ${dateTime(batch.startedAt)}` };
+}
+
+/** One run: its results, one per test or condition, named Test · Condition, in page order. */
+export default async function RunPage({ params }: { params: Promise<Params> }) {
+  const { appId, batchId } = await params;
+  const batch = await load(appId, batchId);
   const [results, ordered] = await Promise.all([
     db()
       .select({ run: testRuns, test: tests, baseName: base.name })
@@ -37,14 +51,14 @@ export default async function RunPage({ params }: { params: Promise<{ appId: str
   return (
     <div className="page">
       {batch.active > 0 && <AutoRefresh every={2000} />}
+      <Link href={`/apps/${appId}/runs`} className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-3.5" aria-hidden="true" />
+        All runs
+      </Link>
       <PageHeader
         title={TRIGGER_LABEL[batch.trigger]}
         description={
           <p className="flex flex-wrap items-center gap-x-2 text-sm">
-            <Link href={`/apps/${appId}/runs`} className="hover:text-foreground hover:underline">
-              Runs
-            </Link>
-            <span aria-hidden="true">/</span>
             <span title={dateTime(batch.startedAt)}>{timeAgo(batch.startedAt)}</span>
             {batch.finishedAt && (
               <>

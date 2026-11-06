@@ -33,12 +33,12 @@ export function SetupCard({ appId, setup, last }: { appId: string; setup: Setup 
 
   if (!setup)
     return (
-      <p className="text-sm text-muted-foreground">
-        Every test needs the same first steps, like signing in or getting test funds?{" "}
-        <button type="button" onClick={() => setEditing(true)} className="text-foreground underline underline-offset-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
           Add a setup
-        </button>
-      </p>
+        </Button>
+        <p className="text-sm text-muted-foreground">No setup yet. Every test starts from the app as it opens.</p>
+      </div>
     );
 
   return (
@@ -161,7 +161,11 @@ function SetupForm({ appId, setup, onDone }: { appId: string; setup: Setup | nul
         <p className="ml-7 text-sm text-muted-foreground">Enter adds a step below. Unchanged steps keep their recorded clicks.</p>
       </fieldset>
 
-      {error && <p className="text-sm text-bad">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-bad">
+          {error}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Save"}
@@ -170,7 +174,7 @@ function SetupForm({ appId, setup, onDone }: { appId: string; setup: Setup | nul
           Cancel
         </Button>
         {setup && (
-          <ConfirmButton className={buttonVariants({ variant: "ghost", size: "sm", className: "ml-auto text-muted-foreground" })} confirm="Click again to remove" onConfirm={() => removeSetupAction(appId)}>
+          <ConfirmButton className={buttonVariants({ variant: "ghost", size: "sm", className: "ml-auto text-muted-foreground" })} confirm="Click again to remove" busy="Removing…" onConfirm={() => removeSetupAction(appId)}>
             Remove setup
           </ConfirmButton>
         )}

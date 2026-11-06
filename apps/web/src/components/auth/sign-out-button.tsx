@@ -3,7 +3,7 @@
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 
-export function SignOutButton({ next = "/login", children = "Sign out" }: { next?: string; children?: React.ReactNode }) {
+export function SignOutButton({ next = "/login", children = "Log out" }: { next?: string; children?: React.ReactNode }) {
   return (
     <Button
       type="button"

@@ -49,11 +49,12 @@ export async function createInboxAction(_prev: ActionResult, form: FormData): Pr
   return done("Inbox created.");
 }
 
-export async function removeInboxAction(form: FormData): Promise<void> {
-  const a = await access(form);
-  if ("error" in a) return;
+export async function removeInboxAction(orgId: string): Promise<{ error?: string }> {
+  const a = await orgAccess(orgId, "org.manage");
+  if ("error" in a) return a;
   await db().update(testWallets).set({ inboxAddress: null, inboxPasswordEnc: null }).where(eq(testWallets.organizationId, a.org.id));
   revalidatePath("/organization");
+  return {};
 }
 
 // ---------------------------------------------------------------- domains
@@ -71,18 +72,18 @@ export async function addDomainAction(_prev: ActionResult, form: FormData): Prom
   const [existing] = await db().select({ id: domains.id }).from(domains).where(and(eq(domains.organizationId, a.org.id), eq(domains.host, host)));
   if (existing) return { error: `${host} is already on the list.` };
   await db().insert(domains).values({ id: newId("dom"), organizationId: a.org.id, host, token: randomBytes(12).toString("hex") });
-  return done(`Added ${host}. Publish the token below, then press Verify.`);
+  return done(`Added ${host}. Publish its token, then press Verify.`);
 }
 
-async function orgDomain(form: FormData) {
-  const a = await access(form);
+async function orgDomain(orgId: unknown, domainId: unknown) {
+  const a = await orgAccess(orgId, "org.manage");
   if ("error" in a) return undefined;
-  const [row] = await db().select().from(domains).where(and(eq(domains.id, Id.parse(form.get("domainId"))), eq(domains.organizationId, a.org.id)));
+  const [row] = await db().select().from(domains).where(and(eq(domains.id, Id.parse(domainId)), eq(domains.organizationId, a.org.id)));
   return row;
 }
 
 export async function verifyDomainAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const row = await orgDomain(form);
+  const row = await orgDomain(form.get("orgId"), form.get("domainId"));
   if (!row) return { error: "Domain not found." };
   const method = await checkDomain(row.host, row.token);
   if (!method) return { error: `Didn't find the token at https://${row.host}/.well-known/dappdrill.txt or in a TXT record yet. DNS can take a few minutes.` };
@@ -90,10 +91,11 @@ export async function verifyDomainAction(_prev: ActionResult, form: FormData): P
   return done(`${row.host} is verified.`);
 }
 
-export async function removeDomainAction(form: FormData): Promise<void> {
-  const row = await orgDomain(form);
+export async function removeDomainAction(orgId: string, domainId: string): Promise<{ error?: string }> {
+  const row = await orgDomain(orgId, domainId);
   if (row) await db().delete(domains).where(eq(domains.id, row.id));
   revalidatePath("/organization");
+  return {};
 }
 
 // ---------------------------------------------------------------- integrations
@@ -155,10 +157,10 @@ export async function setIntegrationEnabledAction(form: FormData): Promise<void>
   revalidatePath("/organization");
 }
 
-export async function removeIntegrationAction(form: FormData): Promise<void> {
-  const a = await access(form);
-  if ("error" in a) return;
-  const kind = Kind.parse(form.get("kind"));
-  await db().delete(integrations).where(and(eq(integrations.organizationId, a.org.id), eq(integrations.kind, kind)));
+export async function removeIntegrationAction(orgId: string, kind: string): Promise<{ error?: string }> {
+  const a = await orgAccess(orgId, "org.manage");
+  if ("error" in a) return a;
+  await db().delete(integrations).where(and(eq(integrations.organizationId, a.org.id), eq(integrations.kind, Kind.parse(kind))));
   revalidatePath("/organization");
+  return {};
 }

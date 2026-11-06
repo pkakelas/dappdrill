@@ -42,7 +42,7 @@ export default async function NewOrganizationPage() {
             )}
           </div>
         </ActionForm>
-        <p className="pt-4 text-sm text-muted-foreground">Signed in as {user.email}.</p>
+        <p className="pt-4 text-sm text-muted-foreground">Logged in as {user.email}.</p>
       </CardContent>
     </Card>
   );

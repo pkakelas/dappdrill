@@ -94,6 +94,8 @@ function PassStatus({ pass: p }: { pass: PassRow }) {
   );
 }
 
+const passTitle = (p: PassRow) => (p.status === "queued" || p.status === "running" ? "Exploring the app" : "Explored the app");
+
 const ROW = "relative flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-accent/40";
 
 /** A run is a batch of results that started together; nothing is stored for it beyond those results. */
@@ -139,10 +141,10 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
                   {/* Only the latest exploration's log is on the app page. */}
                   {p.id === passes[0]?.id ? (
                     <Link href={`/apps/${appId}?tab=checks`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
-                      Explored the app
+                      {passTitle(p)}
                     </Link>
                   ) : (
-                    <span className="font-medium">Explored the app</span>
+                    <span className="font-medium">{passTitle(p)}</span>
                   )}
                   <span className="text-sm text-pretty text-muted-foreground">
                     <PassStatus pass={p} />

@@ -14,9 +14,11 @@ import {
   verifyDomainAction,
 } from "@/actions/org-settings";
 import { ActionForm } from "@/components/action-form";
+import { ConfirmButton } from "@/components/confirm-button";
 import { CopyButton } from "@/components/copy-button";
 import { DeleteOrg, LeaveOrg } from "@/components/org/leave-delete";
 import { RoleSelect } from "@/components/org/role-select";
+import { SubmitButton } from "@/components/submit-button";
 import { Addr, cx, List, PageHeader, SettingsSection, Tag } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,10 @@ export const metadata: Metadata = { title: "Organization" };
 type Integration = typeof integrations.$inferSelect;
 
 const DAY = 24 * 60 * 60 * 1000;
+
+/** What a row can do, on its right: what went wrong shows beside the button that tried. */
+const ASIDE = "flex flex-wrap items-center justify-end gap-2";
+const REMOVE = buttonVariants({ variant: "outline", size: "sm" });
 
 export default async function OrganizationPage() {
   const { user, org, role } = await currentOrg();
@@ -98,15 +104,11 @@ export default async function OrganizationPage() {
                   <span className="truncate text-sm text-muted-foreground">{m.email}</span>
                 </span>
                 {editable ? (
-                  <span className="flex items-start gap-2">
+                  <span className={ASIDE}>
                     <RoleSelect orgId={org.id} memberId={m.id} role={theirs} options={roles} label={`Role of ${m.email}`} />
-                    <form action={removeMemberAction}>
-                      {orgField}
-                      <input type="hidden" name="memberId" value={m.id} />
-                      <Button type="submit" variant="outline" size="sm" aria-label={`Remove ${m.email}`}>
-                        Remove
-                      </Button>
-                    </form>
+                    <ConfirmButton className={REMOVE} confirm="Click again to remove" busy="Removing…" onConfirm={removeMemberAction.bind(null, org.id, m.id)}>
+                      Remove<span className="sr-only"> {m.email}</span>
+                    </ConfirmButton>
                   </span>
                 ) : (
                   <span className="text-sm text-muted-foreground">{ROLE_LABEL[theirs]}</span>
@@ -125,14 +127,11 @@ export default async function OrganizationPage() {
                   </span>
                 </span>
                 {manageMembers && (
-                  <span className="flex items-center gap-2">
-                    {left > 0 && <CopyButton text={`${env.appUrl}/invite/${i.id}`} label="Copy link" size="xs" />}
-                    <form action={cancelInviteAction}>
-                      <input type="hidden" name="invitationId" value={i.id} />
-                      <Button type="submit" variant="outline" size="xs" aria-label={`Cancel the invite for ${i.email}`}>
-                        Cancel invite
-                      </Button>
-                    </form>
+                  <span className={ASIDE}>
+                    {left > 0 && <CopyButton text={`${env.appUrl}/invite/${i.id}`} label="Copy link" />}
+                    <ConfirmButton className={REMOVE} confirm="Click again to cancel" busy="Cancelling…" onConfirm={cancelInviteAction.bind(null, i.id)}>
+                      Cancel invite<span className="sr-only"> for {i.email}</span>
+                    </ConfirmButton>
                   </span>
                 )}
               </li>
@@ -167,7 +166,7 @@ export default async function OrganizationPage() {
 
       <SettingsSection id="wallets" title="Test wallets" hint="Created and funded on every fork. They never hold real funds.">
         <List>
-          <Row title="Test account A" detail={<Addr value={wallets?.accountAAddress} chars={6} />} aside={wallets && <CopyButton text={wallets.accountAAddress} label="Copy" size="xs" />} />
+          <Row title="Test account A" detail={<Addr value={wallets?.accountAAddress} chars={6} />} aside={wallets && <CopyButton text={wallets.accountAAddress} label="Copy" />} />
           <Row
             title="Test account B"
             detail={
@@ -175,7 +174,7 @@ export default async function OrganizationPage() {
                 <Addr value={wallets?.accountBAddress} chars={6} /> · used for account-switch tests
               </>
             }
-            aside={wallets && <CopyButton text={wallets.accountBAddress} label="Copy" size="xs" />}
+            aside={wallets && <CopyButton text={wallets.accountBAddress} label="Copy" />}
           />
           <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
             <div className="flex min-w-0 flex-col gap-0.5">
@@ -191,12 +190,11 @@ export default async function OrganizationPage() {
               </span>
             </div>
             {!manage ? null : wallets?.inboxAddress ? (
-              <form action={removeInboxAction}>
-                {orgField}
-                <Button type="submit" variant="outline" size="xs">
-                  Remove
-                </Button>
-              </form>
+              <span className={ASIDE}>
+                <ConfirmButton className={REMOVE} confirm="Click again to remove" busy="Removing…" onConfirm={removeInboxAction.bind(null, org.id)}>
+                  Remove<span className="sr-only"> the inbox</span>
+                </ConfirmButton>
+              </span>
             ) : (
               <ActionForm action={createInboxAction} className="items-end">
                 {orgField}
@@ -239,16 +237,12 @@ export default async function OrganizationPage() {
               <li key={d.id} className="flex flex-col gap-3 px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="font-mono text-sm">{d.host}</span>
-                  <div className="flex items-center gap-2">
+                  <div className={ASIDE}>
                     {d.verifiedAt ? <Tag tone="quiet">Verified</Tag> : <Tag tone="warn">Not verified</Tag>}
                     {manage && (
-                      <form action={removeDomainAction}>
-                        {orgField}
-                        <input type="hidden" name="domainId" value={d.id} />
-                        <Button type="submit" variant="outline" size="xs" aria-label={`Remove ${d.host}`}>
-                          Remove
-                        </Button>
-                      </form>
+                      <ConfirmButton className={REMOVE} confirm="Click again to remove" busy="Removing…" onConfirm={removeDomainAction.bind(null, org.id, d.id)}>
+                        Remove<span className="sr-only"> {d.host}</span>
+                      </ConfirmButton>
                     )}
                   </div>
                 </div>
@@ -351,7 +345,7 @@ function IntegrationRow({ orgId, kind, title, row, status, children }: { orgId: 
   return (
     <li className="px-5 py-4">
       <details className="group">
-        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <span className="flex flex-col gap-0.5">
             <span className="text-sm font-medium">{title}</span>
             <span className="text-sm text-muted-foreground">{state}</span>
@@ -368,22 +362,18 @@ function IntegrationRow({ orgId, kind, title, row, status, children }: { orgId: 
             </Button>
           </ActionForm>
           {row && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <form action={setIntegrationEnabledAction}>
                 {orgField}
                 <input type="hidden" name="kind" value={kind} />
                 <input type="hidden" name="enabled" value={row.enabled ? "0" : "1"} />
-                <Button type="submit" variant="outline" size="xs">
+                <SubmitButton variant="outline" size="sm" busy={row.enabled ? "Pausing…" : "Resuming…"}>
                   {row.enabled ? "Pause" : "Resume"}
-                </Button>
+                </SubmitButton>
               </form>
-              <form action={removeIntegrationAction}>
-                {orgField}
-                <input type="hidden" name="kind" value={kind} />
-                <Button type="submit" variant="outline" size="xs">
-                  Disconnect
-                </Button>
-              </form>
+              <ConfirmButton className={REMOVE} confirm="Click again to disconnect" busy="Disconnecting…" onConfirm={removeIntegrationAction.bind(null, orgId, kind)}>
+                Disconnect<span className="sr-only"> {title}</span>
+              </ConfirmButton>
             </div>
           )}
         </div>

@@ -14,11 +14,12 @@ export function ResetForm({ token }: { token: string }) {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
+    setError(null);
     const newPassword = String(new FormData(e.currentTarget).get("password") ?? "");
-    const res = await authClient.resetPassword({ newPassword, token });
+    const res = await authClient.resetPassword({ newPassword, token }).catch(() => ({ error: { message: "Couldn't save it. Check your connection and try again." } }));
     if (res.error) {
       setPending(false);
-      setError(res.error.message ?? "That didn't work.");
+      setError(res.error.message ?? "That didn't work. Try again.");
       return;
     }
     window.location.assign("/login?reset=1");
@@ -35,9 +36,13 @@ export function ResetForm({ token }: { token: string }) {
             <Label htmlFor="password">New password</Label>
             <Input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" />
           </div>
-          {error && <p className="text-sm text-bad">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-bad">
+              {error}
+            </p>
+          )}
           <Button className="w-full" disabled={pending}>
-            Save password
+            {pending ? "Saving…" : "Save password"}
           </Button>
         </form>
       </CardContent>

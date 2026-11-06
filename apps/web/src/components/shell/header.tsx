@@ -34,15 +34,17 @@ const NAV = [
 export function Header({ apps, lastAppId, user, org, orgs, switchOrg }: ShellProps) {
   const params = useParams<{ appId?: string }>();
   const pathname = usePathname();
-  // On an app's page that app is the one shown, even for the moment it isn't in this organization's list yet.
+  // On an app's page that app is the one shown. It can be missing from the list: for a moment while we
+  // follow it into its organization, or for good when the address is wrong (the not-found page).
   const app = params.appId ? apps.find((a) => a.id === params.appId) : (apps.find((a) => a.id === lastAppId) ?? apps[0]);
+  const here = params.appId ? app : undefined;
 
   // Remember the app last looked at, for "/".
   useEffect(() => {
-    if (params.appId) document.cookie = `dd_app=${params.appId}; path=/; max-age=31536000; samesite=lax`;
-  }, [params.appId]);
+    if (here) document.cookie = `dd_app=${here.id}; path=/; max-age=31536000; samesite=lax`;
+  }, [here]);
 
-  const base = params.appId ? `/apps/${params.appId}` : app ? `/apps/${app.id}` : null;
+  const base = here ? `/apps/${here.id}` : null;
   const active = (path: string) => {
     if (!base) return false;
     if (path === "") return pathname === base || pathname.startsWith(`${base}/tests`);
@@ -50,7 +52,7 @@ export function Header({ apps, lastAppId, user, org, orgs, switchOrg }: ShellPro
   };
   const initial = (user.name || user.email).trim().charAt(0).toUpperCase();
 
-  const nav = base && params.appId && (
+  const nav = base && (
     <nav aria-label="Main" className="flex items-center gap-1">
       {NAV.map((n) => (
         <Link
@@ -110,7 +112,7 @@ export function Header({ apps, lastAppId, user, org, orgs, switchOrg }: ShellPro
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="max-w-32 gap-1.5 px-2 sm:max-w-56" aria-label="Switch app">
               <span className="truncate" title={app?.host}>
-                {app ? app.name : params.appId ? "…" : "No apps yet"}
+                {app ? app.name : apps.length ? "Apps" : "No apps yet"}
               </span>
               <ChevronsUpDown className="text-muted-foreground" />
             </Button>
@@ -159,7 +161,7 @@ export function Header({ apps, lastAppId, user, org, orgs, switchOrg }: ShellPro
                   window.location.assign("/login");
                 }}
               >
-                Sign out
+                Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

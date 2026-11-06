@@ -314,14 +314,14 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
             <>
               DappDrill never solves CAPTCHAs. If your site has a bot check, let it in with a header your firewall allows.{" "}
               <a href={BOT_GUIDE_URL} className="underline underline-offset-4 hover:text-foreground">
-                How
+                How to set it up
               </a>
             </>
           }
         >
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
             <Field label="Header name">
-              <Input name="headerName" className="font-mono" placeholder={d.headerNames[0] ?? "x-dappdrill-key"} autoComplete="off" spellCheck={false} />
+              <Input name="headerName" className="font-mono" placeholder={d.headerNames[0] ?? "x-dappdrill-token"} autoComplete="off" spellCheck={false} />
             </Field>
             <Field label="Value">
               <Input name="headerValue" type="password" className="font-mono" placeholder={d.headerNames.length ? "Saved. Paste a new one to replace it." : ""} autoComplete="off" />
@@ -332,13 +332,13 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
         </SettingsSection>
 
         <SettingsSection
-          id="setup"
+          id="fork-setup"
           title="Fork setup"
           hint={
             <>
               For apps that need a flag to work on a fork, or a backend that disagrees with it.{" "}
               <a href={FORK_GUIDE_URL} className="underline underline-offset-4 hover:text-foreground">
-                How
+                How fork setup works
               </a>
             </>
           }
@@ -354,8 +354,8 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
 
       {readOnly && <p className="border-t py-4 text-sm text-muted-foreground">Only admins and owners can change an app&apos;s settings.</p>}
 
-      {/* Sticks to the bottom only while there is something to save, and briefly to say it saved. */}
-      <div className={cx("bottom-0 z-10 flex items-center gap-4 border-t bg-background py-4", (dirty || saved || state?.error) && "sticky", readOnly && "hidden")}>
+      {/* Only there while there is something to save, and briefly to say it saved. */}
+      <div className={cx("sticky bottom-0 z-10 flex items-center gap-4 border-t bg-background py-4", (readOnly || !(dirty || pending || saved || state?.error)) && "hidden")}>
         <Button type="submit" disabled={pending || !dirty}>
           {pending ? "Saving…" : "Save settings"}
         </Button>
