@@ -163,7 +163,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
           {tests.length > 0 || explored ? (
             <div className="flex flex-col gap-6">
               {pass && <Tabs appId={appId} tab={tab} tests={counted.length} bugs={bugs.open.length} tried={state?.checks.length ?? 0} />}
-              {tab === "bugs" && <Bugs open={bugs.open} setAside={bugs.setAside} running={exploring} explored={explored} />}
+              {tab === "bugs" && <Bugs open={bugs.open} setAside={bugs.setAside} running={exploring} explored={explored} appUrl={app.url} />}
               {tab === "tried" && <Tried appId={appId} lines={tried} kind={KINDS.find((k) => k === query.kind)} tests={new Map(tests.map((t) => [t.name, t.id]))} running={exploring} />}
               {tab === "tests" && (
                 <div className="flex flex-col gap-8">
