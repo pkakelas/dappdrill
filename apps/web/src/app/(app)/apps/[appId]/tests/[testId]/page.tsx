@@ -154,7 +154,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         (runState === "fail" || runState === "error") && (
           <div
             role="status"
-            className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
+            // Red is for the app: a failure the second look put on the test is the owner's to fix.
+            className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" && result.secondLook?.verdict !== "test" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
           >
             {result.failure}
           </div>
