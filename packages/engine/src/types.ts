@@ -43,6 +43,8 @@ export interface ChainController {
   client(chainId: number): PublicClient;
   /** Forward a JSON-RPC call to the chain, applying current faults (latency/failures). */
   request(chainId: number, method: string, params: unknown[]): Promise<unknown>;
+  /** ERC-20 tokens whose balance of `holder` was asked for through request(): what the app shows the wallet holds. */
+  tokensRead?(chainId: number, holder: Hex): Hex[];
 
   // Fork-only controls. Throw in live mode.
   setBalance(chainId: number, address: Hex, wei: bigint): Promise<void>;

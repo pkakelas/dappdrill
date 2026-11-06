@@ -3,8 +3,9 @@
  * chain controller, and every artifact (video, trace, screenshots, live
  * frames, console, RPC log) collected under artifactsDir.
  */
-import { mkdir, readdir, rename, rm } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { newId, nowIso, type ConsoleEntry, type DrillEventSink, type DrillTarget, type RpcLogEntry, type WalletProfileId } from "@dappdrill/core";
 import type { ChainController, DrillSession, WalletPolicy } from "../types.js";
@@ -12,6 +13,7 @@ import { Wallet } from "../wallet/controller.js";
 import { BINDING_NAME, walletInitScript, type BridgeRequest, type InjectConfig } from "../wallet/inject.js";
 import { toHex } from "../chain/rpc.js";
 import { installAccessHeaders, USER_AGENT } from "./access.js";
+import { installBackendBalances } from "./backend-balances.js";
 import { RpcRouter } from "./rpc-route.js";
 import { installResponses, installStorage } from "./setup.js";
 import { Traffic } from "./traffic.js";
@@ -33,7 +35,7 @@ export interface SessionOptions {
   policy?: Partial<WalletPolicy>;
   /** Used in artifact file names. Generated when missing. */
   runId?: string;
-  /** Browser storage (cookies, localStorage, IndexedDB) saved by an earlier session, e.g. after the app's setup. */
+  /** What an earlier session saved with saveState, e.g. after the app's setup: browser storage, and whether the wallet was connected. */
   storageState?: string;
   /** Live-view frame interval (default 1500ms); 0 disables. */
   frameIntervalMs?: number;
@@ -55,6 +57,15 @@ export interface EngineSession extends DrillSession {
   readonly traffic: Traffic;
 }
 
+const WalletState = z.object({ connected: z.boolean(), chainId: z.number().int() });
+const walletFile = (storageState: string) => `${storageState}.wallet.json`;
+
+/** Saves what a later session needs to carry on from here: browser storage, and the wallet's connection to the site. */
+export async function saveState(session: EngineSession, file: string): Promise<void> {
+  await session.context.storageState({ path: file, indexedDB: true });
+  await writeFile(walletFile(file), JSON.stringify({ connected: session.wallet.isConnected(), chainId: session.wallet.chainId() } satisfies z.infer<typeof WalletState>));
+}
+
 export async function createSession(target: DrillTarget, chains: ChainController, opts: SessionOptions): Promise<EngineSession> {
   const id = opts.runId ?? newId("ses");
   const log = opts.log ?? (() => {});
@@ -69,7 +80,10 @@ export async function createSession(target: DrillTarget, chains: ChainController
   const profile = opts.wallet ?? target.wallets[0] ?? "metamask";
   const configs = chains.configs();
   if (configs.length === 0) throw new Error("createSession needs at least one chain");
-  const startChainId = opts.startChainId ?? configs[0]!.id;
+  // A wallet remembers the sites it is connected to and the network it was on, so a session that
+  // carries on from saved storage does too. Without it the app finds its own sign-in but no wallet.
+  const before = opts.storageState ? await readFile(walletFile(opts.storageState), "utf8").then((s) => WalletState.parse(JSON.parse(s)), () => undefined) : undefined;
+  const startChainId = opts.startChainId ?? (before && chains.has(before.chainId) ? before.chainId : configs[0]!.id);
 
   const wallet = new Wallet({
     profile,
@@ -77,6 +91,7 @@ export async function createSession(target: DrillTarget, chains: ChainController
     accounts: target.accounts,
     liveKey: target.liveKey,
     startChainId,
+    connected: before?.connected,
     policy: opts.policy,
     log,
   });
@@ -169,14 +184,19 @@ class Session implements EngineSession {
     const cfg: InjectConfig = {
       wallets,
       chainId: toHex(startChainId),
-      accounts: [],
+      accounts: this.wallet.isConnected() ? [this.wallet.address()] : [],
       binding: BINDING_NAME,
     };
     await context.addInitScript({ content: walletInitScript(cfg) });
     for (const content of this.target.initScripts ?? []) await context.addInitScript({ content });
     await installStorage(context, this.target.url, this.target.storage ?? {});
     await this.router.install(context);
-    // Routes registered later run first: fixed responses, then access headers, then the RPC router.
+    await installBackendBalances(context, {
+      chains: this.chains,
+      holders: Object.values(wallet.accounts),
+      onAnswered: (endpoint) => void this.emit({ type: "log", level: "info", message: `${endpoint} answers what the wallet holds from the real chain; answering it from the fork instead`, at: nowIso() }),
+    });
+    // Routes registered later run first: fixed responses, then access headers, then balances a backend reports, then the RPC router.
     await installAccessHeaders(context, this.target.url, this.target.headers ?? {});
     await installResponses(context, this.target.responses ?? []);
     this.traffic.install(context);

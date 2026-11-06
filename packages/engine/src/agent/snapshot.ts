@@ -206,6 +206,14 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
 
   const text = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim();
   const clip = (s: string, n = 80) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+  // What a person reads in an element: an icon's inline <style> is in textContent too.
+  const readable = (el: Element | null | undefined): string => {
+    if (!el) return "";
+    if (!el.querySelector("style,script")) return text(el.textContent);
+    const clone = el.cloneNode(true) as Element;
+    clone.querySelectorAll("style,script").forEach((c) => c.remove());
+    return text(clone.textContent);
+  };
 
   // Hidden subtrees are skipped entirely; a zero-size element is skipped itself
   // but its children may still render (fixed-position dialogs in an empty wrapper).
@@ -280,7 +288,7 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
       if (type === "submit" || type === "button" || type === "reset") return text((el as HTMLInputElement).value) || "Submit";
       return labelText(el) ?? text(el.getAttribute("placeholder")) ?? text(el.getAttribute("title")) ?? text(el.getAttribute("name"));
     }
-    const content = text(el.textContent);
+    const content = readable(el);
     if (content) return content;
     const img = el.querySelector("img[alt], svg[aria-label], [title]");
     const alt = img?.getAttribute("alt") ?? img?.getAttribute("aria-label") ?? img?.getAttribute("title");
@@ -436,6 +444,12 @@ function factsInPage(args: { refAttr: string; ref: string }): ElementFacts | nul
     return null;
   }
   const text = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim();
+  const readable = (e: Element): string => {
+    if (!e.querySelector("style,script")) return text(e.textContent);
+    const clone = e.cloneNode(true) as Element;
+    clone.querySelectorAll("style,script").forEach((c) => c.remove());
+    return text(clone.textContent);
+  };
   const tag = el.tagName.toLowerCase();
 
   const implicitRole = (): string => {
@@ -481,7 +495,7 @@ function factsInPage(args: { refAttr: string; ref: string }): ElementFacts | nul
   const isControl = tag === "input" || tag === "select" || tag === "textarea";
   const label = isControl ? labelFor() : undefined;
   const ariaName = text(el.getAttribute("aria-label"));
-  const content = text(el.textContent);
+  const content = readable(el);
   const name = ariaName || (isControl ? label ?? text(el.getAttribute("placeholder")) : content || text(el.querySelector("img[alt]")?.getAttribute("alt")));
   const ownText = !isControl && content && content.length <= 80 ? content : undefined;
 

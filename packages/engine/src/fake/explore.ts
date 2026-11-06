@@ -313,5 +313,5 @@ export const fakeExplore: Engine["explore"] = async (target, opts, hooks, sink, 
   board.change((s) => (s.costs = { stage: { look: round(total * 0.15), setup: 0, explore: round(total * 0.5), prove: round(total * 0.25), confirm: round(total * 0.1) }, model: { think: round(total * 0.25), fast: round(total * 0.7), act: round(total * 0.05) } }));
   board.phase("done");
   await board.flush();
-  return { state: board.state, chains: chainsOf(target), costUsd: total };
+  return { state: board.state, chains: chainsOf(target), costUsd: total, tokens: target.tokens };
 };

@@ -13,7 +13,7 @@ export async function resolveLocator(page: Page, loc: Locator, timeoutMs: number
   const deadline = Date.now() + timeoutMs;
   const tried: string[] = [];
   do {
-    const scope = loc.withinDialog ? await dialogScope(page) : page;
+    const scope = loc.withinDialog ? await openDialog(page) : page;
     if (scope) {
       for (const { name, build } of candidates(scope, loc)) {
         if (!tried.includes(name)) tried.push(name);
@@ -58,14 +58,39 @@ function candidates(scope: Scope, loc: Locator): { name: string; build: () => Pw
     out.push({ name: `text ~"${loc.text}"`, build: () => scope.getByText(loc.text!) });
   }
   if (loc.css) out.push({ name: `css ${loc.css}`, build: () => scope.locator(loc.css!) });
+  // Last, the same words around other figures: a row named by a live quote reads differently on the next run.
+  const named = loc.role && loc.name ? anyFigures(loc.name) : undefined;
+  if (named) out.push({ name: `${loc.role} "${loc.name}" with other figures`, build: () => scope.getByRole(loc.role as Parameters<Page["getByRole"]>[0], { name: named }) });
+  const worded = loc.text ? anyFigures(loc.text) : undefined;
+  if (worded) out.push({ name: `text "${loc.text}" with other figures`, build: () => scope.getByText(worded) });
   return out;
 }
 
-/** The topmost open dialog, or undefined when none is open yet. */
-async function dialogScope(page: Page): Promise<PwLocator | undefined> {
-  const dialogs = page.locator('[role="dialog"], dialog[open], [role="alertdialog"]').filter({ visible: true });
+/**
+ * A name that holds a live figure ("0.01 ETH 22.223 USDC In progress") as a pattern that takes any
+ * figure in its place. Only numbers with a decimal point count: "25%" and "Page 2" are labels.
+ */
+export function anyFigures(text: string): RegExp | undefined {
+  const figure = /\d[\d,]*\.\d+/g;
+  const words = text.split(figure);
+  if (words.length < 2 || words.join("").replace(/[^a-z]/gi, "").length < 3) return undefined;
+  const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  return new RegExp(`^\\s*${words.map(literal).join("[\\d,.]+")}\\s*$`);
+}
+
+/**
+ * The topmost open dialog, or undefined when none is open yet. Some dialogs (Privy's sign-in) are
+ * a wrapper with no height around fixed-position content, so one with anything visible inside counts.
+ */
+export async function openDialog(page: Page): Promise<PwLocator | undefined> {
+  const dialogs = page.locator('[role="dialog"], dialog[open], [role="alertdialog"], [aria-modal="true"]');
   const n = await dialogs.count().catch(() => 0);
-  return n > 0 ? dialogs.nth(n - 1) : undefined;
+  for (let i = n - 1; i >= 0; i--) {
+    const dialog = dialogs.nth(i);
+    if (await dialog.isVisible().catch(() => false)) return dialog;
+    if ((await dialog.locator(":visible").first().count().catch(() => 0)) > 0) return dialog;
+  }
+  return undefined;
 }
 
 export function describeLocator(loc: Locator): string {

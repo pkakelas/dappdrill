@@ -89,6 +89,11 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
     await state.flush();
     await update({ state: out.state, blocked: out.blocked ?? null, costUsd: out.costUsd });
     if (out.chains.length) await db.update(apps).set({ chains: out.chains }).where(eq(apps.id, app.id));
+    // What the look gave the test wallet: later runs of these tests need the same, read again in case settings changed meanwhile.
+    if (out.tokens.length) {
+      const { settings } = await loadApp(db, app.id);
+      await db.update(apps).set({ settings: { ...settings, tokens: out.tokens } }).where(eq(apps.id, app.id));
+    }
     if (out.state.stopped) error = out.state.stopped;
   } catch (e) {
     await drain();

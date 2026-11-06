@@ -4,6 +4,8 @@ import type { AddChainRequest, ChainController, Hex } from "../types.js";
 import { startAnvilFork, type AnvilFork } from "./anvil.js";
 import { dealErc20 as dealErc20Impl } from "./deal-erc20.js";
 import { JsonRpcError, probeChainId, rpcCall, sleep, toHex } from "./rpc.js";
+import { balanceReads } from "./balance-reads.js";
+import { pickUpstream } from "./upstream.js";
 
 export interface StartChainsOptions {
   /** Funded key for live-mode chains. Without it, live chains are read-only. */
@@ -88,27 +90,21 @@ async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promis
     opts.log?.(`chain ${config.id}: live mode via ${config.rpcUrl}${opts.liveKey ? "" : " (no funded key: signs messages, sends no transactions)"}`);
     return { config, mode: "live", url: config.rpcUrl };
   }
+  // The RPC the fork reads from has to keep the fork's block for the whole run; see upstream.ts.
+  const upstream = await pickUpstream(config, opts.log);
+  if (config.forkBlock && !upstream.pinned) opts.log?.(`chain ${config.id}: block ${config.forkBlock} is no longer available upstream; forking near the latest block`);
+  const start = (forkBlock?: bigint) => startAnvilFork({ rpcUrl: upstream.rpcUrl, chainId: config.id, forkBlock });
   let fork: AnvilFork;
   try {
-    fork = await startAnvilFork({
-      rpcUrl: config.rpcUrl,
-      chainId: config.id,
-      forkBlock: config.forkBlock ? BigInt(config.forkBlock) : undefined,
-    });
+    // A public RPC behind a load balancer now and then hasn't got the block yet, or drops a request: once more, near the tip.
+    fork = await start(upstream.pinned ? BigInt(config.forkBlock!) : undefined).catch(() => start());
   } catch (err) {
     // Chains that aren't standard EVM nodes can't be forked: test them live, never on mainnet.
     if (MAINNET_CHAIN_IDS.has(config.id)) throw err;
-    opts.log?.(`chain ${config.id}: can't fork ${config.rpcUrl} (${(err as Error).message.split("\n")[0]}); falling back to live mode`);
+    opts.log?.(`chain ${config.id}: can't fork ${upstream.via} (${(err as Error).message.split("\n")[0]}); falling back to live mode`);
     return startEntry({ ...config, mode: "live", forkBlock: undefined }, opts);
   }
-  // Public RPCs prune old state. A block pinned by an earlier scan may no longer
-  // be readable; fork near the tip instead of failing every call later.
-  if (config.forkBlock && !(await readable(fork.url))) {
-    opts.log?.(`chain ${config.id}: block ${config.forkBlock} is no longer available upstream; forking near the latest block`);
-    await fork.close();
-    fork = await startAnvilFork({ rpcUrl: config.rpcUrl, chainId: config.id });
-  }
-  opts.log?.(`chain ${config.id}: forked ${config.rpcUrl} at block ${fork.forkBlock} on ${fork.url}`);
+  opts.log?.(`chain ${config.id}: forked ${upstream.via} at block ${fork.forkBlock} on ${fork.url}`);
   return {
     config: { ...config, forkBlock: fork.forkBlock.toString() },
     mode: "fork",
@@ -118,6 +114,8 @@ async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promis
 }
 
 class Controller implements ChainController {
+  /** ERC-20 balances the app or the wallet asked for, as "chain:holder:token". */
+  private readonly read = new Set<string>();
   private readonly entries = new Map<number, Entry>();
   private faults = { latencyMs: 0, failureRate: 0 };
   private rng = seeded(0x5eed);
@@ -221,7 +219,13 @@ class Controller implements ChainController {
     if (!e) throw new JsonRpcError(4901, `The provider is disconnected from chain ${chainId}.`);
     if (this.faults.latencyMs > 0) await sleep(this.faults.latencyMs);
     if (this.faults.failureRate > 0 && this.rng() < this.faults.failureRate) throw new InjectedRpcFault();
+    for (const r of balanceReads(method, params)) this.read.add(`${chainId}:${r.holder}:${r.token}`);
     return rpcCall(e.url, method, params);
+  }
+
+  tokensRead(chainId: number, holder: Hex): Hex[] {
+    const prefix = `${chainId}:${holder.toLowerCase()}:`;
+    return [...this.read].filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length) as Hex);
   }
 
   /** Engine-side control call: never subject to faults, fork only. */
@@ -278,16 +282,6 @@ class Controller implements ChainController {
     const e = this.entries.get(chainId);
     if (!e) throw new Error(`chain ${chainId} is not part of this run (have ${[...this.entries.keys()].join(", ") || "none"})`);
     return e;
-  }
-}
-
-/** A fork whose upstream pruned the pinned block fails its first state read. */
-async function readable(url: string): Promise<boolean> {
-  try {
-    await rpcCall(url, "eth_getBalance", ["0x000000000000000000000000000000000000dEaD", "latest"], { timeoutMs: 20_000 });
-    return true;
-  } catch {
-    return false;
   }
 }
 

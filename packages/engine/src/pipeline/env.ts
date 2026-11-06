@@ -122,6 +122,8 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
     // Keys stay the same for the whole call so setup tests, edge cases and approvals line up.
     accounts: freshAccounts(live.length > 0, input) ?? input.accounts ?? { A: generatePrivateKey(), B: generatePrivateKey() },
   };
+  // Before anything is pinned, so going back to a snapshot never leaves the wallet empty.
+  for (const c of target.chains) if (c.mode === "fork") await fundOnFork(chains, c.id, fundedAddresses(target), target.tokens);
   await wrapped({ type: "chains", chains: target.chains });
   for (const c of live) await log(liveChainLine(c, !!input.liveKey), "warn");
 

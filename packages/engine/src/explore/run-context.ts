@@ -1,8 +1,9 @@
 /** What every stage of a pass shares. */
 import { MAINNET_CHAIN_IDS, type AppMap, type AppSetup, type Blocked, type DrillEvent, type DrillEventSink, type ExploreCosts, type ExploreSuggestion, type SigningReview, type Step, type TestStep, type WalletRequest } from "@dappdrill/core";
 import { openEnv, type Env } from "../pipeline/env.js";
-import type { SetupRunner } from "../pipeline/setup.js";
+import type { Prepared, SetupRunner } from "../pipeline/setup.js";
 import { Board } from "./board.js";
+import type { Found } from "./look.js";
 
 /** A test the app already has. */
 export interface KnownTest {
@@ -31,6 +32,12 @@ export interface ExploreOptions {
   /** Browsers at once (default 5). One when a chain is live. */
   slots?: number;
   headless?: boolean;
+  /** What an earlier look found. With it the pass skips the look and starts from this. */
+  found?: Found;
+  /** Explore only these features, by name. The rest keep their suggested tests untried. */
+  only?: string[];
+  /** Stop once this stage is done. */
+  until?: "look" | "setup";
 }
 
 export interface ExploreHooks {
@@ -46,6 +53,8 @@ type Stage = "look" | "setup" | "explore" | "prove" | "confirm";
 export class ExploreRun {
   readonly board: Board;
   blocked?: Blocked;
+  /** What the look found, as it found it. */
+  found?: Found;
   map?: AppMap;
   /** What a browser does first: the app's setup, or connecting the wallet. */
   entry!: AppSetup;
@@ -53,6 +62,8 @@ export class ExploreRun {
   setup?: AppSetup;
   /** The setup runner on the base env, for when explorers share it. */
   baseRunner?: SetupRunner;
+  /** What the setup check prepared, when forks of their own can start from it too: a setup that sent no transaction. */
+  ready?: Prepared;
   /** Forks can be had per explorer; a live chain can't be split. */
   readonly isolated: boolean;
   readonly slots: number;

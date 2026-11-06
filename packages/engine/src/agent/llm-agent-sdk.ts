@@ -2,12 +2,13 @@
  * Llm backend on the Claude Agent SDK, used when there is no API key: it runs
  * on the local Claude Code login. Our AgentTools are exposed through an
  * in-process MCP server; every built-in tool is disabled. Cost comes from the
- * SDK's result message.
+ * SDK's result message, or from each answer's token counts when a run is cut
+ * off before it gets one.
  */
 import { createSdkMcpServer, query, tool, type Options, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { AgentTool, ImageInput, Llm } from "../types.js";
-import { LlmError, runTool, shapeOf, type Effort } from "./llm-common.js";
+import { LlmError, costOf, runTool, shapeOf, type Effort } from "./llm-common.js";
 
 const SERVER = "dappdrill";
 
@@ -49,8 +50,15 @@ export function createAgentSdkLlm(opts: { model: string; effort: Effort }): Llm 
   ): Promise<{ text: string; subtype: string; structured?: unknown }> => {
     const q = query({ prompt: promptFor(prompt, images), options });
     let lastText = "";
+    // One answer arrives as several messages with the same id and the same counts.
+    const answers = new Map<string, number>();
+    const spentSoFar = () => (cost += [...answers.values()].reduce((a, b) => a + b, 0));
     try {
       for await (const msg of q) {
+        if (msg.type === "assistant") {
+          const u = msg.message.usage;
+          answers.set(msg.message.id, costOf(opts.model, { input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 }));
+        }
         if (msg.type === "assistant" && msg.parent_tool_use_id === null) {
           const text = msg.message.content
             .filter((b) => b.type === "text")
@@ -70,9 +78,11 @@ export function createAgentSdkLlm(opts: { model: string; effort: Effort }): Llm 
         }
       }
     } catch (err) {
+      spentSoFar();
       if (options.abortController?.signal.aborted) throw new LlmError("aborted", "Model call aborted", { cause: err });
       throw new LlmError("api", err instanceof Error ? err.message : String(err), { cause: err });
     }
+    spentSoFar();
     if (options.abortController?.signal.aborted) throw new LlmError("aborted", "Model call aborted");
     throw new LlmError("api", "The agent session ended without a result");
   };

@@ -21,7 +21,8 @@ packages/engine   The backend that drills a dApp. No DB. Public API in src/api.t
   src/types.ts      Seams between engine modules (ChainController, WalletController, DrillSession, SigningReviewer, Llm, RecoveryJudge)
   src/chain/        Anvil forks, live-mode passthrough, RPC faults, chain detection
   src/wallet/       Injected EIP-1193/EIP-6963 provider (page side) + controller (node side)
-  src/browser/      Playwright session: video, trace, console + RPC capture, page JSON-RPC routing
+  src/browser/      Playwright session: video, trace, console + RPC capture, page JSON-RPC routing, and a wallet
+                    balance the app's own server reports answered from the fork
   src/pipeline/     analyze (the CLI's quick look: find what to test, write tests) and runTests (cached actions first, the agent when they stop working)
   src/replay/       Replaying recorded actions + unhappy-path conditions, used by pipeline/
   src/explore/      One pass over an app: look around and suggest tests, check the setup, an explorer per feature,
@@ -78,7 +79,15 @@ corepack pnpm dev                        # web (3000) + worker
 corepack pnpm fixture                    # Harbor Vault test dApp: anvil :8545 + site :5173
 corepack pnpm cli analyze http://localhost:5173
 corepack pnpm typecheck
+corepack pnpm drill look <url>           # one stage of a pass at a time: look | setup | explore --feature <name> | pass | run | show
 ```
+
+`pnpm drill` (packages/engine/dev/drill.ts) is for working on the engine without waiting for a whole pass: each
+stage starts from what the earlier ones saved under `.drill/<host>/` (test accounts, the look, the setup with its
+recorded actions, the tokens the wallet starts with, the tests). `--fresh` forgets the look and the setup.
+
+Forks read through a local relay over the chain's RPCs that keep old state. Public RPCs prune it or rate-limit,
+so set `DAPPDRILL_RPC_<chainId>` (comma-separated URLs) to an archive RPC where runs must not depend on them.
 
 Use `scripts/pnpm-locked.sh <pnpm args>` instead of bare pnpm when adding dependencies
 (several agents may share this checkout).

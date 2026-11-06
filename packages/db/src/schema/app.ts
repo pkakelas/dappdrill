@@ -4,6 +4,7 @@ import type {
   Blocked,
   BugTriage,
   ChainConfig,
+  DrillTarget,
   EdgeCaseId,
   ExploreState,
   FixedResponse,
@@ -79,6 +80,8 @@ export interface AppSettings {
   storage?: Record<string, string>;
   /** Requests answered with a fixed body (a version check, a backend that disagrees with the fork). */
   responses?: FixedResponse[];
+  /** ERC-20 balances the test wallet starts with on forks; the first look picks them from what the app reads. */
+  tokens?: DrillTarget["tokens"];
 }
 
 export const apps = pgTable(

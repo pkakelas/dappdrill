@@ -37,7 +37,7 @@ export const DrillTarget = z.object({
   /** Disposable inbox for email-code logins (embedded wallets). */
   inbox: z.object({ address: z.string(), password: z.string() }).optional(),
   /** ERC-20 balances the test accounts get on forked chains; amount in whole tokens ("1000"). */
-  tokens: z.array(z.object({ chainId: z.number().int(), address: z.string(), amount: z.string() })).default([]),
+  tokens: z.array(z.object({ chainId: z.number().int(), address: z.string(), amount: z.string(), symbol: z.string().optional() })).default([]),
   /** Scripts run in every page after the wallet is injected and before the dApp's own code. */
   initScripts: z.array(z.string()).default([]),
   /**

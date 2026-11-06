@@ -11,6 +11,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { TestRunResult, type AppSetup, type Blame, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
+import { saveState } from "../browser/session.js";
 import type { Env } from "./env.js";
 import { BlockedError, landingBotCheck, openSession, plain, walkSteps, type WalkOptions } from "./steps.js";
 
@@ -52,7 +53,8 @@ interface SetupRun {
 
 const GOAL = "Get the app ready before a test: do what every test needs first, like signing in or getting test funds.";
 
-export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions, "signal" | "progress" | "shotPrefix">, hooks: SetupHooks) {
+/** `ready`: what a runner on another fork of the same block already prepared (see `portable`), used instead of running the setup here. */
+export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions, "signal" | "progress" | "shotPrefix">, hooks: SetupHooks, ready?: Prepared) {
   let setup = initial;
   let once: SetupRun | undefined;
   let passedBefore = false;
@@ -70,6 +72,7 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
     async prepare(spec: TestSpec, signal?: AbortSignal, quiet = false): Promise<{ pre: Prepared } | { outcome: SetupTestOutcome }> {
       // On a live chain every test after the first starts from what the earlier ones left.
       const shared = live && tests++ > 0;
+      if (ready) return { pre: ready };
       if (setup.when === "once" && once) {
         if (!once.ok) return { outcome: failed(spec, summary(once, true, shared), once.blame, once.failure) };
         return { pre: { storageState: once.storageState, setup: summary(once, true, shared) } };
@@ -98,6 +101,17 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
       }
       passedBefore = true;
       return { pre: { storageState: run.storageState, setup: result, reviews: run.reviews, walletRequests: run.walletRequests } };
+    },
+
+    /**
+     * What this setup prepared, for runners on other forks of the same block. Only a setup that
+     * sent no transaction qualifies (a sign-in, connecting the wallet): it left the chain as it
+     * found it, so its browser storage is just as true on a fork it never ran on.
+     */
+    portable(): Prepared | undefined {
+      if (live || setup.when !== "once" || !once?.ok) return undefined;
+      const sent = once.walletRequests.some((r) => r.kind === "sign" && r.outcome === "approved" && /send/i.test(r.method));
+      return sent ? undefined : { storageState: once.storageState, setup: summary(once, true, false) };
     },
 
     async close(): Promise<void> {
@@ -136,7 +150,7 @@ async function runSetup(
     if (walk.failure) run.failure = walk.failure;
     else {
       run.storageState = path.join(opts.dir, `state-${opts.n}.json`);
-      await session.context.storageState({ path: run.storageState, indexedDB: true });
+      await saveState(session, run.storageState);
       run.ok = true;
     }
   } catch (e) {

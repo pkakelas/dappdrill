@@ -37,7 +37,7 @@ export const EXPLORE_PHASE_LABEL: Record<ExplorePhase, string> = {
 };
 
 /** What an explorer tries around a feature. */
-export const ExploreVariation = z.enum(["happy", "input", "path", "state", "agreement", "round-trip"]);
+export const ExploreVariation = z.enum(["happy", "input", "path", "state", "agreement", "round-trip", "display"]);
 export type ExploreVariation = z.infer<typeof ExploreVariation>;
 
 export const VARIATION_LABEL: Record<ExploreVariation, string> = {
@@ -47,6 +47,7 @@ export const VARIATION_LABEL: Record<ExploreVariation, string> = {
   state: "State",
   agreement: "Page vs chain",
   "round-trip": "Round trip",
+  display: "What the page shows",
 };
 
 /** Something users do in one part of the app. Each gets an explorer. */
@@ -96,11 +97,13 @@ export type Explorer = z.infer<typeof Explorer>;
  * shows / hides: text on the page. url: the address contains it. wallet: a signature was asked for
  * and its decoded summary contains it. no-wallet: nothing was asked to sign. tx: the latest
  * transaction was mined and didn't revert. balance: the number on the page matches the chain.
+ * price: a price on the page is near the market's. adds-up: numbers on the page follow from each
+ * other. well-formed: no NaN, undefined or the like where a value goes.
  */
 export const CheckAssert = z.object({
-  kind: z.enum(["shows", "hides", "url", "wallet", "no-wallet", "tx", "balance"]),
+  kind: z.enum(["shows", "hides", "url", "wallet", "no-wallet", "tx", "balance", "price", "adds-up", "well-formed"]),
   value: z.string().optional(),
-  /** balance: the ERC-20 address; leave out for the native coin. */
+  /** balance: the ERC-20 address; leave out for the native coin. price: the asset's ticker or token address. */
   token: z.string().optional(),
 });
 export type CheckAssert = z.infer<typeof CheckAssert>;

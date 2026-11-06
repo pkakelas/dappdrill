@@ -72,6 +72,8 @@ export interface RunTestsOptions {
   setup?: AppSetup;
   /** Check each failed test again by hand before calling it the app's fault. */
   secondLook?: boolean;
+  /** The setup's result from another fork of the same block, used instead of running it again (see SetupRunner.portable). */
+  ready?: Prepared;
 }
 
 export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOptions, hooks: TestHooks): Promise<TestOutcome[]> {
@@ -79,7 +81,7 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
   // Steps learned earlier in this batch, so an unhappy path uses its base's fresh actions.
   const fresh = new Map<string, TestStep[]>();
   const looks: { item: TestItem; outcome: TestOutcome; signal?: AbortSignal }[] = [];
-  const setup = opts.setup?.steps.length ? setupRunner(env, opts.setup, opts, hooks) : undefined;
+  const setup = opts.setup?.steps.length ? setupRunner(env, opts.setup, opts, hooks, opts.ready) : undefined;
   try {
     for (const item of items) {
       const signal = item.signal && opts.signal ? AbortSignal.any([item.signal, opts.signal]) : (item.signal ?? opts.signal);

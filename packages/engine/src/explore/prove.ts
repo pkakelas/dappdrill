@@ -6,6 +6,7 @@
  */
 import { CONDITIONS, newId, nowIso, type EdgeCaseId, type ExploreState, type ExploreSuggestion, type TestSpec, type Tier } from "@dappdrill/core";
 import type { Env } from "../pipeline/env.js";
+import { pin } from "../pipeline/pin.js";
 import { runTestItems, type TestOutcome } from "../pipeline/tests.js";
 import { evidenceOf, fileBug } from "./bugs.js";
 import { lineUp } from "./recorded.js";
@@ -27,15 +28,22 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
   update((x) => (x.status = "proving"));
   board.addExplorer({ id: worker, title: `Proving: ${s.draft.name}`, feature: s.feature, tier: s.tier, status: "running", doing: "Running it on a clean fork", startedAt: nowIso(), activeAt: nowIso() });
 
+  // Each attempt runs the setup again, so the fork goes back to clean first: a second mint or
+  // deposit on top of the first would fail a test that was fine.
   const attempt = async (spec: TestSpec) => {
-    const [o] = await runTestItems(env, [{ spec }], { artifactsDir, map, baselines, signal, setup: run.setup }, {
-      onFrame: async (_id, frame) => board.explorer(worker, { frame, activeAt: nowIso() }),
-      onProgress: async (_id, result) => {
-        const at = result.steps.findIndex((r) => r.status === "running");
-        if (at >= 0) board.explorer(worker, { doing: s.draft.steps[at], activeAt: nowIso() });
-      },
-    });
-    return o;
+    const restore = await pin(env);
+    try {
+      const [o] = await runTestItems(env, [{ spec }], { artifactsDir, map, baselines, signal, setup: run.setup, ready: run.setup && run.ready }, {
+        onFrame: async (_id, frame) => board.explorer(worker, { frame, activeAt: nowIso() }),
+        onProgress: async (_id, result) => {
+          const at = result.steps.findIndex((r) => r.status === "running");
+          if (at >= 0) board.explorer(worker, { doing: s.draft.steps[at], activeAt: nowIso() });
+        },
+      });
+      return o;
+    } finally {
+      await restore();
+    }
   };
   const plain = plainSpec(s);
   const recorded = run.recorded.get(id);

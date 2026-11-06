@@ -14,7 +14,8 @@
     "db:migrate": "corepack pnpm --filter @dappdrill/db migrate",
     "fixture": "corepack pnpm --filter @dappdrill/harbor-vault start",
     "fixture:stop": "corepack pnpm --filter @dappdrill/harbor-vault stop",
-    "cli": "corepack pnpm --filter @dappdrill/cli exec tsx src/main.ts"
+    "cli": "corepack pnpm --filter @dappdrill/cli exec tsx src/main.ts",
+    "drill": "corepack pnpm --filter @dappdrill/engine exec tsx dev/drill.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

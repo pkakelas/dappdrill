@@ -37,6 +37,7 @@ export async function buildTarget(db: Db, app: AppRow, use: "analysis" | "tests"
     liveKey: app.liveKeyEnc ? decrypt(app.liveKeyEnc) : undefined,
     allowMainnetLive: settings.allowMainnetLive ?? false,
     headers: app.accessHeadersEnc ? JSON.parse(decrypt(app.accessHeadersEnc)) : undefined,
+    tokens: settings.tokens,
     storage: settings.storage,
     responses: settings.responses,
     inbox:

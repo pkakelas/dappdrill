@@ -134,6 +134,11 @@ describe("firstJobs", () => {
     expect(jobs.map((j) => j.feature.name)).toEqual(["Deposit", "Balances", "Other pages"]);
     expect(jobs.at(-1)!.feature.brief).toContain("Terms");
   });
+
+  it("keeps only the features asked for", () => {
+    const all = [feature("Docs", "supporting"), feature("Balances", "important"), feature("Deposit")];
+    expect(firstJobs(all, ["deposit"]).map((j) => j.feature.name)).toEqual(["Deposit"]);
+  });
 });
 
 describe("nextRound", () => {

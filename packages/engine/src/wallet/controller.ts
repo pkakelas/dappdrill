@@ -21,6 +21,8 @@ export interface WalletOptions {
   /** Funded key for live chains; becomes account A when any chain runs live. */
   liveKey?: string;
   startChainId: number;
+  /** The site was connected in an earlier session that this one carries on from. */
+  connected?: boolean;
   policy?: Partial<WalletPolicy>;
   log?: (message: string) => void;
 }
@@ -50,6 +52,13 @@ interface Pending {
 const DECIMALS_ABI = [{ type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] }] as const;
 const DEFAULT_POLICY: WalletPolicy = { autoConnect: true, autoSwitch: true, unknownChainOnce: false, autoSign: false };
 const PASSTHROUGH_CAP = 40;
+
+/** A wallet wraps what the node said (a revert, a nonce) as "Internal JSON-RPC error" with the reason in data; keep the reason. */
+export function errorLine(error: { code: number; message: string; data?: unknown }): string {
+  const inner = (error.data as { message?: unknown } | undefined)?.message;
+  const reason = typeof inner === "string" && inner && !error.message.includes(inner) ? `: ${inner.slice(0, 300)}` : "";
+  return `${error.code} ${error.message.replace(/\.$/, reason ? "" : ".")}${reason}`;
+}
 
 /** 100 ETH and the requested ERC-20 balances for each address, on one fork. */
 export async function fundOnFork(chains: ChainController, chainId: number, addresses: Hex[], tokens: DrillTarget["tokens"] = []): Promise<void> {
@@ -95,6 +104,7 @@ export class Wallet implements WalletController {
     this.chains = opts.chains;
     this.liveKey = opts.liveKey;
     this.chain = opts.startChainId;
+    this.connected = opts.connected ?? false;
     this.pol = { ...DEFAULT_POLICY, ...opts.policy };
     this.log = opts.log ?? (() => {});
     const anyLive = opts.chains.configs().some((c) => c.mode === "live");
@@ -172,7 +182,7 @@ export class Wallet implements WalletController {
     const res = await p.run();
     p.req.outcome = res.error ? "errored" : "approved";
     p.req.result = res.result;
-    p.req.error = res.error ? `${res.error.code} ${res.error.message}` : undefined;
+    p.req.error = res.error ? errorLine(res.error) : undefined;
     p.settle(res);
     this.notify(p.req);
     if (res.error) throw new JsonRpcError(res.error.code, res.error.message, res.error.data);
@@ -257,14 +267,14 @@ export class Wallet implements WalletController {
       if (record.outcome === "pending") {
         record.outcome = res.error ? "errored" : "approved";
         record.result = res.result;
-        record.error = res.error ? `${res.error.code} ${res.error.message}` : undefined;
+        record.error = res.error ? errorLine(res.error) : undefined;
         this.notify(record);
       }
       return res;
     } catch (e) {
       const error = toRpcError(e);
       record.outcome = error.code === 4001 ? "rejected" : "errored";
-      record.error = `${error.code} ${error.message}`;
+      record.error = errorLine(error);
       this.notify(record);
       return { error };
     }

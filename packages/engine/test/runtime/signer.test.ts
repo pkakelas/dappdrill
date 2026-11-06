@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { concat, encodeAbiParameters, hashDomain, keccak256, recoverAddress, recoverTypedDataAddress, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { errorLine } from "../../src/wallet/controller.js";
 import { signTypedData, typedDataChainId } from "../../src/wallet/signer.js";
 
 const account = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
@@ -60,5 +61,13 @@ describe("typedDataChainId", () => {
     expect(typedDataChainId(["0xabc", typed(0)])).toBeUndefined();
     expect(typedDataChainId(["0xabc", "{not json"])).toBeUndefined();
     expect(typedDataChainId([])).toBeUndefined();
+  });
+});
+
+describe("errorLine", () => {
+  it("keeps the node's reason from inside a wallet's wrapped error", () => {
+    expect(errorLine({ code: -32603, message: "Internal JSON-RPC error.", data: { code: 3, message: "execution reverted: NothingToWithdraw()" } })).toBe("-32603 Internal JSON-RPC error: execution reverted: NothingToWithdraw()");
+    expect(errorLine({ code: -32603, message: "Internal JSON-RPC error." })).toBe("-32603 Internal JSON-RPC error.");
+    expect(errorLine({ code: 4001, message: "User rejected the request.", data: { message: "User rejected the request." } })).toBe("4001 User rejected the request.");
   });
 });

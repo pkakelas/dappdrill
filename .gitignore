@@ -4,6 +4,7 @@ node_modules
 .next
 dist
 data/
+.drill/
 *.log
 .DS_Store
 fixtures/harbor-vault/out

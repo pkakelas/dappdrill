@@ -4,6 +4,8 @@ export interface ChainInfo {
   id: number;
   name: string;
   rpcUrl: string;
+  /** Other public RPCs for it, tried when `rpcUrl` can't serve a fork for a whole run (see the engine's chain/upstream.ts). */
+  fallbackRpcs?: string[];
   nativeSymbol: string;
   explorer?: string;
   testnet: boolean;
@@ -12,16 +14,16 @@ export interface ChainInfo {
 }
 
 export const KNOWN_CHAINS: ChainInfo[] = [
-  { id: 1, name: "Ethereum", rpcUrl: "https://ethereum-rpc.publicnode.com", nativeSymbol: "ETH", explorer: "https://etherscan.io", testnet: false, forkable: true },
-  { id: 8453, name: "Base", rpcUrl: "https://base-rpc.publicnode.com", nativeSymbol: "ETH", explorer: "https://basescan.org", testnet: false, forkable: true },
-  { id: 42161, name: "Arbitrum", rpcUrl: "https://arbitrum-one-rpc.publicnode.com", nativeSymbol: "ETH", explorer: "https://arbiscan.io", testnet: false, forkable: true },
-  { id: 10, name: "Optimism", rpcUrl: "https://optimism-rpc.publicnode.com", nativeSymbol: "ETH", explorer: "https://optimistic.etherscan.io", testnet: false, forkable: true },
-  { id: 137, name: "Polygon", rpcUrl: "https://polygon-bor-rpc.publicnode.com", nativeSymbol: "POL", explorer: "https://polygonscan.com", testnet: false, forkable: true },
-  { id: 56, name: "BNB Chain", rpcUrl: "https://bsc-rpc.publicnode.com", nativeSymbol: "BNB", explorer: "https://bscscan.com", testnet: false, forkable: true },
+  { id: 1, name: "Ethereum", rpcUrl: "https://ethereum-rpc.publicnode.com", fallbackRpcs: ["https://eth.drpc.org", "https://rpc.mevblocker.io"], nativeSymbol: "ETH", explorer: "https://etherscan.io", testnet: false, forkable: true },
+  { id: 8453, name: "Base", rpcUrl: "https://base-rpc.publicnode.com", fallbackRpcs: ["https://mainnet.base.org", "https://base.drpc.org"], nativeSymbol: "ETH", explorer: "https://basescan.org", testnet: false, forkable: true },
+  { id: 42161, name: "Arbitrum", rpcUrl: "https://arbitrum-one-rpc.publicnode.com", fallbackRpcs: ["https://arb1.arbitrum.io/rpc", "https://1rpc.io/arb"], nativeSymbol: "ETH", explorer: "https://arbiscan.io", testnet: false, forkable: true },
+  { id: 10, name: "Optimism", rpcUrl: "https://optimism-rpc.publicnode.com", fallbackRpcs: ["https://mainnet.optimism.io", "https://optimism.drpc.org"], nativeSymbol: "ETH", explorer: "https://optimistic.etherscan.io", testnet: false, forkable: true },
+  { id: 137, name: "Polygon", rpcUrl: "https://polygon-bor-rpc.publicnode.com", fallbackRpcs: ["https://polygon.drpc.org"], nativeSymbol: "POL", explorer: "https://polygonscan.com", testnet: false, forkable: true },
+  { id: 56, name: "BNB Chain", rpcUrl: "https://bsc-rpc.publicnode.com", fallbackRpcs: ["https://bsc.drpc.org"], nativeSymbol: "BNB", explorer: "https://bscscan.com", testnet: false, forkable: true },
   { id: 11155111, name: "Sepolia", rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com", nativeSymbol: "ETH", explorer: "https://sepolia.etherscan.io", testnet: true, forkable: true },
-  { id: 84532, name: "Base Sepolia", rpcUrl: "https://base-sepolia-rpc.publicnode.com", nativeSymbol: "ETH", explorer: "https://sepolia.basescan.org", testnet: true, forkable: true },
+  { id: 84532, name: "Base Sepolia", rpcUrl: "https://base-sepolia-rpc.publicnode.com", fallbackRpcs: ["https://sepolia.base.org"], nativeSymbol: "ETH", explorer: "https://sepolia.basescan.org", testnet: true, forkable: true },
   { id: 421614, name: "Arbitrum Sepolia", rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc", nativeSymbol: "ETH", explorer: "https://sepolia.arbiscan.io", testnet: true, forkable: true },
-  { id: 11155420, name: "OP Sepolia", rpcUrl: "https://optimism-sepolia-rpc.publicnode.com", nativeSymbol: "ETH", explorer: "https://sepolia-optimism.etherscan.io", testnet: true, forkable: true },
+  { id: 11155420, name: "OP Sepolia", rpcUrl: "https://optimism-sepolia-rpc.publicnode.com", fallbackRpcs: ["https://sepolia.optimism.io"], nativeSymbol: "ETH", explorer: "https://sepolia-optimism.etherscan.io", testnet: true, forkable: true },
   { id: 129302, name: "pod testnet", rpcUrl: "https://staging-rpc.podtestnet.dev", nativeSymbol: "ETH", testnet: true, forkable: false },
   { id: 31337, name: "Local", rpcUrl: "http://127.0.0.1:8545", nativeSymbol: "ETH", testnet: true, forkable: true },
 ];

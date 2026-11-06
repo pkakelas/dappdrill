@@ -7,9 +7,10 @@
 import { formatEther } from "viem";
 import { z } from "zod";
 import { describeStep, forkBlindLine, type AppMap, type Blocked, type Step, type TestSpec, type WalletRequest } from "@dappdrill/core";
-import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
+import type { AgentTool, DrillSession, Hex, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, Recorder, settle } from "./tools.js";
+import { openDialog } from "../replay/locators.js";
 import { NO_LIVE_KEY } from "../wallet/errors.js";
 import { decodeWalletRequest } from "./wallet-decode.js";
 
@@ -21,6 +22,7 @@ You get the test's goal, all its steps, and the one step to do now. Do only that
 
 - Use the page as a user would: look, click, type, select. Prefer what is visible over guessing URLs.
 - When the step is already true (the wallet is already connected, the page is already open), do nothing and call step_done.
+- The browser is new, so the app may put a first-visit prompt in the way that the steps don't mention: terms to accept, a cookie banner, a welcome tour. Accept or close it as part of your step, marked optional, as soon as it shows or the page says it is waiting for it ("Accept the terms to continue").
 - Wallet requests show up in tool results. Approve them with wallet_approve unless the step says to reject.
 - When the step asks to check something, confirm it on the page and call expect_text with a short exact text that proves it. A value within 1% is the same value: apps round and truncate (0.0099 for 0.01).
 - Never solve a CAPTCHA or bot check. Call report_blocked. Do the same when the app refuses this user or wallet ("access unavailable", a region block); don't try to get around it.
@@ -189,7 +191,8 @@ const Verdict = z.object({
 const JUDGE_SYSTEM = `You check the end state of an end-to-end test on a web app. You get the steps that were done, what the wallet sent, the expected result, a screenshot and the page text.
 Say ok=true only when the page plainly shows the expected result. Name the exact text that shows it, or say what is missing. Don't guess.
 A value within 1% of the expected one is the same value: apps round and truncate (0.0099 for 0.01).
-The page only shows the end. When the expected result talks about a change or an earlier moment, check that the end state fits the steps and what the wallet sent; don't fail it just because the earlier state isn't on screen. Anything on the page that contradicts it is a fail.`;
+The page only shows the end. When the expected result talks about a change or an earlier moment, check that the end state fits the steps and what the wallet sent; don't fail it just because the earlier state isn't on screen. Anything on the page that contradicts it is a fail.
+Whether a transaction was mined is settled by what the wallet sent, not by the page: a transfer to another chain goes on reading "in progress" or "awaiting" here, because only the test chain sees it.`;
 
 /** Did the test end where it should? Asked on every run: a saved text can't tell a result from a label that always shows. */
 export async function judgeExpected(session: DrillSession, llm: Llm, test: TestSpec): Promise<{ ok: boolean; reason: string }> {
@@ -200,11 +203,17 @@ export async function judgeExpected(session: DrillSession, llm: Llm, test: TestS
 }
 
 async function closeDialog(session: DrillSession): Promise<boolean> {
-  const dialogs = session.page.locator('[role="dialog"], dialog[open]').filter({ visible: true });
-  if ((await dialogs.count()) === 0) return false;
+  if (!(await openDialog(session.page))) return false;
   await session.page.keyboard.press("Escape");
   await settle(session);
-  return (await dialogs.count()) === 0;
+  return !(await openDialog(session.page));
+}
+
+/** What the chain made of a transaction the wallet sent; nothing for a signature or a request that wasn't approved. */
+async function minedOrNot(session: DrillSession, r: WalletRequest): Promise<string | undefined> {
+  if (r.outcome !== "approved" || typeof r.result !== "string" || !/^0x[0-9a-f]{64}$/i.test(r.result)) return undefined;
+  const receipt = await session.chains.client(r.chainId).getTransactionReceipt({ hash: r.result as Hex }).catch(() => undefined);
+  return receipt ? (receipt.status === "success" ? "mined" : "reverted on the chain") : "not mined yet";
 }
 
 async function askJudge(session: DrillSession, llm: Llm, test: TestSpec): Promise<{ ok: boolean; reason: string }> {
@@ -213,7 +222,7 @@ async function askJudge(session: DrillSession, llm: Llm, test: TestSpec): Promis
   const png = await page.screenshot({ type: "png", fullPage: true });
   const text = formatSnapshot(await takeSnapshot(page, { maxChars: 12_000 }));
   const signed = session.wallet.requests().filter((r) => r.kind === "sign");
-  const sent = signed.length ? signed.map((r) => `- ${decodeWalletRequest(r).summary} (${r.outcome})`) : ["- nothing"];
+  const sent = signed.length ? await Promise.all(signed.map(async (r) => `- ${decodeWalletRequest(r).summary} (${[r.outcome, await minedOrNot(session, r)].filter(Boolean).join(", ")})`)) : ["- nothing"];
   return llm.structured({
     system: JUDGE_SYSTEM,
     prompt: [`Test: ${test.name}`, "Steps done:", ...test.steps.map((s, i) => `${i + 1}. ${s.text}`), "What the wallet sent:", ...sent, `Expected: ${test.expected}`, "", "The page now:", text].join("\n"),
