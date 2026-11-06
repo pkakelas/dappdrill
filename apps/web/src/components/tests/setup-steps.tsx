@@ -5,18 +5,25 @@ import { StateMark } from "./status";
 
 export type StepWithResult = { text: string; result?: TestStepResult; shot?: string | null; signs?: boolean; after?: React.ReactNode };
 
+/** How a failed step reads: the app's fault unless a second look put it on the test (input) or on nobody (skipped). */
+const FAILED = {
+  fail: { row: "bg-bad-soft", note: "text-bad" },
+  input: { row: "bg-warn-soft", note: "text-warn-ink" },
+  skipped: { row: "bg-muted/50", note: "text-muted-foreground" },
+};
+
 /** Numbered steps, each with how it went on a run (when there is one). */
-export function StepList({ steps, className }: { steps: StepWithResult[]; className?: string }) {
+export function StepList({ steps, className, failed = "fail" }: { steps: StepWithResult[]; className?: string; failed?: keyof typeof FAILED }) {
   return (
     <ol className={cx("divide-y", className)}>
       {steps.map(({ text, result: r, shot, signs, after }, i) => (
-        <li key={i} className={cx("flex flex-wrap gap-x-3 gap-y-2 px-4 py-3", r?.status === "fail" && "bg-bad-soft")}>
+        <li key={i} className={cx("flex flex-wrap gap-x-3 gap-y-2 px-4 py-3", r?.status === "fail" && FAILED[failed].row)}>
           <span className="flex w-5 shrink-0 justify-center">
-            {r && r.status !== "pending" ? <StateMark state={r.status} /> : <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span>}
+            {r && r.status !== "pending" ? <StateMark state={r.status === "fail" ? failed : r.status} /> : <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span>}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span className={cx("leading-snug", r?.status === "skipped" && "text-muted-foreground")}>{text}</span>
-            {r?.note && <span className={cx("leading-snug", r.status === "fail" ? "text-bad" : "text-muted-foreground")}>{r.note}</span>}
+            {r?.note && <span className={cx("leading-snug", r.status === "fail" ? FAILED[failed].note : "text-muted-foreground")}>{r.note}</span>}
             {r && r.did.length > 0 && <span className="text-xs leading-snug text-muted-foreground">{r.did.join(" · ")}</span>}
             {signs && (
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

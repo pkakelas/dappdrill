@@ -63,7 +63,7 @@ export function readTest(test: { drafting: string | null; draftNote: string | nu
   const active = latest?.status === "queued" || latest?.status === "running" ? latest.status : undefined;
   const looking = settled?.result?.secondLook?.verdict === "checking" && settled.finishedAt !== null && Date.now() - settled.finishedAt.getTime() < LOOK_MS;
   const read: TestRead = {
-    settled: settle(settled, !test.baseId),
+    settled: settle(settled, !test.baseId, !test.draftNote),
     active,
     drafting: Boolean(test.drafting),
     draft: Boolean(test.draftNote),

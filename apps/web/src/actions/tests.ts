@@ -1,7 +1,7 @@
 "use server";
 
-import { EdgeCaseId, OFFERED_CONDITIONS, TestBrief, formatBrief, keepActions, newId, walletUse } from "@dappdrill/core";
-import { addConditions, db, nextPosition, notWritten, queueRuns, sentenceName, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
+import { EdgeCaseId, OFFERED_CONDITIONS, TestBrief, formatBrief, keepActions, newId, setAside, walletUse } from "@dappdrill/core";
+import { addConditions, db, nextPosition, notWritten, queueRuns, sentenceName, settledRuns, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -48,8 +48,10 @@ export async function runTestsAction(appId: string, testIds: string[]): Promise<
 
 export async function runAllAction(appId: string): Promise<void> {
   await requireApp(appId);
-  const ids = await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, appId));
-  await run(appId, ids.map((t) => t.id));
+  const all = await db().select({ id: tests.id, draftNote: tests.draftNote }).from(tests).where(eq(tests.appId, appId));
+  // A test that was set aside asks for something the app doesn't offer: running it again only costs.
+  const last = await settledRuns(db(), all.map((t) => t.id));
+  await run(appId, all.filter((t) => !setAside(last.get(t.id), !t.draftNote)).map((t) => t.id));
   refresh(appId);
 }
 

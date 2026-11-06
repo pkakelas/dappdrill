@@ -44,15 +44,24 @@ type Judged = { status: TestRunStatus; result?: Pick<TestRunResult, "blame" | "s
 /**
  * What a finished run says once whose move it is has been read. Failed means the app: a second look
  * confirmed it, or nobody asked for one (`checked` false: a condition, a CLI run). A run that
- * stopped early is never the app's.
+ * stopped early is never the app's. A test that is set aside reads Doesn't apply.
  */
-export function settle(run: Judged | undefined, checked = true): Settled {
+export function settle(run: Judged | undefined, checked = true, passedBefore = true): Settled {
   if (!run) return "never";
   const look = run.result?.secondLook?.verdict;
+  if (setAside(run, passedBefore)) return "skipped";
   if (run.status === "fail") return look === "test" ? "input" : look === "app" || !checked ? "fail" : "probable";
   if (run.status === "error") return run.result?.blame === "input" || !run.result?.blame ? "input" : "never";
   return run.status === "pass" || run.status === "skipped" ? run.status : "never";
 }
+
+/**
+ * The app doesn't offer what the test asks for and the test has never passed, so it shouldn't be a
+ * test: it is set aside, out of the counts and the runs, with nothing for its owner to do. One that
+ * passed before stays theirs to look at, since the app may have lost the feature.
+ */
+export const setAside = (run: Judged | undefined, passedBefore: boolean) =>
+  !passedBefore && run?.status === "fail" && run.result?.secondLook?.verdict === "test" && run.result.secondLook.notOffered === true;
 
 /** Our side broke on this run, so it says nothing about the test. */
 export const oursBroke = (run: Judged | undefined) => run?.status === "error" && run.result?.blame === "ours";

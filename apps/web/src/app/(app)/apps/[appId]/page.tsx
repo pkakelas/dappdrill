@@ -20,7 +20,7 @@ import { ConditionGrid } from "@/components/tests/condition-grid";
 import { lastSetup } from "@/components/tests/last-setup";
 import { RunButton } from "@/components/tests/run-button";
 import { isActive, OUR_ERROR, readTest, withSettled, type TestRead } from "@/components/tests/status";
-import { DraftLine, TestLine, TestList, type TestCardProps } from "@/components/tests/test-card";
+import { DraftLine, SetAsideTests, TestLine, TestList, type TestCardProps } from "@/components/tests/test-card";
 import { Tile } from "@/components/tests/tile";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -123,7 +123,9 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   // Suggested holds what hasn't run: a test the pass wrote stays there until a run says something about it.
   const written = new Set((pass?.state?.suggested ?? []).map((s) => s.draft.name));
   const unrun = roots.filter((t) => t.draftNote && reads.get(t.id)!.settled === "never" && written.has(t.name));
-  const listedTests = roots.filter((t) => !unrun.includes(t));
+  // A test the app has no way to do is set aside: off the list, out of the counts, with its own strip at the bottom.
+  const aside = roots.filter((t) => reads.get(t.id)!.settled === "skipped");
+  const listedTests = roots.filter((t) => !unrun.includes(t) && !aside.includes(t));
   // Tests that have passed at least once: the ones that run on a schedule.
   const proved = roots.filter((t) => !t.draftNote);
   // The same signature comes up in many tests and under every condition; the headline counts each one once.
@@ -280,6 +282,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
                     </div>
                   )}
                   {!grid && pass && (looking ? <SuggestedPlaceholder /> : <Suggested appId={appId} tests={suggested} passId={pass.id} running={exploring} />)}
+                  {!grid && <SetAsideTests appId={appId} app={app.name} tests={aside.map((t) => ({ test: t, read: reads.get(t.id)!, run: settled.get(t.id) }))} />}
                 </div>
               )}
             </div>

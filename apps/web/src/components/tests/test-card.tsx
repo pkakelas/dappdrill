@@ -1,4 +1,4 @@
-import { signingText, type SigningFlag as Signing } from "@dappdrill/core";
+import { ACTIVE_LABEL, signingText, type SigningFlag as Signing } from "@dappdrill/core";
 import { specOf, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { Bug, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -172,5 +172,47 @@ export function DraftLine({ appId, test }: { appId: string; test: TestRow }) {
         action={<WriteTest testId={test.id} />}
       />
     </li>
+  );
+}
+
+/**
+ * Tests the app has no use for: each asks for something it doesn't offer and has never passed.
+ * They are out of the list, the counts and the runs. Nothing here asks for anything, so a line
+ * has no status and no action, only why it is here.
+ */
+export function SetAsideTests({ appId, app, tests }: { appId: string; app: string; tests: { test: TestRow; read: TestRead; run?: TestRunRow }[] }) {
+  if (tests.length === 0) return null;
+  const one = tests.length === 1;
+  return (
+    <section aria-labelledby="set-aside" className="flex flex-col gap-2">
+      <div className="flex min-h-8 flex-wrap items-baseline gap-x-2 px-1">
+        <h2 id="set-aside" className="text-sm font-medium">
+          {one ? "Shouldn't be a test" : "Shouldn't be tests"} {!one && <span className="font-normal text-muted-foreground tabular-nums">{tests.length}</span>}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {app} doesn&apos;t offer what {one ? "it asks for. It doesn't" : "they ask for. They don't"} run or count, and there is nothing for you to do.
+        </p>
+      </div>
+      <ul className="divide-y rounded-xl border bg-muted/40 text-muted-foreground">
+        {tests.map(({ test, read, run }) => (
+          <li key={test.id} className="p-1.5">
+            <Line
+              className="min-h-11 py-2"
+              mark={<StateMark state="skipped" size="lg" />}
+              name={
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
+                    {test.name}
+                  </Link>
+                  {run?.result?.secondLook?.reason && <p className="truncate text-xs">{run.result.secondLook.reason}</p>}
+                </div>
+              }
+              status={read.active && <span className="text-live">{ACTIVE_LABEL[read.active]}</span>}
+              action={null}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

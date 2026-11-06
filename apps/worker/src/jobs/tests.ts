@@ -34,7 +34,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
     const base = test.baseId ? byTest.get(test.baseId) : undefined;
     const c = new AbortController();
     controllers.set(test.id, c);
-    return [{ spec: specOf(test), base: base && specOf(base), signal: c.signal, known: knownLook(last.get(test.id)) }];
+    return [{ spec: specOf(test), base: base && specOf(base), signal: c.signal, known: knownLook(last.get(test.id), test) }];
   });
 
   const setRun = (testId: string, patch: Partial<TestRunRow>) => db.update(testRuns).set(patch).where(eq(testRuns.id, runOf.get(testId)!.id));
@@ -97,10 +97,16 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
   await notifyBatch(db, app, [...runOf.values()].map((r) => r.id)).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));
 }
 
-/** A verdict on the test's last failure, so the same failure isn't checked again on every run. */
-function knownLook(run: TestRunRow | undefined) {
+/**
+ * A verdict on the test's last failure, so the same failure isn't checked again on every run.
+ * It is asked again when the test was edited since, or when it blamed the test before looks said
+ * whether the app offers the goal at all.
+ */
+function knownLook(run: TestRunRow | undefined, test: TestRow) {
   const look = run?.status === "fail" ? run.result?.secondLook : undefined;
-  return run?.result && look && (look.verdict === "app" || look.verdict === "test") ? { at: failedAt(run.result), look } : undefined;
+  if (!run?.result || !look || run.createdAt < test.updatedAt) return undefined;
+  const settled = look.verdict === "app" || (look.verdict === "test" && look.notOffered !== undefined);
+  return settled ? { at: failedAt(run.result), look } : undefined;
 }
 
 /**

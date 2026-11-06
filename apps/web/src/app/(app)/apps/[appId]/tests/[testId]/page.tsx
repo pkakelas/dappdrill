@@ -1,4 +1,4 @@
-import { briefGoal, conditionInfo, formatDuration, oursBroke, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SecondLook, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { briefGoal, conditionInfo, formatDuration, oursBroke, setAside, settle, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SecondLook, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { db, latestRuns, notWritten, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Check, Wallet, X } from "lucide-react";
@@ -17,7 +17,7 @@ import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/te
 import { StepList } from "@/components/tests/setup-steps";
 import { SigningFlag } from "@/components/tests/signing-flag";
 import { SpecEditor } from "@/components/tests/spec-editor";
-import { isActive, OUR_ERROR, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
+import { isActive, OUR_ERROR, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, type TestState } from "@/components/tests/status";
 import { WriteTest } from "@/components/tests/write-test";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -67,6 +67,10 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const state = readTest(test, latest, settled);
   const runState = run ? run.status : "never";
   const result = run?.result ?? undefined;
+  // Whose failure the run on screen is: the test's when a second look said so, and nobody's when the app doesn't offer the goal at all.
+  const look = runState === "fail" ? result?.secondLook : undefined;
+  const aside = setAside(run, !test.draftNote);
+  const failed = aside ? "skipped" : look?.verdict === "test" ? "input" : "fail";
   const steps: TestStep[] = base ? base.steps : test.steps;
   const childActive = children.some((c) => isActive(childReads.get(c.id)!));
   const condition = test.condition ? conditionInfo(test.condition) : undefined;
@@ -115,10 +119,10 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                 </span>
               )}
             </p>
-            {state.draft && <p className="text-sm text-muted-foreground">{test.draftNote !== settled?.result?.failure && test.draftNote} It doesn&apos;t run on a schedule until it passes.</p>}
+            {state.draft && state.settled !== "skipped" && <p className="text-sm text-muted-foreground">{test.draftNote !== settled?.result?.failure && test.draftNote} It doesn&apos;t run on a schedule until it passes.</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {notWritten(test) ? <WriteTest testId={test.id} primary /> : <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary disabled={state.drafting} />}
+            {notWritten(test) ? <WriteTest testId={test.id} primary /> : <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary={state.settled !== "skipped"} disabled={state.drafting} />}
             {!test.baseId && !state.drafting && <Duplicate testId={test.id} />}
             <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
@@ -151,17 +155,18 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </div>
       ) : (
         result?.failure &&
+        // A failure the second look put on the test is said once, by the look; the step keeps the detail.
+        failed === "fail" &&
         (runState === "fail" || runState === "error") && (
           <div
             role="status"
-            // Red is for the app: a failure the second look put on the test is the owner's to fix.
-            className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" && result.secondLook?.verdict !== "test" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
+            className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
           >
             {result.failure}
           </div>
         )
       )}
-      {runState === "fail" && result?.secondLook && <Checked look={result.secondLook} checking={state.checking && run?.id === settled?.id} expected={spec.expected} failure={result.failure} />}
+      {look && <Checked look={look} aside={aside && app.name} checking={state.checking && run?.id === settled?.id} expected={spec.expected} failure={result?.failure} />}
       {runState === "skipped" && (
         <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
           <strong className="font-medium text-foreground">Doesn&apos;t apply here.</strong> {result?.failure ?? "This condition can't be set up for this test."} It is left out of the counts.
@@ -202,7 +207,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                   <Verdict result={result} />
                 </Block>
                 {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-                <Steps steps={steps} result={result} url={url} forks={forks} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
+                <Steps steps={steps} result={result} url={url} failed={failed} forks={forks} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
               </div>
             }
           />
@@ -215,7 +220,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           {result && <WalletActivity result={result} />}
           {result && <ConsoleErrors result={result} />}
 
-          {history.length > 1 && <History appId={appId} testId={test.id} runs={history} selected={run?.id} />}
+          {history.length > 1 && <History appId={appId} testId={test.id} runs={history} selected={run?.id} checked={!test.baseId} passedBefore={!test.draftNote} />}
         </aside>
       </div>
     </div>
@@ -224,7 +229,14 @@ export default async function TestPage({ params, searchParams }: { params: Promi
 
 /** What the judge or the proof check said about the expected result, under it. */
 /** What the second look at a failure said: still on it, the app's bug, the test's fault, or not sure. */
-function Checked({ look, checking, expected, failure }: { look: SecondLook; checking: boolean; expected: string; failure?: string }) {
+function Checked({ look, aside, checking, expected, failure }: { look: SecondLook; aside: string | false; checking: boolean; expected: string; failure?: string }) {
+  // Set aside: quiet, because it asks for nothing.
+  if (aside)
+    return (
+      <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
+        <strong className="font-medium text-foreground">{aside} doesn&apos;t offer this, so it shouldn&apos;t be a test.</strong> {look.reason} It doesn&apos;t run with the others and is left out of the counts. There is nothing for you to do.
+      </div>
+    );
   if (look.verdict === "app")
     return (
       <section className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm">
@@ -274,10 +286,12 @@ function Steps({
   steps,
   result,
   url,
+  failed,
   forks,
   wallet,
   hasConditions,
 }: {
+  failed?: "fail" | "input" | "skipped";
   steps: TestStep[];
   result?: TestRunResult;
   url: (p?: string | null) => string | null;
@@ -300,6 +314,7 @@ function Steps({
         <span className="text-sm font-medium text-muted-foreground">Steps</span>
         <StepList
           className="overflow-hidden rounded-xl border bg-card shadow-xs"
+          failed={failed}
           steps={steps.map((s, i) => ({
             text: s.text,
             result: result?.steps[i],
@@ -308,7 +323,8 @@ function Steps({
             after: wallet === "signs" && i === branchAt ? <div id="conditions" className="scroll-mt-24">{forks}</div> : undefined,
           }))}
         />
-        {wallet && wallet !== "signs" && (
+        {/* A test that is set aside is never going to reach the wallet, so there is nothing to wait for. */}
+        {wallet && wallet !== "signs" && failed !== "skipped" && (
           <div className="flex flex-col gap-2 px-1 pt-1">
             {hasConditions && forks}
             <p className="flex gap-2 text-sm text-muted-foreground">
@@ -377,7 +393,12 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
 }
 
 /** Every result of this test, newest first. Each belongs to a run (a batch), which the Runs page lists. */
-function History({ appId, testId, runs, selected }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string }) {
+function History({ appId, testId, runs, selected, checked, passedBefore }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string; checked: boolean; passedBefore: boolean }) {
+  // The same words as the test's own status: a failure reads as what the second look made of it.
+  const said = (r: TestRunRow): TestState => {
+    const s = settle(r, checked, passedBefore);
+    return s === "never" ? r.status : s;
+  };
   return (
     <Panel title="Results" count={runs.length}>
       <ul className="divide-y">
@@ -388,8 +409,8 @@ function History({ appId, testId, runs, selected }: { appId: string; testId: str
               aria-current={r.id === selected ? "true" : undefined}
               className={cx("flex items-center gap-3 px-4 py-2 hover:bg-accent/50", r.id === selected && "bg-accent")}
             >
-              <StateMark state={r.status} />
-              <span className={cx("flex-1", STATE_TEXT[r.status])}>{STATE_LABEL[r.status]}</span>
+              <StateMark state={said(r)} />
+              <span className={cx("flex-1", STATE_TEXT[said(r)])}>{STATE_LABEL[said(r)]}</span>
               <span className="text-xs text-muted-foreground">{TRIGGER_LABEL[r.trigger]}</span>
               <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
             </Link>

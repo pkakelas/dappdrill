@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appRollup, appText, readOf, signingOf, signingText, type Read } from "../src/rollup.js";
+import { appRollup, appText, readOf, setAside, settle, signingOf, signingText, type Read } from "../src/rollup.js";
 
 const r = (settled: Read["settled"], active?: Read["active"]): Read => ({ settled, active });
 const none = { dangerous: 0, check: 0 };
@@ -17,6 +17,26 @@ describe("readOf", () => {
   });
   it("shows a skipped condition as Doesn't apply", () => {
     expect(readOf({ status: "skipped" }, { status: "skipped" })).toEqual({ settled: "skipped" });
+  });
+});
+
+describe("settle", () => {
+  const failed = (secondLook: { verdict: "app" | "test" | "unsure"; notOffered?: boolean }) => ({ status: "fail" as const, result: { secondLook } });
+  it("sets aside a test that never passed and asks for what the app doesn't offer", () => {
+    const run = failed({ verdict: "test", notOffered: true });
+    expect(setAside(run, false)).toBe(true);
+    expect(settle(run, true, false)).toBe("skipped");
+  });
+  it("keeps a test that passed before with its owner, since the app may have lost the feature", () => {
+    expect(settle(failed({ verdict: "test", notOffered: true }), true, true)).toBe("input");
+  });
+  it("needs input when the test can be fixed, or the look never said", () => {
+    expect(settle(failed({ verdict: "test", notOffered: false }), true, false)).toBe("input");
+    expect(settle(failed({ verdict: "test" }), true, false)).toBe("input");
+  });
+  it("never sets aside a failure of the app", () => {
+    expect(settle(failed({ verdict: "app", notOffered: true }), true, false)).toBe("fail");
+    expect(settle(failed({ verdict: "unsure" }), true, false)).toBe("probable");
   });
 });
 

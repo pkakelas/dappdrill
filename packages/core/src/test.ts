@@ -159,6 +159,8 @@ export const SecondLook = z.object({
   verdict: z.enum(["checking", "app", "test", "unsure"]),
   /** What it saw, in a plain sentence. */
   reason: z.string().optional(),
+  /** With verdict test: the app has no way to do what the goal asks, so no change to the test would make it pass. Unset on looks from before this was asked. */
+  notOffered: z.boolean().optional(),
   /** What is wrong with the app, when it is. */
   bug: z.object({ name: z.string(), expected: z.string(), actual: z.string() }).optional(),
 });
