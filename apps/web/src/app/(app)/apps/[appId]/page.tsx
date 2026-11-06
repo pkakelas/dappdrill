@@ -116,6 +116,8 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   }
   bugs.sort((a, b) => Number(b.confirmed) - Number(a.confirmed));
   const confirmedBugs = bugs.filter((b) => b.confirmed).length;
+  // A bug on a test in the list shows as that test failing; the rest came out of the checks.
+  const checkBugs = bugs.filter((b) => b.confirmed && !(b.byTest && b.test)).length;
   const bugHref = (id: string) => `/apps/${appId}?tab=bugs&bug=${id}#${id}`;
 
   // Suggested holds what hasn't run: a test the pass wrote stays there until a run says something about it.
@@ -165,6 +167,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   );
   const suggested = suggestedTests(pass, new Set(tests.map((t) => t.name)), added);
   const tried = state ? triedLines(state) : [];
+  const checks = tried.length;
   const explored = Boolean(state && (state.suggested.length > 0 || state.checks.length > 0 || state.bugs.length > 0));
   // Still looking around: nothing is listed yet, so the page shows the shape of what is coming.
   const looking = exploring && !explored;
@@ -208,7 +211,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
             wallet={app.settings.wallets[0]}
             chainId={(app.settings.chains[0] ?? app.chains[0])?.id}
             rollup={!exploring && (listedTests.length > 0 || confirmedBugs > 0) ? overall : undefined}
-            bugs={confirmedBugs}
+            checked={checks > 0 || checkBugs > 0 ? { checks, bugs: checkBugs } : undefined}
             running={activeIds.length}
             runs={history}
             action={
