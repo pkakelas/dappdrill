@@ -16,6 +16,7 @@ import {
   conditionInfo,
   newId,
   nowIso,
+  parseBrief,
   TestRunResult,
   type ChainConfig,
   type DrillEventSink,
@@ -342,15 +343,16 @@ function fakeIssue(title: string, edgeCase: NonNullable<api.TestItem["spec"]["co
 const writeTest: Engine["writeTest"] = async (input) => {
   await beat(undefined, 8);
   const base = input.base;
-  const ask = input.prompt.trim().replace(/\.$/, "");
+  const brief = parseBrief(input.prompt);
+  const ask = brief.goal.replace(/\.$/, "");
   const name = ask.length > 40 ? `${ask.slice(0, 38)}…` : ask.charAt(0).toUpperCase() + ask.slice(1);
   return {
     draft: {
       name,
       goal: `${ask.charAt(0).toUpperCase() + ask.slice(1)}.`,
-      expected: base?.expected ?? "The page confirms it worked.",
-      startPath: base?.startPath ?? "/vault",
-      steps: base ? base.steps.map((s) => s.text) : ["Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet", "Check Deposited shows 5.00"],
+      expected: brief.expected ?? base?.expected ?? "The page confirms it worked.",
+      startPath: brief.startPath ?? base?.startPath ?? "/vault",
+      steps: brief.steps.length ? brief.steps : base ? base.steps.map((s) => s.text) : ["Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet", "Check Deposited shows 5.00"],
     },
     costUsd: 0.001,
   };

@@ -1,4 +1,4 @@
-import { conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { briefGoal, conditionInfo, formatDuration, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { db, latestRuns, notWritten, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Check, Wallet, X } from "lucide-react";
@@ -129,7 +129,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
       {test.drafting && (
         <div className="flex items-center gap-3 rounded-xl border border-dashed bg-card px-5 py-4">
           <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/50" />
-          <p className="text-muted-foreground">Writing this test from “{test.drafting.replace(/\.$/, "")}”. It runs as soon as the steps are ready.</p>
+          <p className="text-muted-foreground">Writing this test from “{briefGoal(test.drafting).replace(/\.$/, "")}”. It runs as soon as the steps are ready.</p>
         </div>
       )}
 

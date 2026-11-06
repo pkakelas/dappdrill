@@ -11,12 +11,20 @@ export const WRITE_SYSTEM = `You write end-to-end tests for a web app in plain E
 - goal: one sentence.
 - expected: one sentence about what the page shows at the end when it worked: final values ("Balance shows 5 USDC"), not changes ("rises by 5") or earlier moments, and no prices or rates that move. Amounts can be rounded on screen, so say "about 0.01 stETH".
 - steps: 3 to 8 short imperative steps of 3 to 7 words, at the level a user thinks ("Connect the wallet", "Open the ETH market", "Enter 0.01 as size"). No selectors.
-When you change an existing test, keep every step that still applies word for word, so its recorded actions are reused. Change only what the request needs.`;
+When you change an existing test, keep every step that still applies word for word, so its recorded actions are reused. Change only what the request needs.
+The request can come with the developer's answers on the lines under it. They know the app, so take them as given:
+- "What shows it worked" is the expected result: keep their texts and values, in the form above.
+- "Starts on" is the startPath.
+- "Tokens and amounts" are the values the steps type.
+- "Steps to follow" are the steps in their order, each cut to the short form above. Add a step only where one is plainly missing.
+When you are told what the app's setup does, the test starts after it: don't repeat those steps.`;
 
 export interface DraftInput {
   /** What the developer asked for. */
   prompt: string;
   map?: AppMap;
+  /** What the app's setup does before every test. */
+  setup?: string[];
   /** The test to fork or rewrite. */
   base?: { name: string; goal: string; expected: string; startPath: string; steps: { text: string }[] };
 }
@@ -25,6 +33,7 @@ export async function draftTest(llm: Llm, input: DraftInput): Promise<TestDraft>
   const { base } = input;
   const prompt = [
     input.map ? `About the app: ${input.map.summary}\nPages:\n${input.map.pages.map((p) => `- ${p.path}: ${p.purpose}`).join("\n")}\n` : "",
+    input.setup?.length ? `Before every test the app's setup already does this:\n${input.setup.map((s) => `- ${s}`).join("\n")}\n` : "",
     base
       ? [
           "The existing test:",

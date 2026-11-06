@@ -12,7 +12,7 @@ import { PassBand } from "@/components/explore/live";
 import { PassNotice } from "@/components/explore/notice";
 import { Suggested } from "@/components/explore/suggested";
 import { Tried } from "@/components/explore/tried";
-import { AddTest, AddTestButton } from "@/components/tests/add-test";
+import { AddTestButton, type AddTestProps } from "@/components/tests/add-test";
 import { AppHero } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
 import { ConditionBranches } from "@/components/tests/condition-branches";
@@ -120,6 +120,8 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   const setupFailed = app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()])?.failed : false;
   const cardProps = (t: TestRow): TestCardProps => ({ appId, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0 });
   const branches = (t: TestRow) => conditionsOf(t).length > 0 && <ConditionBranches appId={appId} tests={conditionsOf(t)} reads={reads} runs={settled} className="relative z-10" />;
+  // What the Add test questions can offer: pages to start on, tests to write from, and what setup already does.
+  const adding: AddTestProps = { appId, pages: app.map?.pages, tests: roots.filter((t) => !t.drafting).map((t) => ({ id: t.id, name: t.name })), setup: app.setup?.steps.map((s) => s.text) };
   const nothing = listed.length === 0 && !((showing === "all" || showing === "waiting") && untested.length > 0);
 
   return (
@@ -142,7 +144,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
               !exploring &&
               (tests.length > 0 || explored) && (
                 <div className="flex items-center gap-2">
-                  <AddTestButton appId={appId} />
+                  <AddTestButton {...adding} />
                   {!notice && (
                     <form action={exploreAction.bind(null, appId)}>
                       <Button type="submit" variant="outline">
@@ -193,20 +195,22 @@ export default async function AppPage({ params, searchParams }: { params: Promis
             </div>
           ) : (
             !exploring && (
-              <div className="flex flex-col gap-8">
+              <section className="flex flex-col items-start gap-4">
                 {!pass && (
-                  <section className="flex flex-col items-start gap-4">
-                    <div className="flex flex-col gap-2">
-                      <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">No tests yet</h2>
-                      <p className="text-base text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a test yourself.</p>
-                    </div>
+                  <div className="flex flex-col gap-2">
+                    <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">No tests yet</h2>
+                    <p className="text-base text-muted-foreground">Let DappDrill explore {host} and find what users do there, or add a test yourself.</p>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  {!pass && (
                     <form action={exploreAction.bind(null, appId)}>
                       <Button type="submit">Explore the app</Button>
                     </form>
-                  </section>
-                )}
-                <AddTest appId={appId} placeholder="What should we test?" className="w-full max-w-md" />
-              </div>
+                  )}
+                  <AddTestButton {...adding} label="Add a test" />
+                </div>
+              </section>
             )
           )}
         </div>

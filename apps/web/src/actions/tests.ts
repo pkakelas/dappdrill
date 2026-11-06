@@ -1,6 +1,6 @@
 "use server";
 
-import { EdgeCaseId, OFFERED_CONDITIONS, keepActions, newId, walletUse } from "@dappdrill/core";
+import { EdgeCaseId, OFFERED_CONDITIONS, TestBrief, formatBrief, keepActions, newId, walletUse } from "@dappdrill/core";
 import { addConditions, db, nextPosition, notWritten, queueRuns, sentenceName, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -72,20 +72,27 @@ export async function stopRunsAction(appId: string, testIds?: string[]): Promise
 
 const Sentence = z.string().trim().min(3, "Say what the test should do.").max(1000);
 
-/** A test from one sentence. Returns the new test's id. */
-export async function addTestAction(appId: string, request: string): Promise<{ error?: string; testId?: string }> {
+/**
+ * A test from the answers in Add test. `likeId` is a test of the app it resembles: the new one is
+ * written from that test, so the steps they share keep what they recorded. Returns the new test's id.
+ */
+export async function addTestAction(appId: string, answers: z.input<typeof TestBrief>, likeId?: string): Promise<{ error?: string; testId?: string }> {
   await requireApp(appId);
-  const text = Sentence.safeParse(request);
-  if (!text.success) return { error: text.error.issues[0]?.message };
+  const brief = TestBrief.safeParse(answers);
+  if (!brief.success) return { error: brief.error.issues[0]?.message };
+  const [like] = likeId ? await db().select({ id: tests.id, startPath: tests.startPath }).from(tests).where(and(eq(tests.id, likeId), eq(tests.appId, appId))) : [];
   const id = newId("test");
   await draft({
     id,
     appId,
-    name: sentenceName(text.data),
-    goal: text.data,
-    expected: "",
+    name: sentenceName(brief.data.goal),
+    goal: brief.data.goal,
+    // Kept on the row from the start, so the answers survive a writer that fails.
+    expected: brief.data.expected,
+    startPath: brief.data.startPath ?? like?.startPath,
     steps: [],
-    drafting: text.data,
+    forkedFrom: like?.id,
+    drafting: formatBrief(brief.data),
     position: await nextPosition(db(), appId),
   });
   refresh(appId);

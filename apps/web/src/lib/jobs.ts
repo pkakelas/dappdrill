@@ -3,7 +3,7 @@
  *
  * The web app always writes the row first, then enqueues its id:
  *   "tests.run"      { batchId }     test_runs rows sharing the batch id (queueRuns in @dappdrill/db).
- *   "test-draft.run" { testId }      tests row with `drafting` = the developer's sentence; forkedFrom for a fork.
+ *   "test-draft.run" { testId }      tests row with `drafting` = the developer's request; forkedFrom for a fork.
  *   "agent.reply"    { messageId }   a pending agent_messages row after the user's message.
  *   "exploration.run" { explorationId } explorations row, status "queued".
  * Stopping is not a job: the web sets stop_requested and the worker polls it.

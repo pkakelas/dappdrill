@@ -3,7 +3,7 @@
  * then sends its id:
  *
  *   "tests.run"      { batchId }     test_runs rows sharing the batch id, status "queued" (queueRuns in @dappdrill/db).
- *   "test-draft.run" { testId }      tests row with `drafting` = the developer's sentence; forkedFrom set for a fork.
+ *   "test-draft.run" { testId }      tests row with `drafting` = the developer's request; forkedFrom set for a fork.
  *   "agent.reply"    { messageId }   agent_messages row, role "agent", status "pending", after the user's message.
  *   "exploration.run" { explorationId } explorations row, status "queued".
  *
