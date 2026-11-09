@@ -26,10 +26,11 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
   const update = (fn: (x: ExploreSuggestion) => void) => board.change((state) => void fn(state.suggested.find((x) => x.id === id)!));
   const end = (status: "done" | "stopped") => board.explorer(worker, { status, doing: undefined, finishedAt: nowIso() });
   update((x) => (x.status = "proving"));
-  board.addExplorer({ id: worker, title: `Proving: ${s.draft.name}`, feature: s.feature, tier: s.tier, status: "running", doing: "Running it on a clean fork", startedAt: nowIso(), activeAt: nowIso() });
+  board.addExplorer({ id: worker, title: `Proving: ${s.draft.name}`, feature: s.feature, tier: s.tier, status: "running", doing: run.isolated ? "Running it on a clean fork" : "Running it again in a fresh browser", startedAt: nowIso(), activeAt: nowIso() });
 
-  // Each attempt runs the setup again, so the fork goes back to clean first: a second mint or
-  // deposit on top of the first would fail a test that was fine.
+  // An attempt on a fork may run the setup again, so the fork goes back to clean first: a second
+  // mint or deposit on top of the first would fail a test that was fine. A live chain can't go
+  // back, and there the attempt starts from the setup the pass already ran.
   const attempt = async (spec: TestSpec) => {
     const restore = await pin(env);
     try {
@@ -67,7 +68,7 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
     return end("done");
   }
 
-  const why = o.result.failure ?? o.result.verdict?.reason ?? "It didn't pass on a clean fork.";
+  const why = o.result.failure ?? o.result.verdict?.reason ?? (run.isolated ? "It didn't pass on a clean fork." : "It didn't pass in a fresh browser.");
   const hard = hardEvidence(o);
   if (hard) {
     const bugId = fileBug(run, {

@@ -29,6 +29,11 @@ export interface ExploreOutput {
 
 /** Below this nothing useful fits in a new explorer. */
 const MIN_EXPLORER_MS = 2 * 60_000;
+/**
+ * A live chain has one wallet with one state, so its explorers go one after another where a fork
+ * runs four side by side. The pass takes this many times longer instead of leaving most features unseen.
+ */
+const ONE_AT_A_TIME = 3;
 /** A feature gets at most this many explorers, one after another. */
 export const MAX_ROUNDS = 3;
 
@@ -225,7 +230,8 @@ const finds = (s: ExploreState, feature: string) => s.suggested.filter((x) => x.
 async function explore(run: ExploreRun): Promise<void> {
   const { board, opts, signal } = run;
   const totalMs = opts.budgetMinutes * 60_000;
-  const deadline = Date.now() + totalMs;
+  // An explorer's own time stays a share of the budget asked for.
+  const deadline = Date.now() + totalMs * (run.isolated ? 1 : ONE_AT_A_TIME);
   const left = () => deadline - Date.now();
   board.phase("exploring");
   board.change((s) => (s.deadline = new Date(deadline).toISOString()));

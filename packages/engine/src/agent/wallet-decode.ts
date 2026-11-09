@@ -74,7 +74,9 @@ function decodeTransaction(method: string, tx: { to?: string; data?: string; val
   const value = tx?.value ? BigInt(tx.value) : 0n;
   const expectation: WalletExpectation = { kind: "transaction", to };
   const amounts: bigint[] = value > 0n ? [value] : [];
-  let call = data.length > 2 ? `calldata ${data.slice(0, 10)}` : "plain transfer";
+  // A call we can't decode still says how much follows its selector: read as "0xa98b3cbd" alone, it looks like a call with nothing in it.
+  const args = Math.max(0, (data.length - 10) / 2);
+  let call = data.length > 2 ? `calldata ${data.slice(0, 10)}${args ? ` and ${args} bytes of arguments, not decoded` : ""}` : "plain transfer";
   let unlimitedApproval = false;
 
   if (data.length >= 10) {

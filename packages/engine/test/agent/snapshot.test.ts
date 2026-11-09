@@ -103,6 +103,28 @@ describe("takeSnapshot", () => {
   });
 });
 
+describe("takeSnapshot inside a button", () => {
+  it("lists the real controls in a row that is itself a button", async () => {
+    // Shaped like pod's order list: the row expands on click and holds Modify and Cancel.
+    await s.page.setContent(`
+      <style>.row { cursor: pointer; display: flex; gap: 12px }</style>
+      <div class="row" role="button" tabindex="0" aria-expanded="false">
+        <span class="tag">Buy limit</span><span>$300.00</span>
+        <span><button aria-label="Modify order"><svg viewBox="0 0 24 24" width="12" height="12"></svg><i>Modify</i></button>
+        <button aria-label="Cancel order" onclick="document.title = 'cancelled'"><svg viewBox="0 0 24 24" width="12" height="12"></svg><i>Cancel</i></button></span>
+      </div>
+      <button>Place <b>order</b></button>
+    `);
+    const snap = await takeSnapshot(s.page);
+    // The spans in the row have the row's pointer cursor, and are not controls of their own.
+    expect(snap.nodes.map((n) => `${n.role} ${n.name}`)).toEqual(["button Buy limit$300.00 Modify Cancel", "button Modify order", "button Cancel order", "button Place order"]);
+    const cancel = snap.nodes.find((n) => n.name === "Cancel order")!;
+    expect(await locatorFor(s.page, cancel.ref)).toEqual({ role: "button", name: "Cancel order" });
+    await elementByRef(s.page, cancel.ref).click();
+    expect(await s.page.title()).toBe("cancelled");
+  });
+});
+
 describe("takeSnapshot with invisible copies", () => {
   it("skips a measuring copy of a list and keeps the real one", async () => {
     await s.page.setContent(`

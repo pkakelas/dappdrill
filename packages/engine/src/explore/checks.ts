@@ -144,7 +144,13 @@ async function checkAmount(session: DrillSession, signs: WalletRequest[], shown:
   if (!requests.length) return { status: "fail", evidence: `${asked(signs.at(-1)!)}, which carries no amount.` };
 
   const { named, others } = await tokensNamed(session, token, requests[0]!.r.chainId, requests.flatMap(({ has }) => has.addresses));
-  if (!named.length) return { status: "error", evidence: `Couldn't tell which amount in the request is ${token}: it names ${others.length ? others.map(where).join(", ") : "no token we could read"}. ${asked(requests[0]!.r)}.` };
+  if (!named.length) {
+    // What it does name, and whether the page's number is there in those units: the reader can tell what we can't.
+    const all = requests.flatMap(({ has }) => has.amounts);
+    const inIts = (t: NamedToken) => all.map((a) => Number(a) / 10 ** t.decimals).find((n) => Math.abs(n - want) <= want * AMOUNT_TOLERANCE);
+    const names = others.map((t) => (inIts(t) === undefined ? where(t) : `${where(t)}, and carries ${trim(inIts(t)!)} of it`));
+    return { status: "error", evidence: `Couldn't tell which amount in the request is ${token}: it names ${names.length ? names.join("; ") : "no token we could read"}. ${asked(requests[0]!.r)}.` };
+  }
   const page = shown.toLowerCase().includes(named[0]!.symbol.toLowerCase()) ? shown : `${shown} ${named[0]!.symbol}`;
 
   let missed: { r: WalletRequest; token: NamedToken; near?: number } | undefined;
@@ -162,7 +168,7 @@ async function checkAmount(session: DrillSession, signs: WalletRequest[], shown:
   return { status: "fail", evidence: `The page shows ${page}, but nothing in the request for ${where(missed.token)} is within ${AMOUNT_TOLERANCE * 100}% of it${near}. ${asked(missed.r)}.` };
 }
 
-const where = (t: NamedToken) => (t.address ? `${t.symbol} (${shortAddress(t.address)} on ${chainName(t.chainId)}${t.confirmed ? "" : ", read from the real chain, not confirmed on the fork"})` : t.symbol);
+const where = (t: NamedToken) => (t.address ? `${t.symbol} (${shortAddress(t.address)} on ${chainName(t.chainId)}${t.confirmed ? "" : ", read from the real chain, not confirmed on the fork"})` : `${t.symbol} (${chainName(t.chainId)}'s own coin)`);
 
 function addressesIn(r: WalletRequest, wallet: string): string {
   const all = carried(r).addresses;

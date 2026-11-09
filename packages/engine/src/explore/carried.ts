@@ -18,7 +18,9 @@ export interface Carried {
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 /** Fields of a transaction that are numbers but never an amount of anything. */
 const NOT_AN_AMOUNT = /^(gas|gasPrice|gasLimit|maxFeePerGas|maxPriorityFeePerGas|nonce|chainId|type)$/;
-const NO_TOKEN = new Set(["0x0000000000000000000000000000000000000000", "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"]);
+/** How a request writes "the chain's own coin" where a token's address goes. Zero is also every empty field, so it says nothing. */
+const COIN = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+const NO_TOKEN = new Set(["0x0000000000000000000000000000000000000000", COIN]);
 
 export function carried(req: WalletRequest): Carried {
   const addresses = new Set<Hex>();
@@ -100,6 +102,8 @@ export async function tokensNamed(session: DrillSession, wanted: string, chainId
   const here = (await Promise.all(own.map((id) => read(chains.client(id), id, [...new Set([...candidates, ...asked(id)])], true)))).flat();
   named.push(...here.filter(is));
   let others = here.filter((t) => !is(t) && candidates.includes(t.address!));
+  // A request that names the chain's coin where a token goes is counting in it.
+  if (!coin && inRequests.includes(COIN)) others.push({ symbol: chainInfo(chainId)?.nativeSymbol ?? "coin", decimals: 18, chainId, confirmed: true });
   if (!named.length && candidates.length) {
     const there = (await Promise.all(publicClients(own, chainId).map((c) => read(c.client, c.chainId, candidates, false)))).flat();
     named.push(...there.filter(is));

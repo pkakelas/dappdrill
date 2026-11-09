@@ -116,7 +116,7 @@ export async function runTests(
   }
 }
 
-/** One pass over the app, for at most `budgetMinutes` of exploring. It ends sooner when nothing new turns up. */
+/** One pass over the app, for at most `budgetMinutes` of exploring (three times that on a live chain, where explorers go one at a time). It ends sooner when nothing new turns up. */
 export async function explore(target: DrillTarget, opts: ExploreOptions, hooks: ExploreHooks, sink: DrillEventSink, signal?: AbortSignal): Promise<ExploreOutput> {
   return runExploration(DrillTarget.parse(target), opts, hooks, sink, signal);
 }

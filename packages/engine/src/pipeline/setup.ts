@@ -104,12 +104,15 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
     },
 
     /**
-     * What this setup prepared, for runners on other forks of the same block. Only a setup that
-     * sent no transaction qualifies (a sign-in, connecting the wallet): it left the chain as it
-     * found it, so its browser storage is just as true on a fork it never ran on.
+     * What this setup prepared, for another runner of the same run to start from instead of
+     * running it again. On forks only a setup that sent no transaction qualifies (a sign-in,
+     * connecting the wallet): it left the chain as it found it, so its browser storage is just
+     * as true on a fork it never ran on. A live chain is one chain for every runner, and what was
+     * done there stays done: a second mint or a second emailed code is what a faucet limit is for.
      */
     portable(): Prepared | undefined {
-      if (live || setup.when !== "once" || !once?.ok) return undefined;
+      if (setup.when !== "once" || !once?.ok) return undefined;
+      if (live) return { storageState: once.storageState, setup: summary(once, true, true) };
       const sent = once.walletRequests.some((r) => r.kind === "sign" && r.outcome === "approved" && /send/i.test(r.method));
       return sent ? undefined : { storageState: once.storageState, setup: summary(once, true, false) };
     },

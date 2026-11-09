@@ -358,11 +358,14 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
   const nodes: SnapshotNode[] = [];
   const seen = new Set<Element>();
 
-  const walk = (root: Document | ShadowRoot | Element, dialog: Element | null) => {
+  // `inControl`: inside a button, where the text is already in its name. Only real controls are
+  // listed there: a row that is itself a button, with Modify and Cancel buttons in it.
+  const walk = (root: Document | ShadowRoot | Element, dialog: Element | null, inControl = false) => {
     const children = root instanceof Element && root.shadowRoot ? [root.shadowRoot] : [];
     const kids = root instanceof ShadowRoot || root instanceof Document ? Array.from(root.children) : Array.from((root as Element).children);
     for (const child of [...children, ...kids]) {
       if (child instanceof ShadowRoot) {
+        // A component's own tree is read in full, as it was before: its host is often the "button".
         walk(child, dialog);
         continue;
       }
@@ -381,7 +384,8 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
         inDialog = el;
       }
 
-      if (hasBox(el) && (isInteractive(el, role) || (LANDMARK_ROLES.has(role) && !isDialog))) {
+      const listed = inControl ? role !== "" && (INTERACTIVE_TAGS.has(tag) || INTERACTIVE_ROLES.has(role)) : isInteractive(el, role) || (LANDMARK_ROLES.has(role) && !isDialog);
+      if (hasBox(el) && listed) {
         const name = accessibleName(el, role) || (role ? "" : unlabeledName(el));
         const node: SnapshotNode = { ref: refFor(el), role: role || "generic", name: clip(name, 90) };
         if (inDialog) node.inDialog = true;
@@ -411,9 +415,7 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
         }
         nodes.push(node);
       }
-      // Don't descend into controls; their text is already in the name.
-      if (!(INTERACTIVE_TAGS.has(tag) && tag !== "a") && !(role === "button" && !isDialog)) walk(el, inDialog);
-      else if (el.shadowRoot) walk(el.shadowRoot, inDialog);
+      walk(el, inDialog, inControl || (INTERACTIVE_TAGS.has(tag) && tag !== "a") || (role === "button" && !isDialog));
     }
   };
   walk(document, null);
