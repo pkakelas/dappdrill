@@ -94,8 +94,12 @@ async function look(run: ExploreRun): Promise<boolean> {
             board.feed("note", text, "look");
             board.explorer("look", { doing: text, activeAt: nowIso() });
           },
-          // The target is what every later fork and browser of this pass is opened from.
-          onFunded: (token) => void (base.target.tokens = withToken(base.target.tokens, token)),
+          // The target is what every later fork and browser of this pass is opened from, and the
+          // first test is saved, and run on its own, long before the pass ends.
+          onFunded: (token) => {
+            base.target.tokens = withToken(base.target.tokens, token);
+            void run.hooks.onTokens?.(base.target.tokens);
+          },
         });
     if (signal?.aborted) {
       end("stopped");

@@ -8,7 +8,7 @@ import { artifactsDir } from "../artifacts.js";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
 import { QUEUES, type TestsJob } from "../queues.js";
-import { buildTarget, loadApp, targetHints } from "../target.js";
+import { buildTarget, loadApp, targetHints, type AppRow } from "../target.js";
 import { serialSink } from "./sink.js";
 import { pollStops, throttle } from "./stop.js";
 
@@ -79,6 +79,7 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
       },
       {
         onMap: (map, setup) => saveMap(db, app.id, map, setup),
+        onTokens: (tokens) => saveTokens(db, app.id, tokens).catch((e) => log.warn(`could not save the wallet's tokens: ${errorMessage(e)}`)),
         onTest: save,
         onSetupSteps: (steps) => saveSetup(db, app.id, steps),
       },
@@ -89,11 +90,7 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
     await state.flush();
     await update({ state: out.state, blocked: out.blocked ?? null, costUsd: out.costUsd });
     if (out.chains.length) await db.update(apps).set({ chains: out.chains }).where(eq(apps.id, app.id));
-    // What the look gave the test wallet: later runs of these tests need the same, read again in case settings changed meanwhile.
-    if (out.tokens.length) {
-      const { settings } = await loadApp(db, app.id);
-      await db.update(apps).set({ settings: { ...settings, tokens: out.tokens } }).where(eq(apps.id, app.id));
-    }
+    if (out.tokens.length) await saveTokens(db, app.id, out.tokens);
     if (out.state.stopped) error = out.state.stopped;
   } catch (e) {
     await drain();
@@ -123,6 +120,16 @@ async function knownBugs(db: Db, appId: string, but: string): Promise<KnownBug[]
     }
   }
   return [...bugs.values()];
+}
+
+/**
+ * What the look gave the test wallet, saved as soon as it is given: every run of the tests needs
+ * the same, and the first run starts while the pass is still going. Read again, in case the
+ * settings changed meanwhile.
+ */
+async function saveTokens(db: Db, appId: string, tokens: AppRow["settings"]["tokens"]): Promise<void> {
+  const { settings } = await loadApp(db, appId);
+  await db.update(apps).set({ settings: { ...settings, tokens } }).where(eq(apps.id, appId));
 }
 
 /** What the look learned. A setup the developer already has (maybe edited) wins over a new proposal. */

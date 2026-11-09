@@ -13,7 +13,8 @@ const MAX_BACKENDS = 5;
 const NOISE = /sentry|google-analytics|analytics\.google|googletagmanager|doubleclick|adnxs|launchdarkly|segment\.(io|com)|mixpanel|amplitude|hotjar|posthog|datadoghq|intercom|cloudflareinsights|vercel-insights|walletconnect|web3modal|reown|privy|coinbase\.com\/.*metrics/i;
 /** The part of NOISE that also signs users in. */
 const SIGN_IN = /privy|walletconnect|web3modal|reown/i;
-const RATE_LIMITED = /\b429\b|rate.?limit|too many requests|exceeded .*(limit|quota)|capacity/i;
+/** A server saying it had enough of us. Exported so an error it caused isn't held against the app. */
+export const RATE_LIMITED = /\b429\b|rate.?limit|too many requests|exceeded .*(limit|quota)|capacity/i;
 const ADDRESS = /0x[0-9a-f]{40}/g;
 const TIMED_OUT = /timed? ?out|timeout|ETIMEDOUT/i;
 const PRUNED = /missing trie node|archive.*not available|pruned|header not found|historical state|state .*not available|unknown block|block not found/i;

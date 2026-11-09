@@ -28,6 +28,7 @@ import {
 import type { ChainController, Hex, Inbox, Llm, RecoveryJudge, SigningReviewer, WalletPolicy } from "../types.js";
 import { detectBotCheck } from "../browser/access.js";
 import { createSession, type EngineSession } from "../browser/session.js";
+import { RATE_LIMITED } from "../browser/traffic.js";
 import type { Wallet } from "../wallet/controller.js";
 import { decodeBuiltin, spenderOf } from "./expectation.js";
 import { edgeLabel, inspectRecovery, makeIssue, pickConsole, pickRpc, type IssueContext, type IssueDraft } from "./issues.js";
@@ -781,7 +782,9 @@ async function recoveryChecks(edge: EdgeCaseId, session: EngineSession, replay: 
 
 /** Checks that apply to every edge case. */
 function commonChecks(edge: EdgeCaseId, plan: Plan, session: EngineSession, replay: ReplayScriptResult, drafts: IssueDraft[]): void {
-  const pageErrors = session.console.filter((c) => c.level === "pageerror");
+  // A server that throttled us (a 429 from the app's own API) says nothing about how the app takes
+  // the condition, and the runs of a pass arrive at it together.
+  const pageErrors = session.console.filter((c) => c.level === "pageerror" && !RATE_LIMITED.test(c.text));
   if (pageErrors.length > 0) {
     drafts.push({
       kind: "page-error",
