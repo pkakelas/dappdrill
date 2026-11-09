@@ -201,7 +201,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     }
 
     if (status === "pass") {
-      const v = await judgeExpected(session, env.fastLlm(), spec);
+      const v = await judgeExpected(session, env.fastLlm(), spec, { live: env.chains.configs().some((c) => c.mode === "live") });
       result.verdict = { ok: v.ok, reason: v.reason };
       if (!v.ok) {
         status = "fail";

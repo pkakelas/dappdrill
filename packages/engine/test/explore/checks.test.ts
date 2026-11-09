@@ -153,7 +153,7 @@ describe("evaluateCheck", () => {
     requests = [call(["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", RECIPIENT, 168_256n * 10n ** 16n])];
     const coin = await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" });
     expect(coin.status).toBe("error");
-    expect(coin.evidence).toContain("Couldn't tell which amount in the request is USDC: it names ETH (Local's own coin), and carries 1682.56 of it.");
+    expect(coin.evidence).toContain("The request carries 1682.56 ETH (Local's own coin), the number the page shows, but we couldn't confirm that is what the page calls USDC.");
     // A vault that counts in shares: the app reads USDC, the request doesn't name it.
     appReads = [USDC];
     requests = [call([1_650n * 10n ** 18n, RECIPIENT])];

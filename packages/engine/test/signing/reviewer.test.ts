@@ -89,6 +89,19 @@ describe("signing reviewer", () => {
     expect(r.summary).toMatch(/approve unlimited USDC for 0x4444…4444, a contract with no verified source that was deployed 3 days ago/);
   });
 
+  it("exact approval to an unverified old contract on a testnet → check, not dangerous", async () => {
+    // Unverified contracts are the rule on a testnet; a client's own staging app shouldn't read as an attack.
+    const testnet = new FakeChain(11155111, {
+      [F.USDC_MAINNET]: fakeErc20({ symbol: "USDC", name: "Test USD", decimals: 6, totalSupply: 10n ** 12n, balances: { [F.WALLET]: F.usdc(1000) } }),
+      [F.NEW_ROUTER]: { createdAt: HEAD - DAYS(400) },
+    }, { head: HEAD });
+    const r = await reviewer().review({ request: { ...F.txRequest(F.USDC_MAINNET, F.approveData(F.NEW_ROUTER, F.usdc(100))), chainId: 11155111 }, chains: testnet, ui: { buttonLabel: "Approve 100 USDC" }, baselines: {} });
+    expect(r.verdict).toBe("check");
+    expect(check(r, "approval")).toMatchObject({ status: "warn" });
+    expect(check(r, "approval").detail).toMatch(/Common on a testnet/);
+    expect(r.explanation).toMatch(/Spender has no verified source/);
+  });
+
   it("Permit2 permit presented as 'Sign in' → dangerous", async () => {
     const td = F.permit2Single(F.USDC_MAINNET, F.UNIVERSAL_ROUTER, F.PERMIT2_UNLIMITED, 1_900_000_000);
     const r = await reviewer().review(input(F.signRequest("eth_signTypedData_v4", [F.WALLET, JSON.stringify(td)]), { buttonLabel: "Sign in" }));

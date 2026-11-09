@@ -21,7 +21,7 @@ export const STEP_SYSTEM = `You carry out one step of an end-to-end test on a we
 You get the test's goal, all its steps, and the one step to do now. Do only that step, with as few actions as you can. If an earlier step's work is still queued or unfinished on the page, finish it first: the steps assume it was done.
 
 - Use the page as a user would: look, click, type, select. Prefer what is visible over guessing URLs.
-- When the step is already true (the wallet is already connected, the page is already open), do nothing and call step_done.
+- When the step is already true (the wallet is already connected, the page is already open), do nothing and call step_done. That is for state you can see, not for an action: a step that says to click, enter or sign something is done when you did it. A disabled Save, Confirm or Submit button means something the step needs hasn't taken (a value went to the wrong field, an earlier click didn't land): put the step's inputs in place again, in the dialog or panel that is open, and then click it. Don't go and check the result instead; if it stays disabled, the step didn't work (ok=false, cause "app", with what the page says).
 - The browser is new, so the app may put a first-visit prompt in the way that the steps don't mention: terms to accept, a cookie banner, a welcome tour. Accept or close it as part of your step, marked optional, as soon as it shows or the page says it is waiting for it ("Accept the terms to continue").
 - Wallet requests show up in tool results. Approve them with wallet_approve unless the step says to reject.
 - When the step asks to check something, confirm it on the page and call expect_text with a short exact text that proves it. A value within 1% is the same value: apps round and truncate (0.0099 for 0.01).
@@ -202,12 +202,21 @@ A value within 1% of the expected one is the same value: apps round and truncate
 The page only shows the end. When the expected result talks about a change or an earlier moment, check that the end state fits the steps and what the wallet sent; don't fail it just because the earlier state isn't on screen. Anything on the page that contradicts it is a fail.
 Whether a transaction was mined is settled by what the wallet sent, not by the page: a transfer to another chain goes on reading "in progress" or "awaiting" here, because only the test chain sees it.`;
 
+/** A live account keeps what earlier runs left, so an old entry that happens to match proves nothing. */
+const JUDGE_LIVE = `
+The account is on a live chain and keeps what earlier runs left: orders, positions, balances, history. Only what this run did shows the result: the newest entry (marked "just now" or at the top), with the exact amount or price the steps entered. An older entry with the same value, or a total that merely includes it, doesn't; say so and fail it.`;
+
+export interface JudgeOptions {
+  /** A chain the test ran on is live: the account carries earlier runs' leftovers. */
+  live?: boolean;
+}
+
 /** Did the test end where it should? Asked on every run: a saved text can't tell a result from a label that always shows. */
-export async function judgeExpected(session: DrillSession, llm: Llm, test: TestSpec): Promise<{ ok: boolean; reason: string }> {
+export async function judgeExpected(session: DrillSession, llm: Llm, test: TestSpec, opts: JudgeOptions = {}): Promise<{ ok: boolean; reason: string }> {
   await settle(session);
-  const first = await askJudge(session, llm, test);
+  const first = await askJudge(session, llm, test, opts);
   // A success dialog often covers the result; look again without it.
-  return first.ok || !(await closeDialog(session)) ? first : askJudge(session, llm, test);
+  return first.ok || !(await closeDialog(session)) ? first : askJudge(session, llm, test, opts);
 }
 
 async function closeDialog(session: DrillSession): Promise<boolean> {
@@ -224,7 +233,7 @@ async function minedOrNot(session: DrillSession, r: WalletRequest): Promise<stri
   return receipt ? (receipt.status === "success" ? "mined" : "reverted on the chain") : "not mined yet";
 }
 
-async function askJudge(session: DrillSession, llm: Llm, test: TestSpec): Promise<{ ok: boolean; reason: string }> {
+async function askJudge(session: DrillSession, llm: Llm, test: TestSpec, opts: JudgeOptions): Promise<{ ok: boolean; reason: string }> {
   const page = session.page;
   // The whole page: what proves the result is often below the fold.
   const png = await page.screenshot({ type: "png", fullPage: true });
@@ -232,7 +241,7 @@ async function askJudge(session: DrillSession, llm: Llm, test: TestSpec): Promis
   const signed = session.wallet.requests().filter((r) => r.kind === "sign");
   const sent = signed.length ? await Promise.all(signed.map(async (r) => `- ${decodeWalletRequest(r).summary} (${[r.outcome, await minedOrNot(session, r)].filter(Boolean).join(", ")})`)) : ["- nothing"];
   return llm.structured({
-    system: JUDGE_SYSTEM,
+    system: opts.live ? JUDGE_SYSTEM + JUDGE_LIVE : JUDGE_SYSTEM,
     prompt: [`Test: ${test.name}`, "Steps done:", ...test.steps.map((s, i) => `${i + 1}. ${s.text}`), "What the wallet sent:", ...sent, `Expected: ${test.expected}`, "", "The page now:", text].join("\n"),
     images: [{ data: png.toString("base64"), mediaType: "image/png" }],
     schema: Verdict,

@@ -1,4 +1,4 @@
-import { appRollup, signingOf, walletUse, type ExploreBug, type SecondLook, type Settled } from "@dappdrill/core";
+import { appRollup, chainName, signingOf, walletUse, type ExploreBug, type SecondLook, type Settled } from "@dappdrill/core";
 import { appTests, db, explorations, latestRuns, notWritten, runHistory, settledRuns, type TestRow } from "@dappdrill/db";
 import { desc, eq, sql } from "drizzle-orm";
 import { ArrowRight, Compass, GitFork, TriangleAlert } from "lucide-react";
@@ -197,6 +197,8 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   // What the Add test questions can offer: pages to start on, tests to write from, and what setup already does.
   const adding: AddTestProps = { appId, pages: app.map?.pages, tests: roots.filter((t) => !t.drafting).map((t) => ({ id: t.id, name: t.name })), setup: app.setup?.steps.map((s) => s.text) };
   const nothing = listed.length === 0 && !((showing === "all" || showing === "waiting") && untested.length > 0);
+  // Tests on a chain we can't fork run on the real one, and the owner should know what that leaves behind.
+  const liveChain = [...app.settings.chains, ...app.chains].find((c) => c.mode === "live");
   const any = counts.all > 0;
 
   return (
@@ -212,6 +214,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
             lastRun={lastRun}
             wallet={app.settings.wallets[0]}
             chainId={(app.settings.chains[0] ?? app.chains[0])?.id}
+            live={liveChain && chainName(liveChain.id)}
             rollup={!exploring && (listedTests.length > 0 || confirmedBugs > 0) ? overall : undefined}
             checked={checks > 0 || checkBugs > 0 ? { checks, bugs: checkBugs } : undefined}
             running={activeIds.length}

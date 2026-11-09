@@ -218,6 +218,14 @@ describe("ui-match rules", () => {
     expect(labelIntent("Claim rewards")).toBe("claim");
     expect(labelAmount("Approve 1,250.5 USDC")).toEqual({ amount: 1250.5, symbol: "USDC" });
     expect(labelAmount("Approve")).toBeUndefined();
+    // A plain word after the number isn't a token symbol.
+    expect(labelAmount("Deposit $50 from your wallet")).toEqual({ amount: 50, symbol: undefined });
+    expect(labelAmount("Stake 2 tUSDC")).toEqual({ amount: 2, symbol: "TUSDC" });
+  });
+
+  it("takes a test or wrapped prefix as the same token", () => {
+    expect(matchByRules("Approve 100 USDC", { ...base, approvals: [{ ...usdcGrant(F.usdc(100)), symbol: "tUSDC" }] }, decimals)!.status).toBe("pass");
+    expect(matchByRules("Approve 100 USDC", { ...base, approvals: [{ ...usdcGrant(F.usdc(100)), symbol: "DAI" }] }, decimals)!.status).toBe("fail");
   });
 
   it("fails when the label names an amount but the approval is unlimited", () => {

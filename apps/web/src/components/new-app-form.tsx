@@ -2,7 +2,7 @@
 
 import { KNOWN_CHAINS, MAINNET_CHAIN_IDS, chainInfo, chainName, type WalletProfileId } from "@dappdrill/core";
 import { ArrowRight, Check, Clock, Globe, Network, ScanSearch } from "lucide-react";
-import { startTransition, useActionState, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { createAppAction } from "@/actions/apps";
 import { HintRows, LiveKeyField, useHints } from "@/components/app-hints";
 import { chainNote, RpcField, TestnetTick, useRpcCheck } from "@/components/rpc-field";
@@ -54,11 +54,14 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   const [liveKey, setLiveKey] = useState("");
   const answers = useHints();
   const rpcInput = useRef<HTMLInputElement>(null);
-  const focusRpc = useRef(false);
   const { site, open, looking, missed } = useSite(url);
   const wide = useWide();
 
   const other = chainId === OTHER;
+  // The RPC field mounts after the choice; typing goes there next.
+  useEffect(() => {
+    if (other) rpcInput.current?.focus();
+  }, [other]);
   const rpc = useRpcCheck(rpcUrl, other);
   const picked = CHAINS.find((c) => String(c.id) === chainId);
   const resolvedId = picked?.id ?? (rpc.status === "ok" ? rpc.chainId : undefined);
@@ -168,10 +171,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
                   <FieldLabel htmlFor="chain">Chain</FieldLabel>
                   <Select
                     value={chainId}
-                    onValueChange={(value) => {
-                      focusRpc.current = value === OTHER;
-                      setChainId(value);
-                    }}
+                    onValueChange={setChainId}
                   >
                     <SelectTrigger id="chain" className="w-full data-[size=default]:h-11">
                       <SelectValue />
@@ -179,8 +179,8 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
                     <SelectContent
                       position="popper"
                       onCloseAutoFocus={(event) => {
-                        if (!focusRpc.current) return;
-                        focusRpc.current = false;
+                        // The RPC field is where typing goes next; the trigger would take the focus back.
+                        if (!other) return;
                         event.preventDefault();
                         rpcInput.current?.focus();
                       }}

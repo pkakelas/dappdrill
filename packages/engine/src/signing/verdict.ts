@@ -3,7 +3,8 @@
  * same verdict. Verdicts are "dangerous", "check" or "consistent" — never "safe".
  *
  *  dangerous  known-bad hit; an approval or permit to a wallet address or to an
- *             unverified / new contract; the UI doesn't match while an approval,
+ *             unverified / new contract (on a testnet, unverified alone is only
+ *             "check": that is the rule there); the UI doesn't match while an approval,
  *             native value or outgoing tokens are at stake (this covers "Sign in"
  *             buttons that are really permits or transfers).
  *  check      any other failing or warning check (unlimited approval, revert,
@@ -102,7 +103,8 @@ function short(c: SigningCheck): string {
       return changed.length ? `Different ${changed.join(", ")} from the last run` : "Differs from the last run";
     }
     case "approval":
-      return c.status === "warn" ? "Unlimited approval" : c.status === "unverified" ? "Couldn't confirm the spender's source" : c.detail.replace(/\.$/, "");
+      if (c.status === "warn") return c.detail.includes("no verified source") ? "Spender has no verified source" : "Unlimited approval";
+      return c.status === "unverified" ? "Couldn't confirm the spender's source" : c.detail.replace(/\.$/, "");
     case "verified-source":
       return c.status === "unverified" ? "Couldn't check the source" : "No verified source";
     case "contract-age":

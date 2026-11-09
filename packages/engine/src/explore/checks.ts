@@ -148,8 +148,11 @@ async function checkAmount(session: DrillSession, signs: WalletRequest[], shown:
     // What it does name, and whether the page's number is there in those units: the reader can tell what we can't.
     const all = requests.flatMap(({ has }) => has.amounts);
     const inIts = (t: NamedToken) => all.map((a) => Number(a) / 10 ** t.decimals).find((n) => Math.abs(n - want) <= want * AMOUNT_TOLERANCE);
-    const names = others.map((t) => (inIts(t) === undefined ? where(t) : `${where(t)}, and carries ${trim(inIts(t)!)} of it`));
-    return { status: "error", evidence: `Couldn't tell which amount in the request is ${token}: it names ${names.length ? names.join("; ") : "no token we could read"}. ${asked(requests[0]!.r)}.` };
+    const carries = others.map((t) => ({ t, n: inIts(t) })).find((x) => x.n !== undefined);
+    // The number is there, in another name: an app whose cash is the chain's own coin, say. Whether that is the page's token is the reader's call.
+    if (carries) return { status: "error", evidence: `The request carries ${trim(carries.n!)} ${where(carries.t)}, the number the page shows, but we couldn't confirm that is what the page calls ${token}. ${asked(requests[0]!.r)}.` };
+    const names = others.map(where);
+    return { status: "error", evidence: `Couldn't tell which amount in the request is ${token}: it names ${names.length ? `${names.join("; ")}, and carries no ${want} of ${names.length === 1 ? "it" : "them"}` : "no token we could read"}. ${asked(requests[0]!.r)}.` };
   }
   const page = shown.toLowerCase().includes(named[0]!.symbol.toLowerCase()) ? shown : `${shown} ${named[0]!.symbol}`;
 

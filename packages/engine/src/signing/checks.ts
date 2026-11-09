@@ -3,7 +3,7 @@
  * SigningCheck with a plain detail sentence. The verdict is decided in verdict.ts.
  */
 import type { Address } from "viem";
-import { applyParams, chainName, matchesFunction, shortAddress, type BaselineChange, type CheckStatus, type SigningCheck, type SigningReview, type WalletExpectation } from "@dappdrill/core";
+import { MAINNET_CHAIN_IDS, applyParams, chainName, matchesFunction, shortAddress, type BaselineChange, type CheckStatus, type SigningCheck, type SigningReview, type WalletExpectation } from "@dappdrill/core";
 import { formatUnitsPlain } from "@dappdrill/core";
 import { NEW_CONTRACT_DAYS, hasStake, nativeValue, type Facts, type Subject } from "./facts.js";
 import { isLocalChain } from "./contract.js";
@@ -179,8 +179,10 @@ function approval(facts: Facts): SigningCheck {
       status = "fail";
       why = "The spender is a wallet address, not a contract: whoever holds its key can take the tokens.";
     } else if (spender?.info.verified === false && !spender.info.known) {
-      status = "fail";
-      why = "The spender has no verified source, so nobody can read what it does with the allowance.";
+      // On a testnet, unverified contracts are the rule; on mainnet, an allowance to one is a risk.
+      const mainnet = MAINNET_CHAIN_IDS.has(facts.chainId);
+      status = mainnet ? "fail" : "warn";
+      why = `The spender has no verified source, so nobody can read what it does with the allowance.${mainnet ? "" : " Common on a testnet; verify it before mainnet."}`;
     } else if (spender?.age && spender.age.days < NEW_CONTRACT_DAYS) {
       status = "fail";
       why = `The spender was deployed ${daysAgo(spender.age.days)}.`;

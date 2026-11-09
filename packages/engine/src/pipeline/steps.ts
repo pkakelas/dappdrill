@@ -75,12 +75,15 @@ export async function walkSteps(
       i,
     );
     if (out.blocked) throw new BlockedError(out.blocked);
-    if (out.actions) steps[i] = { text: step.text, actions: out.actions };
+    // A path that skips something the recorded one did by name isn't the step done another way,
+    // so it doesn't replace the recording: the next run tries the recorded path again.
+    const skipped = out.actions && step.actions ? skippedBy(step.actions, out.actions) : undefined;
+    if (out.actions && !skipped) steps[i] = { text: step.text, actions: out.actions };
     results[i] = {
       status: out.ok ? "pass" : "fail",
       via: out.via,
       did: out.did,
-      note: out.note,
+      note: skipped ? [out.note, `Done without “${skipped}”, which the recorded steps did; the recording is kept.`].filter(Boolean).join(" ") : out.note,
       screenshot: await session.screenshot(`${opts.shotPrefix ?? "step"}${i + 1}`),
       durationMs: Date.now() - t0,
     };
@@ -93,6 +96,24 @@ export async function walkSteps(
     await opts.progress?.();
   }
   return {};
+}
+
+/** The first thing the recorded path did by name (a click, an entry, a signature) that the new one doesn't. */
+export function skippedBy(recorded: Step[], taken: Step[]): string | undefined {
+  const done = new Set(doings(taken).map((d) => d.key));
+  return doings(recorded).find((d) => !done.has(d.key))?.name;
+}
+
+function doings(actions: Step[]): { key: string; name: string }[] {
+  const out: { key: string; name: string }[] = [];
+  for (const a of actions) {
+    if (a.kind === "wallet") out.push({ key: "wallet", name: a.note ?? "the wallet request" });
+    else if (a.kind === "click" || a.kind === "fill" || a.kind === "select") {
+      const name = a.target.name ?? a.target.label ?? a.target.text ?? a.target.placeholder;
+      if (name) out.push({ key: `${a.kind}:${name.toLowerCase()}`, name });
+    }
+  }
+  return out;
 }
 
 export function scriptOf(spec: Pick<TestSpec, "id" | "name" | "startPath">, steps: Step[]): ReplayScript {

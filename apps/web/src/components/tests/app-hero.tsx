@@ -1,6 +1,6 @@
 import type { AppRollup, WalletProfileId } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, GitFork, PenLine, Play, ScanSearch, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, GitFork, PenLine, Play, Radio, ScanSearch, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
@@ -109,7 +109,7 @@ function Stats({ rollup, running }: { rollup: AppRollup; running: number }) {
  * The top of an app: what it is, how it's doing, and what you can do next. The headline is the two
  * things exploring gives: how the tests did, and what the checks found (`checked`).
  */
-export function AppHero({ appId, name, url, lastRun, wallet, chainId, rollup, checked, running, runs, action }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; rollup?: AppRollup; checked?: { checks: number; bugs: number }; running: number; runs: RunSummary[]; action?: ReactNode }) {
+export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, rollup, checked, running, runs, action }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; /** The name of the chain tests run on for real, when they don't run on a fork. */ live?: string; rollup?: AppRollup; checked?: { checks: number; bugs: number }; running: number; runs: RunSummary[]; action?: ReactNode }) {
   const both = Boolean(rollup && rollup.tests.total > 0 && checked);
   // A chart of the last two weeks says nothing about an app that has only run today.
   const charted = new Set(runs.map((r) => Math.floor(r.createdAt.getTime() / DAY))).size > 1;
@@ -132,6 +132,14 @@ export function AppHero({ appId, name, url, lastRun, wallet, chainId, rollup, ch
         </div>
         {action}
       </div>
+      {live && (
+        <p className="-mt-4 flex items-start gap-2 text-sm text-pretty text-muted-foreground">
+          <Radio aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-live" />
+          <span>
+            Tests run on {live} itself, with the app&apos;s funded wallet, since it can&apos;t be forked. Every run leaves real orders, positions and transactions on that account.
+          </span>
+        </p>
+      )}
       {rollup && (
         <div className={cx("grid items-center gap-x-10 gap-y-8", charted && "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]")}>
           <div className="flex min-w-0 flex-col gap-6">

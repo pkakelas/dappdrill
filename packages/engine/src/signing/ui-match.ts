@@ -59,6 +59,13 @@ export function functionIntent(functionName: string | undefined): Intent | undef
   return undefined;
 }
 
+/** The button's USDC is the request's tUSDC or WETH is its ETH: a one- or two-letter prefix marks a test or wrapped version of the same token. */
+export function sameSymbol(said: string, actual: string): boolean {
+  const a = actual.toUpperCase();
+  const s = said.toUpperCase();
+  return a === s || (a.endsWith(s) && a.length - s.length <= 2);
+}
+
 /** "Approve 250 USDC" → { amount: 250, symbol: "USDC" }; "Deposit 1.5" → { amount: 1.5 }. */
 export function labelAmount(label: string | undefined): { amount: number; symbol?: string } | undefined {
   if (!label) return undefined;
@@ -66,7 +73,8 @@ export function labelAmount(label: string | undefined): { amount: number; symbol
   if (!m) return undefined;
   const amount = Number(m[1]!.replace(/,/g, ""));
   if (!Number.isFinite(amount)) return undefined;
-  const symbol = m[2] && !/^(and|or|of|to|for|the|in|on|at|with|days?|hours?|min|minutes?|sec|x|%)$/i.test(m[2]) ? m[2].toUpperCase() : undefined;
+  // A symbol is written in capitals or mixed case (USDC, tUSDC, wstETH); a plain word after the number ("50 from your wallet") isn't one.
+  const symbol = m[2] && /[A-Z]/.test(m[2]) && !/^(and|or|of|to|for|from|into|via|per|by|as|the|in|on|at|with|your|my|now|more|less|worth|total|each|fee|available|left|days?|hours?|min|minutes?|sec|x|%)$/i.test(m[2]) ? m[2].toUpperCase() : undefined;
   return { amount, symbol };
 }
 
@@ -121,7 +129,7 @@ export function matchByRules(label: string | undefined, req: RequestSummary, tok
     }
     if (said) {
       if (a.unlimited) return { status: "fail", detail: `Button says ${said.amount} ${said.symbol ?? a.symbol ?? ""}; the request is unlimited.`.replace(/\s+;/, ";"), via: "rules" };
-      if (said.symbol && a.symbol && said.symbol !== a.symbol.toUpperCase()) {
+      if (said.symbol && a.symbol && !sameSymbol(said.symbol, a.symbol)) {
         return { status: "fail", detail: `Button says ${said.symbol}; the request is for ${a.symbol}.`, via: "rules" };
       }
       const actual = amountOf(a, tokenDecimals(a.token));
@@ -157,7 +165,7 @@ export function matchByRules(label: string | undefined, req: RequestSummary, tok
     return { status: "fail", detail: `The button says ${quoted}, but ${what} leaves the wallet.`, via: "rules" };
   }
   if (said) {
-    const matching = said.symbol ? leaves.find((c) => c.symbol?.toUpperCase() === said.symbol) : undefined;
+    const matching = said.symbol ? leaves.find((c) => c.symbol && sameSymbol(said.symbol!, c.symbol)) : undefined;
     if (matching && matching.decimals !== undefined) {
       const actual = Number(formatUnitsPlain(-BigInt(matching.delta), matching.decimals, 18).replace(/,/g, ""));
       if (!close(said.amount, actual)) return { status: "fail", detail: `Button says ${said.amount} ${said.symbol}; ${matching.display.replace(/^[−-]/, "")} leaves the wallet.`, via: "rules" };
