@@ -86,7 +86,9 @@ export async function walkSteps(
     };
     if (!out.ok) {
       for (const later of results.slice(i + 1)) later.status = "skipped";
-      return { failure: `Step ${i + 1}, “${step.text}”: ${out.note ?? "didn't work"}`, stuck: out.stuck };
+      // A server that refused something while the step ran, in its own words, names who said no.
+      const refused = session.traffic.refusedSince(t0);
+      return { failure: `Step ${i + 1}, “${step.text}”: ${out.note ?? "didn't work"}${refused.length ? ` (${refused.join("; ")})` : ""}`, stuck: out.stuck };
     }
     await opts.progress?.();
   }

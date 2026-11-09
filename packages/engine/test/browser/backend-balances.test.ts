@@ -23,7 +23,15 @@ describe("balanceAsk", () => {
     expect(balanceAsk(`https://api.example/quote?user=${wallet}&from=${usdc}&to=0x833589fcd6edb6e08f4c7c32d4f71b54bda02913`, null, [wallet])).toBeUndefined();
     expect(balanceAsk(`https://api.example/balance/${wallet}?from=ethereum&to=base`, null, [wallet])).toBeUndefined();
     // A transaction hash is not an address.
-    expect(balanceAsk(`https://api.example/tx/0x${"ab".repeat(32)}?user=${wallet}`, null, [wallet])).toMatchObject({ token: undefined });
+    expect(balanceAsk(`https://api.example/balance/0x${"ab".repeat(32)}?user=${wallet}`, null, [wallet])).toMatchObject({ token: undefined });
+  });
+
+  it("takes a request that names no token for the coin only when it says balance", () => {
+    expect(balanceAsk(`https://api.example/v1/accounts/${wallet}`, null, [wallet])).toBeUndefined();
+    expect(balanceAsk(`https://api.example/v1/positions?user=${wallet}&chainId=1`, null, [wallet])).toBeUndefined();
+    expect(balanceAsk("https://api.example/graphql", JSON.stringify({ query: "{ balances { native } }", owner: wallet }), [wallet])).toMatchObject({ token: undefined });
+    expect(balanceAsk(`https://api.example/v1/holdings/${wallet}/0x0000000000000000000000000000000000000000`, null, [wallet])).toMatchObject({ token: undefined });
+    expect(balanceAsk(`https://api.example/v1/holdings/${wallet}/${usdc}`, null, [wallet])).toMatchObject({ token: usdc });
   });
 });
 

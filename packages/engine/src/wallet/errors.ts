@@ -1,7 +1,20 @@
+import { chainName, type WalletRequest } from "@dappdrill/core";
 import { JsonRpcError } from "../chain/rpc.js";
 
 /** How a step can tell our wallet couldn't pay from an app failure. */
 export const NO_LIVE_KEY = "no funded test key";
+
+/**
+ * Why our wallet couldn't pay for a request, when that is why it failed: a live chain with no key, or a key
+ * with too little on it. On a fork the wallet holds what the test gave it, so running short there is the test's subject.
+ */
+export function unpaid(r: WalletRequest, wallet: string, live: boolean): string | undefined {
+  if (r.error?.includes(NO_LIVE_KEY)) return r.error.replace(/^\d+ /, "");
+  if (live && /insufficient funds/i.test(r.error ?? "")) {
+    return `The test wallet ${wallet} has too little on ${chainName(r.chainId)} to pay for this transaction. Send it some and run again.`;
+  }
+  return undefined;
+}
 
 /** EIP-1193 / MetaMask error codes with MetaMask's wording. */
 export const WalletErrors = {

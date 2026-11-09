@@ -20,9 +20,15 @@ export interface ReferencePrice {
 export async function referencePrices(asset: string, chainId: number): Promise<ReferencePrice[]> {
   const name = asset.trim().replace(/^\$/, "");
   if (/^0x[0-9a-f]{40}$/i.test(name)) return [await byAddress(name, chainId)].filter((p) => !!p);
-  const ticker = name.toUpperCase().replace(/[-/ ]?USDT?$/, "").replace(/\s+/g, "");
-  if (!/^[A-Z0-9.&^=]{1,12}$/.test(ticker)) return [];
+  const ticker = tickerOf(name);
+  if (!ticker) return [];
   return (await Promise.all([coinbase(ticker), yahoo(YAHOO[ticker] ?? ticker)])).filter((p) => !!p);
+}
+
+/** "ETH-USD", "BTC/USDT" and "$eth" name ETH. Without a separator the letters stay: crvUSD and sUSD are assets of their own. */
+export function tickerOf(asset: string): string | undefined {
+  const ticker = asset.trim().replace(/^\$/, "").toUpperCase().replace(/[-/ ]USDT?$/, "").replace(/\s+/g, "");
+  return /^[A-Z0-9.&^=]{1,12}$/.test(ticker) ? ticker : undefined;
 }
 
 async function byAddress(address: string, chainId: number): Promise<ReferencePrice | undefined> {

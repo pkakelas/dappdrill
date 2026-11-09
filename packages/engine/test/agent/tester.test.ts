@@ -105,6 +105,26 @@ describe("runStep", () => {
     expect(strong.results).toHaveLength(0);
   });
 
+  it("calls a transaction our live wallet had too little for ours, and the same on a fork the app's", async () => {
+    const short = { id: "r1", method: "eth_sendTransaction", chainId: 129302, kind: "sign", at: "", outcome: "errored", error: "-32000 insufficient funds for gas * price + value" } as WalletRequest;
+    const run = async (mode: "live" | "fork") => {
+      await open();
+      let requests: WalletRequest[] = [];
+      const spy = vi.spyOn(session.wallet, "requests").mockImplementation(() => requests);
+      const chains = { ...session.chains, has: () => true, mode: () => mode } as unknown as StepDeps["session"]["chains"];
+      const fast = scriptedRuns([[() => ((requests = [short]), { tool: "look" }), { tool: "step_done", input: { ok: false, cause: "app", reason: "The app says insufficient funds." } }]]);
+      const out = await runStep(deps({ fast, session: { ...session, page: session.page, chains } as unknown as StepDeps["session"] }), spec([{ text: "Confirm the order" }]), 0);
+      spy.mockRestore();
+      return out;
+    };
+    const live = await run("live");
+    expect(live).toMatchObject({ ok: false, stuck: true });
+    expect(live.note).toMatch(/^The test wallet 0x[0-9a-fA-F]{40} has too little on pod testnet to pay/);
+    const fork = await run("fork");
+    expect(fork).toMatchObject({ ok: false, note: "The app says insufficient funds." });
+    expect(fork.stuck).toBeUndefined();
+  });
+
   it("doesn't take the fast model's word that the app is at fault on a step that never worked", async () => {
     await open();
     const fast = scriptedRuns([[{ tool: "step_done", input: { ok: false, cause: "app", reason: "There is no Repay button." } }]]);

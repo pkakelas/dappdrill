@@ -51,6 +51,11 @@ describe("brokenValues", () => {
   it("leaves ordinary text and addresses alone", () => {
     expect(brokenValues("This agreement is null and void.\n0x5e21abcdef0123456789\nGold $4,653.90\nNaNoTech Fund")).toEqual([]);
   });
+
+  it("takes undefined and Infinity for words unless they stand where a value goes", () => {
+    expect(brokenValues("Axie Infinity\nInfinity Pools: 12\nRewards are undefined until the epoch ends\nBehaviour: undefined behaviour is not covered")).toEqual([]);
+    expect(brokenValues("APR\nInfinity%\nHealth factor: -Infinity\nYou receive\nundefined USDC").map((b) => b.what)).toEqual(["Infinity", "Infinity", "undefined"]);
+  });
 });
 
 describe("addsUp", () => {

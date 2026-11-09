@@ -94,10 +94,18 @@ async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promis
   const upstream = await pickUpstream(config, opts.log);
   if (config.forkBlock && !upstream.pinned) opts.log?.(`chain ${config.id}: block ${config.forkBlock} is no longer available upstream; forking near the latest block`);
   const start = (forkBlock?: bigint) => startAnvilFork({ rpcUrl: upstream.rpcUrl, chainId: config.id, forkBlock });
+  const pinned = upstream.pinned ? BigInt(config.forkBlock!) : undefined;
   let fork: AnvilFork;
   try {
-    // A public RPC behind a load balancer now and then hasn't got the block yet, or drops a request: once more, near the tip.
-    fork = await start(upstream.pinned ? BigInt(config.forkBlock!) : undefined).catch(() => start());
+    // A public RPC behind a load balancer now and then hasn't got the block yet, or drops a request:
+    // the same start once more, and only then a pinned block is given up for one near the tip.
+    fork = await start(pinned)
+      .catch(() => start(pinned))
+      .catch((err) => {
+        if (pinned === undefined) throw err;
+        opts.log?.(`chain ${config.id}: couldn't fork at block ${pinned} (${(err as Error).message.split("\n")[0]}); forking near the latest block`);
+        return start();
+      });
   } catch (err) {
     // Chains that aren't standard EVM nodes can't be forked: test them live, never on mainnet.
     if (MAINNET_CHAIN_IDS.has(config.id)) throw err;

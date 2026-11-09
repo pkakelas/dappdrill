@@ -173,7 +173,8 @@ async function checkSetup(run: ExploreRun): Promise<boolean> {
     return false;
   }
   if ("outcome" in ready) {
-    const why = ready.outcome.result.failure ?? "Setup didn't finish.";
+    // The line already says the setup didn't work; what follows is the step and what the app said.
+    const why = (ready.outcome.result.failure ?? "").replace(/^Setup didn't finish\.\s*/, "") || "It didn't finish.";
     board.explorer("setup", { status: "failed", error: why, doing: undefined, finishedAt: nowIso() });
     board.change((s) => (s.stopped = real ? `The app's setup didn't work, so nothing was explored. ${why}` : `The wallet didn't connect, so nothing was explored. ${why}`));
     return false;

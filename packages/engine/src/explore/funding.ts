@@ -6,7 +6,7 @@
  */
 import { erc20Abi, formatUnits, isAddress, parseUnits } from "viem";
 import { z } from "zod";
-import { chainInfo, type DrillTarget } from "@dappdrill/core";
+import { chainName, type DrillTarget } from "@dappdrill/core";
 import type { AgentTool, ChainController, DrillSession, Hex } from "../types.js";
 
 export type WalletToken = DrillTarget["tokens"][number];
@@ -25,7 +25,6 @@ interface TokenInfo {
 export function fundTool(session: DrillSession, onFunded: (token: WalletToken, line: string) => void): AgentTool {
   const { chains, wallet } = session;
   const forks = () => chains.configs().filter((c) => chains.mode(c.id) === "fork").map((c) => c.id);
-  const chainName = (id: number) => chainInfo(id)?.name ?? `chain ${id}`;
   const line = (t: TokenInfo) => `${t.symbol} ${t.address} on ${chainName(t.chainId)} (the wallet holds ${formatUnits(t.held, t.decimals)})`;
   const seen = async (): Promise<TokenInfo[]> => {
     const all = forks().flatMap((id) => (chains.tokensRead?.(id, wallet.address()) ?? []).map((address) => tokenInfo(chains, id, address, wallet.address())));

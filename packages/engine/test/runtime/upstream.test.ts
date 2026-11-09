@@ -104,6 +104,16 @@ describe("relay", () => {
     expect(await read()).toMatchObject({ result: "0x1" });
   }, 15_000);
 
+  it("doesn't remember a block the RPC hadn't got yet", async () => {
+    const behind = await rpc({ result: null }, { result: { number: "0x10" } });
+    const url = await relay([behind.url]);
+    const read = () => fetch(url, { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getBlockByNumber", params: ["0x10", false] }) }).then((r) => r.json());
+    expect(await read()).toMatchObject({ result: null });
+    expect(await read()).toMatchObject({ result: { number: "0x10" } });
+    expect(await read()).toMatchObject({ result: { number: "0x10" } });
+    expect(behind.asked()).toBe(2);
+  });
+
   it("knows which reads can't change", () => {
     const body = (method: string, params: unknown[]) => JSON.stringify({ jsonrpc: "2.0", id: 3, method, params });
     expect(fixedRead(body("eth_getBalance", ["0xa", "0x10"]))).toEqual({ key: 'eth_getBalance ["0xa","0x10"]', id: 3 });

@@ -231,9 +231,10 @@ export function fixedRead(body: string): { key: string; id: unknown } | undefine
   }
 }
 
+/** A null is "not here yet" as often as "no such block", so it isn't an answer to keep. */
 function hasResult(text: string): boolean {
   try {
-    return (JSON.parse(text) as { result?: unknown }).result !== undefined;
+    return (JSON.parse(text) as { result?: unknown }).result != null;
   } catch {
     return false;
   }

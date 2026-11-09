@@ -10,7 +10,8 @@
  *
  * Each stage starts from what the earlier ones saved under .drill/<host>/: the test accounts
  * (the same keys every time, so an app that signs users up sees one user), the look, the setup
- * with its recorded actions, and the tests. `--fresh` forgets the look and the setup.
+ * with its recorded actions, and the tests. `--fresh` forgets the look and the setup. `--inbox`
+ * makes a test inbox once, for an app that signs in with a code sent by email.
  */
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,6 +19,7 @@ import { parseArgs } from "node:util";
 import { generatePrivateKey } from "viem/accounts";
 import { AppSetup, DrillTarget, newId, type ChainConfig, type DrillEventSink, type ExploreState, type ExploreSuggestion, type TestSpec, type TestStep } from "@dappdrill/core";
 import { explore, runTests } from "../src/api.js";
+import { createInboxAccount, type InboxCredentials } from "../src/inbox/index.js";
 import type { Found } from "../src/explore/look.js";
 
 interface SavedTest {
@@ -40,11 +42,13 @@ const { positionals, values: flags } = parseArgs({
     fresh: { type: "boolean" },
     headed: { type: "boolean" },
     drafts: { type: "boolean" },
+    "keep-wallet": { type: "boolean" },
+    inbox: { type: "boolean" },
   },
 });
 const [command, url] = positionals;
 if (!command || !url) {
-  console.error("usage: pnpm drill <look|setup|explore|pass|run|show> <url> [--feature name]… [--minutes n] [--hints text] [--chain id[=rpc]]… [--only text] [--fresh] [--headed]");
+  console.error("usage: pnpm drill <look|setup|explore|pass|run|show> <url> [--feature name]… [--minutes n] [--hints text] [--chain id[=rpc]]… [--only text] [--fresh] [--headed] [--keep-wallet] [--inbox]");
   process.exit(2);
 }
 
@@ -56,10 +60,12 @@ const save = (name: string, value: unknown) => writeFile(file(name), JSON.string
 await mkdir(dir, { recursive: true });
 if (flags.fresh) await Promise.all(["look.json", "setup.json"].map((f) => rm(file(f), { force: true })));
 
-const kept = (await load<{ accounts: { A: string; B: string }; chains: ChainConfig[]; hints?: string; tokens?: DrillTarget["tokens"] }>("target.json")) ?? { accounts: { A: generatePrivateKey(), B: generatePrivateKey() }, chains: [] };
+const kept = (await load<{ accounts: { A: string; B: string }; chains: ChainConfig[]; hints?: string; tokens?: DrillTarget["tokens"]; inbox?: InboxCredentials }>("target.json")) ?? { accounts: { A: generatePrivateKey(), B: generatePrivateKey() }, chains: [] };
 // A new look decides again what the wallet starts with.
 if (flags.fresh || command === "look") kept.tokens = [];
 if (flags.hints) kept.hints = flags.hints;
+// For an app that signs in with a code sent by email: one disposable inbox, kept like the accounts.
+if (flags.inbox && !kept.inbox) kept.inbox = await createInboxAccount();
 await save("target.json", kept);
 
 const target = DrillTarget.parse({
@@ -71,7 +77,10 @@ const target = DrillTarget.parse({
     const [id, rpcUrl] = c.split("=");
     return { id: Number(id), rpcUrl, mode: "fork" };
   }),
-  liveKey: process.env.DAPPDRILL_LIVE_KEY,
+  // A chain that can't be forked gets a new wallet on every run unless there is a key to keep. Where each
+  // new wallet becomes an account on the app's side (a Privy user), --keep-wallet uses the saved one instead.
+  liveKey: process.env.DAPPDRILL_LIVE_KEY ?? (flags["keep-wallet"] ? kept.accounts.A : undefined),
+  inbox: kept.inbox,
 });
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -219,6 +228,7 @@ async function show(): Promise<void> {
   const tests = (await load<SavedTest[]>("tests.json")) ?? [];
   console.log(dir);
   console.log(`chains: ${kept.chains.map((c) => `${c.id} (${c.mode})`).join(", ") || "none learned"}`);
+  if (kept.inbox) console.log(`inbox: ${kept.inbox.address}`);
   if (found) for (const f of found.features) console.log(`  ${f.tier.padEnd(10)} ${f.name}  ${f.startPath}\n${f.tests.map((t) => `      · ${t.name}`).join("\n")}`);
   if (setup) console.log(`setup (${setup.when}): ${setup.steps.map((s) => `${s.text}${s.actions ? " ✓" : ""}`).join(" → ")}`);
   for (const t of tests) console.log(`  ${t.status.padEnd(7)} [${t.feature}] ${t.spec.name}${t.note ? ` — ${t.note}` : ""}`);

@@ -9,9 +9,9 @@ import { z } from "zod";
 import { describeStep, forkBlindLine, type AppMap, type Blocked, type Step, type TestSpec, type WalletRequest } from "@dappdrill/core";
 import type { AgentTool, DrillSession, Hex, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
-import { browserTools, Recorder, settle } from "./tools.js";
+import { browserTools, inboxTool, Recorder, settle } from "./tools.js";
 import { openDialog } from "../replay/locators.js";
-import { NO_LIVE_KEY } from "../wallet/errors.js";
+import { unpaid as unpaidBy } from "../wallet/errors.js";
 import { decodeWalletRequest } from "./wallet-decode.js";
 
 const FAST_TURNS = 14;
@@ -82,7 +82,14 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   // The model's word alone doesn't excuse a wrong balance: a backend must really have been asked about the wallet.
   const blindTo = () => (done && !done.ok && done.cause === "fork" ? (deps.walletBackends?.() ?? []) : []);
   // Our wallet not being able to pay says nothing about the app, and a retry can't change it.
-  const unpaid = () => deps.session.wallet.requests().slice(asked).find((r) => r.error?.includes(NO_LIVE_KEY))?.error;
+  const { wallet, chains } = deps.session;
+  const unpaid = () => {
+    for (const r of wallet.requests().slice(asked)) {
+      const why = unpaidBy(r, wallet.address(), chains.has(r.chainId) && chains.mode(r.chainId) === "live");
+      if (why) return why;
+    }
+    return undefined;
+  };
   // A step that has never worked is more likely our misreading than the app's fault, whatever the fast model says.
   if (!blocked && !blindTo().length && !unpaid() && deps.strong && (!done || (!done.ok && (done.cause === "unsure" || !step.actions)))) {
     const hint = done ? `A quicker attempt gave up: ${done.reason}` : "A quicker attempt ran out of actions before finishing.";
@@ -92,7 +99,7 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   const did = actions.map(describeStep);
   if (blocked) return { ok: false, via: "agent", did, note: `Blocked: ${blocked.reason}`, blocked };
   const noKey = done?.ok ? undefined : unpaid();
-  if (noKey) return { ok: false, via: "agent", did, note: noKey.replace(/^\d+ /, ""), stuck: true };
+  if (noKey) return { ok: false, via: "agent", did, note: noKey, stuck: true };
   const hosts = blindTo();
   if (done && hosts.length) return { ok: false, via: "agent", did, note: forkBlindLine(done.reason, hosts), stuck: true };
   if (stuckOn && !done?.ok && done?.cause !== "app") return { ok: false, via: "agent", did, note: `Couldn't click “${stuckOn}”, so this step didn't finish.`, stuck: true };
@@ -126,6 +133,7 @@ async function attempt(
   let done: Done | undefined;
   const tools: AgentTool[] = [
     ...browserTools({ session, recorder, inbox: deps.inbox, ...hooks, beforeApprove: deps.beforeApprove }),
+    ...(deps.inbox ? [inboxTool(deps.inbox)] : []),
     {
       name: "expect_text",
       description: "Check that a short exact text is visible on the page now. Records it as a check that later runs repeat, so use text that will read the same next time: amounts the test typed and labels, never prices, rates, USD values or times.",
@@ -143,7 +151,7 @@ async function attempt(
       schema: z.object({
         ok: z.boolean(),
         cause: z.enum(["app", "unsure", "fork"]).optional().describe("When ok=false: app = the app is broken or in the way; unsure = you couldn't work it out; fork = the page disagrees with what the wallet holds on the test chain"),
-        reason: z.string().describe("One short sentence: what happened, or what's wrong"),
+        reason: z.string().describe("One short sentence: what happened, or what's wrong. When the app shows an error, give its own words (\"User limit reached\") and where they came from if you can tell (the app, its sign-in provider, the wallet)"),
       }),
       handler: async (input) => {
         done = input;

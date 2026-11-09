@@ -52,13 +52,18 @@ export function numberOnPage(pageText: string, claimed: string): { text: string;
   return best;
 }
 
+/**
+ * These are words too ("null and void", "Axie Infinity", "undefined until the epoch ends"), so only
+ * where a value goes: first on its line or after a colon or a currency sign, and then before a
+ * unit or the end of the line.
+ */
+const asValue = (word: string) => new RegExp(`(^|[$:=]\\s*)${word}(\\s*(%|[A-Z]{2,6}\\b)|$)`);
 const BROKEN: [RegExp, string][] = [
   [/\bNaN\b/, "NaN"],
-  [/\bundefined\b/, "undefined"],
+  [asValue("undefined"), "undefined"],
   [/\[object Object\]/, "[object Object]"],
-  [/-?\bInfinity\b/, "Infinity"],
-  // "null" is a word too, so only where a value goes: next to a unit, or alone on its line.
-  [/(^|[$:=]\s*)null(\s*(%|[A-Z]{2,6}\b)|$)/m, "null"],
+  [asValue("-?Infinity"), "Infinity"],
+  [asValue("null"), "null"],
   [/\b\d+(\.\d+)?e[+-]?\d{2,}\b/i, "a number in scientific notation"],
 ];
 

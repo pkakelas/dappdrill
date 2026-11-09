@@ -38,13 +38,17 @@ export function balanceAsk(url: string, body: string | null, holders: Hex[]): Ba
   const text = `${decoded(url)} ${body ?? ""}`.toLowerCase();
   const holder = holders.find((h) => text.includes(h.toLowerCase()));
   if (!holder) return undefined;
-  const others = [...new Set(text.match(ADDRESS))].filter((a) => !holders.some((h) => h.toLowerCase() === a) && !NATIVE.has(a));
+  const named = [...new Set(text.match(ADDRESS))].filter((a) => !holders.some((h) => h.toLowerCase() === a));
+  const others = named.filter((a) => !NATIVE.has(a));
   // Two tokens is a quote or a swap, not a balance.
   if (others.length > 1) return undefined;
+  // With no token named, only a request that says balance is about the chain's coin: an account or
+  // a positions endpoint names the wallet too, and its zeros are not ours to change.
+  if (!named.length && !text.includes("balanc")) return undefined;
   const words = text.split(/[^a-z0-9]+/);
-  const named = new Set([...words.map((w) => CHAIN_NAMES.get(w)), ...[...text.matchAll(CHAIN_ID)].map((m) => Number(m[1]))].filter((id) => id !== undefined));
-  if (named.size > 1) return undefined;
-  return { holder, token: others[0] as Hex | undefined, chainId: [...named][0] };
+  const chains = new Set([...words.map((w) => CHAIN_NAMES.get(w)), ...[...text.matchAll(CHAIN_ID)].map((m) => Number(m[1]))].filter((id) => id !== undefined));
+  if (chains.size > 1) return undefined;
+  return { holder, token: others[0] as Hex | undefined, chainId: [...chains][0] };
 }
 
 /**
@@ -108,12 +112,16 @@ export async function installBackendBalances(context: BrowserContext, opts: Back
     const ask = /^(fetch|xhr)$/.test(request.resourceType()) ? balanceAsk(request.url(), request.postData(), opts.holders) : undefined;
     const running = forks();
     const chain = ask?.chainId === undefined ? (running.length === 1 ? running[0] : undefined) : running.find((c) => c.id === ask.chainId);
-    if (!ask || !chain || /"jsonrpc"\s*:/.test(request.postData() ?? "")) return route.fallback();
+    // A stream never ends, and fetching it here would hold back every event.
+    const stream = /event-stream/i.test(request.headers()["accept"] ?? "");
+    if (!ask || !chain || stream || /"jsonrpc"\s*:/.test(request.postData() ?? "")) return route.fallback();
 
     const response = await route.fetch();
+    // As it came, bytes and all: only an answer we change is written again.
+    const pass = () => route.fulfill({ response });
+    if (!response.ok() || !/json/i.test(response.headers()["content-type"] ?? "")) return pass();
     const text = await response.text();
-    const pass = () => route.fulfill({ response, body: text });
-    if (!response.ok() || text.length > MAX_BODY || !/json/i.test(response.headers()["content-type"] ?? "")) return pass();
+    if (text.length > MAX_BODY) return pass();
     try {
       const held = await balances(chain, ask);
       const path = new URL(request.url()).pathname;
@@ -129,7 +137,9 @@ export async function installBackendBalances(context: BrowserContext, opts: Back
     }
   };
 
-  await context.route("**/*", handle);
+  // Playwright leaves an error from a route handler unhandled, which ends the process. A request we
+  // couldn't fetch goes on as the page sent it, and one whose browser closed meanwhile goes nowhere.
+  await context.route("**/*", (route) => handle(route).catch(() => route.fallback().catch(() => {})));
 }
 
 function decoded(url: string): string {
