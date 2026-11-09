@@ -55,7 +55,7 @@ Then try variations around the feature, in this order, naming each with variatio
 - input: empty, zero, more than the balance, more decimals than the token has, not a number.
 - path: another way to the same result: from the navigation, a direct link, reloading half way, going back.
 - state: before connecting, wallet on another chain, nothing to spend, after rejecting in the wallet.
-- agreement: what the page says against the chain.
+- agreement: what the page says against the chain, and against what the wallet is asked to sign. Where the page quotes what a signature will do (a swap, a bridge, an order, a deposit, a transfer to an address the user entered), check that the request carries the amounts shown with wallet-amount and names the recipient with wallet. A request for something other than what the page showed loses money even when it is mined.
 - round-trip: do it and undo it (deposit then withdraw, open then close), and check you ended where you began.
 - display: what the page tells a user before they do anything: prices, rates, quotes, totals, balances. On each page of your feature that shows numbers, check well-formed, hold the prices that matter against the market with price, and check with adds-up that numbers which depend on each other agree (a quote: pay × rate = receive; a total: its parts; a fee: amount × the rate shown). A user decides on these numbers, so a wrong one is a bug even when every button works.
 When a variation worked and is worth running on every release, call save_test without an id, right after its checks pass. It earns a test when a bug could break it while the other tests still pass, and it proves an outcome: funds moved, state changed, an error stopped something bad. "The page opened" doesn't. Most variations stay checks.
@@ -63,7 +63,8 @@ When a variation worked and is worth running on every release, call save_test wi
 Kinds of check:
 - shows / hides: text that should or shouldn't be on the page. Use the exact words you expect.
 - url: part of the address.
-- wallet: a signature was asked for, and what it does contains this text (a function name or token, say). Leave value out for "anything was asked".
+- wallet: a signature was asked for, and what it does contains this text (a function name or token, say). Leave value out for "anything was asked". An address the request must name (a recipient the user entered, a spender) goes in whole as value: it is looked for in the request's own data, also where the summary only says calldata.
+- wallet-amount: a request the wallet was asked to sign carries the amount the page showed. value is the number exactly as the page shows it (what is paid, what is received, the minimum received), token is that token's symbol as the page writes it, or its address. It reads the request's own data, on any contract, and passes within 5% of the number, which leaves room for slippage. When it can't tell the token's units it says so, and that isn't a failure.
 - no-wallet: nothing was asked to sign on this path, from its start. After an earlier request on the same path (one you approved or rejected), begin a new path first.
 - tx: the latest transaction was mined and didn't revert.
 - balance: value is a number exactly as the page shows it, and it must match the chain. token is the ERC-20 address; leave it out for the native coin.

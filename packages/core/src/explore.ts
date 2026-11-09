@@ -95,15 +95,16 @@ export type Explorer = z.infer<typeof Explorer>;
 /**
  * What a check asserts. Code decides the result, never the model:
  * shows / hides: text on the page. url: the address contains it. wallet: a signature was asked for
- * and its decoded summary contains it. no-wallet: nothing was asked to sign. tx: the latest
+ * and its decoded summary, or its data, contains it. wallet-amount: a request carries the amount
+ * of a token that the page shows. no-wallet: nothing was asked to sign. tx: the latest
  * transaction was mined and didn't revert. balance: the number on the page matches the chain.
  * price: a price on the page is near the market's. adds-up: numbers on the page follow from each
  * other. well-formed: no NaN, undefined or the like where a value goes.
  */
 export const CheckAssert = z.object({
-  kind: z.enum(["shows", "hides", "url", "wallet", "no-wallet", "tx", "balance", "price", "adds-up", "well-formed"]),
+  kind: z.enum(["shows", "hides", "url", "wallet", "wallet-amount", "no-wallet", "tx", "balance", "price", "adds-up", "well-formed"]),
   value: z.string().optional(),
-  /** balance: the ERC-20 address; leave out for the native coin. price: the asset's ticker or token address. */
+  /** balance: the ERC-20 address; leave out for the native coin. price: the asset's ticker or token address. wallet-amount: the token's symbol or address. */
   token: z.string().optional(),
 });
 export type CheckAssert = z.infer<typeof CheckAssert>;

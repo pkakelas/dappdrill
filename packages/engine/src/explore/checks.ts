@@ -4,11 +4,12 @@
  * that can't be made comes back as "error", not as a pass.
  */
 import { erc20Abi, formatEther, formatUnits } from "viem";
-import type { CheckAssert, ExploreCheckStatus, WalletRequest } from "@dappdrill/core";
+import { chainName, shortAddress, type CheckAssert, type ExploreCheckStatus, type WalletRequest } from "@dappdrill/core";
 import { decodeWalletRequest } from "../agent/wallet-decode.js";
 import { settle } from "../agent/tools.js";
 import type { DrillSession, Hex } from "../types.js";
-import { addsUp, asRead, brokenValues, loosely, numberOnPage } from "./display.js";
+import { carried, tokensNamed, type NamedToken } from "./carried.js";
+import { addsUp, asRead, brokenValues, loosely, numberOnPage, shownNumber } from "./display.js";
 import { referencePrices } from "./prices.js";
 
 export interface CheckResult {
@@ -45,10 +46,15 @@ export async function evaluateCheck(session: DrillSession, assert: CheckAssert, 
         // The summary shortens addresses and leaves undecoded calldata out; the request itself has them.
         const hex = /^(0x)?[0-9a-f]{8,}$/i.test(value!) ? value!.toLowerCase().replace(/^0x/, "") : undefined;
         const held = hex === undefined ? -1 : signs.findIndex((r) => (JSON.stringify(r.params) ?? "").toLowerCase().includes(hex));
-        return held >= 0
-          ? { status: "pass", evidence: `The wallet was asked: ${summaries[held]}, with “${value}” in its data.` }
-          : { status: "fail", evidence: `The wallet was asked: ${summaries.at(-1)}, without “${value}”.` };
+        if (held >= 0) return { status: "pass", evidence: `The wallet was asked: ${summaries[held]}, with “${value}” in its data.` };
+        // For an address that should have been there (a recipient, a spender), the ones that are.
+        const names = hex?.length === 40 ? addressesIn(signs.at(-1)!, session.wallet.address()) : "";
+        return { status: "fail", evidence: `The wallet was asked: ${summaries.at(-1)}, without “${value}”.${names}` };
       }
+      case "wallet-amount":
+        if (!value) return missing("the amount the page shows");
+        if (!assert.token) return missing("which token the amount is of");
+        return await checkAmount(session, signs, value, assert.token);
       case "no-wallet":
         return signs.length === 0 ? { status: "pass", evidence: "Nothing was asked to sign on this path." } : { status: "fail", evidence: `The wallet was asked: ${decodeWalletRequest(signs.at(-1)!).summary}.` };
       case "tx":
@@ -117,6 +123,52 @@ async function checkBalance(session: DrillSession, shown: string, token?: string
     actual = formatEther(await client.getBalance({ address: holder }));
   }
   return agrees(shown, actual) ? { status: "pass", evidence: `The page shows ${shown}; the chain says ${actual}.` } : { status: "fail", evidence: `The page shows ${shown}, but the chain says ${actual}.` };
+}
+
+/** How far the amount in a request may sit from the one shown: slippage on what is received, a margin on what is paid. */
+const AMOUNT_TOLERANCE = 0.05;
+
+/**
+ * The page quotes an amount of a token and the wallet is asked to sign: a request has to carry
+ * that amount, in that token's own units. Which word of the request it is doesn't matter, so this
+ * needs no ABI. It fails only when a request names the token and has no such amount; a request
+ * that doesn't name it may count in something else (a vault's shares), and then the check couldn't be made.
+ */
+async function checkAmount(session: DrillSession, signs: WalletRequest[], shown: string, token: string): Promise<CheckResult> {
+  const want = shownNumber(shown);
+  if (want === undefined || want <= 0) return { status: "error", evidence: `“${shown}” isn't an amount.` };
+  if (!loosely(await pageText(session)).includes(loosely(shown))) return { status: "error", evidence: `“${shown}” isn't on the page, so there is nothing to compare the request with. Give the number as the page shows it.` };
+  const requests = signs.map((r) => ({ r, has: carried(r) })).filter(({ has }) => has.amounts.length > 0).reverse();
+  if (!signs.length) return { status: "fail", evidence: "Nothing was asked to sign on this path." };
+  const asked = (r: WalletRequest) => `The wallet was asked: ${decodeWalletRequest(r).summary}`;
+  if (!requests.length) return { status: "fail", evidence: `${asked(signs.at(-1)!)}, which carries no amount.` };
+
+  const { named, others } = await tokensNamed(session, token, requests[0]!.r.chainId, requests.flatMap(({ has }) => has.addresses));
+  if (!named.length) return { status: "error", evidence: `Couldn't tell which amount in the request is ${token}: it names ${others.length ? others.map(where).join(", ") : "no token we could read"}. ${asked(requests[0]!.r)}.` };
+  const page = shown.toLowerCase().includes(named[0]!.symbol.toLowerCase()) ? shown : `${shown} ${named[0]!.symbol}`;
+
+  let missed: { r: WalletRequest; token: NamedToken; near?: number } | undefined;
+  for (const { r, has } of requests) {
+    for (const t of named) {
+      const inUnits = has.amounts.map((a) => Number(a) / 10 ** t.decimals);
+      const nearest = (within: number) => inUnits.filter((n) => Math.abs(n - want) <= want * within).sort((a, b) => Math.abs(a - want) - Math.abs(b - want))[0];
+      const found = nearest(AMOUNT_TOLERANCE);
+      if (found !== undefined) return { status: "pass", evidence: `The page shows ${page}; the request carries ${trim(found)} ${where(t)}.` };
+      if (!t.address || has.addresses.includes(t.address)) missed ??= { r, token: t, near: nearest(0.9) };
+    }
+  }
+  if (!missed) return { status: "error", evidence: `No request names ${where(named[0]!)}, and none carries ${page} in its units, so the amount may be counted in something else (shares, say). ${asked(requests[0]!.r)}.` };
+  const near = missed.near === undefined ? "" : `; the nearest amount in it is ${trim(missed.near)}`;
+  return { status: "fail", evidence: `The page shows ${page}, but nothing in the request for ${where(missed.token)} is within ${AMOUNT_TOLERANCE * 100}% of it${near}. ${asked(missed.r)}.` };
+}
+
+const where = (t: NamedToken) => (t.address ? `${t.symbol} (${shortAddress(t.address)} on ${chainName(t.chainId)}${t.confirmed ? "" : ", read from the real chain, not confirmed on the fork"})` : t.symbol);
+
+function addressesIn(r: WalletRequest, wallet: string): string {
+  const all = carried(r).addresses;
+  if (!all.length) return "";
+  const shown = all.slice(0, 8).map((a) => (a === wallet.toLowerCase() ? `${shortAddress(a)} (the test wallet)` : shortAddress(a)));
+  return ` The addresses in it: ${shown.join(", ")}${all.length > 8 ? " and more" : ""}.`;
 }
 
 /** How far a shown price may sit from the market: perps, stale closes and spreads all move it a little. */

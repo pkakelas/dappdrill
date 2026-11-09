@@ -8,7 +8,15 @@ vi.mock("../../src/explore/prices.js", () => ({
   referencePrices: async (asset: string) => (asset === "ETH" ? [{ usd: 3365, source: "Coinbase" }] : []),
 }));
 
+/** The far side of a bridge: a chain this run doesn't have, where USDC lives at another address. */
+vi.mock("../../src/chain/public.js", () => ({
+  publicClients: () => [{ chainId: 8453, client: { readContract: async (c: { address: string; functionName: string }) => (c.address === USDC_BASE ? (c.functionName === "symbol" ? "USDC" : 6) : Promise.reject(new Error("no code"))) } }],
+}));
+
 const WALLET = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+const USDC_BASE = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
+const VAULT = "0x5555555555555555555555555555555555555555";
 const RECIPIENT = "0x1111111111111111111111111111111111111111";
 const HASH = `0x${"ab".repeat(32)}`;
 const PAGE = `
@@ -19,6 +27,8 @@ const PAGE = `
 
 let stub: StubSession;
 let requests: WalletRequest[] = [];
+/** Tokens the app asked the chain about for the wallet. */
+let appReads: string[] = [];
 /** What the chain says: the wallet's native and token balance, and how the last transaction went. */
 let chain = { native: 2n * 10n ** 18n, token: 1_000_500_000n, receipt: "success" };
 
@@ -33,10 +43,13 @@ afterAll(async () => {
 function session(): DrillSession {
   const client = {
     getBalance: async () => chain.native,
-    readContract: async ({ functionName }: { functionName: string }) => (functionName === "decimals" ? 6 : chain.token),
+    readContract: async ({ address, functionName }: { address: string; functionName: string }) => {
+      if (functionName === "symbol") return address.toLowerCase() === USDC ? "USDC" : Promise.reject(new Error("no code"));
+      return functionName === "decimals" ? 6 : chain.token;
+    },
     waitForTransactionReceipt: async () => ({ status: chain.receipt, blockNumber: 7n }),
   };
-  return { ...stub, page: stub.page, chains: { client: () => client } } as unknown as DrillSession;
+  return { ...stub, page: stub.page, chains: { client: () => client, configs: () => [{ id: 31337 }], tokensRead: () => appReads } } as unknown as DrillSession;
 }
 
 async function check(assert: CheckAssert, html = PAGE, since = 0) {
@@ -45,6 +58,9 @@ async function check(assert: CheckAssert, html = PAGE, since = 0) {
 }
 
 const sign = (over: Partial<WalletRequest>): WalletRequest => ({ id: "r", method: "personal_sign", chainId: 31337, kind: "sign", at: "", outcome: "approved", params: ["Sign in to Harbor", WALLET], ...over }) as WalletRequest;
+const pad = (v: string | bigint) => (typeof v === "bigint" ? v.toString(16) : v.slice(2)).padStart(64, "0");
+/** A call to a function nobody has an ABI for, with these words as its arguments. */
+const call = (words: (string | bigint)[], value = 0n, to = VAULT) => sign({ method: "eth_sendTransaction", params: [{ from: WALLET, to, data: `0xb69eb664${words.map(pad).join("")}`, value: `0x${value.toString(16)}` }], result: HASH });
 const send = (over: Partial<WalletRequest> = {}) => sign({ method: "eth_sendTransaction", params: [{ from: WALLET, to: RECIPIENT, data: `0xdeadbeef${"0".repeat(24)}${"2".repeat(40)}`, value: "0x0" }], result: HASH, ...over });
 
 describe("evaluateCheck", () => {
@@ -84,6 +100,66 @@ describe("evaluateCheck", () => {
     expect(inData.evidence).toContain("in its data");
     expect(await check({ kind: "wallet", value: `0x${"3".repeat(40)}` })).toMatchObject({ status: "fail" });
     expect(await check({ kind: "wallet", value: "Permit" })).toMatchObject({ status: "fail" });
+  });
+
+  it("names the addresses a request does carry when the one asked for isn't among them", async () => {
+    requests = [call([WALLET, USDC, 5_000_000n])];
+    const missing = await check({ kind: "wallet", value: RECIPIENT });
+    expect(missing.status).toBe("fail");
+    expect(missing.evidence).toContain("The addresses in it: 0xaaaa…aaaa (the test wallet), 0x5555…5555, 0xa0b8…eb48.");
+  });
+
+  it("holds the amount a request carries against the one the page shows, whatever the contract", async () => {
+    appReads = [];
+    // A swap: the token and the least to receive are words of the call.
+    requests = [call([RECIPIENT, USDC, 1_680_000_000n])];
+    const swap = await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" });
+    expect(swap).toEqual({ status: "pass", evidence: "The page shows 1,682.56 USDC; the request carries 1680 USDC (0xa0b8…eb48 on Local)." });
+    expect(await check({ kind: "wallet-amount", value: "1,682.56", token: USDC })).toMatchObject({ status: "pass" });
+    // Half of what the page promised.
+    requests = [call([RECIPIENT, USDC, 841_280_000n])];
+    const short = await check({ kind: "wallet-amount", value: "1,682.56 USDC", token: "USDC" });
+    expect(short.status).toBe("fail");
+    expect(short.evidence).toContain("The page shows 1,682.56 USDC, but nothing in the request for USDC (0xa0b8…eb48 on Local) is within 5% of it; the nearest amount in it is 841.28.");
+    // What is paid in the chain's own coin is the transaction's value.
+    requests = [call([RECIPIENT], 5n * 10n ** 17n)];
+    expect(await check({ kind: "wallet-amount", value: "0.5", token: "ETH" })).toMatchObject({ status: "pass" });
+    requests = [call([RECIPIENT], 5n * 10n ** 16n)];
+    expect(await check({ kind: "wallet-amount", value: "0.5", token: "ETH" })).toMatchObject({ status: "fail" });
+  });
+
+  it("looks up a token on the far side of a bridge, and says it wasn't confirmed on the fork", async () => {
+    requests = [call([RECIPIENT, USDC_BASE, 1_682_560_000n], 5n * 10n ** 17n)];
+    const bridge = await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" });
+    expect(bridge).toEqual({ status: "pass", evidence: "The page shows 1,682.56 USDC; the request carries 1682.56 USDC (0x8335…2913 on Base, read from the real chain, not confirmed on the fork)." });
+  });
+
+  it("finds the amount in the request behind an approval, by the token the approval was for", async () => {
+    requests = [send({ params: [{ from: WALLET, to: USDC, data: `0x095ea7b3${pad(VAULT)}${"f".repeat(64)}` }] }), call([1_682_560_000n])];
+    expect(await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" })).toMatchObject({ status: "pass" });
+    // Only the approval names the token, and it is unlimited: that is the approval check's business, not a wrong amount.
+    requests = [call([1_682_560_000n])];
+    appReads = [USDC];
+    expect(await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" })).toMatchObject({ status: "pass" });
+  });
+
+  it("says it couldn't be made when the token or its units can't be told", async () => {
+    appReads = [];
+    requests = [call([RECIPIENT, VAULT, 1_682_560_000n])];
+    const unknown = await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" });
+    expect(unknown.status).toBe("error");
+    expect(unknown.evidence).toContain("Couldn't tell which amount in the request is USDC: it names no token we could read.");
+    // A vault that counts in shares: the app reads USDC, the request doesn't name it.
+    appReads = [USDC];
+    requests = [call([1_650n * 10n ** 18n, RECIPIENT])];
+    const shares = await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" });
+    expect(shares.status).toBe("error");
+    expect(shares.evidence).toContain("counted in something else");
+    expect(await check({ kind: "wallet-amount", value: "9,999", token: "USDC" })).toMatchObject({ status: "error" });
+    expect((await check({ kind: "wallet-amount", value: "1,682.56" })).evidence).toContain("which token");
+    requests = [];
+    expect(await check({ kind: "wallet-amount", value: "1,682.56", token: "USDC" })).toMatchObject({ status: "fail", evidence: "Nothing was asked to sign on this path." });
+    appReads = [];
   });
 
   it("counts only this path's requests, and only signing ones", async () => {
