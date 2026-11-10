@@ -5,7 +5,9 @@
  * condition through the edge-case matrix, with no model except the judge.
  */
 import {
+  chainName,
   conditionInfo,
+  copyBehindLine,
   describeStep,
   failedAt,
   forkUnseenLine,
@@ -257,6 +259,13 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
         if (w.failure) await env.log(`Cleanup after “${spec.name}” didn't finish: ${w.failure}`, "warn");
       }
     }
+    // A copy the app's server got ahead of can't say the app is wrong.
+    const behind = status === "fail" && !live ? await copiesBehind(env, session.wallet.requests()) : [];
+    if (behind.length) {
+      status = "error";
+      result.blame = "input";
+      result.failure = `${result.failure ?? ""} ${copyBehindLine(behind)}`.trim();
+    }
   } catch (e) {
     status = signal?.aborted ? "stopped" : "error";
     if (!signal?.aborted) Object.assign(result, broke(e));
@@ -273,6 +282,13 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
   }
   if (status === "stopped") return { testId: spec.id, status, result };
   return { testId: spec.id, status, result, steps, ...(result.after ? { after } : {}) };
+}
+
+/** Chains this test used whose copy fell behind the real one (see ChainController.watchSignature), by name. */
+async function copiesBehind(env: Env, requests: WalletRequest[]): Promise<string[]> {
+  await env.chains.lookForRelays?.();
+  const used = new Set(requests.map((r) => r.chainId));
+  return env.chains.configs().filter((c) => c.relays && c.mode === "fork" && used.has(c.id)).map((c) => chainName(c.id));
 }
 
 /** The first kept check that didn't hold, as the failure reads. */

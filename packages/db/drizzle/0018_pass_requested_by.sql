@@ -1,0 +1,2 @@
+ALTER TABLE "explorations" ADD COLUMN "requested_by" text;--> statement-breakpoint
+ALTER TABLE "explorations" ADD CONSTRAINT "explorations_requested_by_user_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;

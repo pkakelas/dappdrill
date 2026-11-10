@@ -61,5 +61,11 @@ export const ChainConfig = z.object({
   fromApp: z.boolean().optional(),
   /** The Ethereum fork a scan starts when the page shows no chain. Dropped once the app's own chain is known. */
   fallback: z.boolean().optional(),
+  /**
+   * After the wallet signed on our copy, the app's server acted for it on the real chain (a permit it
+   * relays, an order it fills, a payout). The real chain then moves on without the copy, so every run forks this
+   * chain near its latest block instead of at forkBlock.
+   */
+  relays: z.boolean().optional(),
 });
 export type ChainConfig = z.infer<typeof ChainConfig>;

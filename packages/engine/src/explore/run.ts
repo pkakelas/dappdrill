@@ -3,7 +3,7 @@
  * prove tests and settle bugs while they work. It ends when nothing new turns up or the time is
  * up, and never with a bug unreviewed or a Critical feature unaccounted for.
  */
-import { AppSetup, blockedLine, closeGate, newId, nowIso, stalledLine, TIER_TIME, type Blocked, type ChainConfig, type DrillEventSink, type DrillTarget, type ExploreFeature, type ExploreState, type TestSpec, type TestStep } from "@dappdrill/core";
+import { AppSetup, blockedLine, chainName, closeGate, newId, nowIso, stalledLine, TIER_TIME, type Blocked, type ChainConfig, type DrillEventSink, type DrillTarget, type ExploreFeature, type ExploreState, type LiveFundsNeed, type TestSpec, type TestStep } from "@dappdrill/core";
 import { diagnoseStall } from "../browser/traffic.js";
 import { openEnv, withoutFallback } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
@@ -44,7 +44,7 @@ export async function runExploration(target: DrillTarget, opts: ExploreOptions, 
   const run = new ExploreRun(base, opts, hooks, sink, signal);
   const { board } = run;
   try {
-    if ((await look(run)) && opts.until !== "look" && (await checkSetup(run)) && opts.until !== "setup") {
+    if ((await look(run)) && !needsFunds(run) && opts.until !== "look" && (await checkSetup(run)) && opts.until !== "setup") {
       await explore(run);
       if (!signal?.aborted) board.phase("finishing");
     }
@@ -54,11 +54,41 @@ export async function runExploration(target: DrillTarget, opts: ExploreOptions, 
     board.change((s) => (s.costs = run.costs()));
     board.phase("done");
     await board.flush();
+    await base.chains.lookForRelays?.();
     return { state: board.state, blocked: run.blocked, chains: withoutFallback(base.chains.configs()), costUsd: run.costUsd(), found: run.found, tokens: base.target.tokens };
   } finally {
     await run.baseRunner?.close();
     await base.close();
   }
+}
+
+/**
+ * A chain that can't be forked needs an account with test funds on it: the owner's key, or their word
+ * on how to get some. With neither the pass stops here, before anything signs in anywhere, and the
+ * app page asks for one or the other.
+ */
+export function liveFundsNeed(target: Pick<DrillTarget, "liveKey" | "funding">, live: Pick<ChainConfig, "id" | "name">[]): LiveFundsNeed | undefined {
+  if (target.liveKey || target.funding?.trim()) return undefined;
+  const chain = live[0];
+  return chain && { what: "live-funds", chainId: chain.id, name: chain.name ?? chainName(chain.id) };
+}
+
+export function liveFundsLine(need: LiveFundsNeed): string {
+  return `${need.name} can't be forked, so tests run on it for real and need an account with test funds there. Add a private key with test tokens, or say how to get test funds, then explore again.`;
+}
+
+function needsFunds(run: ExploreRun): boolean {
+  const { base, board } = run;
+  const live = withoutFallback(base.chains.configs()).filter((c) => base.chains.mode(c.id) === "live");
+  const need = liveFundsNeed(base.target, live);
+  if (!need) return false;
+  const line = liveFundsLine(need);
+  board.change((s) => {
+    s.needs = need;
+    s.stopped = line;
+  });
+  board.feed("error", line);
+  return true;
 }
 
 /** Maps the app: what it is, what a new user does first, its features and the tests worth trying. */

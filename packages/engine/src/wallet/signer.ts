@@ -61,17 +61,25 @@ export async function signEthSign(account: PrivateKeyAccount, params: unknown): 
 
 /** The chain typed data is bound to (its domain's chainId), when it names one. */
 export function typedDataChainId(params: unknown[]): number | undefined {
+  return typedDataDomain(params).chainId;
+}
+
+/** The chain and contract typed data is bound to, where its domain names them. */
+export function typedDataDomain(params: unknown[]): { chainId?: number; verifyingContract?: Hex } {
   const payload = params[1];
   let typed: any;
   try {
     typed = typeof payload === "string" ? JSON.parse(payload) : payload;
   } catch {
-    return undefined;
+    return {};
   }
   const raw = typed?.domain?.chainId;
-  if (raw === undefined || raw === null || raw === "") return undefined;
-  const id = Number(raw);
-  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+  const id = raw === undefined || raw === null || raw === "" ? NaN : Number(raw);
+  const contract = typed?.domain?.verifyingContract;
+  return {
+    ...(Number.isSafeInteger(id) && id > 0 ? { chainId: id } : {}),
+    ...(typeof contract === "string" && /^0x[0-9a-fA-F]{40}$/.test(contract) ? { verifyingContract: contract as Hex } : {}),
+  };
 }
 
 export async function signTypedData(account: PrivateKeyAccount, params: unknown, activeChainId?: number): Promise<Hex> {

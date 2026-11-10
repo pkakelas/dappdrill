@@ -19,8 +19,8 @@ async function ownPass(passId: string) {
 
 /** Looks around the app again. Tests stay as they are; it adds what it hasn't seen. */
 export async function exploreAction(appId: string): Promise<void> {
-  await requireApp(appId);
-  await startPass(appId);
+  const { user } = await requireApp(appId);
+  await startPass(appId, user.id);
   refresh(appId);
 }
 

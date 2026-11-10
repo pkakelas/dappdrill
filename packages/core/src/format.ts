@@ -57,6 +57,15 @@ export function forkUnseenLine(hosts: string[]): string {
   return `The transaction was mined on the fork, but ${who} the real chain and never saw it, so the page can't show the result here. Run this test on the live network to verify it, or make the app read the fork: ${FORK_GUIDE_URL}`;
 }
 
+/**
+ * Why a test on a copy can't say the app is wrong: after our wallet signed on the copy, the app's server
+ * acted for it on the real chain, which the copy never sees, so the copy was behind the real chain from then on.
+ */
+export function copyBehindLine(chains: string[]): string {
+  const names = chains.join(" and ");
+  return `After our wallet signed on the copy of ${names}, the app's server acted for it on the real chain, which the copy never sees, so the copy was behind the real chain for the rest of this run. The next run copies ${names} at its latest block: run the test again.`;
+}
+
 /** One sentence per thing the app was waiting on, most likely cause first. */
 export function stallReasons(s: Stalled): string[] {
   // Rows saved before missing chains were reported have no `chains`.

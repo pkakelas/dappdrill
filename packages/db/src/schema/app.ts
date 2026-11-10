@@ -149,6 +149,8 @@ export const explorations = pgTable(
     costUsd: real("cost_usd").notNull().default(0),
     error: text("error"),
     stopRequested: boolean("stop_requested").notNull().default(false),
+    /** Who started the pass: they hear by email when it ends. */
+    requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
     startedAt: ts("started_at"),
     finishedAt: ts("finished_at"),
     createdAt: createdAt(),

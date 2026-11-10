@@ -256,6 +256,10 @@ export const ExploreCosts = z.object({
 });
 export type ExploreCosts = z.infer<typeof ExploreCosts>;
 
+/** What a pass stopped for: a chain that can't be forked, with no account funded on it. */
+export const LiveFundsNeed = z.object({ what: z.literal("live-funds"), chainId: z.number().int(), name: z.string() });
+export type LiveFundsNeed = z.infer<typeof LiveFundsNeed>;
+
 export const ExploreState = z.object({
   phase: ExplorePhase.default("looking"),
   /** When exploring has to stop, whatever is left. */
@@ -271,6 +275,8 @@ export const ExploreState = z.object({
   feed: z.array(ExploreFeedLine).default([]),
   /** Why it stopped before exploring, when it did. */
   stopped: z.string().optional(),
+  /** What it stopped for, when a person can give it: the app page asks for exactly that. */
+  needs: LiveFundsNeed.optional(),
   costs: ExploreCosts.optional(),
 });
 export type ExploreState = z.infer<typeof ExploreState>;

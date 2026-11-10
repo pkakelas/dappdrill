@@ -40,6 +40,7 @@ export async function buildTarget(db: Db, app: AppRow, use: "analysis" | "tests"
     wallets: settings.wallets?.length ? settings.wallets : undefined,
     accounts: wallets ? { A: decrypt(wallets.accountAKeyEnc), B: decrypt(wallets.accountBKeyEnc) } : undefined,
     liveKey: app.liveKeyEnc ? decrypt(app.liveKeyEnc) : undefined,
+    funding: settings.funding || undefined,
     allowMainnetLive: settings.allowMainnetLive ?? false,
     headers: app.accessHeadersEnc ? JSON.parse(decrypt(app.accessHeadersEnc)) : undefined,
     tokens: settings.tokens,
@@ -56,5 +57,11 @@ function runChains(configured: ChainConfig[], seen: ChainConfig[]): ChainConfig[
   if (configured.length === 0) return seen;
   // Chains the app asked the wallet for during the analysis run in tests too.
   const added = seen.filter((s) => s.fromApp && !configured.some((c) => c.id === s.id));
-  return [...configured.map((c) => ({ ...c, forkBlock: c.forkBlock ?? seen.find((s) => s.id === c.id)?.forkBlock })), ...added];
+  return [
+    ...configured.map((c) => {
+      const s = seen.find((x) => x.id === c.id);
+      return { ...c, forkBlock: c.forkBlock ?? s?.forkBlock, ...(s?.relays ? { relays: true } : {}) };
+    }),
+    ...added,
+  ];
 }

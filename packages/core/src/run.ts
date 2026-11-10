@@ -32,6 +32,8 @@ export const DrillTarget = z.object({
   accounts: z.object({ A: z.string(), B: z.string() }).optional(),
   /** A funded testnet key for chains that can't be forked (live mode). */
   liveKey: z.string().optional(),
+  /** How to get test funds on a chain that can't be forked, in the owner's words. Without it or a live key, a pass stops before signing in. */
+  funding: z.string().optional(),
   /** Live mode refuses mainnet chain IDs unless this is set. */
   allowMainnetLive: z.boolean().default(false),
   /** Disposable inbox for email-code logins (embedded wallets). */

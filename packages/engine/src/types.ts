@@ -68,6 +68,16 @@ export interface ChainController {
   /** Chains the app asked for that addFromApp couldn't start. */
   missing(): MissingChain[];
 
+  /**
+   * The wallet signed typed data for `contract` on a copy: look on the real chain, a few times over the
+   * next minutes, for the app's server having used it there. When it has, the chain's config gets `relays`.
+   */
+  watchSignature?(chainId: number, contract: Hex, account: Hex): void;
+  /** Look once more for every signature watched so far, before the run reports its chains. */
+  lookForRelays?(): Promise<void>;
+  /** Another run of the same pass saw this chain's copy fall behind (see watchSignature). */
+  markRelayed?(chainId: number): void;
+
   close(): Promise<void>;
 }
 

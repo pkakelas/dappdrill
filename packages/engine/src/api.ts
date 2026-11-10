@@ -110,6 +110,7 @@ export async function runTests(
   const env = await openEnv(DrillTarget.parse(target), sink, { headless: opts.headless });
   try {
     const outcomes = await runTestItems(env, items, opts, hooks);
+    await env.chains.lookForRelays?.();
     return { outcomes, chains: withoutFallback(env.chains.configs()), costUsd: env.costUsd() };
   } finally {
     await env.close();

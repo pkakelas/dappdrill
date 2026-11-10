@@ -6,12 +6,12 @@
  */
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { recoverMessageAddress, isHex, parseUnits } from "viem";
-import { KNOWN_CHAINS, SIGN_METHODS, chainName, newId, nowIso, type DrillTarget, type WalletProfileId, type WalletRequest } from "@dappdrill/core";
+import { KNOWN_CHAINS, MAINNET_CHAIN_IDS, SIGN_METHODS, chainName, newId, nowIso, type DrillTarget, type WalletProfileId, type WalletRequest } from "@dappdrill/core";
 import type { ChainController, Hex, PendingSign, WalletController, WalletPolicy } from "../types.js";
 import { JsonRpcError, hexToNumber, rpcCall, toHex, toRpcError } from "../chain/rpc.js";
 import { WalletErrors } from "./errors.js";
 import type { BridgeRequest, BridgeResponse } from "./inject.js";
-import { nodeError, prepareTransaction, sendPrepared, signEthSign, signPersonal, signTypedData, typedDataChainId, type PreparedTx, type TxRequest } from "./signer.js";
+import { nodeError, prepareTransaction, sendPrepared, signEthSign, signPersonal, signTypedData, typedDataChainId, typedDataDomain, type PreparedTx, type TxRequest } from "./signer.js";
 
 export interface WalletOptions {
   profile: WalletProfileId;
@@ -20,6 +20,8 @@ export interface WalletOptions {
   accounts?: { A: string; B: string };
   /** Funded key for live chains; becomes account A when any chain runs live. */
   liveKey?: string;
+  /** The app's owner said how to get test funds, so an account of ours can fund itself on a live chain. */
+  funding?: boolean;
   startChainId: number;
   /** The site was connected in an earlier session that this one carries on from. */
   connected?: boolean;
@@ -77,6 +79,7 @@ export class Wallet implements WalletController {
   /** Wallets the dApp asked the user something through (connect, sign, switch); passive reads don't count. */
   readonly usedWallets = new Set<WalletProfileId>();
   /** Set when a signing request was refused because a live chain has no funded key. */
+  /** A live chain refused a sign-in or transaction for want of an account funded on it. */
   needsLiveKey = false;
   /** Last transaction we broadcast; speed-up replaces it. */
   lastTx?: { prepared: PreparedTx; hash: Hex; account: "A" | "B" };
@@ -97,6 +100,9 @@ export class Wallet implements WalletController {
   private rpcHints: () => string[] = () => [];
   private readonly chains: ChainController;
   private readonly liveKey?: string;
+  /** Account A is the funded key (not when a live chain only turned up after the wallet was made). */
+  private readonly liveA: boolean;
+  private readonly funding: boolean;
   private readonly log: (m: string) => void;
 
   constructor(opts: WalletOptions) {
@@ -108,7 +114,9 @@ export class Wallet implements WalletController {
     this.pol = { ...DEFAULT_POLICY, ...opts.policy };
     this.log = opts.log ?? (() => {});
     const anyLive = opts.chains.configs().some((c) => c.mode === "live");
-    const keyA = anyLive && opts.liveKey ? opts.liveKey : (opts.accounts?.A ?? generatePrivateKey());
+    this.liveA = anyLive && Boolean(opts.liveKey);
+    this.funding = Boolean(opts.funding);
+    const keyA = this.liveA ? opts.liveKey! : (opts.accounts?.A ?? generatePrivateKey());
     const keyB = opts.accounts?.B ?? generatePrivateKey();
     this.keys = { A: privateKeyToAccount(keyA as Hex), B: privateKeyToAccount(keyB as Hex) };
     this.accounts = { A: this.keys.A.address, B: this.keys.B.address };
@@ -298,6 +306,8 @@ export class Wallet implements WalletController {
       case "wallet_requestPermissions": {
         const result = () => (method === "eth_requestAccounts" ? [this.address()] : this.permissions());
         if (this.connected) return { result: result() };
+        // Signing in on a chain that can't be forked makes a real account on the app's side: not with one that holds nothing.
+        if (this.unfundedLive()) throw this.refuseLive();
         const connect = async (): Promise<BridgeResponse> => {
           this.connected = true;
           return { result: result(), emit: [{ event: "accountsChanged", args: [this.address()] }] };
@@ -373,13 +383,9 @@ export class Wallet implements WalletController {
       case "eth_signTypedData_v4":
       case "wallet_sendCalls": {
         if (!this.connected) throw WalletErrors.unauthorized();
-        // Without a funded key the live-mode wallet is a throwaway: it signs messages
-        // (sign-in, typed data) but can't pay for transactions.
-        const sendsTx = method === "eth_sendTransaction" || method === "wallet_sendCalls";
-        if (sendsTx && this.chains.has(this.chain) && this.chains.mode(this.chain) === "live" && !this.liveKey) {
-          this.needsLiveKey = true;
-          throw WalletErrors.needsLiveKey(chainName(this.chain));
-        }
+        // On a chain that can't be forked the wallet is the funded key, or an account that gets its own
+        // test funds the way the owner said. With neither it signs nothing there, not even a sign-in.
+        if (this.unfundedLive()) throw this.refuseLive();
         // Messages sign on any network, as in MetaMask; transactions need the chain.
         const signsMessage = method === "personal_sign" || method === "eth_sign" || method.startsWith("eth_signTypedData");
         if (!signsMessage && !this.chains.has(this.chain)) throw WalletErrors.chainDisconnected(this.chain);
@@ -405,6 +411,16 @@ export class Wallet implements WalletController {
    * straight away). Start that chain so later runs begin on it. The request itself
    * still fails below, as MetaMask refuses typed data for another chain than its own.
    */
+  /** On a live chain with no account funded there: neither the key nor a way to get test funds. */
+  private unfundedLive(): boolean {
+    return this.chains.has(this.chain) && this.chains.mode(this.chain) === "live" && !this.liveA && !this.funding;
+  }
+
+  private refuseLive(): JsonRpcError {
+    this.needsLiveKey = true;
+    return WalletErrors.needsLiveFunds(chainName(this.chain));
+  }
+
   private async learnChain(chainId: number | undefined): Promise<void> {
     if (chainId === undefined || chainId === this.chain || this.chains.has(chainId)) return;
     try {
@@ -453,9 +469,15 @@ export class Wallet implements WalletController {
         return signEthSign(account, params);
       case "eth_signTypedData":
       case "eth_signTypedData_v3":
-      case "eth_signTypedData_v4":
+      case "eth_signTypedData_v4": {
         addressParam(0);
-        return signTypedData(account, params, this.chain);
+        const { chainId = this.chain, verifyingContract } = typedDataDomain(params);
+        this.refuseOwnKeyOnMainnet(chainId);
+        const signature = await signTypedData(account, params, this.chain);
+        // The app's server may use it on the real chain, which our copy would never see.
+        if (verifyingContract) this.chains.watchSignature?.(chainId, verifyingContract, account.address);
+        return signature;
+      }
       case "eth_sendTransaction": {
         const tx = (params[0] ?? {}) as TxRequest;
         let prepared: PreparedTx;
@@ -470,6 +492,7 @@ export class Wallet implements WalletController {
         return hash;
       }
       case "eth_signTransaction": {
+        this.refuseOwnKeyOnMainnet(this.chain);
         const prepared = await prepareTransaction(this.chains, this.chain, account.address, (params[0] ?? {}) as TxRequest);
         return account.signTransaction({ ...prepared, type: "eip1559" });
       }
@@ -490,6 +513,18 @@ export class Wallet implements WalletController {
       default:
         throw WalletErrors.unsupportedMethod(method);
     }
+  }
+
+  /**
+   * The owner's key is for the live chain it was given for, and it signs on the copies too. A transaction
+   * sent to a copy stays there, but a signature handed to the app (a permit, an order, a signed
+   * transaction) works on the real chain as well, so none is made for a mainnet that isn't run live.
+   */
+  private refuseOwnKeyOnMainnet(chainId: number): void {
+    if (!this.liveA || this.current !== "A" || !MAINNET_CHAIN_IDS.has(chainId)) return;
+    if (this.chains.has(chainId) && this.chains.mode(chainId) === "live") return;
+    this.log(`wallet: refused to sign for ${chainName(chainId)} with the owner's key`);
+    throw WalletErrors.ownKeyOnMainnet(chainName(chainId));
   }
 
   private readonly batches = new Map<string, { chainId: number; hashes: Hex[] }>();

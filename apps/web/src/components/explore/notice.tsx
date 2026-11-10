@@ -1,11 +1,14 @@
 import { BOT_GUIDE_URL, describeBlock } from "@dappdrill/core";
 import Link from "next/link";
 import { exploreAction } from "@/actions/explore";
+import { LiveFunds } from "@/components/explore/live-funds";
 import { Button } from "@/components/ui/button";
 import type { Pass } from "@/lib/explore";
 
 /** Why a pass ended with no tests, and the way to try again. */
 export function PassNotice({ pass, appId, suggested }: { pass: Pass; appId: string; suggested: number }) {
+  // Stopped for something the owner can give right here.
+  if (pass.state?.needs) return <LiveFunds appId={appId} need={pass.state.needs} />;
   const add = suggested > 0 ? "Add one of the suggested tests below, write one yourself" : "Write a test yourself";
   let title = "It didn't find a test that passes";
   let body: React.ReactNode = `${add}, or add a note in Settings about where to look and explore again.`;

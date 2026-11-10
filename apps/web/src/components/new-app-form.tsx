@@ -5,6 +5,7 @@ import { ArrowRight, Check, Clock, Globe, Network, ScanSearch } from "lucide-rea
 import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { createAppAction } from "@/actions/apps";
 import { HintRows, LiveKeyField, useHints } from "@/components/app-hints";
+import { FundsField, UnforkableNote, type FundsWay } from "@/components/funds-field";
 import { chainNote, RpcField, TestnetTick, useRpcCheck } from "@/components/rpc-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +26,7 @@ const WALLETS: { id: WalletProfileId; name: string }[] = [
   { id: "rabby", name: "Rabby" },
   { id: "coinbase", name: "Coinbase Wallet" },
 ];
-const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337 && c.forkable);
+const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337);
 const MAINNETS = CHAINS.filter((c) => !c.testnet);
 const TESTNETS = CHAINS.filter((c) => c.testnet);
 const WIDE = "(min-width: 64rem)";
@@ -52,6 +53,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   const [rpcUrl, setRpcUrl] = useState("");
   const [ticked, setTicked] = useState(false);
   const [liveKey, setLiveKey] = useState("");
+  const [way, setWay] = useState<FundsWay>("funding");
   const answers = useHints();
   const rpcInput = useRef<HTMLInputElement>(null);
   const { site, open, looking, missed } = useSite(url);
@@ -69,6 +71,8 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   // Only a chain we can't place needs the user's word that it's a testnet.
   const askTestnet = resolvedId !== undefined && !known && !MAINNET_CHAIN_IDS.has(resolvedId);
   const testnet = Boolean(known?.testnet || (askTestnet && ticked));
+  // A chain that can't be forked runs for real, so it needs a way to get test funds before anything else.
+  const unforkable = known?.forkable === false;
   const live = testnet && Boolean(liveKey.trim());
   const name = resolvedId === undefined ? undefined : chainName(resolvedId);
   const rpcError = rpc.status === "bad" ? rpc.error : other && rpc.status === "idle" && state?.inline ? "Add the chain's RPC URL." : undefined;
@@ -220,11 +224,27 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
                 </div>
               )}
 
+              {unforkable && (
+                <div className="flex animate-in flex-col gap-4 duration-200 fade-in-0 slide-in-from-top-1">
+                  <UnforkableNote chain={name ?? "This chain"} />
+                  <FundsField
+                    way={way}
+                    onWay={setWay}
+                    funding={answers.funding}
+                    onFunding={answers.setFunding}
+                    liveKey={liveKey}
+                    onKey={setLiveKey}
+                    required
+                    className="gap-2"
+                  />
+                </div>
+              )}
+
               {rpcError ? (
                 <p role="alert" className="text-sm text-bad">
                   {rpcError}
                 </p>
-              ) : (
+              ) : unforkable ? null : (
                 <FieldDescription>{chainNote({ name, other, testnet, live, forkable: known?.forkable ?? true })}</FieldDescription>
               )}
             </CardContent>
@@ -244,7 +264,8 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
             <HintRows
               hints={answers}
               hasKey={Boolean(liveKey.trim())}
-              keyField={testnet && <LiveKeyField value={liveKey} onChange={setLiveKey} />}
+              keyField={testnet && !unforkable && <LiveKeyField value={liveKey} onChange={setLiveKey} />}
+              fundsRow={!unforkable}
               shown={hints}
               split={open}
               className="pt-2"

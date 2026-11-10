@@ -31,7 +31,8 @@ describe("freshAccounts", () => {
 
 describe("liveChainLine", () => {
   it("says what a run on a live network can and can't do", () => {
-    expect(liveChainLine(pod, false)).toMatch(/^Chain 129302 can't be forked, so this run uses its live network with a new account\. It can sign messages but can't pay/);
-    expect(liveChainLine({ ...pod, name: "Pod" }, true)).toBe("Pod (chain 129302) can't be forked, so this run uses its live network with your funded key");
+    expect(liveChainLine(pod, "none")).toMatch(/^Chain 129302 can't be forked, and with no funded key or way to get test funds the wallet won't sign in there/);
+    expect(liveChainLine(pod, "funding")).toMatch(/with a new account that gets test funds the way you described$/);
+    expect(liveChainLine({ ...pod, name: "Pod" }, "key")).toBe("Pod (chain 129302) can't be forked, so this run uses its live network with your funded key");
   });
 });

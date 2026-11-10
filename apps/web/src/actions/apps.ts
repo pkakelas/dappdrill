@@ -68,6 +68,9 @@ const RpcUrl = z
 const NO_CHAIN = "No chain answered at that URL.";
 
 /** /new: tells the form which chain an RPC belongs to while the user is still typing. */
+/** A chain that can't be forked runs for real, so an app on it starts with a way to get test funds. */
+const noFunds = (chain: string) => `${chain} can't be forked, so tests run on it for real. Say how to get test funds there, or paste a private key that has them.`;
+
 export async function checkRpcAction(input: string): Promise<{ chainId?: number; error?: string }> {
   await requireUser();
   const url = RpcUrl.safeParse(input);
@@ -105,12 +108,14 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
       if (id === undefined) return { error: NO_CHAIN, inline: true };
       const info = chainInfo(id);
       const testnet = info ? info.testnet : form.get("testnet") === "1";
+      if (info?.forkable === false && !keyIn && !funding) return { error: noFunds(info.name) };
       chains.push({ id, name: info?.name, rpcUrl: rpc.data, mode: (testnet && keyIn) || info?.forkable === false ? "live" : "fork" });
     } else if (chainId) {
-      const info = KNOWN_CHAINS.find((c) => c.id === Number(chainId) && c.id !== 31337 && c.forkable);
+      const info = KNOWN_CHAINS.find((c) => c.id === Number(chainId) && c.id !== 31337);
       if (!info) return { error: "Choose a supported chain." };
-      // A key is what opts a testnet into running live. Everything else, mainnets included, is a local fork.
-      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: info.testnet && keyIn ? "live" : "fork" });
+      if (!info.forkable && !keyIn && !funding) return { error: noFunds(info.name) };
+      // A key is what opts a testnet into running live, and a chain that can't be forked always is. Everything else, mainnets included, is a local fork.
+      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: !info.forkable || (info.testnet && keyIn) ? "live" : "fork" });
     }
   }
   if (chains.some((c) => c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id))) return { error: "Live mode is for testnets only. Mainnet chains always run on a local fork." };
@@ -141,7 +146,7 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
       .where(eq(apps.id, existing.id));
   }
   const hasTests = existing ? (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, existing.id)).limit(1)).length > 0 : false;
-  if (!hasTests) await startPass(appId!);
+  if (!hasTests) await startPass(appId!, a.user.id);
   revalidatePath("/", "layout"); // the app switcher lists it
   redirect(`/apps/${appId}`);
 }
@@ -313,4 +318,31 @@ export async function removeSetupAction(appId: string): Promise<void> {
   await requireApp(appId);
   await db().update(apps).set({ setup: null }).where(eq(apps.id, appId));
   revalidatePath(`/apps/${appId}`, "layout");
+}
+
+/**
+ * What a pass stopped for on a chain that can't be forked: a key with test tokens, or how to get test
+ * funds. Saves whichever came and explores again.
+ */
+export async function liveFundsAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
+  const { app, role, user } = await requireApp(String(form.get("appId")));
+  if (!can(role, "apps.manage")) return { error: denied("apps.manage") };
+  const keyIn = String(form.get("liveKey") ?? "").trim();
+  const funding = String(form.get("funding") ?? "").trim().slice(0, 1000);
+  if (!keyIn && !funding) return { error: "Paste a key, or say how to get test funds." };
+  if (looksLikeKey(funding)) return { error: "That looks like a private key: it goes in the key field, which is encrypted." };
+  let liveKey: { liveKeyEnc: string; liveKeyAddress: string } | undefined;
+  if (keyIn) {
+    const k = KeyHex.safeParse(keyIn);
+    if (!k.success) return { error: k.error.issues[0]?.message };
+    liveKey = { liveKeyEnc: encrypt(k.data), liveKeyAddress: privateKeyToAccount(k.data as `0x${string}`).address };
+  }
+  const settings: AppSettings = { ...app.settings, ...(funding ? { funding } : {}) };
+  await db()
+    .update(apps)
+    .set({ settings, ...(liveKey ?? {}) })
+    .where(eq(apps.id, app.id));
+  await startPass(app.id, user.id);
+  revalidatePath(`/apps/${app.id}`, "layout");
+  return { ok: "Exploring again." };
 }

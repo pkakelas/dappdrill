@@ -92,6 +92,7 @@ export async function createSession(target: DrillTarget, chains: ChainController
     chains,
     accounts: target.accounts,
     liveKey: target.liveKey,
+    funding: Boolean(target.funding),
     startChainId,
     connected: before?.connected,
     policy: opts.policy,

@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
-import { failedAt, keepActions, TestRunResult, type Blame, type TestRunStatus, type TestStep } from "@dappdrill/core";
+import { failedAt, keepActions, TestRunResult, type Blame, type ChainConfig, type TestRunStatus, type TestStep } from "@dappdrill/core";
 import { appTests, apps, explorations, settledRuns, specOf, testRuns, tests, tryAppLock, type Db, type TestRow, type TestRunRow } from "@dappdrill/db";
 import type { TestOutcome } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
@@ -76,8 +76,9 @@ async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[],
   // A batch may run against another deploy of the app (a preview, staging) instead of its own URL.
   const url = runs[0]!.url ?? undefined;
   log.info(`started: ${items.length} tests on ${url ?? app.url}`);
+  let chains: ChainConfig[] = [];
   try {
-    await engine.runTests(
+    ({ chains } = await engine.runTests(
       { ...(await buildTarget(db, app, "tests")), ...(url ? { url } : {}) },
       items,
       { artifactsDir: artifactsDir("runs", batchId), map: app.map ?? undefined, setup: app.setup ?? undefined, signal, secondLook: true },
@@ -105,7 +106,7 @@ async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[],
         onSetupSteps: (steps, reset) => saveSetupSteps(db, app.id, steps, reset),
       },
       logEvents(log),
-    );
+    ));
   } catch (e) {
     if (!signal.aborted) log.error("failed", e);
     await finishLeftovers(db, runOf, done, "error", signal.aborted ? "The worker shut down during the run." : errorMessage(e), "ours");
@@ -114,8 +115,22 @@ async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[],
     stopPolling();
   }
   await finishLeftovers(db, runOf, done, "stopped");
+  await keepRelays(db, app.id, chains).catch((e) => log.warn(`could not save the chains whose copy fell behind: ${errorMessage(e)}`));
 
   await notifyBatch(db, app, [...runOf.values()].map((r) => r.id), url).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));
+}
+
+/**
+ * Chains whose copy fell behind the real one during the batch (after the wallet signed there, the app's
+ * server acted for it on the real chain): every later run forks them near their latest block.
+ */
+async function keepRelays(db: Db, appId: string, chains: ChainConfig[]): Promise<void> {
+  const relayed = chains.filter((c) => c.relays);
+  if (!relayed.length) return;
+  const { chains: stored } = await loadApp(db, appId);
+  const known = stored.map((c) => (relayed.some((r) => r.id === c.id) ? { ...c, relays: true } : c));
+  const added = relayed.filter((r) => !stored.some((c) => c.id === r.id));
+  await db.update(apps).set({ chains: [...known, ...added] }).where(eq(apps.id, appId));
 }
 
 /**

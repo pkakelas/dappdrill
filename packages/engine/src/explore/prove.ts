@@ -70,7 +70,7 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
       x.provedAt = nowIso();
     });
     board.feed("test", `Saved as a test: ${s.draft.name}${kept ? `, keeping ${kept === 1 ? "one check" : `${kept} checks`}` : ""}`);
-    await run.hooks.onTest?.(current(board.state, id));
+    await run.hooks.onTest?.(current(board.state, id), o.result);
     return end("done");
   }
 

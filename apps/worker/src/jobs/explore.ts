@@ -1,10 +1,11 @@
 import { and, eq, ne } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
-import { ExploreState, newId, type AppMap, type AppSetup, type DrillEvent, type ExploreSuggestion, type TestStep } from "@dappdrill/core";
-import { addConditions, appTests, apps, BUG_TEST_NOTE, explorations, nextPosition, queueRuns, tests, tryAppLock, type Db, type JobStatus } from "@dappdrill/db";
+import { ExploreState, newId, type AppMap, type AppSetup, type DrillEvent, type ExploreSuggestion, type TestRunResult, type TestStep } from "@dappdrill/core";
+import { addConditions, appTests, apps, BUG_TEST_NOTE, explorations, nextPosition, queueRuns, testRuns, tests, tryAppLock, type Db, type JobStatus } from "@dappdrill/db";
 import type { KnownBug } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
-import { artifactsDir } from "../artifacts.js";
+import { artifactsDir, shareArtifacts } from "../artifacts.js";
+import { notifyPass } from "../notify/pass.js";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
 import { LIVE_RETRY_SECONDS, QUEUES, type ExplorationJob, type TestsJob } from "../queues.js";
@@ -69,11 +70,14 @@ async function explore(db: Db, engine: Engine, boss: PgBoss, row: ExplorationRow
 
   const known = await appTests(db, app.id);
   let created = 0;
-  const save = async (suggestion: ExploreSuggestion) => {
+  const save = async (suggestion: ExploreSuggestion, proof?: TestRunResult) => {
     const ids = await saveTest(db, app.id, suggestion);
     created++;
-    // Drafts wait for a person; a proved test shows a real run straight away.
-    const batchId = ids.length ? await queueRuns(db, app.id, ids, "explore") : undefined;
+    // Drafts wait for a person. A proved test shows a real run straight away: the proof itself when
+    // there is one, since running it again only repeats it; its conditions run for the first time.
+    const [testId, ...conditions] = ids;
+    if (testId && proof) await recordProof(db, app.id, testId, proof, artifactsDir("explorations", explorationId));
+    const batchId = ids.length ? await queueRuns(db, app.id, proof ? conditions : ids, "explore") : undefined;
     if (batchId) await boss.send(QUEUES.tests, { batchId } satisfies TestsJob);
   };
 
@@ -82,6 +86,8 @@ async function explore(db: Db, engine: Engine, boss: PgBoss, row: ExplorationRow
 
   let status: JobStatus = "done";
   let error: string | null = null;
+  // Stopped for something a person can give (a funded account on a live chain): the app page asks for it.
+  let asked = false;
   try {
     const out = await engine.explore(
       await buildTarget(db, app, "tests"),
@@ -108,7 +114,8 @@ async function explore(db: Db, engine: Engine, boss: PgBoss, row: ExplorationRow
     await update({ state: out.state, blocked: out.blocked ?? null, costUsd: out.costUsd });
     if (out.chains.length) await db.update(apps).set({ chains: out.chains }).where(eq(apps.id, app.id));
     if (out.tokens.length) await saveTokens(db, app.id, out.tokens);
-    if (out.state.stopped) error = out.state.stopped;
+    if (out.state.needs) asked = true;
+    else if (out.state.stopped) error = out.state.stopped;
   } catch (e) {
     await drain();
     await state.flush();
@@ -119,9 +126,13 @@ async function explore(db: Db, engine: Engine, boss: PgBoss, row: ExplorationRow
   }
   if (stop.signal.aborted) [status, error] = ["stopped", null];
   else if (signal.aborted) [status, error] = ["failed", "The worker shut down during the exploration."];
+  else if (asked) status = "stopped";
   else if (error) status = "failed";
   await update({ status, error, finishedAt: new Date() });
   log.info(`${status}: ${created} new tests`);
+  // The page told whoever started it they could close it. Somebody who stopped it, or a worker that shut down, needs no email.
+  const end = status === "done" ? "done" : asked && status === "stopped" ? "asked" : status === "failed" && !signal.aborted ? "failed" : undefined;
+  if (end) await notifyPass(db, app, explorationId, end);
 }
 
 /**
@@ -175,6 +186,14 @@ async function saveTest(db: Db, appId: string, s: ExploreSuggestion): Promise<st
     draftNote: proved ? null : bug ? BUG_TEST_NOTE : (s.note ?? "It didn't pass on a clean fork."),
   });
   return proved ? [testId, ...(await addConditions(db, testId, s.conditions))] : [];
+}
+
+/** The proof's run as the test's first, with its video and screenshots, under a batch of its own. */
+async function recordProof(db: Db, appId: string, testId: string, proof: TestRunResult, from: string): Promise<void> {
+  const batchId = newId("batch");
+  await shareArtifacts(proof, from, artifactsDir("runs", batchId));
+  const now = new Date();
+  await db.insert(testRuns).values({ id: newId("run"), appId, testId, batchId, trigger: "explore", status: "pass", result: proof, startedAt: now, finishedAt: now });
 }
 
 async function saveSetup(db: Db, appId: string, steps: TestStep[], reset?: TestStep[]): Promise<void> {

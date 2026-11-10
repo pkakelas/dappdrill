@@ -125,7 +125,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   // Before anything is pinned, so going back to a snapshot never leaves the wallet empty.
   for (const c of target.chains) if (c.mode === "fork") await fundOnFork(chains, c.id, fundedAddresses(target), target.tokens);
   await wrapped({ type: "chains", chains: target.chains });
-  for (const c of live) await log(liveChainLine(c, !!input.liveKey), "warn");
+  for (const c of live) await log(liveChainLine(c, input.liveKey ? "key" : input.funding ? "funding" : "none"), "warn");
 
   return {
     target,
@@ -203,9 +203,9 @@ export function freshAccounts(anyLive: boolean, input: Pick<DrillTarget, "liveKe
   return { A: generatePrivateKey(), B: generatePrivateKey() };
 }
 
-export function liveChainLine(c: ChainConfig, funded: boolean): string {
+export function liveChainLine(c: ChainConfig, funded: "key" | "funding" | "none"): string {
   const name = c.name ? `${c.name} (chain ${c.id})` : `Chain ${c.id}`;
-  return funded
-    ? `${name} can't be forked, so this run uses its live network with your funded key`
-    : `${name} can't be forked, so this run uses its live network with a new account. It can sign messages but can't pay for transactions; add a funded key under Settings → Chains for those`;
+  if (funded === "key") return `${name} can't be forked, so this run uses its live network with your funded key`;
+  if (funded === "funding") return `${name} can't be forked, so this run uses its live network with a new account that gets test funds the way you described`;
+  return `${name} can't be forked, and with no funded key or way to get test funds the wallet won't sign in there; add one under Settings → Chains`;
 }

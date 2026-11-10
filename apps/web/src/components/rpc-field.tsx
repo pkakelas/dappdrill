@@ -92,7 +92,7 @@ export function TestnetTick({ name, value, checked, onChange }: { name?: string;
 export function chainNote({ name, other, testnet, live, forkable }: { name?: string; other: boolean; testnet: boolean; live: boolean; forkable: boolean }) {
   if (!name) return other ? "Paste the RPC your app uses and we'll work out the chain." : "We'll see which chain your app connects to.";
   if (live) return "Tests run on the real testnet with your key, not a fork.";
-  if (!forkable) return `${name} can't be forked, so tests run on it directly. Add a private key below to send transactions.`;
+  if (!forkable) return `${name} can't be forked, so tests run on it for real, from an account with test funds there.`;
   if (testnet && other) return `Tests run on a local fork of ${name}. If it can't be forked, or you want the real testnet, add a private key below.`;
   if (testnet) return `Tests run on a local fork of ${name}. Add a private key below to use the real testnet.`;
   return `Tests run on a local fork of ${name}, so no real funds are involved.`;

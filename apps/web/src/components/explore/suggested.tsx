@@ -28,8 +28,8 @@ function Mark({ now }: { now?: Now }) {
 const NOW_LABEL = { trying: "Trying now", worked: "Worked once" } as const;
 
 /**
- * Tests that haven't run yet. While the pass runs they move up into the list as they pass; once it
- * ends, what is left is yours to add. One you add runs right here, and moves up as soon as its run
+ * Tests that haven't run yet: in queue while the pass runs, since it tries each one, and they move
+ * up into the list as they pass. Once it ends, what is left is suggested, yours to add. One you add runs right here, and moves up as soon as its run
  * says something: passed, failed, or needs you.
  */
 export function Suggested({ appId, tests, passId, running }: { appId: string; tests: SuggestedTest[]; passId: string; running: boolean }) {
@@ -39,7 +39,7 @@ export function Suggested({ appId, tests, passId, running }: { appId: string; te
       <div className="flex min-h-8 items-center justify-between gap-3 px-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
           <h2 id="suggested" className="text-sm font-medium">
-            Suggested <span className="font-normal text-muted-foreground tabular-nums">{tests.length}</span>
+            {running ? "In queue" : "Suggested"} <span className="font-normal text-muted-foreground tabular-nums">{tests.length}</span>
           </h2>
           <p className="text-sm text-muted-foreground">{running ? "Each one becomes a test when it passes on a clean fork." : "Not run yet. Add one and it runs right away."}</p>
         </div>
@@ -102,7 +102,7 @@ export function SuggestedPlaceholder() {
     <section aria-labelledby="suggested" className="flex flex-col gap-2">
       <div className="flex min-h-8 flex-wrap items-baseline gap-x-2 px-1">
         <h2 id="suggested" className="text-sm font-medium">
-          Suggested
+          In queue
         </h2>
         <p className="text-sm text-muted-foreground">The tests worth trying are listed here in a minute or two.</p>
       </div>

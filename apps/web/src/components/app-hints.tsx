@@ -185,6 +185,8 @@ type HintRowsProps = {
   /** Shown under the funds question, for testnets. */
   keyField?: ReactNode;
   hasKey?: boolean;
+  /** Off when the form asks about funds elsewhere, as it must for a chain that can't be forked. */
+  fundsRow?: boolean;
   shown?: boolean;
   split?: boolean;
   rowClassName?: string;
@@ -192,7 +194,7 @@ type HintRowsProps = {
 };
 
 /** Every question, posted as `hints` and `funding`. */
-export function HintRows({ hints, keyField, hasKey, shown = true, split = false, rowClassName, className }: HintRowsProps) {
+export function HintRows({ hints, keyField, hasKey, fundsRow = true, shown = true, split = false, rowClassName, className }: HintRowsProps) {
   const { tests, setTests, funding, setFunding, tips, setTip, unlocked, setUnlocked } = hints;
   const row = { shown, split, className: rowClassName };
   const answered = hints.answered + (funding.trim() || hasKey ? 1 : 0);
@@ -204,6 +206,7 @@ export function HintRows({ hints, keyField, hasKey, shown = true, split = false,
       <HintRow icon={Route} tint={TINT.sky} title="What should we test?" detail="What users do in your app. We'll start with these." htmlFor="test-0" index={0} {...row}>
         <TestList tests={tests} onChange={setTests} />
       </HintRow>
+      {fundsRow && (
       <HintRow icon={Coins} tint={TINT.emerald} title="How do we get test funds?" detail="We'll look for a way ourselves, but a hint helps." htmlFor="funding" index={1} {...row}>
         <Textarea
           id="funding"
@@ -218,6 +221,7 @@ export function HintRows({ hints, keyField, hasKey, shown = true, split = false,
         {looksLikeKey(funding) && <KeyWarning />}
         {keyField}
       </HintRow>
+      )}
       {CORE_TIPS.map((tip, index) => (
         <TipRow key={tip.id} tip={tip} value={tips[tip.id]} onChange={(value) => setTip(tip.id, value)} index={index + 2} {...row} />
       ))}

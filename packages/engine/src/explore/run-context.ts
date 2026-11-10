@@ -1,5 +1,5 @@
 /** What every stage of a pass shares. */
-import { MAINNET_CHAIN_IDS, type AppMap, type AppSetup, type Blocked, type DrillEvent, type DrillEventSink, type ExploreCosts, type ExploreSuggestion, type SigningReview, type Step, type TestStep, type WalletRequest } from "@dappdrill/core";
+import { MAINNET_CHAIN_IDS, chainName, type AppMap, type AppSetup, type Blocked, type DrillEvent, type DrillEventSink, type ExploreCosts, type ExploreSuggestion, type SigningReview, type Step, type TestRunResult, type TestStep, type WalletRequest } from "@dappdrill/core";
 import { openEnv, type Env } from "../pipeline/env.js";
 import type { Prepared, SetupRunner } from "../pipeline/setup.js";
 import { Board } from "./board.js";
@@ -48,8 +48,11 @@ export interface ExploreHooks {
   onSetupSteps?(steps: TestStep[], reset?: TestStep[]): Promise<void>;
   /** What the look put in the test wallet, as soon as it is there: a test saved later in the pass needs the same in its own runs. */
   onTokens?(tokens: WalletToken[]): Promise<void>;
-  /** A test to save: proved, or a draft with its reason. */
-  onTest?(suggestion: ExploreSuggestion): Promise<void>;
+  /**
+   * A test to save: proved, or a draft with its reason. A proved one comes with the run that proved
+   * it, whose artifacts are under the pass's artifactsDir: it can stand as the test's first run.
+   */
+  onTest?(suggestion: ExploreSuggestion, proof?: TestRunResult): Promise<void>;
 }
 
 type Stage = "look" | "setup" | "explore" | "prove" | "confirm";
@@ -126,15 +129,27 @@ export class ExploreRun {
       this.stage(stage);
       return fn(this.base);
     }
-    const env = await openEnv(this.base.target, (e) => (e.type === "log" && e.level !== "info" ? this.base.sink(e) : undefined), { headless: this.base.headless });
+    // A chain whose copy an earlier env saw fall behind the real one is forked near its latest block.
+    const relayed = new Set(this.base.chains.configs().filter((c) => c.relays).map((c) => c.id));
+    const target = { ...this.base.target, chains: this.base.target.chains.map((c) => (relayed.has(c.id) ? { ...c, relays: true } : c)) };
+    const env = await openEnv(target, (e) => (e.type === "log" && e.level !== "info" ? this.base.sink(e) : undefined), { headless: this.base.headless });
     this.open.set(env, stage);
     try {
       return await fn(env);
     } finally {
+      await env.chains.lookForRelays?.();
+      for (const c of env.chains.configs()) if (c.relays) this.base.chains.markRelayed?.(c.id);
       this.open.delete(env);
       add(this.closed, stage, env);
       await env.close();
     }
+  }
+
+  /** Chains whose copy fell behind the real one in any env of this pass, by name: after the wallet signed there, the app's server acted for it on the real chain. */
+  async relayed(): Promise<string[]> {
+    const envs = [this.base, ...this.open.keys()];
+    await Promise.all(envs.map((e) => e.chains.lookForRelays?.()));
+    return [...new Set(envs.flatMap((e) => e.chains.configs().filter((c) => c.relays).map((c) => chainName(c.id))))];
   }
 
   /**

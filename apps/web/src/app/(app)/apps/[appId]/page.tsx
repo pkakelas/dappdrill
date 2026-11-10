@@ -1,7 +1,7 @@
 import { appRollup, chainInfo, chainName, formatUnitsPlain, signingOf, testCheckKey, walletUse, type ChainConfig, type ExploreBug, type SecondLook, type Settled } from "@dappdrill/core";
 import { appTests, db, explorations, latestRuns, notWritten, runHistory, settledRuns, testStability, type TestRow } from "@dappdrill/db";
 import { desc, eq, sql } from "drizzle-orm";
-import { ArrowRight, Compass, GitFork, TriangleAlert } from "lucide-react";
+import { ArrowRight, Clock, Compass, GitFork, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { exploreAction } from "@/actions/explore";
@@ -64,7 +64,7 @@ const EARLIER_PASSES = 10;
 export default async function AppPage({ params, searchParams }: { params: Promise<{ appId: string }>; searchParams: Promise<{ tab?: string; show?: string; view?: string; kind?: string; from?: string; bug?: string }> }) {
   const { appId } = await params;
   const query = await searchParams;
-  const { app } = await requireApp(appId);
+  const { app, user } = await requireApp(appId);
   const [[pass], earlier, tests] = await Promise.all([
     db().select().from(explorations).where(eq(explorations.appId, appId)).orderBy(desc(explorations.createdAt)).limit(1),
     // Only the bugs of earlier passes, and the test each was found by: a whole state is too heavy to load every two seconds.
@@ -145,7 +145,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   const needsLook = (t: TestRow) => rank(t) < 4 || signingFor(t).dangerous > 0 || conditionsOf(t).some((c) => reads.get(c.id)!.settled === "fail");
   const exploring = passRunning(pass);
   // The app was explored and nothing passed: the page says why, and offers the way to try again once.
-  const notice = Boolean(pass) && !exploring && proved.length === 0;
+  const notice = Boolean(pass) && !exploring && (proved.length === 0 || Boolean(pass?.state?.needs));
   // What's happening now comes first, conditions included. While the app is explored the list only grows at the end, so nothing jumps.
   const liveRank = (t: TestRow) => {
     const all = [t, ...conditionsOf(t)].map((row) => reads.get(row.id)!);
@@ -206,7 +206,10 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   const liveChain = [...app.settings.chains, ...app.chains].find((c) => c.mode === "live");
   // The latest runs already loaded say whether the app's own embedded wallet signed, in which case the funded wallet's balance isn't what tests spend.
   const embeddedSigner = [...latest.values()].some((r) => r.result?.embeddedSigner);
-  const live = liveChain && { ...(await liveWallet(liveChain, app.liveKeyAddress)), embeddedSigner };
+  const live = liveChain && { ...(await liveWallet(liveChain, app.liveKeyAddress)), embeddedSigner, funding: Boolean(app.settings.funding) };
+  // There every job takes the chain in turn, so a queued run waits for whatever has it now; the list says what.
+  const runs = [...latest.values()];
+  const holder = !liveChain || !runs.some((r) => r.status === "queued") ? undefined : exploring ? "exploring ends" : runs.some((r) => r.status === "running") ? "the running test ends" : undefined;
   const any = counts.all > 0;
 
   return (
@@ -227,6 +230,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
             checked={checks > 0 || checkBugs > 0 ? { checks, bugs: checkBugs } : undefined}
             running={activeIds.length}
             runs={history}
+            writing={exploring ? { email: pass?.requestedBy === user.id ? user.email : undefined } : undefined}
             action={
               !exploring &&
               (tests.length > 0 || explored) && (
@@ -282,6 +286,12 @@ export default async function AppPage({ params, searchParams }: { params: Promis
                     </div>
                   ) : notice && !any ? null : (
                     <div className="flex flex-col gap-3">
+                      {holder && liveChain && (
+                        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+                          Tests on {liveChain.name ?? chainName(liveChain.id)} run one at a time, so queued ones start when {holder}.
+                        </p>
+                      )}
                       <TestList filter={any && <TestFilter appId={appId} showing={showing} counts={counts} conditions={tests.some((t) => t.baseId)} />}>
                         {listed.map((t) => (
                           <TestLine key={t.id} {...cardProps(t)}>

@@ -43,7 +43,7 @@ const WALLETS: { id: WalletProfileId; name: string }[] = [
   { id: "rabby", name: "Rabby" },
   { id: "coinbase", name: "Coinbase Wallet" },
 ];
-const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337 && c.forkable);
+const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337);
 const CHAIN_GROUPS = [
   { label: "Mainnets", chains: CHAINS.filter((c) => !c.testnet) },
   { label: "Testnets", chains: CHAINS.filter((c) => c.testnet) },

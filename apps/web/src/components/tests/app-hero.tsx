@@ -1,12 +1,14 @@
 import { shortAddress, type AppRollup, type WalletProfileId } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, GitFork, PenLine, Play, Radio, ScanSearch, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, GitFork, Mail, PenLine, Play, Radio, ScanSearch, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
 import { ChainIcon, WalletIcon } from "@/components/web3-icons";
 import { hostFromUrl, plural, timeAgo } from "@/lib/format";
+import { Separator } from "@/components/ui/separator";
 import { RunHistory } from "./app-stats";
+import { IntroNote } from "./intro-note";
 import { Tile, type TINT } from "./tile";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -116,9 +118,120 @@ export interface LiveChain {
   wallet?: { address: string; balance?: string };
   /** The latest runs signed with the app's own embedded wallet, not ours, so the funded wallet's balance isn't what they spend. */
   embeddedSigner?: boolean;
+  /** The owner said how a new account gets test funds, which is what runs do without a funded wallet. */
+  funding?: boolean;
 }
 
-export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, rollup, checked, running, runs, action }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; rollup?: AppRollup; checked?: { checks: number; bugs: number }; running: number; runs: RunSummary[]; action?: ReactNode }) {
+/** Where tests run for real, and the account that pays there: the figures first, then what that means. */
+function LiveNote({ appId, live }: { appId: string; live: LiveChain }) {
+  const facts: { value: ReactNode; label: string }[] = [{ value: live.name, label: "Live chain, can't be forked" }];
+  if (live.wallet) facts.push({ value: <span className="font-mono">{shortAddress(live.wallet.address)}</span>, label: "Funded wallet" });
+  if (live.wallet?.balance) facts.push({ value: <span className="tabular-nums">{live.wallet.balance}</span>, label: "In the wallet" });
+  return (
+    <div className="-mt-3 flex flex-col gap-2.5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        <Tile icon={Radio} tint="live" />
+        {facts.map(({ value, label }, i) => (
+          <div key={label} className="flex items-center gap-5">
+            {i > 0 && <Separator orientation="vertical" className="data-[orientation=vertical]:h-8" />}
+            <p className="flex flex-col">
+              <span className="text-sm leading-tight font-medium">{value}</span>
+              <span className="text-xs text-muted-foreground">{label}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="max-w-prose text-sm text-pretty text-muted-foreground">
+        {live.wallet ? (
+          <>
+            Every run leaves real orders, positions and transactions on this account.
+            {live.embeddedSigner && <> Tests sign with the app&apos;s own wallet, so this balance isn&apos;t what they spend.</>}
+          </>
+        ) : (
+          <>
+            {live.funding ? "Each run signs in with a new account and gets test funds the way you described;" : "Each run needs an account with test funds there;"}{" "}
+            <Link href={`/apps/${appId}/settings`} className="underline underline-offset-4 hover:text-foreground">
+              add a funded key
+            </Link>{" "}
+            {live.funding ? "to run everything from one account instead." : "or say how to get test funds."}
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** Where the app is and how it signs in: its site, wallet and chain. */
+function Where({ url, wallet, chainId }: { url: string; wallet?: WalletProfileId; chainId?: number }) {
+  return (
+    <>
+      <a href={url} target="_blank" rel="noreferrer" className="group/site inline-flex items-center gap-0.5 hover:text-foreground">
+        {hostFromUrl(url)}
+        <ArrowUpRight aria-hidden="true" className="size-3.5 opacity-60 transition-transform group-hover/site:translate-x-px group-hover/site:-translate-y-px" />
+      </a>
+      {wallet && <WalletIcon wallet={wallet} />}
+      {chainId !== undefined && <ChainIcon chain={{ id: chainId }} />}
+    </>
+  );
+}
+
+/**
+ * The top of the page while a pass writes the tests: what is happening, how long it takes and who
+ * hears when it's done, and, on a chain that can't be forked, the account that pays.
+ */
+function PassIntro({ appId, name, url, wallet, chainId, live, email }: { appId: string; name: string; url: string; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; email?: string }) {
+  return (
+    <header className="flex flex-col items-center gap-8 pt-4 text-center sm:pt-8">
+      <div className="flex flex-col items-center gap-2.5">
+        <h1 className="text-3xl font-semibold tracking-tight text-balance">Writing tests for {name}</h1>
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Where url={url} wallet={wallet} chainId={chainId} />
+        </div>
+      </div>
+      <div className="grid w-full max-w-2xl gap-3">
+        <IntroNote id={`${appId}:wait`} icon={<Mail aria-hidden="true" />} tint="good" title="This takes up to an hour.">
+          You can close this page.
+          <br />
+          {email ? (
+            <>
+              We&apos;ll email <span className="font-medium whitespace-nowrap">{email}</span> when the tests are ready.
+            </>
+          ) : (
+            "The tests show here as each one passes."
+          )}
+        </IntroNote>
+        {live && (
+          <IntroNote id={`${appId}:live`} icon={<Radio aria-hidden="true" />} tint="live" title={`${live.name} can't be forked, so tests run on it for real.`}>
+            {live.wallet ? (
+              <>
+                They pay from <span className="font-mono font-medium">{shortAddress(live.wallet.address)}</span>
+                {live.wallet.balance && (
+                  <>
+                    , which holds <span className="font-medium whitespace-nowrap tabular-nums">{live.wallet.balance}</span>
+                  </>
+                )}
+                .
+                <br />
+                {live.embeddedSigner ? "Tests sign with the app's own wallet, so this balance isn't what they spend." : "Every run leaves real orders, positions and transactions on it."}
+              </>
+            ) : (
+              <>
+                {live.funding ? "Each run signs in with a new account and gets test funds the way you described. " : "Each run needs an account with test funds there. "}
+                <Link href={`/apps/${appId}/settings`} className="underline underline-offset-4">
+                  {live.funding ? "Add a funded key" : "Add a funded key or say how to get test funds"}
+                </Link>
+                .
+              </>
+            )}
+          </IntroNote>
+        )}
+      </div>
+    </header>
+  );
+}
+
+export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, rollup, checked, running, runs, action, writing }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; rollup?: AppRollup; checked?: { checks: number; bugs: number }; running: number; runs: RunSummary[]; action?: ReactNode; writing?: { email?: string } }) {
+  if (writing) return <PassIntro appId={appId} name={name} url={url} wallet={wallet} chainId={chainId} live={live} email={writing.email} />;
   const both = Boolean(rollup && rollup.tests.total > 0 && checked);
   // A chart of the last two weeks says nothing about an app that has only run today.
   const charted = new Set(runs.map((r) => Math.floor(r.createdAt.getTime() / DAY))).size > 1;
@@ -127,12 +240,7 @@ export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, roll
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <h1 className="text-base font-semibold tracking-tight text-foreground">{name}</h1>
-          <a href={url} target="_blank" rel="noreferrer" className="group/site inline-flex items-center gap-0.5 hover:text-foreground">
-            {hostFromUrl(url)}
-            <ArrowUpRight aria-hidden="true" className="size-3.5 opacity-60 transition-transform group-hover/site:translate-x-px group-hover/site:-translate-y-px" />
-          </a>
-          {wallet && <WalletIcon wallet={wallet} />}
-          {chainId !== undefined && <ChainIcon chain={{ id: chainId }} />}
+          <Where url={url} wallet={wallet} chainId={chainId} />
           {lastRun && (
             <Link href={`/apps/${appId}/runs`} className="hover:text-foreground">
               Last run {timeAgo(lastRun)}
@@ -141,33 +249,7 @@ export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, roll
         </div>
         {action}
       </div>
-      {live && (
-        <p className="-mt-4 flex items-start gap-2 text-sm text-pretty text-muted-foreground">
-          <Radio aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-live" />
-          <span>
-            Tests run on {live.name} itself, since it can&apos;t be forked.{" "}
-            {live.wallet ? (
-              <>
-                They pay from the app&apos;s funded wallet <span className="font-mono text-foreground">{shortAddress(live.wallet.address)}</span>
-                {live.wallet.balance && (
-                  <>
-                    , which holds <span className="text-foreground tabular-nums">{live.wallet.balance}</span>
-                  </>
-                )}
-                .{live.embeddedSigner && <> Tests sign with the app&apos;s own wallet, so this balance isn&apos;t what they spend.</>} Every run leaves real orders, positions and transactions on that account.
-              </>
-            ) : (
-              <>
-                Each run gets a new account that can sign in but can&apos;t pay for transactions;{" "}
-                <Link href={`/apps/${appId}/settings`} className="underline underline-offset-4 hover:text-foreground">
-                  add a funded key
-                </Link>{" "}
-                for tests that send them.
-              </>
-            )}
-          </span>
-        </p>
-      )}
+      {live && <LiveNote appId={appId} live={live} />}
       {rollup && (
         <div className={cx("grid items-center gap-x-10 gap-y-8", charted && "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]")}>
           <div className="flex min-w-0 flex-col gap-6">

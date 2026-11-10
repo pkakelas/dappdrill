@@ -5,7 +5,8 @@ import { startAnvilFork, type AnvilFork } from "./anvil.js";
 import { dealErc20 as dealErc20Impl } from "./deal-erc20.js";
 import { JsonRpcError, probeChainId, rpcCall, sleep, toHex } from "./rpc.js";
 import { balanceReads } from "./balance-reads.js";
-import { pickUpstream } from "./upstream.js";
+import { LOOK_AFTER_MS, loggedSince, startOfWatch, type RelayWatch } from "./relayed.js";
+import { pickUpstream, upstreamCandidates } from "./upstream.js";
 
 export interface StartChainsOptions {
   /** Funded key for live-mode chains. Without it, live chains are read-only. */
@@ -92,9 +93,10 @@ async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promis
   }
   // The RPC the fork reads from has to keep the fork's block for the whole run; see upstream.ts.
   const upstream = await pickUpstream(config, opts.log);
-  if (config.forkBlock && !upstream.pinned) opts.log?.(`chain ${config.id}: block ${config.forkBlock} is no longer available upstream; forking near the latest block`);
+  if (config.forkBlock && config.relays) opts.log?.(`chain ${config.id}: the app's server uses this wallet's signatures on the real chain, which a copy at block ${config.forkBlock} would be behind; forking near the latest block`);
+  else if (config.forkBlock && !upstream.pinned) opts.log?.(`chain ${config.id}: block ${config.forkBlock} is no longer available upstream; forking near the latest block`);
   const start = (forkBlock?: bigint) => startAnvilFork({ rpcUrl: upstream.rpcUrl, chainId: config.id, forkBlock });
-  const pinned = upstream.pinned ? BigInt(config.forkBlock!) : undefined;
+  const pinned = upstream.pinned && !config.relays ? BigInt(config.forkBlock!) : undefined;
   let fork: AnvilFork;
   try {
     // A public RPC behind a load balancer now and then hasn't got the block yet, or drops a request:
@@ -132,6 +134,7 @@ class Controller implements ChainController {
   private heartbeat?: NodeJS.Timeout;
   private readonly adding = new Map<number, Promise<ChainConfig>>();
   private readonly missingChains = new Map<number, MissingChain>();
+  private readonly watches: RelayWatch[] = [];
 
   constructor(entries: Entry[], private readonly opts: StartChainsOptions) {
     for (const e of entries) this.entries.set(e.config.id, e);
@@ -189,6 +192,35 @@ class Controller implements ChainController {
 
   missing(): MissingChain[] {
     return [...this.missingChains.values()];
+  }
+
+  watchSignature(chainId: number, contract: Hex, account: Hex): void {
+    const e = this.entries.get(chainId);
+    if (!e || e.mode !== "fork" || e.config.relays || this.closed) return;
+    if (this.watches.some((w) => w.chainId === chainId && w.contract.toLowerCase() === contract.toLowerCase() && w.account.toLowerCase() === account.toLowerCase())) return;
+    const watch: RelayWatch = { chainId, contract, account, from: startOfWatch(upstreamCandidates(e.config)) };
+    this.watches.push(watch);
+    for (const ms of LOOK_AFTER_MS) setTimeout(() => void this.look(watch), ms).unref();
+  }
+
+  markRelayed(chainId: number): void {
+    const e = this.entries.get(chainId);
+    if (e && e.mode === "fork") e.config = { ...e.config, relays: true };
+  }
+
+  async lookForRelays(): Promise<void> {
+    await Promise.all(this.watches.map((w) => this.look(w)));
+  }
+
+  private async look(w: RelayWatch): Promise<void> {
+    const e = this.entries.get(w.chainId);
+    if (!e || e.config.relays || this.closed) return;
+    const from = await w.from;
+    if (!from || !(await loggedSince(from.rpcUrl, w.contract, w.account, from.block).catch(() => false)) || e.config.relays) return;
+    e.config = { ...e.config, relays: true };
+    this.opts.log?.(
+      `chain ${w.chainId}: after the wallet signed for ${w.contract} on our copy of ${chainName(w.chainId)}, the app's server acted for ${w.account} on the real chain (the contract logged the account there since). The copy doesn't see that and is behind the real chain from now on; later runs fork it near its latest block.`,
+    );
   }
 
   /** One empty block per fork, stamped with the wall clock. Skipped while a test holds transactions pending. */
