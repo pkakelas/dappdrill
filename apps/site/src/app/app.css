@@ -1,0 +1,1112 @@
+/*
+ * DappDrill's own pages, drawn after apps/web (shadcn neutral, the status tints, Geist). They scale like an
+ * image: the window is 120em wide, so 1em is 10px of the real app at a 1200px window. Text sizes are set on
+ * the text itself, never on a box that holds other sized things.
+ */
+.dd-wrap {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.dd {
+  --fg: #0a0a0a;
+  --muted: #737373;
+  --line: #e5e5e5;
+  --soft: #f5f5f5;
+  --good: #047857;
+  --good-bg: #d1fae5;
+  --good-soft: #ecfdf5;
+  --bad: #c9184a;
+  --bad-ink: #9f1239;
+  --bad-bg: #ffe4e9;
+  --bad-soft: #fff5f7;
+  --warn: #b45309;
+  --live: #0369a1;
+  --live-ink: #075985;
+  --live-soft: #f0f9ff;
+  --fork: #7c3aed;
+  --fork-line: #c4b5fd;
+  position: relative;
+  aspect-ratio: 120 / 76.8;
+  font-size: calc(100cqw / 120);
+  line-height: 1.4;
+  text-align: left;
+  color: var(--fg);
+  user-select: none;
+}
+
+.dd svg.i {
+  flex: none;
+  width: 1.6em;
+  height: 1.6em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dd svg.i.sm {
+  width: 1.4em;
+  height: 1.4em;
+}
+.dd svg.i.xs {
+  width: 1.2em;
+  height: 1.2em;
+}
+
+/* The window: dots, the app's bar, then the page. */
+.dd-win {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1.4em;
+  background: #fff;
+  box-shadow:
+    0 0 0 0.1em rgb(15 15 14 / 0.08),
+    0 2.4em 5em -1.6em rgb(15 15 14 / 0.3);
+}
+
+.dd-dots {
+  display: flex;
+  flex: none;
+  gap: 0.7em;
+  align-items: center;
+  height: 3.2em;
+  padding: 0 1.6em;
+  background: #fafafa;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-dots i {
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  background: #dedede;
+}
+
+.dd-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1.4em;
+  height: 5.6em;
+  padding: 0 5em;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-bar .logo {
+  width: 1.8em;
+  height: 1.8em;
+}
+.dd-bar b {
+  font-size: 1.4em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.dd-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-left: 1.2em;
+  color: var(--fg);
+}
+.dd-pick span {
+  font-size: 1.35em;
+  font-weight: 500;
+}
+.dd-pick svg.i {
+  width: 1.2em;
+  height: 1.2em;
+  color: var(--muted);
+}
+.dd-slash {
+  font-size: 1.4em;
+  color: #d4d4d4;
+}
+.dd-nav {
+  display: flex;
+  gap: 0.4em;
+  margin-left: 2em;
+}
+.dd-nav span {
+  padding: 0.35em 0.75em;
+  border-radius: 0.5em;
+  font-size: 1.35em;
+  color: var(--muted);
+}
+.dd-nav .on {
+  background: var(--soft);
+  color: var(--fg);
+  font-weight: 500;
+}
+.dd-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.8em;
+  height: 2.8em;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--soft);
+}
+.dd-avatar span {
+  font-size: 1.1em;
+  color: var(--muted);
+}
+
+.dd-page {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2.4em;
+  min-height: 0;
+  padding: 3em 5em 0;
+}
+
+/* Small parts. */
+.dd-muted {
+  color: var(--muted);
+}
+.dd-t13 {
+  font-size: 1.3em;
+}
+.dd-t14 {
+  font-size: 1.4em;
+}
+.dd-t12 {
+  font-size: 1.2em;
+}
+
+.dd-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  height: 3.2em;
+  padding: 0 1.2em;
+  border: 0.1em solid var(--line);
+  border-radius: 0.7em;
+  background: #fff;
+  box-shadow: 0 0.1em 0.2em rgb(0 0 0 / 0.04);
+}
+.dd-btn span {
+  font-size: 1.3em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.dd-btn.dark {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: #fff;
+}
+.dd-btn.dark svg.i {
+  fill: currentColor;
+}
+.dd-btns {
+  display: flex;
+  gap: 0.8em;
+  margin-left: auto;
+}
+
+/* The tinted icon squares of the New app page. */
+.dd-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.6em;
+  height: 3.6em;
+  border-radius: 1em;
+}
+.dd-tile svg.i {
+  width: 1.8em;
+  height: 1.8em;
+}
+.dd-tile.good {
+  background: rgb(16 185 129 / 0.1);
+  color: #059669;
+}
+.dd-tile.bad {
+  background: rgb(244 63 94 / 0.1);
+  color: #e11d48;
+}
+.dd-tile.live {
+  background: rgb(14 165 233 / 0.1);
+  color: #0284c7;
+}
+.dd-tile.fork {
+  background: rgb(139 92 246 / 0.1);
+  color: #7c3aed;
+}
+.dd-tile.sm {
+  width: 2.8em;
+  height: 2.8em;
+  border-radius: 0.7em;
+}
+.dd-tile.sm svg.i {
+  width: 1.5em;
+  height: 1.5em;
+}
+
+/* The status marks in front of a test or a condition. */
+.dd-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 0.6em;
+}
+.dd-mark svg.i {
+  width: 1.4em;
+  height: 1.4em;
+  stroke-width: 2.6;
+}
+.dd-mark.pass {
+  background: rgb(16 185 129 / 0.12);
+  color: #059669;
+}
+.dd-mark.fail {
+  background: rgb(244 63 94 / 0.12);
+  color: #e11d48;
+}
+.dd-mark.sm {
+  width: 1.8em;
+  height: 1.8em;
+  border-radius: 0.45em;
+}
+.dd-mark.sm svg.i {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+/* The top of an app. */
+.dd-head {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  min-height: 3.6em;
+}
+.dd-head h4 {
+  font-size: 1.6em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.dd-head .site {
+  display: flex;
+  align-items: center;
+  gap: 0.2em;
+  color: var(--muted);
+}
+.dd-head img {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+.dd-hero {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  align-items: center;
+  gap: 4em;
+}
+.dd-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+}
+.dd-verdict p {
+  font-size: 3.6em;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+.dd-verdict .bad {
+  color: var(--bad);
+}
+.dd-verdict .dim {
+  color: rgb(115 115 115 / 0.7);
+}
+
+.dd-card {
+  border: 0.1em solid var(--line);
+  border-radius: 1.4em;
+  background: #fff;
+  box-shadow: 0 0.1em 0.3em rgb(0 0 0 / 0.04);
+}
+
+.dd-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6em;
+  padding: 2em 2.2em 1.8em;
+}
+.dd-chart-top {
+  display: flex;
+  justify-content: space-between;
+}
+.dd-chart-top b {
+  font-size: 1.3em;
+  font-weight: 600;
+}
+.dd-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6em;
+  height: 6.4em;
+}
+.dd-bars i {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border-radius: 0.3em;
+  background: #ededed;
+}
+.dd-bars i b {
+  background: #34d399;
+}
+.dd-bars i s {
+  background: #fb7190;
+}
+.dd-legend {
+  display: flex;
+  align-items: center;
+  gap: 1.6em;
+  color: var(--muted);
+}
+.dd-legend span {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+.dd-legend i {
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 0.2em;
+}
+
+/* Tests · Checks · Bugs. */
+.dd-tabs {
+  display: flex;
+  gap: 0.3em;
+  align-self: flex-start;
+  padding: 0.35em;
+  border-radius: 1em;
+  background: var(--soft);
+}
+.dd-tabs > span {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.5em 1em;
+  border-radius: 0.7em;
+  color: var(--muted);
+}
+.dd-tabs > span.on {
+  background: #fff;
+  color: var(--fg);
+  box-shadow: 0 0.1em 0.3em rgb(0 0 0 / 0.08);
+}
+.dd-tabs b {
+  font-size: 1.3em;
+  font-weight: 500;
+}
+.dd-tabs em {
+  font-size: 1.3em;
+  font-style: normal;
+  color: var(--muted);
+}
+.dd-tabs em.bad {
+  color: var(--bad);
+}
+
+.dd-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dd-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 1em 1.2em;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-filter span {
+  padding: 0.3em 0.7em;
+  border-radius: 0.5em;
+  font-size: 1.25em;
+  color: var(--muted);
+}
+.dd-filter span.on {
+  background: var(--soft);
+  color: var(--fg);
+  font-weight: 500;
+}
+.dd-filter .by {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-left: auto;
+  color: var(--muted);
+}
+.dd-filter .by svg.i {
+  color: var(--fork);
+}
+
+/* A test, with its conditions forking under it. */
+.dd-test {
+  padding: 1.4em 1.8em;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-test-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+}
+.dd-test-row .name {
+  font-size: 1.4em;
+  font-weight: 500;
+}
+.dd-test-row .when {
+  margin-left: auto;
+  font-size: 1.2em;
+  color: var(--muted);
+}
+.dd-forks {
+  display: flex;
+  flex-direction: column;
+  margin: 0.6em 0 0 1.1em;
+  border-left: 0.15em solid var(--fork-line);
+}
+.dd-fork {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding: 0.55em 0 0.55em 2em;
+}
+.dd-fork::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1.2em;
+  border-top: 0.15em solid var(--fork-line);
+}
+.dd-fork:last-child {
+  border-left: 0.15em solid #fff;
+  margin-left: -0.15em;
+}
+.dd-fork:last-child::before {
+  top: 0;
+  height: 50%;
+  margin-left: -0.15em;
+  border-left: 0.15em solid var(--fork-line);
+  border-bottom: 0.15em solid var(--fork-line);
+  border-top: 0;
+  border-bottom-left-radius: 0.6em;
+}
+.dd-fork .name {
+  font-size: 1.3em;
+}
+.dd-fork .bad {
+  margin-left: auto;
+  font-size: 1.2em;
+  color: var(--bad);
+}
+
+/* Exploring: the browser on the left, what it found on the right. */
+.dd-pass {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 4em;
+}
+.dd-browser {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.1em solid var(--line);
+  border-radius: 1.2em;
+  background: #fff;
+  box-shadow: 0 1em 2.4em -0.8em rgb(0 0 0 / 0.18);
+}
+.dd-browser-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1.2em;
+  padding: 0.8em 1.2em;
+  border-bottom: 0.1em solid var(--line);
+  background: #fafafa;
+}
+.dd-browser-bar > i {
+  display: flex;
+  gap: 0.6em;
+}
+.dd-browser-bar > i::before,
+.dd-browser-bar > i::after,
+.dd-browser-bar > i b {
+  content: "";
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  background: rgb(10 10 10 / 0.15);
+}
+.dd-browser-url {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.4em 1em;
+  border-radius: 0.6em;
+  background: #fff;
+  color: var(--muted);
+}
+.dd-frame {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+/* Harbor Vault inside a window: its drawing is sized for a 94em browser, so it gets its own font size. */
+.dd-scale {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dd-doing {
+  position: absolute;
+  bottom: 1.2em;
+  left: 1.2em;
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  padding: 0.8em 1.2em;
+  border: 0.1em solid var(--line);
+  border-radius: 0.8em;
+  background: rgb(255 255 255 / 0.9);
+  box-shadow: 0 0.6em 1.4em -0.4em rgb(0 0 0 / 0.2);
+}
+.dd-live {
+  display: flex;
+  flex-direction: column;
+  gap: 2em;
+  padding-top: 0.4em;
+}
+.dd-live-top {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  color: var(--muted);
+}
+.dd-live-top .dot {
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 0.35em rgb(3 105 161 / 0.15);
+}
+.dd-live-top .dd-btn {
+  height: 2.8em;
+  margin-left: auto;
+}
+.dd-live h5 {
+  font-size: 2em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.dd-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2em;
+}
+.dd-outcome {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+}
+.dd-outcome p {
+  display: flex;
+  flex-direction: column;
+}
+.dd-outcome b {
+  font-size: 1.4em;
+  font-weight: 500;
+}
+.dd-outcome b em {
+  padding-left: 0.4em;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+}
+.dd-outcome small {
+  font-size: 1.2em;
+  color: var(--muted);
+}
+.dd-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  mask-image: linear-gradient(to top, transparent, #000 4em);
+}
+.dd-feed li {
+  position: relative;
+  padding-left: 1.6em;
+  list-style: none;
+}
+.dd-feed li i {
+  position: absolute;
+  top: 0.6em;
+  left: 0;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+}
+.dd-feed li span {
+  font-size: 1.35em;
+  color: var(--muted);
+}
+.dd-feed li:first-child span,
+.dd-feed li.bug span {
+  color: var(--fg);
+}
+.dd-thumbs {
+  display: flex;
+  gap: 0.8em;
+}
+.dd-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  width: 13em;
+  padding: 0.5em;
+  border: 0.1em solid var(--line);
+  border-radius: 0.8em;
+}
+.dd-thumb.on {
+  border-color: rgb(10 10 10 / 0.4);
+}
+.dd-thumb > i {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 0.4em;
+  background: #f4f6f9;
+}
+.dd-thumb > i::before {
+  content: "";
+  position: absolute;
+  inset: 22% 52% 18% 6%;
+  border-radius: 0.3em;
+  background: #fff;
+  box-shadow: 0 0 0 0.08em #e1e6ee;
+}
+.dd-thumb > i::after {
+  content: "";
+  position: absolute;
+  inset: 22% 6% 50% 52%;
+  border-radius: 0.3em;
+  background: #fff;
+  box-shadow: 0 0 0 0.08em #e1e6ee;
+}
+.dd-thumb span {
+  overflow: hidden;
+  padding: 0 0.2em;
+  font-size: 1.2em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A test. */
+.dd-crumb {
+  margin-bottom: -1.4em;
+}
+.dd-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.2em;
+}
+.dd-title h4 {
+  font-size: 2.4em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.dd-status {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  margin-top: -1.4em;
+  color: var(--muted);
+}
+.dd-status .good {
+  color: var(--good);
+}
+.dd-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3.2em;
+}
+.dd-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.8em;
+  min-width: 0;
+}
+.dd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+.dd-field h6 {
+  font-size: 1.3em;
+  font-weight: 500;
+  color: var(--muted);
+}
+.dd-field p {
+  font-size: 1.4em;
+}
+.dd-proved {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8em;
+  color: var(--muted);
+}
+.dd-proved svg.i {
+  margin-top: 0.15em;
+  color: #059669;
+}
+.dd-steps {
+  display: flex;
+  flex-direction: column;
+}
+.dd-step {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  padding: 1.1em 1.4em;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-step:last-child {
+  border-bottom: 0;
+}
+.dd-step p {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2em;
+  min-width: 0;
+}
+.dd-step b {
+  font-size: 1.35em;
+  font-weight: 500;
+}
+.dd-step small {
+  overflow: hidden;
+  font-size: 1.15em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+.dd-step > i {
+  position: relative;
+  flex: none;
+  width: 7.2em;
+  height: 4.4em;
+  overflow: hidden;
+  border: 0.1em solid var(--line);
+  border-radius: 0.5em;
+  background: #f4f6f9;
+}
+.dd-step > i::before {
+  content: "";
+  position: absolute;
+  inset: 26% 50% 14% 8%;
+  border-radius: 0.2em;
+  background: #fff;
+}
+.dd-step > i::after {
+  content: "";
+  position: absolute;
+  inset: 62% 54% 22% 12%;
+  border-radius: 0.2em;
+  background: #0b5560;
+  opacity: 0.8;
+}
+.dd-video {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.2em;
+  background: #0a0a0a;
+}
+.dd-video .dd-frame {
+  opacity: 0.9;
+}
+.dd-video-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  padding: 3em 1.6em 1.2em;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.75), transparent);
+  color: #fff;
+}
+.dd-video-bar svg.i {
+  fill: currentColor;
+}
+.dd-video-bar .track {
+  position: relative;
+  flex: 1;
+  height: 0.35em;
+  border-radius: 1em;
+  background: rgb(255 255 255 / 0.3);
+}
+.dd-video-bar .track b {
+  position: absolute;
+  inset: 0 38% 0 0;
+  border-radius: 1em;
+  background: #fff;
+}
+.dd-wallet-row {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding: 1.1em 1.6em;
+  border-top: 0.1em solid var(--line);
+}
+.dd-wallet-row p {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2em;
+}
+.dd-wallet-row b {
+  font-size: 1.3em;
+  font-weight: 500;
+}
+.dd-wallet-row small {
+  font-size: 1.15em;
+  color: var(--muted);
+}
+.dd-wallet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 1.2em 1.6em;
+}
+
+/* Add a test: the form, open over the dimmed app page. */
+.dd-tile.pink {
+  background: rgb(236 72 153 / 0.1);
+  color: #db2777;
+}
+.dd-btn.ghost {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+}
+.dd-dim {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.2em;
+  background: rgb(0 0 0 / 0.5);
+}
+.dd-dialog {
+  position: absolute;
+  top: 5.6em;
+  left: 15em;
+  display: flex;
+  flex-direction: column;
+  width: 90em;
+  overflow: hidden;
+  border-radius: 1.6em;
+  background: #fff;
+  box-shadow: 0 2.5em 5em -1.2em rgb(0 0 0 / 0.45);
+}
+.dd-dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  padding: 2.8em 3.2em 2.4em;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-dialog-head b {
+  font-size: 2.4em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+.dd-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2.4em;
+  padding: 2.8em 3.2em 3.2em;
+}
+.dd-q {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 3.2em;
+  align-items: start;
+}
+.dd-q-label {
+  display: flex;
+  gap: 1.2em;
+}
+.dd-q-label p {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+.dd-q-label b {
+  font-size: 1.4em;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.dd-q-label span {
+  color: var(--muted);
+  font-size: 1.4em;
+  line-height: 1.4;
+}
+.dd-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 4.4em;
+  padding: 0 1.4em;
+  border: 0.1em solid var(--line);
+  border-radius: 0.8em;
+  box-shadow: 0 0.1em 0.2em rgb(0 0 0 / 0.04);
+}
+.dd-input span {
+  font-size: 1.4em;
+}
+.dd-input svg.i {
+  color: var(--muted);
+}
+.dd-input.area {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.4em;
+  min-height: 8em;
+  padding: 1.2em 1.4em;
+}
+.dd-optional {
+  display: flex;
+  align-items: baseline;
+  gap: 1.2em;
+  padding-top: 2.4em;
+  border-top: 0.1em solid var(--line);
+}
+.dd-optional b {
+  font-size: 1.4em;
+  font-weight: 500;
+}
+.dd-dialog-foot {
+  display: flex;
+  align-items: center;
+  padding: 1.6em 3.2em;
+  border-top: 0.1em solid var(--line);
+  background: rgb(245 245 245 / 0.4);
+}
+
+/* Runs: the app's run history, and the email a failed daily run sends. */
+.dd-runs-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+.dd-runs-head b {
+  font-size: 2.4em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+.dd-run {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  padding: 1.2em 1.6em;
+}
+.dd-run + .dd-run {
+  border-top: 0.1em solid var(--line);
+}
+.dd-run p {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2em;
+}
+.dd-run b {
+  font-size: 1.4em;
+  font-weight: 500;
+}
+.dd-run em {
+  font-style: normal;
+  color: var(--bad);
+}
+.dd-mail {
+  position: absolute;
+  right: 3em;
+  bottom: 3em;
+  width: 58em;
+  overflow: hidden;
+  border: 0.1em solid var(--line);
+  border-radius: 1.4em;
+  background: #fff;
+  box-shadow: 0 2.5em 5em -1.5em rgb(0 0 0 / 0.35);
+}
+.dd-mail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4em;
+  padding: 2.2em 2.4em 1.8em;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-mail-head > b {
+  font-size: 1.8em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.dd-mail-from {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+.dd-mail-from p {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1em;
+}
+.dd-mail-from b {
+  font-weight: 600;
+}
+.dd-mail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2em;
+  padding: 2em 2.4em 2.4em;
+  font-family: var(--font-mono);
+}
+.dd-mail-body p {
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.dd-mail-link {
+  color: #1264a3;
+}
+.dd-mail-avatar {
+  display: grid;
+  place-items: center;
+  width: 3.2em;
+  height: 3.2em;
+  border-radius: 0.7em;
+  background: var(--soft);
+}
+.dd-mail-avatar .logo {
+  width: 2em;
+  height: 2em;
+}

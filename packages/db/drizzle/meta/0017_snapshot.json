@@ -1,5 +1,5 @@
 {
-  "id": "d779ecfe-6179-4125-886d-e91b3686f24b",
+  "id": "77d845fb-15a9-40dd-b2e2-2aa8fc3adbde",
   "prevId": "3cfd6169-5ab0-4d45-ad14-88e5b796da55",
   "version": "7",
   "dialect": "postgresql",
@@ -981,6 +981,32 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.early_access": {
+      "name": "early_access",
+      "schema": "",
+      "columns": {
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.explorations": {
       "name": "explorations",
       "schema": "",
@@ -1297,12 +1323,6 @@
           "notNull": true,
           "default": "'manual'"
         },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -1543,12 +1563,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
-        },
-        "after": {
-          "name": "after",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         },
         "condition": {
           "name": "condition",

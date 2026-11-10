@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "corepack pnpm --parallel --filter @dappdrill/web --filter @dappdrill/worker dev",
+    "site": "corepack pnpm --filter @dappdrill/site dev",
     "typecheck": "corepack pnpm -r --parallel typecheck",
     "test": "corepack pnpm -r test",
     "db:generate": "corepack pnpm --filter @dappdrill/db generate",
