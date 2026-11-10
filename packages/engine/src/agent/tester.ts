@@ -17,7 +17,7 @@ import { decodeWalletRequest } from "./wallet-decode.js";
 const FAST_TURNS = 14;
 const STRONG_TURNS = 20;
 
-export const STEP_SYSTEM = `You carry out one step of an end-to-end test on a web app (often a web3 dApp with an injected test wallet).
+const STEP_SYSTEM = `You carry out one step of an end-to-end test on a web app (often a web3 dApp with an injected test wallet).
 You get the test's goal, all its steps, and the one step to do now. Do only that step, with as few actions as you can. If an earlier step's work is still queued or unfinished on the page, finish it first: the steps assume it was done.
 
 - Use the page as a user would: look, click, type, select. Prefer what is visible over guessing URLs.

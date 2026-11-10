@@ -52,7 +52,7 @@ export function labelIntent(label: string | undefined): Intent | undefined {
   return undefined;
 }
 
-export function functionIntent(functionName: string | undefined): Intent | undefined {
+function functionIntent(functionName: string | undefined): Intent | undefined {
   if (!functionName) return undefined;
   const name = functionName.toLowerCase();
   for (const [re, intent] of FUNCTION_WORDS) if (re.test(name)) return intent;
@@ -60,7 +60,7 @@ export function functionIntent(functionName: string | undefined): Intent | undef
 }
 
 /** The button's USDC is the request's tUSDC or WETH is its ETH: a one- or two-letter prefix marks a test or wrapped version of the same token. */
-export function sameSymbol(said: string, actual: string): boolean {
+function sameSymbol(said: string, actual: string): boolean {
   const a = actual.toUpperCase();
   const s = said.toUpperCase();
   return a === s || (a.endsWith(s) && a.length - s.length <= 2);

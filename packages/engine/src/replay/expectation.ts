@@ -7,7 +7,7 @@ import { decodeFunctionData, maxUint160, maxUint256, parseAbi, parseUnits, type 
 import { applyParams, formatUnitsPlain, matchesFunction, type DecodedRequest, type WalletExpectation, type WalletRequest } from "@dappdrill/core";
 import type { ChainController } from "../types.js";
 
-export const PERMIT2 = "0x000000000022d473030f116ddee9f6b43ac78ba3";
+const PERMIT2 = "0x000000000022d473030f116ddee9f6b43ac78ba3";
 
 const BUILTIN_ABI = parseAbi([
   "function approve(address spender, uint256 amount)",

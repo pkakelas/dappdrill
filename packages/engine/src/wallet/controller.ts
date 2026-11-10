@@ -548,7 +548,7 @@ export class Wallet implements WalletController {
   }
 }
 
-export function kindOf(method: string): WalletRequest["kind"] {
+function kindOf(method: string): WalletRequest["kind"] {
   if (method === "eth_requestAccounts" || method === "wallet_requestPermissions") return "connect";
   if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") return "switch";
   if ((SIGN_METHODS as readonly string[]).includes(method)) return "sign";

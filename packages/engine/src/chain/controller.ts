@@ -70,7 +70,7 @@ const MAX_HINTS = 6;
  * otherwise the first RPC the app offered, then the first host the page
  * called, that answers as that chain.
  */
-export async function configForApp(req: AddChainRequest): Promise<ChainConfig> {
+async function configForApp(req: AddChainRequest): Promise<ChainConfig> {
   const info = chainInfo(req.id);
   if (info) return { id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: info.forkable ? "fork" : "live", fromApp: true };
   const offered = req.rpcUrls.filter((u) => /^https?:\/\//i.test(u)).slice(0, 3);

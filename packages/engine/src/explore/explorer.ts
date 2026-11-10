@@ -33,7 +33,7 @@ export interface ExplorerJob {
   more?: string;
 }
 
-export const EXPLORER_SYSTEM = `You explore one feature of a web app, usually a web3 dApp, with a test wallet on a local fork. You find out what works and what doesn't by acting and then checking. Other explorers have the rest of the app.
+const EXPLORER_SYSTEM = `You explore one feature of a web app, usually a web3 dApp, with a test wallet on a local fork. You find out what works and what doesn't by acting and then checking. Other explorers have the rest of the app.
 
 How to work:
 1. Call begin_path before each thing you try. By default it puts the chain back and starts clean, so paths don't affect each other. Use fresh=false to carry on from where you are.
@@ -104,7 +104,7 @@ const DOING: Record<string, (i: any) => string> = {
 };
 
 /** What was around when a bug showed: the page, console errors, failing hosts, and what the wallet saw. */
-export async function gatherEvidence(session: EngineSession): Promise<BugEvidence> {
+async function gatherEvidence(session: EngineSession): Promise<BugEvidence> {
   return {
     screenshot: await session.screenshot(`bug-${newId("shot")}`).catch(() => undefined),
     console: session.console.filter((c) => c.level === "error" || c.level === "pageerror").slice(-5).map((c) => c.text.slice(0, 300)),

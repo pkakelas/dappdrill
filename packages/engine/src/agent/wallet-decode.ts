@@ -178,7 +178,7 @@ function bigintSafe(_k: string, v: unknown) {
   return typeof v === "bigint" ? v.toString() : v;
 }
 
-export function short(addr: string | undefined): string {
+function short(addr: string | undefined): string {
   if (!addr) return "(none)";
   return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 }

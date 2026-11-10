@@ -40,7 +40,7 @@ export interface BridgeResponse {
 
 export const BINDING_NAME = "__dappdrillBridge";
 
-export function installDappDrillWallet(cfg: InjectConfig): void {
+function installDappDrillWallet(cfg: InjectConfig): void {
   const w = window as any;
   if (w.__dappdrill) return;
 

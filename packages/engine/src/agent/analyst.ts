@@ -11,7 +11,7 @@ import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, inboxTool, noteTool, Recorder } from "./tools.js";
 import { walletLine } from "./tester.js";
 
-export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a web3 dApp, with a test wallet injected on a local fork) to learn it and pick what to test.
+const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a web3 dApp, with a test wallet injected on a local fork) to learn it and pick what to test.
 
 1. Look around like a new user: the landing page, the main navigation, the pages where the real work happens. Connect the wallet if that unlocks the app. Don't send transactions, but do approve what a new user needs to get going (a sign-in, enabling the account, a faucet or mint for test funds) and see what it gives you: you can't tell what setup needs without it. The wallet is a throwaway test account.
 2. Call note each time you learn something that matters (a page and its purpose, what needs the wallet). People watch the titles come in, so write each like a heading of 3 to 7 words ("Swap and bridge on the landing page", "Wallet connects without signing") and put the specifics in detail, which only you see.

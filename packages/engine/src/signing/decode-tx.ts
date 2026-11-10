@@ -126,7 +126,7 @@ function safeSelector(item: AbiFunction): string | undefined {
   }
 }
 
-export function signatureOf(item: AbiFunction): string {
+function signatureOf(item: AbiFunction): string {
   const typeOf = (p: { type: string; components?: readonly { type: string; components?: readonly unknown[] }[] }): string =>
     p.type.startsWith("tuple") ? `(${(p.components ?? []).map((c) => typeOf(c as typeof p)).join(",")})${p.type.slice(5)}` : p.type;
   return `${item.name}(${item.inputs.map((i) => typeOf(i)).join(",")})`;

@@ -53,11 +53,11 @@ async function slotsRead(rpc: Rpc, token: Hex, holder: Hex): Promise<Hex[]> {
   }
 }
 
-export function solidityKey(addr: Hex, slot: bigint): Hex {
+function solidityKey(addr: Hex, slot: bigint): Hex {
   return keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [addr, slot]));
 }
 
-export function vyperKey(addr: Hex, slot: bigint): Hex {
+function vyperKey(addr: Hex, slot: bigint): Hex {
   return keccak256(encodeAbiParameters([{ type: "uint256" }, { type: "address" }], [slot, addr]));
 }
 

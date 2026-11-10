@@ -6,7 +6,7 @@
 import { TestDraft, type AppMap } from "@dappdrill/core";
 import type { Llm } from "../types.js";
 
-export const WRITE_SYSTEM = `You write end-to-end tests for a web app in plain English, for busy developers.
+const WRITE_SYSTEM = `You write end-to-end tests for a web app in plain English, for busy developers.
 - name: what the user does, e.g. "Limit sell on ETH perp".
 - goal: one sentence.
 - expected: one sentence about what the page shows at the end when it worked: final values ("Balance shows 5 USDC"), not changes ("rises by 5") or earlier moments, and no prices or rates that move. Amounts can be rounded on screen, so say "about 0.01 stETH". When you are told the tests run on a live chain, the account's figures differ on every run: there say the change ("Cash falls by about $20"), which the run judges against what the page showed before its first step.

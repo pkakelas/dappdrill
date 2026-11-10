@@ -10,7 +10,7 @@ import { detectBotCheck } from "../browser/access.js";
 import { fillField } from "../replay/fill.js";
 import type { AgentTool, AgentToolResult, DrillSession, Inbox } from "../types.js";
 import { elementByRef, formatSnapshot, locatorFor, takeSnapshot } from "./snapshot.js";
-import { decodeWalletRequest, matchTypedAmount, short } from "./wallet-decode.js";
+import { decodeWalletRequest, matchTypedAmount } from "./wallet-decode.js";
 
 const SETTLE_MS = 600;
 const ACTION_SNAPSHOT_CHARS = 9_000;
@@ -409,27 +409,4 @@ export function describeRequest(r: WalletRequest): string {
 export async function settle(session: DrillSession): Promise<void> {
   await session.page.waitForTimeout(SETTLE_MS);
   await session.page.waitForLoadState("networkidle", { timeout: 2_500 }).catch(() => null);
-}
-
-/** Render a script's steps for the model, one per line with indices. */
-export function listSteps(steps: Step[], params: Record<string, string> = {}): string {
-  return steps
-    .map((s, i) => {
-      const t = (l?: { name?: string; text?: string; label?: string; placeholder?: string; testId?: string; css?: string }) =>
-        l ? `"${l.name ?? l.text ?? l.label ?? l.placeholder ?? l.testId ?? l.css ?? "?"}"` : "";
-      let body: string;
-      switch (s.kind) {
-        case "goto": body = `goto ${s.url}`; break;
-        case "click": body = `click ${t(s.target)}`; break;
-        case "fill": body = `fill ${t(s.target)} with "${applyParams(s.value, params)}"`; break;
-        case "select": body = `select "${s.value}" in ${t(s.target)}`; break;
-        case "press": body = `press ${s.key}${s.target ? ` on ${t(s.target)}` : ""}`; break;
-        case "wait": body = `wait ${s.until}${s.text ? ` "${s.text}"` : ""}${s.ms ? ` ${s.ms}ms` : ""}`; break;
-        case "wallet": body = `wallet ${s.respond}${s.expect?.functionName ? ` ${s.expect.functionName}` : ""}${s.expect?.to ? ` to ${short(s.expect.to)}` : ""}`; break;
-        case "expect": body = `expect ${s.assert.type} ${"text" in s.assert ? `"${s.assert.text}"` : s.assert.contains}`; break;
-        case "email-code": body = `email-code into ${t(s.target)}`; break;
-      }
-      return `${i}. ${body}${s.note ? `  (${s.note})` : ""}`;
-    })
-    .join("\n");
 }

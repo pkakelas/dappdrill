@@ -256,7 +256,7 @@ function describeExpectation(exp: WalletExpectation): string {
 }
 
 /** Fields compared against the accepted baseline. */
-export function baselineFields(review: Pick<SigningReview, "decoded" | "approvals" | "chainId">): Record<string, string | undefined> {
+function baselineFields(review: Pick<SigningReview, "decoded" | "approvals" | "chainId">): Record<string, string | undefined> {
   const a = review.approvals[0];
   return {
     target: review.decoded.to?.toLowerCase(),

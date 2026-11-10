@@ -88,7 +88,7 @@ export async function pickUpstream(config: ChainConfig, log?: (message: string) 
 const kept = new Map<string, { score: Promise<number>; at: number }>();
 
 /** How many of a few tries found state from half an hour ago at this RPC. All of them is remembered for ten minutes. */
-export async function keepsState(url: string, fresh = false): Promise<number> {
+async function keepsState(url: string, fresh = false): Promise<number> {
   if (LOCAL.test(url)) return PROBES;
   const hit = kept.get(url);
   if (hit && ((await hit.score) === PROBES ? Date.now() - hit.at < CACHE_MS : !fresh && Date.now() - hit.at < CACHE_UNSURE_MS)) return hit.score;

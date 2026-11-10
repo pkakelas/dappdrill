@@ -19,7 +19,7 @@ export class JsonRpcError extends Error {
   }
 }
 
-export function isJsonRpcError(e: unknown): e is JsonRpcError {
+function isJsonRpcError(e: unknown): e is JsonRpcError {
   return e instanceof JsonRpcError || (typeof e === "object" && e !== null && typeof (e as any).code === "number" && typeof (e as any).message === "string");
 }
 
@@ -68,11 +68,6 @@ export function probeChainId(url: string): Promise<number | undefined> {
     chainIdCache.set(url, p);
   }
   return p;
-}
-
-/** Lets tests pre-seed or reset the probe cache. */
-export function setProbedChainId(url: string, chainId: number | undefined): void {
-  chainIdCache.set(url, Promise.resolve(chainId));
 }
 
 export function hexToNumber(hex: unknown): number {

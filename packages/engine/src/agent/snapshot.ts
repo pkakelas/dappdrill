@@ -53,7 +53,7 @@ interface ElementFacts {
   cssPath: string;
 }
 
-export const REF_ATTR = "data-dd-ref";
+const REF_ATTR = "data-dd-ref";
 const DEFAULT_MAX_CHARS = 14_000;
 const TEXT_CHARS = 2_000;
 

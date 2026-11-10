@@ -214,7 +214,7 @@ async function reproduce(run: ExploreRun, env: Env, bugId: string): Promise<void
   }
 }
 
-export function describeBug(bug: ExploreBug, withEvidence = true): string {
+function describeBug(bug: ExploreBug, withEvidence = true): string {
   const lines = [
     `Bug ${bug.id}: ${bug.name}`,
     bug.summary,

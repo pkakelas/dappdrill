@@ -62,17 +62,3 @@ export async function runTool(tool: AgentTool, input: unknown): Promise<{ result
     return { result: { text: `${tool.name} failed: ${err instanceof Error ? err.message : String(err)}` }, isError: true };
   }
 }
-
-/** Pull a JSON object out of a text reply (plain or fenced). */
-export function extractJson(text: string): unknown {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-  const candidate = fenced?.[1] ?? text;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  if (start < 0 || end < start) throw new LlmError("invalid_output", "No JSON object in the reply");
-  try {
-    return JSON.parse(candidate.slice(start, end + 1));
-  } catch (err) {
-    throw new LlmError("invalid_output", `Reply is not valid JSON: ${(err as Error).message}`);
-  }
-}

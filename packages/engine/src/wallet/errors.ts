@@ -2,7 +2,7 @@ import { chainName, type WalletRequest } from "@dappdrill/core";
 import { JsonRpcError } from "../chain/rpc.js";
 
 /** How a step can tell our wallet couldn't pay from an app failure. */
-export const NO_LIVE_KEY = "no funded test key";
+const NO_LIVE_KEY = "no funded test key";
 
 /**
  * Why our wallet couldn't pay for a request, when that is why it failed: a live chain with no key, or a key

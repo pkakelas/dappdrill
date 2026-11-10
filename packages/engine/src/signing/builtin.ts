@@ -91,7 +91,7 @@ export const TRANSFER_EVENTS_ABI = parseAbi([
 ]);
 
 export const PERMIT2_ADDRESS: Address = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
-export const MULTICALL3_ADDRESS: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
+const MULTICALL3_ADDRESS: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
 
 interface Known {
   name: string;
