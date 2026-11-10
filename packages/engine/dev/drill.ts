@@ -208,6 +208,7 @@ async function run(): Promise<void> {
         console.log(`${clock()}  ${o.status.padEnd(6)} ${t.spec.name}${o.status === "pass" ? "" : `\n            ↳ ${o.result.failure ?? failed?.note ?? o.result.verdict?.reason ?? ""}`}`);
         if (o.status !== "pass") return;
         if (o.steps) t.spec.steps = o.steps;
+        if (o.after) t.spec.after = o.after;
         // A draft that passes from a clean start has proved itself.
         if (t.status === "draft") Object.assign(t, { status: "proved", note: undefined });
       },

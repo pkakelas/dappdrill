@@ -45,7 +45,8 @@ const LOOK_SYSTEM = `You get a couple of minutes in a web app (often a web3 dApp
 Tests are read by busy developers. Write them plainly:
 - name: what the user does, e.g. "Deposit USDC into the vault".
 - goal: one sentence.
-- expected: one sentence about what the page shows at the end when it worked: final values ("Deposited shows 5 USDC"), not changes or earlier moments, and no prices or rates that move. Say "about" for amounts the page may round. On a live chain the account's figures differ on every run, so there say the change instead ("Cash falls by about $20", "Orders lists one more resting order"): the run notes those figures before its first step.
+- expected: one sentence about what the page shows at the end when it worked: final values ("Deposited shows 5 USDC"), not changes or earlier moments, and no prices or rates that move. Say "about" for amounts the page may round. On a live chain the account's figures differ on every run, so there say the change instead ("Cash falls by about $20", "Orders lists one more resting order"): the run notes those figures before its first step. Name what stays on the page, not a notice that fades a moment later.
+- steps that type an amount meant to be more than a balance or over a limit go far past it (ten times what the page shows), since the balance will differ next run.
 - steps: 3 to 8 short imperative steps of 3 to 7 words, at the level a user thinks ("Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet"). No selectors.
 Use small amounts.
 

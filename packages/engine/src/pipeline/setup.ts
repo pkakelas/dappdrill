@@ -171,7 +171,7 @@ async function runSetup(
           const resetSpec: TestSpec = { id: "reset", name: "Reset", goal: RESET_GOAL, expected: "Nothing from earlier runs is left open.", startPath: setup.startPath, steps: [step] };
           const one = [step];
           const its = [run.resetResults[i]!];
-          const w = await walkSteps(env, session, resetSpec, one, its, reviews, { ...opts, shotPrefix: `reset-step${i + 1}-`, progress: () => opts.progress(results, run.resetResults) }).catch((e) => ({ failure: plain(e) }));
+          const w = await walkSteps(env, session, resetSpec, one, its, reviews, { ...opts, bestEffort: true, shotPrefix: `reset-step${i + 1}-`, progress: () => opts.progress(results, run.resetResults) }).catch((e) => ({ failure: plain(e) }));
           run.reset[i] = one[0]!;
           run.resetResults[i] = its[0]!;
           if (w.failure) undone.push(w.failure.replace(/^Step 1, /, `Step ${i + 1}, `));

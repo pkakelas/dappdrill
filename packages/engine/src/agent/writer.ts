@@ -9,8 +9,8 @@ import type { Llm } from "../types.js";
 export const WRITE_SYSTEM = `You write end-to-end tests for a web app in plain English, for busy developers.
 - name: what the user does, e.g. "Limit sell on ETH perp".
 - goal: one sentence.
-- expected: one sentence about what the page shows at the end when it worked: final values ("Balance shows 5 USDC"), not changes ("rises by 5") or earlier moments, and no prices or rates that move. Amounts can be rounded on screen, so say "about 0.01 stETH". When you are told the tests run on a live chain, the account's figures differ on every run: there say the change ("Cash falls by about $20"), which the run judges against what the page showed before its first step.
-- steps: 3 to 8 short imperative steps of 3 to 7 words, at the level a user thinks ("Connect the wallet", "Open the ETH market", "Enter 0.01 as size"). No selectors.
+- expected: one sentence about what the page shows at the end when it worked: final values ("Balance shows 5 USDC"), not changes ("rises by 5") or earlier moments, and no prices or rates that move. Amounts can be rounded on screen, so say "about 0.01 stETH". When you are told the tests run on a live chain, the account's figures differ on every run: there say the change ("Cash falls by about $20"), which the run judges against what the page showed before its first step. Name what stays on the page, not a notice that fades a moment later.
+- steps: 3 to 8 short imperative steps of 3 to 7 words, at the level a user thinks ("Connect the wallet", "Open the ETH market", "Enter 0.01 as size"). No selectors. An amount that must be more than a balance or over a limit goes far past it (ten times what the page shows), since the balance will differ next run.
 When you change an existing test, keep every step that still applies word for word, so its recorded actions are reused. Change only what the request needs.
 The request can come with the developer's answers on the lines under it. They know the app, so take them as given:
 - "What shows it worked" is the expected result: keep their texts and values, in the form above.

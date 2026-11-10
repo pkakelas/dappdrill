@@ -8,11 +8,14 @@ import { z } from "zod";
 import { applyParams, type Blocked, type ReplayScript, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
 import { detectBotCheck } from "../browser/access.js";
 import { fillField } from "../replay/fill.js";
+import { waitQuiet } from "../replay/quiet.js";
 import type { AgentTool, AgentToolResult, DrillSession, Inbox } from "../types.js";
 import { elementByRef, formatSnapshot, locatorFor, takeSnapshot } from "./snapshot.js";
 import { decodeWalletRequest, matchTypedAmount, short } from "./wallet-decode.js";
 
 const SETTLE_MS = 600;
+/** How long a busy button gets to finish before the model looks at the page. */
+const QUIET_MS = 10_000;
 const ACTION_SNAPSHOT_CHARS = 9_000;
 
 export interface RecordedScript {
@@ -405,9 +408,10 @@ export function describeRequest(r: WalletRequest): string {
   return `- ${r.id} ${decodeWalletRequest(r).summary} → ${r.outcome}${r.error ? ` (${r.error})` : ""}`;
 }
 
-/** Give the app a moment to react, then wait for network quiet (bounded). */
+/** Give the app a moment to react, let a busy button ("Placing…") finish, then wait for network quiet (bounded). */
 export async function settle(session: DrillSession): Promise<void> {
   await session.page.waitForTimeout(SETTLE_MS);
+  await waitQuiet(session.page, QUIET_MS);
   await session.page.waitForLoadState("networkidle", { timeout: 2_500 }).catch(() => null);
 }
 

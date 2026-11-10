@@ -19,6 +19,14 @@ describe("skippedBy", () => {
     expect(skippedBy([], [click("Anything")])).toBeUndefined();
   });
 
+  it("takes a doing of the same kind under a new name as the control renamed", () => {
+    expect(skippedBy([click("Deposit")], [click("Add funds")])).toBeUndefined();
+    expect(skippedBy(recorded, [click("Edit"), fill("Price", "210"), click("Save")])).toBeUndefined();
+    // A click in another's place doesn't stand in for an entry or a signature.
+    expect(skippedBy(recorded, [click("Edit"), click("Save changes"), click("More")])).toBe("Price");
+    expect(skippedBy([click("Confirm"), wallet("Sign the order")], [click("Confirm"), click("Later")])).toBe("Sign the order");
+  });
+
   it("ignores doings with nothing to name", () => {
     expect(skippedBy([{ kind: "click", target: { css: ".row:nth-child(2)" } }, click("Save")], [click("Save")])).toBeUndefined();
   });

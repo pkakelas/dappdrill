@@ -63,7 +63,7 @@ export function makeIssue(ctx: IssueContext, draft: IssueDraft): Issue {
   };
 }
 
-const BUSY_TEXT = /confirm|pending|processing|loading|submitting|waiting|sending|signing|approving|depositing|withdrawing|swapping|in progress|\.{3}|…/i;
+export const BUSY_TEXT = /confirm|pending|processing|loading|submitting|waiting|sending|signing|approving|depositing|withdrawing|swapping|in progress|\.{3}|…/i;
 const MESSAGE_TEXT = /reject|cancel|denied|declined|error|fail|unsuccessful|try again|insufficient|not enough|exceeds? (your |the )?(available |wallet )?balance|balance (is )?too low|wrong network|switch (the )?network|unsupported (chain|network)|something went wrong|unavailable/i;
 
 export interface RecoveryState {

@@ -33,7 +33,15 @@ export interface WalkOptions {
   shotPrefix?: string;
   /** After each step starts and passes. */
   progress?: () => Promise<void> | undefined;
+  /**
+   * Steps whose failure is told rather than fatal (the reset): the fast model gets more turns
+   * and the acting model never takes over, since many a small action is the usual shape there.
+   */
+  bestEffort?: boolean;
 }
+
+/** Turns the fast model gets on a best-effort step: enough to cancel a list of orders one by one. */
+const BEST_EFFORT_TURNS = 30;
 
 /**
  * Does each step in turn: cached actions first, the fast model when they break.
@@ -70,20 +78,35 @@ export async function walkSteps(
     session.touch();
     const t0 = Date.now();
     const out = await runStep(
-      { session, fast: env.fastLlm(), strong: env.actLlm(), map: opts.map, inbox: env.inbox, replay, beforeApprove, walletBackends: () => session.traffic.hostsTold(session.wallet.address()), signal },
+      {
+        session,
+        fast: env.fastLlm(),
+        strong: opts.bestEffort ? undefined : env.actLlm(),
+        turns: opts.bestEffort ? BEST_EFFORT_TURNS : undefined,
+        map: opts.map,
+        inbox: env.inbox,
+        replay,
+        beforeApprove,
+        walletBackends: () => session.traffic.hostsTold(session.wallet.address()),
+        signal,
+      },
       { ...spec, steps },
       i,
     );
     if (out.blocked) throw new BlockedError(out.blocked);
     // A path that skips something the recorded one did by name isn't the step done another way,
-    // so it doesn't replace the recording: the next run tries the recorded path again.
+    // so it doesn't replace the recording: the next run tries the recorded path again. Nor is one
+    // that signs where the recorded one didn't: that is an earlier step's work done over. And a
+    // path with nothing in it (the step was already true) would make the step a no-op for good.
     const skipped = out.actions && step.actions ? skippedBy(step.actions, out.actions) : undefined;
-    if (out.actions && !skipped) steps[i] = { text: step.text, actions: out.actions };
+    const signed = out.actions && step.actions && !step.actions.some((a) => a.kind === "wallet") && out.actions.some((a) => a.kind === "wallet");
+    const kept = skipped ? `Done without “${skipped}”, which the recorded steps did; the recording is kept.` : signed ? "Signed with the wallet where the recorded steps didn't; the recording is kept." : undefined;
+    if (out.actions?.length && !kept) steps[i] = { text: step.text, actions: out.actions };
     results[i] = {
       status: out.ok ? "pass" : "fail",
       via: out.via,
       did: out.did,
-      note: skipped ? [out.note, `Done without “${skipped}”, which the recorded steps did; the recording is kept.`].filter(Boolean).join(" ") : out.note,
+      note: kept ? [out.note, kept].filter(Boolean).join(" ") : out.note,
       screenshot: await session.screenshot(`${opts.shotPrefix ?? "step"}${i + 1}`),
       durationMs: Date.now() - t0,
     };
@@ -98,19 +121,35 @@ export async function walkSteps(
   return {};
 }
 
-/** The first thing the recorded path did by name (a click, an entry, a signature) that the new one doesn't. */
+/**
+ * The first thing the recorded path did by name (a click, an entry, a signature) that the new one
+ * doesn't. A doing of the same kind under a new name in its place is the control renamed
+ * ("Deposit" became "Add funds"), not a skip.
+ */
 export function skippedBy(recorded: Step[], taken: Step[]): string | undefined {
-  const done = new Set(doings(taken).map((d) => d.key));
-  return doings(recorded).find((d) => !done.has(d.key))?.name;
+  const was = doings(recorded);
+  const known = new Set(was.map((d) => d.key));
+  const done = new Set<string>();
+  const renamed: Record<string, number> = {};
+  for (const d of doings(taken)) {
+    if (known.has(d.key)) done.add(d.key);
+    else renamed[d.kind] = (renamed[d.kind] ?? 0) + 1;
+  }
+  for (const d of was) {
+    if (done.has(d.key)) continue;
+    if (renamed[d.kind]) renamed[d.kind]!--;
+    else return d.name;
+  }
+  return undefined;
 }
 
-function doings(actions: Step[]): { key: string; name: string }[] {
-  const out: { key: string; name: string }[] = [];
+function doings(actions: Step[]): { key: string; kind: string; name: string }[] {
+  const out: { key: string; kind: string; name: string }[] = [];
   for (const a of actions) {
-    if (a.kind === "wallet") out.push({ key: "wallet", name: a.note ?? "the wallet request" });
+    if (a.kind === "wallet") out.push({ key: "wallet", kind: "wallet", name: a.note ?? "the wallet request" });
     else if (a.kind === "click" || a.kind === "fill" || a.kind === "select") {
       const name = a.target.name ?? a.target.label ?? a.target.text ?? a.target.placeholder ?? a.target.near;
-      if (name) out.push({ key: `${a.kind}:${name.toLowerCase()}`, name });
+      if (name) out.push({ key: `${a.kind}:${name.toLowerCase()}`, kind: a.kind, name });
     }
   }
   return out;

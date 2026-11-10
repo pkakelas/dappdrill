@@ -10,9 +10,12 @@ import type { PendingSignRequest } from "../wallet/controller.js";
 import { fillField } from "./fill.js";
 import { describeLocator, resolveLocator } from "./locators.js";
 import { checkExpectation, decodeBuiltin, describeAsked } from "./expectation.js";
+import { waitQuiet } from "./quiet.js";
 
 /** How long to look for an optional step's element before deciding it didn't show. */
 const OPTIONAL_TIMEOUT_MS = 4_000;
+/** How long a busy button ("Placing…") gets to finish after a click, before the next step. */
+const QUIET_MS = 15_000;
 /** A fork reads state upstream the first time, so a dApp's data can take half a minute to show. */
 export const STEP_TIMEOUT_MS = 45_000;
 
@@ -188,12 +191,17 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
 
   switch (step.kind) {
     case "goto":
+      // Leaving while the app is still placing or sending throws that work away.
+      await waitQuiet(page, QUIET_MS);
       await gotoUrl(session, step.url, params, timeout);
       return;
     case "click": {
       const el = await resolveLocator(page, step.target, timeout);
       await el.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
       await el.click({ timeout });
+      await page.waitForTimeout(300);
+      const busy = await waitQuiet(page, QUIET_MS);
+      if (busy) (env.opts.log ?? (() => {}))(`waited for “${busy}” to finish`);
       return;
     }
     case "fill": {

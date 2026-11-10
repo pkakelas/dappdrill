@@ -36,6 +36,8 @@ export interface StepDeps {
   fast: Llm;
   /** Gets the step once when the fast model runs out of turns or isn't sure. */
   strong?: Llm;
+  /** Turns the fast model gets; the default suits one user action. */
+  turns?: number;
   map?: AppMap;
   inbox?: Inbox;
   /** Replays cached actions from where the page is now. */
@@ -75,7 +77,7 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   /** What the latest click failed to reach, until a later click lands. */
   let stuckOn: string | undefined;
   const hooks: AttemptHooks = { onBlocked: (b) => (blocked = b), onClick: (failed) => (stuckOn = failed) };
-  const fast = await attempt(deps.fast, FAST_TURNS, deps, test, index, recorder, hooks, broke);
+  const fast = await attempt(deps.fast, deps.turns ?? FAST_TURNS, deps, test, index, recorder, hooks, broke);
   let done = fast.done;
   // The fast model tends to blame the app for a click of ours that failed, so that goes to the acting model too.
   if (done && !done.ok && stuckOn) done.cause = "unsure";
