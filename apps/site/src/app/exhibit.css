@@ -1,0 +1,400 @@
+/*
+ * Harbor Vault (the example dApp in fixtures/harbor-vault) and the test wallet's popup, shown inside the
+ * browser frames of the app pictures in app.css. Every size is in em, so they scale with the frame.
+ */
+
+/* Harbor Vault, in its own colours. */
+.hv {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: #f4f6f9;
+  color: #0d1b2a;
+}
+
+.hv-head {
+  display: flex;
+  align-items: center;
+  gap: 2.4em;
+  height: 5em;
+  padding: 0 2.4em;
+  border-bottom: 0.1em solid #e1e6ee;
+  background: #fff;
+}
+
+.hv-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+}
+
+.hv-brand i {
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 0.55em;
+  background: #0b5560;
+}
+
+.hv-brand b {
+  font-size: 1.5em;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.hv-nav {
+  display: flex;
+  gap: 0.4em;
+}
+
+.hv-nav span {
+  padding: 0.4em 0.8em;
+  border-radius: 0.5em;
+  color: #5b6878;
+  font-size: 1.25em;
+  font-weight: 500;
+}
+
+.hv-nav .on {
+  background: #f4f6f9;
+  color: #0d1b2a;
+}
+
+.hv-acct {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin-left: auto;
+  padding: 0.55em 1.1em;
+  border: 0.1em solid #e1e6ee;
+  border-radius: 9em;
+  background: #fff;
+}
+
+.hv-acct i {
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: 50%;
+  background: #2f9e6e;
+}
+
+.hv-acct span {
+  font-family: var(--font-mono);
+  font-size: 1.15em;
+}
+
+.hv-main {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  align-items: start;
+  gap: 1.8em;
+  padding: 2.4em;
+}
+
+.hv-col {
+  display: grid;
+  gap: 1.8em;
+}
+
+.hv-card {
+  padding: 2em;
+  border: 0.1em solid #e1e6ee;
+  border-radius: 1.2em;
+  background: #fff;
+}
+
+.hv-tabs {
+  display: flex;
+  gap: 0.4em;
+  width: max-content;
+  padding: 0.4em;
+  border-radius: 0.9em;
+  background: #f4f6f9;
+}
+
+.hv-tabs span {
+  padding: 0.4em 1.1em;
+  border-radius: 0.5em;
+  color: #5b6878;
+  font-size: 1.25em;
+  font-weight: 550;
+}
+
+.hv-tabs .on {
+  background: #fff;
+  color: #0d1b2a;
+  box-shadow: 0 0.08em 0.2em rgb(13 27 42 / 0.14);
+}
+
+.hv-label {
+  display: block;
+  margin-top: 1.6em;
+  color: #5b6878;
+  font-size: 1.15em;
+}
+
+.hv-input {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 0.7em;
+  padding: 1.1em 1.4em;
+  border: 0.1em solid #e1e6ee;
+  border-radius: 1em;
+}
+
+.hv-input b {
+  font-size: 2.6em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.hv-input span {
+  color: #5b6878;
+  font-size: 1.3em;
+  font-weight: 550;
+}
+
+.hv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1em;
+}
+
+.hv-row span {
+  color: #5b6878;
+  font-size: 1.15em;
+}
+
+.hv-row .hv-link {
+  color: #0b5560;
+  font-weight: 550;
+}
+
+.hv-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  margin-top: 1.4em;
+  padding: 0.85em;
+  border-radius: 0.75em;
+  background: #0b5560;
+  color: #fff;
+  font-size: 1.35em;
+  font-weight: 600;
+}
+
+.hv-btn.wait {
+  background: #a9c4c7;
+}
+
+.hv-btn.quiet {
+  margin: 0;
+  padding: 0.6em 1.1em;
+  border: 0.08em solid #e1e6ee;
+  background: #fff;
+  color: #0d1b2a;
+  font-size: 1.2em;
+  font-weight: 550;
+}
+
+.hv-note {
+  display: block;
+  margin-top: 1em;
+  color: #5b6878;
+  font-size: 1.1em;
+  text-align: center;
+}
+
+.hv-h {
+  display: block;
+  font-size: 1.9em;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.hv-sub {
+  display: block;
+  margin-top: 0.3em;
+  color: #5b6878;
+  font-size: 1.2em;
+}
+
+.hv-stats {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: space-between;
+  margin-top: 1.8em;
+}
+
+.hv-stats small,
+.hv-pos small {
+  display: block;
+  color: #5b6878;
+  font-size: 1.05em;
+}
+
+.hv-stats b {
+  display: block;
+  margin-top: 0.2em;
+  font-size: 1.7em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hv-pos b {
+  display: block;
+  margin-top: 0.15em;
+  font-size: 2.4em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.hv-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+}
+
+.hv-split b {
+  display: block;
+  font-size: 1.4em;
+  font-weight: 600;
+}
+
+.hv-split small {
+  display: block;
+  color: #5b6878;
+  font-size: 1.1em;
+}
+
+.spin {
+  width: 1em;
+  height: 1em;
+  border: 0.16em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ex-spin 0.9s linear infinite;
+}
+
+@keyframes ex-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The test wallet's request, where a wallet's popup opens. */
+.wl {
+  position: absolute;
+  top: 1.4em;
+  right: 2.4em;
+  z-index: 2;
+  width: 25em;
+  padding: 1.6em;
+  border-radius: 1.4em;
+  background: #fff;
+  color: #0f0f0e;
+  box-shadow:
+    0 0 0 0.1em rgb(15 15 14 / 0.08),
+    0 1.6em 3.6em -1em rgb(15 15 14 / 0.32);
+}
+
+.wl-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding-bottom: 1.2em;
+  border-bottom: 0.1em solid rgb(15 15 14 / 0.08);
+}
+
+.wl-head svg {
+  width: 1.7em;
+  height: 1.7em;
+}
+
+.wl-head b {
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.wl-head span {
+  margin-left: auto;
+  color: rgb(15 15 14 / 0.5);
+  font-family: var(--font-mono);
+  font-size: 1.05em;
+}
+
+.wl-kicker {
+  display: block;
+  margin-top: 1.3em;
+  color: rgb(15 15 14 / 0.55);
+  font-size: 1.1em;
+}
+
+.wl-amount {
+  display: block;
+  margin-top: 0.1em;
+  font-size: 2.5em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.wl-rows {
+  display: grid;
+  gap: 0.7em;
+  margin-top: 1.2em;
+}
+
+.wl-rows div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.wl-rows span {
+  color: rgb(15 15 14 / 0.55);
+  font-size: 1.1em;
+}
+
+.wl-rows span + span {
+  color: #0f0f0e;
+  font-family: var(--font-mono);
+  font-size: 1.05em;
+}
+
+.wl-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8em;
+  margin-top: 1.6em;
+}
+
+.wl-btns span {
+  padding: 0.7em;
+  border-radius: 9em;
+  background: #f0eee7;
+  font-size: 1.2em;
+  font-weight: 550;
+  text-align: center;
+}
+
+.wl-btns .go {
+  background: #0f0f0e;
+  color: #fff;
+}
+
+.wl-btns .hit {
+  background: #ffe4e9;
+  color: #9f1239;
+  box-shadow: 0 0 0 0.12em #fb7190;
+}
+
+.wl-code {
+  display: block;
+  margin-top: 1.2em;
+  color: #9f1239;
+  font-family: var(--font-mono);
+  font-size: 1.05em;
+}

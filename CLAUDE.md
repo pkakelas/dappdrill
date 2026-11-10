@@ -33,6 +33,7 @@ packages/engine   The backend that drills a dApp. No DB. Public API in src/api.t
 packages/cli      `dappdrill analyze` / `dappdrill run` over a committed tests file (JSON + Markdown + JUnit output)
 apps/worker       pg-boss jobs: explorations, test runs, test drafts, assistant turns, scheduled runs. Engine events → DB
 apps/web          Next.js app: auth (Better Auth, email/password + Google), organizations, all product pages
+apps/site         The marketing site: one static page (Next.js export) with its own styles, nothing shared with apps/web
 fixtures/harbor-vault  Local test dApp with seeded bugs, used to measure what we catch
 ```
 
@@ -76,6 +77,7 @@ or `requireApp(appId)` from `apps/web/src/lib/session.ts`; forms send their `org
 corepack pnpm install
 corepack pnpm db:migrate                 # apply drizzle migrations (DATABASE_URL in .env)
 corepack pnpm dev                        # web (3000) + worker
+corepack pnpm site                       # marketing site (3100)
 corepack pnpm fixture                    # Harbor Vault test dApp: anvil :8545 + site :5173
 corepack pnpm cli analyze http://localhost:5173
 corepack pnpm typecheck
