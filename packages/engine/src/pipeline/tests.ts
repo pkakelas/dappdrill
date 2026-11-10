@@ -375,7 +375,7 @@ async function runCondition(env: Env, spec: TestSpec, base: TestSpec, condition:
 }
 
 /** The replayed actions' results folded back onto the test's steps, each action under the step it came from. */
-function stepsFromReplay(count: number, ran: StepResult[], owner: number[], actions: Step[]): TestRunResult["steps"] {
+export function stepsFromReplay(count: number, ran: StepResult[], owner: number[], actions: Step[]): TestRunResult["steps"] {
   return Array.from({ length: count }, (_, i) => {
     const mine = ran.filter((r) => owner[r.index] === i);
     const failed = mine.find((r) => r.status === "fail");
