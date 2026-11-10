@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { TestRunResult, type AppSetup, type Blame, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
 import { saveState } from "../browser/session.js";
+import type { EngineSession } from "../runtime.js";
 import { anyLive, type Env } from "./env.js";
 import { BlockedError, landingBotCheck, openSession, plain, skipUnfinished, walkSteps, type WalkOptions } from "./steps.js";
 
@@ -159,26 +160,12 @@ async function runSetup(
     await session.page.goto(urlOnApp(setup.startPath, env.target.url), { waitUntil: "domcontentloaded", timeout: 45_000 });
     const blocked = await landingBotCheck(session);
     if (blocked) throw new BlockedError(blocked);
-    const walk = await walkSteps(env, session, spec, steps, results, reviews, { ...opts, shotPrefix: "setup-step", progress: () => opts.progress(results, run.resetResults) });
+    const progress = () => opts.progress(results, run.resetResults);
+    const walk = await walkSteps(env, session, spec, steps, results, reviews, { ...opts, shotPrefix: "setup-step", progress });
     if (walk.failure) run.failure = walk.failure;
     else {
       // The account is put back once the setup is in; what it couldn't undo is said, and the tests go on from there.
-      // Each reset step stands on its own: an order that won't cancel is no reason to leave a position open.
-      if (run.reset && run.resetResults) {
-        const undone: string[] = [];
-        for (const [i, step] of run.reset.entries()) {
-          if (opts.signal?.aborted) break;
-          const resetSpec: TestSpec = { id: "reset", name: "Reset", goal: RESET_GOAL, expected: "Nothing from earlier runs is left open.", startPath: setup.startPath, steps: [step] };
-          const one = [step];
-          const its = [run.resetResults[i]!];
-          const w = await walkSteps(env, session, resetSpec, one, its, reviews, { ...opts, shotPrefix: `reset-step${i + 1}-`, progress: () => opts.progress(results, run.resetResults) }).catch((e) => ({ failure: plain(e) }));
-          run.reset[i] = one[0]!;
-          run.resetResults[i] = its[0]!;
-          if (w.failure) undone.push(w.failure.replace(/^Step 1, /, `Step ${i + 1}, `));
-        }
-        skipUnfinished(run.resetResults);
-        if (undone.length) await env.log(`The reset didn't finish, so tests start with some of what earlier runs left: ${undone.join(" ")}`, "warn");
-      }
+      if (run.reset && run.resetResults) await resetAccount(env, session, setup, run.reset, run.resetResults, reviews, { ...opts, progress });
       run.storageState = path.join(opts.dir, `state-${opts.n}.json`);
       await saveState(session, run.storageState);
       run.ok = true;
@@ -193,4 +180,24 @@ async function runSetup(
     await session.close().catch(() => {});
   }
   return run;
+}
+
+/**
+ * The setup's reset steps, each on its own: an order that won't cancel is no reason to leave a position
+ * open. `reset` and `results` take the actions that worked and how each step went.
+ */
+async function resetAccount(env: Env, session: EngineSession, setup: AppSetup, reset: TestStep[], results: TestStepResult[], reviews: SigningReview[], opts: Omit<WalkOptions, "shotPrefix">): Promise<void> {
+  const undone: string[] = [];
+  for (const [i, step] of reset.entries()) {
+    if (opts.signal?.aborted) break;
+    const spec: TestSpec = { id: "reset", name: "Reset", goal: RESET_GOAL, expected: "Nothing from earlier runs is left open.", startPath: setup.startPath, steps: [step] };
+    const one = [step];
+    const its = [results[i]!];
+    const w = await walkSteps(env, session, spec, one, its, reviews, { ...opts, shotPrefix: `reset-step${i + 1}-` }).catch((e) => ({ failure: plain(e) }));
+    reset[i] = one[0]!;
+    results[i] = its[0]!;
+    if (w.failure) undone.push(w.failure.replace(/^Step 1, /, `Step ${i + 1}, `));
+  }
+  skipUnfinished(results);
+  if (undone.length) await env.log(`The reset didn't finish, so tests start with some of what earlier runs left: ${undone.join(" ")}`, "warn");
 }

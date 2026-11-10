@@ -75,8 +75,7 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   /** What the latest click failed to reach, until a later click lands. */
   let stuckOn: string | undefined;
   const hooks: AttemptHooks = { onBlocked: (b) => (blocked = b), onClick: (failed) => (stuckOn = failed) };
-  const fast = await attempt(deps.fast, FAST_TURNS, deps, test, index, recorder, hooks, broke);
-  let done = fast.done;
+  let done = await attempt(deps.fast, FAST_TURNS, deps, test, index, recorder, hooks, broke);
   // The fast model tends to blame the app for a click of ours that failed, so that goes to the acting model too.
   if (done && !done.ok && stuckOn) done.cause = "unsure";
   // The model's word alone doesn't excuse a wrong balance: a backend must really have been asked about the wallet.
@@ -93,7 +92,7 @@ export async function runStep(deps: StepDeps, test: TestSpec, index: number): Pr
   // A step that has never worked is more likely our misreading than the app's fault, whatever the fast model says.
   if (!blocked && !blindTo().length && !unpaid() && deps.strong && (!done || (!done.ok && (done.cause === "unsure" || !step.actions)))) {
     const hint = done ? `A quicker attempt gave up: ${done.reason}` : "A quicker attempt ran out of actions before finishing.";
-    done = (await attempt(deps.strong, STRONG_TURNS, deps, test, index, recorder, hooks, broke, hint)).done;
+    done = await attempt(deps.strong, STRONG_TURNS, deps, test, index, recorder, hooks, broke, hint);
   }
   const actions = recorder.take();
   const did = actions.map(describeStep);
@@ -128,7 +127,7 @@ async function attempt(
   hooks: AttemptHooks,
   broke?: string,
   hint?: string,
-): Promise<{ done?: Done }> {
+): Promise<Done | undefined> {
   const { session } = deps;
   let done: Done | undefined;
   const tools: AgentTool[] = [
@@ -178,7 +177,9 @@ async function attempt(
   ].filter(Boolean).join("\n");
 
   const res = await llm.runAgent({ system: STEP_SYSTEM, prompt, tools, maxTurns, signal: deps.signal });
-  return { done: done ?? (res.stopReason === "end_turn" && res.text ? { ok: false, cause: "unsure", reason: res.text.slice(0, 200) } : undefined) };
+  if (done) return done;
+  // A model that stopped talking instead of calling step_done didn't manage the step; its last words say why.
+  return res.stopReason === "end_turn" && res.text ? { ok: false, cause: "unsure", reason: res.text.slice(0, 200) } : undefined;
 }
 
 /** Says when tests will run on the real chain, so the writer gives them cleanup steps. Empty on forks. */

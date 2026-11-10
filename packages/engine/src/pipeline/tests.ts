@@ -15,9 +15,11 @@ import {
   type AppSetup,
   type Blame,
   type ConditionRun,
+  type EdgeCaseId,
   type SecondLook,
   type SigningReview,
   type Step,
+  type StepResult,
   type TestRunStatus,
   type TestSpec,
   type TestStep,
@@ -26,13 +28,13 @@ import {
 } from "@dappdrill/core";
 import { createRecoveryJudge } from "../agent/index.js";
 import { judgeExpected, readBaseline } from "../agent/tester.js";
-import { runEdgeCases } from "../runtime.js";
+import { runEdgeCases, type EngineSession } from "../runtime.js";
 import { anyLive, roundUsd, type Env } from "./env.js";
 import { liveShortfall, shortfallLine } from "./funds.js";
 import { pin } from "./pin.js";
 import { secondLook } from "./second-look.js";
 import { setupRunner, type Prepared, type SetupRunner, type SetupTestOutcome } from "./setup.js";
-import { BlockedError, debug, scriptOf, landingBotCheck, openSession, plain, skipUnfinished, walkSteps } from "./steps.js";
+import { BlockedError, debug, scriptOf, landingBotCheck, openSession, plain, skipUnfinished, walkSteps, type WalkOptions } from "./steps.js";
 
 export interface TestItem {
   spec: TestSpec;
@@ -96,8 +98,7 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
   if (short) {
     for (const item of items) {
       await hooks.onStart?.(item.spec.id);
-      const steps = item.spec.steps.map(() => ({ status: "skipped" as const }));
-      const outcome: TestOutcome = { testId: item.spec.id, status: "error", result: TestRunResult.parse({ steps, failure: shortfallLine(short), blame: "input" }) };
+      const outcome: TestOutcome = { testId: item.spec.id, status: "error", result: TestRunResult.parse({ steps: skippedSteps(item.spec), failure: shortfallLine(short), blame: "input" }) };
       outcomes.push(outcome);
       await hooks.onDone?.(outcome);
     }
@@ -114,7 +115,7 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
       // Anything thrown on the way (a fork that won't snapshot, a browser that won't open) is ours too.
       const attempt = () =>
         runItem(env, item.spec, base, opts, hooks, setup, signal).catch((e): TestOutcome => {
-          const steps = item.spec.steps.map(() => ({ status: "skipped" as const }));
+          const steps = skippedSteps(item.spec);
           return signal?.aborted ? { testId: item.spec.id, status: "stopped", result: TestRunResult.parse({ steps }) } : { testId: item.spec.id, status: "error", result: TestRunResult.parse({ steps, ...broke(e) }) };
         });
       let outcome: TestOutcome = signal?.aborted ? { testId: item.spec.id, status: "stopped", result: TestRunResult.parse({}) } : await attempt();
@@ -147,7 +148,7 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
 
 /** One test, after the app's setup when it has one. */
 function runItem(env: Env, spec: TestSpec, base: TestSpec | undefined, opts: RunTestsOptions, hooks: TestHooks, setup: SetupRunner | undefined, signal?: AbortSignal): Promise<TestOutcome> {
-  const run = (pre: Prepared) => (spec.condition && base ? runCondition(env, spec, base, opts, hooks, pre, signal) : runHappy(env, spec, opts, hooks, pre, signal));
+  const run = (pre: Prepared) => (spec.condition && base ? runCondition(env, spec, base, spec.condition, opts, hooks, pre, signal) : runHappy(env, spec, opts, hooks, pre, signal));
   return afterSetup<TestOutcome>(env, spec, setup, signal, false, run, (outcome) => outcome);
 }
 
@@ -216,7 +217,8 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     // A live account's figures differ on every run: what the expected result is about is noted before anything changes it.
     if (opened === undefined && live) result.before = await readBaseline(session, env.fastLlm(), spec).catch(() => undefined);
 
-    const walk = opened === undefined ? await walkSteps(env, session, spec, steps, result.steps, reviews, { ...opts, signal, progress }) : { failure: `The page didn't open: ${opened}`, stuck: false };
+    const walkOpts = { ...opts, signal, progress };
+    const walk = opened === undefined ? await walkSteps(env, session, spec, steps, result.steps, reviews, walkOpts) : { failure: `The page didn't open: ${opened}`, stuck: false };
     if (walk.failure) {
       // Stuck: the step couldn't be done as written, which is the test's to fix.
       status = walk.stuck ? "error" : "fail";
@@ -226,41 +228,53 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     }
 
     if (status === "pass") {
-      const v = await judgeExpected(session, env.fastLlm(), spec, { live, before: result.before, seen: result.steps.map((s) => s.note) });
-      result.verdict = { ok: v.ok, reason: v.reason };
-      if (!v.ok) {
-        // On a fork the result may be there and the page unable to see it: its backends follow the real chain.
-        const blind = live ? [] : blindHosts(session.wallet.requests(), (key) => session.traffic.hostsTold(key), session.backendsAnswered);
-        status = blind.length ? "error" : "fail";
-        if (blind.length) result.blame = "input";
-        result.failure = `The expected result didn't show: ${v.reason}${blind.length ? ` ${forkUnseenLine(blind)}` : ""}`;
-      }
+      status = await judgeResult(env, session, spec, result, live);
       // What the test left on a live account is put back, whatever the verdict; it never changes the result.
-      if (live && spec.after?.length) {
-        const cleanup = TestRunResult.parse({ steps: spec.after.map(() => ({ status: "pending" })) }).steps;
-        result.after = cleanup;
-        await progress();
-        const w = await walkSteps(env, session, { ...spec, steps: spec.after }, after, cleanup, reviews, { ...opts, signal, progress, shotPrefix: "after" }).catch((e) => ({ failure: plain(e) }));
-        skipUnfinished(cleanup);
-        if (w.failure) await env.log(`Cleanup after “${spec.name}” didn't finish: ${w.failure}`, "warn");
-      }
+      if (live && spec.after?.length) await cleanUp(env, session, { ...spec, steps: spec.after }, after, result, reviews, walkOpts);
     }
   } catch (e) {
     status = signal?.aborted ? "stopped" : "error";
     if (!signal?.aborted) Object.assign(result, broke(e));
     skipUnfinished(result.steps);
   } finally {
-    result.finalScreenshot = await session.screenshot("final").catch(() => undefined);
-    result.walletRequests = [...(pre.walletRequests ?? []), ...session.wallet.requests()];
-    // The page broadcast a transaction our wallet never signed: the app's own signer paid, and our review and balance saw none of it.
-    if (live && !result.walletRequests.some((r) => r.kind === "sign") && session.rpc.some((e) => e.via === "page" && e.method === "eth_sendRawTransaction")) result.embeddedSigner = true;
-    result.console = session.console.filter((c) => c.level === "error" || c.level === "pageerror").slice(-50);
-    result.signingReviews = reviews;
-    result.video = (await session.close().catch(() => ({}) as { video?: string })).video;
+    await keepEvidence(result, session, pre, reviews, live);
     await restore();
   }
   if (status === "stopped") return { testId: spec.id, status, result };
   return { testId: spec.id, status, result, steps, ...(result.after ? { after } : {}) };
+}
+
+/** Did the page end up showing the expected result? Sets the verdict, and the failure when it didn't. */
+async function judgeResult(env: Env, session: EngineSession, spec: TestSpec, result: TestRunResult, live: boolean): Promise<TestRunStatus> {
+  const v = await judgeExpected(session, env.fastLlm(), spec, { live, before: result.before, seen: result.steps.map((s) => s.note) });
+  result.verdict = { ok: v.ok, reason: v.reason };
+  if (v.ok) return "pass";
+  // On a fork the result may be there and the page unable to see it: its backends follow the real chain.
+  const blind = live ? [] : blindHosts(session.wallet.requests(), (key) => session.traffic.hostsTold(key), session.backendsAnswered);
+  if (blind.length) result.blame = "input";
+  result.failure = `The expected result didn't show: ${v.reason}${blind.length ? ` ${forkUnseenLine(blind)}` : ""}`;
+  return blind.length ? "error" : "fail";
+}
+
+/** The test's after steps on a live account, given as `spec`'s steps. A cleanup that doesn't finish is said, not held against the test. */
+async function cleanUp(env: Env, session: EngineSession, spec: TestSpec, after: TestStep[], result: TestRunResult, reviews: SigningReview[], opts: WalkOptions): Promise<void> {
+  const cleanup = TestRunResult.parse({ steps: spec.steps.map(() => ({ status: "pending" })) }).steps;
+  result.after = cleanup;
+  await opts.progress?.();
+  const w = await walkSteps(env, session, spec, after, cleanup, reviews, { ...opts, shotPrefix: "after" }).catch((e) => ({ failure: plain(e) }));
+  skipUnfinished(cleanup);
+  if (w.failure) await env.log(`Cleanup after “${spec.name}” didn't finish: ${w.failure}`, "warn");
+}
+
+/** What the run leaves for the reader: the last screenshot, wallet requests, console errors, reviews and the video. Closes the session. */
+async function keepEvidence(result: TestRunResult, session: EngineSession, pre: Prepared, reviews: SigningReview[], live: boolean): Promise<void> {
+  result.finalScreenshot = await session.screenshot("final").catch(() => undefined);
+  result.walletRequests = [...(pre.walletRequests ?? []), ...session.wallet.requests()];
+  // The page broadcast a transaction our wallet never signed: the app's own signer paid, and our review and balance saw none of it.
+  if (live && !result.walletRequests.some((r) => r.kind === "sign") && session.rpc.some((e) => e.via === "page" && e.method === "eth_sendRawTransaction")) result.embeddedSigner = true;
+  result.console = session.console.filter((c) => c.level === "error" || c.level === "pageerror").slice(-50);
+  result.signingReviews = reviews;
+  result.video = (await session.close().catch(() => ({}) as { video?: string })).video;
 }
 
 /**
@@ -274,21 +288,26 @@ export function blindHosts(requests: WalletRequest[], hostsTold: (key: string) =
   return [...new Set([...hashes.flatMap(hostsTold), ...answered])];
 }
 
+/** Step results for a test that never ran. */
+export function skippedSteps(spec: TestSpec): { status: "skipped" }[] {
+  return spec.steps.map(() => ({ status: "skipped" as const }));
+}
+
 /** What a thrown error says: a bot check is the owner's to get past, anything else broke on our side. */
 function broke(e: unknown): { failure: string; blame: Blame } {
   return e instanceof BlockedError ? { failure: `Blocked: ${e.blocked.reason}`, blame: "input" } : { failure: plain(e), blame: "ours" };
 }
 
-async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunTestsOptions, hooks: TestHooks, pre: Prepared, signal?: AbortSignal): Promise<TestOutcome> {
-  const condition = spec.condition!;
+async function runCondition(env: Env, spec: TestSpec, base: TestSpec, condition: EdgeCaseId, opts: RunTestsOptions, hooks: TestHooks, pre: Prepared, signal?: AbortSignal): Promise<TestOutcome> {
   let source = base;
   let baseSteps: TestStep[] | undefined;
+  const stopped = (): TestOutcome => ({ testId: spec.id, status: "stopped", baseSteps, result: TestRunResult.parse({ setup: pre.setup }) });
   if (base.steps.some((s) => !s.actions)) {
     // The base never passed in full: run it to learn its actions.
     const b = await runHappy(env, base, opts, { onFrame: (_id, p) => hooks.onFrame?.(spec.id, p) ?? Promise.resolve() }, pre, signal);
     baseSteps = b.steps;
     if (b.status !== "pass" || !b.steps) {
-      if (b.status === "stopped") return { testId: spec.id, status: "stopped", baseSteps, result: TestRunResult.parse({ setup: pre.setup }) };
+      if (b.status === "stopped") return stopped();
       // Waiting for its test, unless what stopped the test was ours.
       const blame: Blame = b.result.blame === "ours" ? "ours" : "base";
       return { testId: spec.id, status: "error", baseSteps, result: TestRunResult.parse({ setup: pre.setup, blame, failure: `“${base.name}” has to pass first. ${b.result.failure ?? ""}`.trim() }) };
@@ -328,28 +347,14 @@ async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunT
     issues = r.issues;
     reviews = r.signingReviews;
   } catch (e) {
-    if (signal?.aborted) return { testId: spec.id, status: "stopped", baseSteps, result: TestRunResult.parse({ setup: pre.setup }) };
+    if (signal?.aborted) return stopped();
     return { testId: spec.id, status: "error", baseSteps, result: TestRunResult.parse({ setup: pre.setup, ...broke(e) }) };
   } finally {
     await restore();
   }
-  if (!run) return { testId: spec.id, status: "stopped", baseSteps, result: TestRunResult.parse({ setup: pre.setup }) };
+  if (!run) return stopped();
 
-  const ran = run.steps;
-  const steps = source.steps.map((_, i) => {
-    const mine = ran.filter((r) => owner[r.index] === i);
-    const failed = mine.find((r) => r.status === "fail");
-    // A step with no actions passed when the replay got past it.
-    const passed = mine.some((r) => r.status === "pass") || (mine.length === 0 && ran.some((r) => owner[r.index]! > i));
-    return {
-      status: failed ? ("fail" as const) : passed ? ("pass" as const) : ("skipped" as const),
-      via: "cache" as const,
-      did: mine.filter((r) => r.status === "pass").map((r) => describeStep(actions[r.index]!)),
-      note: failed?.error,
-      screenshot: failed?.screenshot,
-      durationMs: mine.reduce((sum, r) => sum + r.durationMs, 0),
-    };
-  });
+  const steps = stepsFromReplay(source.steps.length, run.steps, owner, actions);
   const status: TestRunStatus = run.status === "pass" ? "pass" : run.status === "issue" || run.status === "fail" ? "fail" : run.status;
   const found = issues.map((i) => i.title).join("; ");
   const result = TestRunResult.parse({
@@ -367,4 +372,22 @@ async function runCondition(env: Env, spec: TestSpec, base: TestSpec, opts: RunT
     finalScreenshot: run.finalScreenshot,
   });
   return { testId: spec.id, status, result, baseSteps };
+}
+
+/** The replayed actions' results folded back onto the test's steps, each action under the step it came from. */
+function stepsFromReplay(count: number, ran: StepResult[], owner: number[], actions: Step[]): TestRunResult["steps"] {
+  return Array.from({ length: count }, (_, i) => {
+    const mine = ran.filter((r) => owner[r.index] === i);
+    const failed = mine.find((r) => r.status === "fail");
+    // A step with no actions passed when the replay got past it.
+    const passed = mine.some((r) => r.status === "pass") || (mine.length === 0 && ran.some((r) => owner[r.index]! > i));
+    return {
+      status: failed ? ("fail" as const) : passed ? ("pass" as const) : ("skipped" as const),
+      via: "cache" as const,
+      did: mine.filter((r) => r.status === "pass").map((r) => describeStep(actions[r.index]!)),
+      note: failed?.error,
+      screenshot: failed?.screenshot,
+      durationMs: mine.reduce((sum, r) => sum + r.durationMs, 0),
+    };
+  });
 }

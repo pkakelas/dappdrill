@@ -257,6 +257,24 @@ async function explore(run: ExploreRun): Promise<void> {
   const running = new Map<string, Promise<void>>();
   // Explorers that never got going (a fork or a browser that wouldn't start), by feature.
   const broke = new Set<string>();
+  /** Once an explorer is over: the same go again when ours broke, or another round when the feature has more. */
+  const followUp = (job: ExplorerJob, before: number, error?: string) => {
+    const go = !signal?.aborted && !run.blocked && left() >= MIN_EXPLORER_MS;
+    if (error) {
+      // Ours, not the feature's: the same go once more, then a gap that says why.
+      const again = go && !broke.has(job.feature.name);
+      broke.add(job.feature.name);
+      board.feed("error", `${job.feature.name}: the explorer stopped (${error})${again ? ", starting it again" : ""}`);
+      if (again) add({ feature: job.feature, round: job.round, more: job.more });
+      else board.change((s) => void s.gaps.push({ feature: job.feature.name, what: job.feature.name, why: `Its explorer couldn't run: ${error}` }));
+      return;
+    }
+    const next = nextRound(board.state, job, finds(board.state, job.feature.name) - before);
+    if (next && go) {
+      add(next);
+      board.feed("note", `${job.feature.name}: there is more to find, going again`);
+    }
+  };
   const start = (job: ExplorerJob) => {
     const before = finds(board.state, job.feature.name);
     const budget = Math.min(left(), TIER_TIME[job.feature.tier] * totalMs);
@@ -269,21 +287,7 @@ async function explore(run: ExploreRun): Promise<void> {
         run.exploring--;
         running.delete(job.id);
         run.pump();
-        const go = !signal?.aborted && !run.blocked && left() >= MIN_EXPLORER_MS;
-        if (error) {
-          // Ours, not the feature's: the same go once more, then a gap that says why.
-          const again = go && !broke.has(job.feature.name);
-          broke.add(job.feature.name);
-          board.feed("error", `${job.feature.name}: the explorer stopped (${error})${again ? ", starting it again" : ""}`);
-          if (again) add({ feature: job.feature, round: job.round, more: job.more });
-          else board.change((s) => void s.gaps.push({ feature: job.feature.name, what: job.feature.name, why: `Its explorer couldn't run: ${error}` }));
-          return;
-        }
-        const next = nextRound(board.state, job, finds(board.state, job.feature.name) - before);
-        if (next && go) {
-          add(next);
-          board.feed("note", `${job.feature.name}: there is more to find, going again`);
-        }
+        followUp(job, before, error);
       });
     running.set(job.id, done);
   };
