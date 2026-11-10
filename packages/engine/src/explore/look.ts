@@ -51,7 +51,7 @@ Use small amounts.
 
 Never solve a CAPTCHA or bot check: call report_blocked. If the rest of the app still works, leave that page out, carry on and submit what you found.`;
 
-const Found = z.object({
+export const Found = z.object({
   summary: AppMap.shape.summary,
   pages: AppMap.shape.pages.describe("The pages that matter, with their purpose"),
   setup: SetupDraft.optional().describe("Steps every test needs first; leave out when there are none"),

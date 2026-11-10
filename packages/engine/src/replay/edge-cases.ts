@@ -142,8 +142,6 @@ export async function runEdgeCases(opts: RunEdgeCasesOptions): Promise<RunEdgeCa
   return result;
 }
 
-// ---------------------------------------------------------------- applicability
-
 function skipReason(edge: EdgeCaseId, plan: Plan, chains: ChainController): string | undefined {
   const info = conditionInfo(edge);
   const live = chains.mode(plan.testChain) === "live";
@@ -182,8 +180,6 @@ function skippedRun(script: ReplayScript, edgeCase: EdgeCaseId, variation: Varia
 function forkBlocks(chains: ChainController): Record<string, string> {
   return Object.fromEntries(chains.configs().flatMap((c) => (c.forkBlock ? [[String(c.id), c.forkBlock]] : [])));
 }
-
-// ---------------------------------------------------------------- one edge case
 
 interface CaseSetup {
   /** Plain-language setup lines for "steps to reproduce". */
@@ -361,8 +357,6 @@ interface CaseState {
   drafts: IssueDraft[];
   stoppedAtStep?: number;
 }
-
-// ---------------------------------------------------------------- per-case setup
 
 function caseSetup(edge: EdgeCaseId, plan: Plan, opts: RunEdgeCasesOptions, state: CaseState): CaseSetup {
   const { chains } = opts;
@@ -726,8 +720,6 @@ function wrongChainGuard(plan: Plan, state: CaseState): ReplayHooks {
   };
 }
 
-// ---------------------------------------------------------------- checks
-
 /** After a rejection / failed send: is the UI stuck, and did it tell the user? */
 async function recoveryChecks(edge: EdgeCaseId, session: EngineSession, replay: ReplayScriptResult, drafts: IssueDraft[], verb: string): Promise<void> {
   // The test broke before its request (Lido: "access is currently unavailable"), so nothing was rejected to recover from.
@@ -862,8 +854,6 @@ async function askJudge(judge: RecoveryJudge, session: EngineSession, edge: Edge
     /* the judge is optional */
   }
 }
-
-// ---------------------------------------------------------------- helpers
 
 /** Account B gets the same token balance as A (from the happy run's approval token) so it can do the test too. */
 async function giveTokensLikeA(plan: Plan, chains: ChainController, wallet: Wallet): Promise<void> {

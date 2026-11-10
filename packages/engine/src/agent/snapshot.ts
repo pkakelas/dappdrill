@@ -199,8 +199,7 @@ function shimKeepNames(page: Page): Promise<void> {
   return page.evaluate("void (globalThis.__name ??= (f) => f)") as Promise<void>;
 }
 
-// ---------------------------------------------------------------- in-page code
-// These run inside the browser via page.evaluate: no imports, no closures.
+// What follows runs inside the browser via page.evaluate: no imports, no closures.
 
 type RawSnapshot = Omit<Snapshot, "url" | "title">;
 

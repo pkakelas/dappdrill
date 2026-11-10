@@ -20,7 +20,9 @@ export class JsonRpcError extends Error {
 }
 
 function isJsonRpcError(e: unknown): e is JsonRpcError {
-  return e instanceof JsonRpcError || (typeof e === "object" && e !== null && typeof (e as any).code === "number" && typeof (e as any).message === "string");
+  if (e instanceof JsonRpcError) return true;
+  const like = e as { code?: unknown; message?: unknown } | null;
+  return typeof like === "object" && like !== null && typeof like.code === "number" && typeof like.message === "string";
 }
 
 /** Normalise anything thrown while serving a request into a JSON-RPC error object. */

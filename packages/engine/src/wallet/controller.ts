@@ -131,8 +131,6 @@ export class Wallet implements WalletController {
     this.rpcHints = fn;
   }
 
-  // ------------------------------------------------------------ WalletController
-
   address(): Hex {
     return this.accounts[this.current];
   }
@@ -242,8 +240,6 @@ export class Wallet implements WalletController {
     this.lastTx = { prepared: bumped, hash, account };
     return hash;
   }
-
-  // ------------------------------------------------------------ bridge
 
   /** Entry point for every request the page-side provider forwards. */
   async handle(req: BridgeRequest, ctx: RequestContext): Promise<BridgeResponse> {

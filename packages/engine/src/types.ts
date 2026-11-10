@@ -21,7 +21,7 @@ import type {
 
 export type Hex = `0x${string}`;
 
-// ---------------------------------------------------------------- chains
+// Chains
 
 /** A chain the app wants: what it passed to wallet_addEthereumChain, or the chain of typed data it asked to sign. */
 export interface AddChainRequest {
@@ -71,7 +71,7 @@ export interface ChainController {
   close(): Promise<void>;
 }
 
-// ---------------------------------------------------------------- wallet
+// Wallet
 
 export interface WalletPolicy {
   /** Approve eth_requestAccounts / permissions without a test step. Default true. */
@@ -117,7 +117,7 @@ export interface WalletController {
   onRequest(cb: (req: WalletRequest) => void): () => void;
 }
 
-// ---------------------------------------------------------------- session
+// Session
 
 export interface DrillSession {
   readonly page: Page;
@@ -136,7 +136,7 @@ export interface DrillSession {
   close(): Promise<{ video?: string; trace?: string }>;
 }
 
-// ---------------------------------------------------------------- signing
+// Signing
 
 export interface SigningInput {
   request: WalletRequest;
@@ -161,7 +161,7 @@ export interface SigningReviewer {
   review(input: SigningInput): Promise<SigningReview>;
 }
 
-// ---------------------------------------------------------------- llm
+// Models
 
 export interface ImageInput {
   /** base64 without data: prefix */
@@ -200,7 +200,7 @@ export interface Llm {
   costUsd(): number;
 }
 
-// ---------------------------------------------------------------- edge-case judging
+// Edge-case judging
 
 /**
  * Optional model check used after an edge case: did the app recover and tell
@@ -217,7 +217,7 @@ export interface RecoveryJudge {
   }): Promise<{ ok: boolean; explanation: string }>;
 }
 
-// ---------------------------------------------------------------- test inbox
+// Test inbox
 
 /** Disposable inbox for email-code logins (embedded wallets). Implemented in inbox/. */
 export interface Inbox {

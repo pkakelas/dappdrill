@@ -14,6 +14,8 @@ import {
   keccak256,
   type Hex as ViemHex,
   type PrivateKeyAccount,
+  type TypedData,
+  type TypedDataDomain,
 } from "viem";
 import type { ChainController, Hex } from "../types.js";
 import { JsonRpcError, hexToNumber, rpcCall, toHex } from "../chain/rpc.js";
@@ -62,7 +64,7 @@ export async function signEthSign(account: PrivateKeyAccount, params: unknown): 
 /** The chain typed data is bound to (its domain's chainId), when it names one. */
 export function typedDataChainId(params: unknown[]): number | undefined {
   const payload = params[1];
-  let typed: any;
+  let typed: { domain?: { chainId?: unknown } } | null | undefined;
   try {
     typed = typeof payload === "string" ? JSON.parse(payload) : payload;
   } catch {
@@ -74,19 +76,28 @@ export function typedDataChainId(params: unknown[]): number | undefined {
   return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 }
 
+/** EIP-712 typed data as a dApp sends it; viem checks the content. */
+interface TypedDataPayload {
+  types: TypedData;
+  primaryType: string;
+  domain?: TypedDataDomain;
+  message: Record<string, unknown>;
+}
+
 export async function signTypedData(account: PrivateKeyAccount, params: unknown, activeChainId?: number): Promise<Hex> {
   const [, payload] = requireParams(params, 2, "eth_signTypedData expects [address, typedData]");
-  let typed: any;
+  let parsed: Partial<TypedDataPayload> | null | undefined;
   try {
-    typed = typeof payload === "string" ? JSON.parse(payload) : payload;
+    parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
   } catch {
     throw WalletErrors.invalidParams("typed data must be a JSON string or object");
   }
-  if (!typed || typeof typed !== "object" || !typed.types || !typed.primaryType) {
+  if (!parsed || typeof parsed !== "object" || !parsed.types || !parsed.primaryType) {
     throw WalletErrors.invalidParams("typed data needs types, primaryType, domain and message");
   }
+  const typed = parsed as TypedDataPayload;
   const { EIP712Domain: _domain, ...types } = typed.types;
-  const domain = { ...typed.domain };
+  const domain: TypedDataDomain = { ...typed.domain };
   // Dapps often send "1"; viem leaves a string chainId out of the domain, and the signature then fails on chain.
   if (domain.chainId !== undefined) domain.chainId = Number(domain.chainId);
   // MetaMask refuses typed data bound to another chain than the one it is on.

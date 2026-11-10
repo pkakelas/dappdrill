@@ -117,8 +117,6 @@ export class Contracts {
     return p;
   }
 
-  // ---------------------------------------------------------------- info
-
   private async lookupInfo(address: Address): Promise<ContractInfo> {
     const { chainId } = this.deps;
     const known = knownContract(chainId, address);
@@ -213,8 +211,6 @@ export class Contracts {
     }
   }
 
-  // ---------------------------------------------------------------- age
-
   private async lookupAge(address: Address): Promise<ContractAge | undefined> {
     const { http, chainId, client, etherscanApiKey } = this.deps;
     // Everything on a dev chain was deployed minutes ago; "new contract" would mean nothing.
@@ -258,8 +254,6 @@ export class Contracts {
     }
     return lo;
   }
-
-  // ---------------------------------------------------------------- token
 
   /** The underlying token of an ERC-4626 vault (`asset()`), if the contract has one. */
   async underlying(vault: Address): Promise<TokenInfo | undefined> {

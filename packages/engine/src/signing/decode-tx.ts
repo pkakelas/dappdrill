@@ -161,8 +161,6 @@ async function describeArgs(item: AbiFunction, values: readonly unknown[], token
   return out;
 }
 
-// ---------------------------------------------------------------- nested calls
-
 async function decodeInner(call: DecodedCall, item: AbiFunction, deps: DecodeDeps, depth: number): Promise<DecodedCall[]> {
   const name = item.name;
   const raw = call.raw;

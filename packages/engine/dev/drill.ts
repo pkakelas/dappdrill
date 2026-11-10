@@ -17,18 +17,23 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { generatePrivateKey } from "viem/accounts";
-import { AppSetup, DrillTarget, newId, type ChainConfig, type DrillEventSink, type ExploreState, type ExploreSuggestion, type TestSpec, type TestStep } from "@dappdrill/core";
+import { z } from "zod";
+import { AppSetup, ChainConfig, DrillTarget, TestSpec, newId, type DrillEventSink, type ExploreState, type ExploreSuggestion, type TestStep } from "@dappdrill/core";
 import { explore, runTests } from "../src/api.js";
-import { createInboxAccount, type InboxCredentials } from "../src/inbox/index.js";
-import type { Found } from "../src/explore/look.js";
+import { createInboxAccount } from "../src/inbox/index.js";
+import { Found } from "../src/explore/look.js";
 
-interface SavedTest {
-  spec: TestSpec;
-  feature: string;
-  status: "proved" | "draft";
-  note?: string;
-  conditions: string[];
-}
+// What a stage saves for the next, checked on the way back in.
+const SavedTest = z.object({ spec: TestSpec, feature: z.string(), status: z.enum(["proved", "draft"]), note: z.string().optional(), conditions: z.array(z.string()) });
+type SavedTest = z.infer<typeof SavedTest>;
+const SavedTests = z.array(SavedTest);
+const Kept = z.object({
+  accounts: z.object({ A: z.string(), B: z.string() }),
+  chains: z.array(ChainConfig),
+  hints: z.string().optional(),
+  tokens: DrillTarget.shape.tokens,
+  inbox: z.object({ address: z.string(), password: z.string() }).optional(),
+});
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
@@ -54,13 +59,17 @@ if (!command || !url) {
 
 const dir = path.resolve(import.meta.dirname, "../../../.drill", new URL(url).host);
 const file = (name: string) => path.join(dir, name);
-const load = async <T>(name: string): Promise<T | undefined> => readFile(file(name), "utf8").then((s) => JSON.parse(s) as T, () => undefined);
+/** A saved file, or nothing when there is none yet; a file that doesn't parse is an error worth seeing. */
+const load = async <T>(name: string, schema: z.ZodType<T>): Promise<T | undefined> => {
+  const text = await readFile(file(name), "utf8").catch(() => undefined);
+  return text === undefined ? undefined : schema.parse(JSON.parse(text));
+};
 const save = (name: string, value: unknown) => writeFile(file(name), JSON.stringify(value, null, 2));
 
 await mkdir(dir, { recursive: true });
 if (flags.fresh) await Promise.all(["look.json", "setup.json"].map((f) => rm(file(f), { force: true })));
 
-const kept = (await load<{ accounts: { A: string; B: string }; chains: ChainConfig[]; hints?: string; tokens?: DrillTarget["tokens"]; inbox?: InboxCredentials }>("target.json")) ?? { accounts: { A: generatePrivateKey(), B: generatePrivateKey() }, chains: [] };
+const kept: z.infer<typeof Kept> = (await load("target.json", Kept)) ?? { accounts: { A: generatePrivateKey(), B: generatePrivateKey() }, chains: [], tokens: [] };
 // A new look decides again what the wallet starts with.
 if (flags.fresh || command === "look") kept.tokens = [];
 if (flags.hints) kept.hints = flags.hints;
@@ -129,10 +138,10 @@ function summary(state: ExploreState, costUsd: number): void {
 }
 
 async function pass(until?: "look" | "setup"): Promise<void> {
-  const found = command === "look" ? undefined : await load<Found>("look.json");
+  const found = command === "look" ? undefined : await load("look.json", Found);
   if (command !== "look" && command !== "pass" && !found) throw new Error("No saved look. Run `pnpm drill look` first.");
-  const setup = await load<AppSetup>("setup.json");
-  const tests = (await load<SavedTest[]>("tests.json")) ?? [];
+  const setup = await load("setup.json", AppSetup);
+  const tests = (await load("tests.json", SavedTests)) ?? [];
   const names = found?.features.map((f) => f.name) ?? [];
   const only = flags.feature?.map((want) => {
     const hit = names.find((n) => n.toLowerCase().includes(want.toLowerCase()));
@@ -146,7 +155,7 @@ async function pass(until?: "look" | "setup"): Promise<void> {
       artifactsDir,
       budgetMinutes: Number(flags.minutes ?? (command === "pass" ? 12 : 5)),
       hints: kept.hints,
-      setup: setup && AppSetup.parse(setup),
+      setup,
       tests: tests.filter((t) => t.status === "proved").map((t) => ({ id: t.spec.id, name: t.spec.name, goal: t.spec.goal })),
       slots: flags.slots ? Number(flags.slots) : undefined,
       headless: !flags.headed,
@@ -159,7 +168,7 @@ async function pass(until?: "look" | "setup"): Promise<void> {
         if (proposed && !setup) await save("setup.json", proposed);
       },
       onSetupSteps: async (steps: TestStep[], reset?: TestStep[]) => {
-        const now = (await load<AppSetup>("setup.json")) ?? setup;
+        const now = (await load("setup.json", AppSetup)) ?? setup;
         if (now) await save("setup.json", { ...now, steps, ...(reset ? { reset } : {}) });
       },
       onTest: async (s: ExploreSuggestion) => {
@@ -192,14 +201,14 @@ async function pass(until?: "look" | "setup"): Promise<void> {
 }
 
 async function run(): Promise<void> {
-  const all = (await load<SavedTest[]>("tests.json")) ?? [];
+  const all = (await load("tests.json", SavedTests)) ?? [];
   const tests = all.filter((t) => (flags.drafts || t.status === "proved") && (!flags.only || t.spec.name.toLowerCase().includes(flags.only.toLowerCase())));
   if (!tests.length) throw new Error("No saved tests match.");
-  const setup = await load<AppSetup>("setup.json");
+  const setup = await load("setup.json", AppSetup);
   const out = await runTests(
     target,
     tests.map((t) => ({ spec: t.spec })),
-    { artifactsDir, setup: setup && AppSetup.parse(setup), secondLook: false, headless: !flags.headed },
+    { artifactsDir, setup, secondLook: false, headless: !flags.headed },
     {
       onStart: async (id) => console.log(`${clock()}  start  ${tests.find((t) => t.spec.id === id)?.spec.name}`),
       onDone: async (o) => {
@@ -224,9 +233,9 @@ async function run(): Promise<void> {
 }
 
 async function show(): Promise<void> {
-  const found = await load<Found>("look.json");
-  const setup = await load<AppSetup>("setup.json");
-  const tests = (await load<SavedTest[]>("tests.json")) ?? [];
+  const found = await load("look.json", Found);
+  const setup = await load("setup.json", AppSetup);
+  const tests = (await load("tests.json", SavedTests)) ?? [];
   console.log(dir);
   console.log(`chains: ${kept.chains.map((c) => `${c.id} (${c.mode})`).join(", ") || "none learned"}`);
   if (kept.inbox) console.log(`inbox: ${kept.inbox.address}`);

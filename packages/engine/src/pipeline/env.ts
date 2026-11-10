@@ -179,7 +179,7 @@ export function dedupKey(issue: Issue): string | undefined {
 
 /** Every address a session's wallet may use: accounts A and B, and the live key, which becomes A once a chain runs live. */
 function fundedAddresses(target: DrillTarget): Hex[] {
-  const keys = [target.accounts!.A, target.accounts!.B, target.liveKey].filter((k): k is string => !!k);
+  const keys = [target.accounts?.A, target.accounts?.B, target.liveKey].filter((k): k is string => !!k);
   return [...new Set(keys.map((k) => privateKeyToAccount(k as Hex).address))];
 }
 
