@@ -165,9 +165,10 @@ async function pass(until?: "look" | "setup"): Promise<void> {
       onTest: async (s: ExploreSuggestion) => {
         if (s.status !== "proved" && s.status !== "draft") return;
         const steps = s.steps ?? s.draft.steps.map((text) => ({ text }));
+        const after = s.after ?? s.draft.after?.map((text) => ({ text }));
         const others = tests.filter((t) => t.spec.name !== s.draft.name);
         tests.splice(0, tests.length, ...others, {
-          spec: { id: newId("test"), name: s.draft.name, goal: s.draft.goal, expected: s.draft.expected, startPath: s.draft.startPath, steps },
+          spec: { id: newId("test"), name: s.draft.name, goal: s.draft.goal, expected: s.draft.expected, startPath: s.draft.startPath, steps, ...(after?.length ? { after } : {}) },
           feature: s.feature,
           status: s.status,
           note: s.note,
