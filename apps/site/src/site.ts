@@ -18,9 +18,12 @@ export const NAV = [
   { label: "Findings", href: "/#findings" },
 ];
 
-export const LEGAL = [
+/** The other pages, linked from the footer. */
+export const PAGES = [
   { label: "About", href: "/about/" },
+  { label: "Careers", href: "/careers/" },
   { label: "Privacy", href: "/privacy/" },
+  { label: "Terms", href: "/terms/" },
 ];
 
 /** The four steps of a pass. Each has one line and one picture (components/exhibits.tsx, in this order). */

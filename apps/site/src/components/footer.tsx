@@ -1,4 +1,4 @@
-import { COMPANY, LEGAL, NAV } from "@/site";
+import { COMPANY, PAGES, NAV } from "@/site";
 import { Wordmark } from "./logo";
 
 /** The last row of every page, on the dark closing band. */
@@ -8,7 +8,7 @@ export function Footer() {
       <a href="/#top" className="text-white" aria-label="DappDrill">
         <Wordmark size={18} />
       </a>
-      {[...NAV, ...LEGAL].map((item) => (
+      {[...NAV, ...PAGES].map((item) => (
         <a key={item.href} href={item.href} className="transition-colors hover:text-white">
           {item.label}
         </a>
