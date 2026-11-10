@@ -1,4 +1,4 @@
-import { appRollup, chainInfo, chainName, formatUnitsPlain, signingOf, walletUse, type ChainConfig, type ExploreBug, type SecondLook, type Settled } from "@dappdrill/core";
+import { appRollup, chainInfo, chainName, formatUnitsPlain, signingOf, testCheckKey, walletUse, type ChainConfig, type ExploreBug, type SecondLook, type Settled } from "@dappdrill/core";
 import { appTests, db, explorations, latestRuns, notWritten, runHistory, settledRuns, testStability, type TestRow } from "@dappdrill/db";
 import { desc, eq, sql } from "drizzle-orm";
 import { ArrowRight, Compass, GitFork, TriangleAlert } from "lucide-react";
@@ -171,6 +171,9 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   );
   const suggested = suggestedTests(pass, new Set(tests.map((t) => t.name)), added);
   const tried = state ? triedLines(state) : [];
+  // Where a check from the pass can be kept (a written test's steps), and which test already holds each kept check.
+  const keepTargets = tests.map((t) => ({ id: t.id, name: t.name, steps: t.baseId || t.drafting ? [] : t.steps.map((s) => s.text) }));
+  const keptChecks = new Map(roots.flatMap((t) => t.steps.flatMap((s) => (s.checks ?? []).map((c) => [testCheckKey(c), keepTargets.find((k) => k.id === t.id)!] as const))));
   const checks = tried.length;
   const explored = Boolean(state && (state.suggested.length > 0 || state.checks.length > 0 || state.bugs.length > 0));
   // Still looking around: nothing is listed yet, so the page shows the shape of what is coming.
@@ -250,7 +253,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
           {tests.length > 0 || explored || looking ? (
             <div className="flex flex-col gap-6">
               {tabbed && <Tabs appId={appId} tab={tab} tests={counts.all} checks={pass ? tried.length : undefined} bugs={confirmedBugs} />}
-              {tab === "checks" && <Tried appId={appId} lines={tried} kind={KINDS.find((k) => k === query.kind)} tests={new Map(tests.map((t) => [t.name, t.id]))} running={exploring} />}
+              {tab === "checks" && pass && <Tried appId={appId} passId={pass.id} lines={tried} kind={KINDS.find((k) => k === query.kind)} tests={keepTargets} kept={keptChecks} running={exploring} />}
               {tab === "bugs" && (
                 <div className="flex flex-col gap-3">
                   <TestList filter={fromTest > 0 && fromTest < bugs.length && <BugFilter appId={appId} from={from} test={fromTest} check={bugs.length - fromTest} />}>

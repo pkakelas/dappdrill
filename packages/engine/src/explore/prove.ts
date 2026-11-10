@@ -4,11 +4,12 @@
  * when that doesn't pass, the test runs from its plain steps alone. Its goal never changes to make
  * it pass: a failure is a draft with the reason, or a bug when the chain says so.
  */
-import { CONDITIONS, newId, nowIso, type EdgeCaseId, type ExploreState, type ExploreSuggestion, type TestSpec, type Tier } from "@dappdrill/core";
+import { CONDITIONS, newId, nowIso, type EdgeCaseId, type ExploreState, type ExploreSuggestion, type TestSpec, type TestStep, type Tier } from "@dappdrill/core";
 import type { Env } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
 import { runTestItems, type TestOutcome } from "../pipeline/tests.js";
 import { evidenceOf, fileBug } from "./bugs.js";
+import { passingChecks, placeChecks } from "./kept-checks.js";
 import { lineUp } from "./recorded.js";
 import type { ExploreRun } from "./run-context.js";
 
@@ -34,7 +35,7 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
   const attempt = async (spec: TestSpec) => {
     const restore = await pin(env);
     try {
-      const [o] = await runTestItems(env, [{ spec }], { artifactsDir, map, baselines, signal, setup: run.setup, ready: run.setup && run.ready }, {
+      const [o] = await runTestItems(env, [{ spec }], { artifactsDir, map, baselines, signal, setup: run.setup, ready: run.setup && run.ready, looseChecks: true }, {
         onFrame: async (_id, frame) => board.explorer(worker, { frame, activeAt: nowIso() }),
         onProgress: async (_id, result) => {
           const at = result.steps.findIndex((r) => r.status === "running");
@@ -48,23 +49,27 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
   };
   const plain = plainSpec(s);
   const recorded = run.recorded.get(id);
+  // The path's checks ride along to be tried; the ones that pass here stay on the test.
+  const withChecks = (steps: TestStep[], lined: boolean) => (recorded && s.checks?.length ? placeChecks(steps, s.checks, recorded, lined) : steps);
   const replayed = recorded && (await lineUp(env.fastLlm(), s.draft, recorded).catch(() => undefined));
-  let o = replayed ? await attempt({ ...plain, steps: replayed }) : undefined;
+  let o = replayed ? await attempt({ ...plain, steps: withChecks(replayed, true) }) : undefined;
   // What an explorer did can include a wrong turn, so a replay that fails says little about the test.
-  if (!o || (o.status !== "pass" && o.status !== "stopped")) o = await attempt(plain);
+  if (!o || (o.status !== "pass" && o.status !== "stopped")) o = await attempt({ ...plain, steps: withChecks(plain.steps, false) });
   if (!o || o.status === "stopped") {
     update((x) => (x.status = "worked"));
     return end("stopped");
   }
   if (o.status === "pass" && o.steps) {
+    const steps = passingChecks(o.steps, o.result.steps);
+    const kept = steps.reduce((n, x) => n + (x.checks?.length ?? 0), 0);
     update((x) => {
       x.status = "proved";
-      x.steps = o.steps;
+      x.steps = steps;
       x.after = o.after;
       x.conditions = conditionsFor(x.tier, o, env);
       x.provedAt = nowIso();
     });
-    board.feed("test", `Saved as a test: ${s.draft.name}`);
+    board.feed("test", `Saved as a test: ${s.draft.name}${kept ? `, keeping ${kept === 1 ? "one check" : `${kept} checks`}` : ""}`);
     await run.hooks.onTest?.(current(board.state, id));
     return end("done");
   }

@@ -21,6 +21,7 @@ import {
   type TestRunStatus,
   type TestSpec,
   type TestStep,
+  type TestStepResult,
   type WalletRequest,
   walletUse,
 } from "@dappdrill/core";
@@ -82,6 +83,8 @@ export interface RunTestsOptions {
   secondLook?: boolean;
   /** The setup's result from another fork of the same block, used instead of running it again (see SetupRunner.portable). */
   ready?: Prepared;
+  /** The checks on the steps are being tried out (a new test's proof): one that fails is recorded on its step and doesn't fail the test. */
+  looseChecks?: boolean;
 }
 
 export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOptions, hooks: TestHooks): Promise<TestOutcome[]> {
@@ -238,6 +241,12 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
         if (blind.length) result.blame = "input";
         result.failure = `The expected result didn't show: ${v.reason}${blind.length ? ` ${forkUnseenLine(blind)}` : ""}`;
       }
+      // A kept check that didn't hold fails the test like a wrong end result. One that couldn't be made says nothing.
+      const unheld = opts.looseChecks ? undefined : failedCheck(result.steps);
+      if (status === "pass" && unheld) {
+        status = "fail";
+        result.failure = unheld;
+      }
       // What the test left on a live account is put back, whatever the verdict; it never changes the result.
       if (live && spec.after?.length) {
         const cleanup = TestRunResult.parse({ steps: spec.after.map(() => ({ status: "pending" })) }).steps;
@@ -264,6 +273,15 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
   }
   if (status === "stopped") return { testId: spec.id, status, result };
   return { testId: spec.id, status, result, steps, ...(result.after ? { after } : {}) };
+}
+
+/** The first kept check that didn't hold, as the failure reads. */
+export function failedCheck(steps: Pick<TestStepResult, "checks">[]): string | undefined {
+  for (const [i, s] of steps.entries()) {
+    const c = s.checks?.find((x) => x.status === "fail");
+    if (c) return `After step ${i + 1}, “${c.name}” didn't hold: ${c.evidence}`;
+  }
+  return undefined;
 }
 
 /**

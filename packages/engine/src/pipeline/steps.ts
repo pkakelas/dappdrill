@@ -2,6 +2,7 @@
 import { newId, type AppMap, type Blocked, type DrillEvent, type ReplayScript, type SigningReview, type Step, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
 import { runStep } from "../agent/tester.js";
 import { detectBotCheck } from "../browser/access.js";
+import { runChecks } from "../explore/checks.js";
 import { createSession, replayScript, type EngineSession, type SessionOptions } from "../runtime.js";
 import type { Env } from "./env.js";
 
@@ -58,6 +59,8 @@ export async function walkSteps(
   opts: WalkOptions,
 ): Promise<{ failure?: string; stuck?: boolean }> {
   const { signal } = opts;
+  // Checks about the wallet are about this test's own requests.
+  const since = session.wallet.requests().length;
   const beforeApprove = async (request: WalletRequest) => {
     const screenshot = await session.screenshot(`sign-${request.id}`);
     const review = await env.reviewer
@@ -101,12 +104,15 @@ export async function walkSteps(
     const skipped = out.actions && step.actions ? skippedBy(step.actions, out.actions) : undefined;
     const signed = out.actions && step.actions && !step.actions.some((a) => a.kind === "wallet") && out.actions.some((a) => a.kind === "wallet");
     const kept = skipped ? `Done without “${skipped}”, which the recorded steps did; the recording is kept.` : signed ? "Signed with the wallet where the recorded steps didn't; the recording is kept." : undefined;
-    if (out.actions?.length && !kept) steps[i] = { text: step.text, actions: out.actions };
+    if (out.actions?.length && !kept) steps[i] = { ...step, actions: out.actions };
+    // The step's kept checks, once it is done: code against the page, the wallet and the chain.
+    const checks = out.ok && step.checks?.length ? await runChecks(session, step.checks, since) : undefined;
     results[i] = {
       status: out.ok ? "pass" : "fail",
       via: out.via,
       did: out.did,
       note: kept ? [out.note, kept].filter(Boolean).join(" ") : out.note,
+      ...(checks ? { checks } : {}),
       screenshot: await session.screenshot(`${opts.shotPrefix ?? "step"}${i + 1}`),
       durationMs: Date.now() - t0,
     };

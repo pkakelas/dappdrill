@@ -1,0 +1,4619 @@
+[
+  {
+    "testId": "test_nureehpwmb85kf",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": false,
+        "shared": false,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open Account menu"
+          ],
+          "screenshot": "screenshots/run_99wp4cgrmffuyy-step1.png",
+          "durationMs": 471
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Click \"Withdraw\""
+          ],
+          "screenshot": "screenshots/run_99wp4cgrmffuyy-step2.png",
+          "durationMs": 414
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"20\" into \"Withdraw amount\""
+          ],
+          "screenshot": "screenshots/run_99wp4cgrmffuyy-step3.png",
+          "durationMs": 62
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Click \"Continue\""
+          ],
+          "screenshot": "screenshots/run_99wp4cgrmffuyy-step4.png",
+          "durationMs": 421
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Click \"My connected wallet0x5bfF…4d8a→\""
+          ],
+          "screenshot": "screenshots/run_99wp4cgrmffuyy-step5.png",
+          "durationMs": 15649
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Approve eth_sendTransaction to 0x50d0…0001"
+          ],
+          "screenshot": "screenshots/run_99wp4cgrmffuyy-step6.png",
+          "durationMs": 2074
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open /home"
+          ],
+          "screenshot": "screenshots/run_99wp4cgrmffuyy-step7.png",
+          "durationMs": 1990
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_gacstm80il3hl0",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:24:04.164Z",
+          "outcome": "approved",
+          "result": []
+        },
+        {
+          "id": "req_6otmu6t5sm8rc5",
+          "method": "eth_requestAccounts",
+          "params": [],
+          "chainId": 129302,
+          "wallet": "metamask",
+          "kind": "connect",
+          "at": "2026-11-10T14:24:07.253Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_rl43ipmaghpnrd",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:24:07.254Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_xym97xvogcjiww",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:24:07.255Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_5exexm31xalobt",
+          "method": "personal_sign",
+          "params": [
+            "0x73746167696e672d6170702e706f64746573746e65742e6465762077616e747320796f7520746f207369676e20696e207769746820796f757220457468657265756d206163636f756e743a0a3078356266463242613042323932383233463763626234343234436235326631433132373961346438610a0a4279207369676e696e672c20796f75206172652070726f76696e6720796f75206f776e20746869732077616c6c657420616e64206c6f6767696e6720696e2e205468697320646f6573206e6f7420696e6974696174652061207472616e73616374696f6e206f7220636f737420616e7920666565732e0a0a5552493a2068747470733a2f2f73746167696e672d6170702e706f64746573746e65742e6465760a56657273696f6e3a20310a436861696e2049443a203132393330320a4e6f6e63653a20386661616337646339353433313662336430613932383732646533363133633362333661653533656364326231353364313965333330333738343338656333610a4973737565642041743a20323032362d31312d31305431343a32343a30372e3539355a0a5265736f75726365733a0a2d2068747470733a2f2f70726976792e696f",
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:24:07.604Z",
+          "outcome": "approved",
+          "result": "0xee18193c50aa1d37652ed2939895b37bd383e55436b258d80160fdd26f3a0e111f416c5fdd936eccb8548288b24520df97f17f963ff523529cefab53cdde29bd1b"
+        },
+        {
+          "id": "req_j2muo2ra3aax2l",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"PodFaucet\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"recipient\":\"0x5bff2ba0b292823f7cbb4424cb52f1c1279a4d8a\",\"token\":\"0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd\",\"deadline\":\"1794320784461000\"},\"primaryType\":\"MintRequest\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"MintRequest\":[{\"name\":\"recipient\",\"type\":\"address\"},{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"deadline\",\"type\":\"uint256\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:24:24.462Z",
+          "outcome": "approved",
+          "result": "0x8e58185c276ace29efcb5825baae4bfb3f1e1758ae0903fd4770a9da1d497db104e710c8397a14416db5a5f94d391a1d1beb3282679d3a60d40d37d33a9d20081c"
+        },
+        {
+          "id": "req_v4oevx4uww8wul",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"PodFaucet\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"recipient\":\"0x5bff2ba0b292823f7cbb4424cb52f1c1279a4d8a\",\"token\":\"0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd\",\"deadline\":\"1794320786122000\"},\"primaryType\":\"MintRequest\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"MintRequest\":[{\"name\":\"recipient\",\"type\":\"address\"},{\"name\":\"token\",\"type\":\"address\"},{\"name\":\"deadline\",\"type\":\"uint256\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:24:26.123Z",
+          "outcome": "approved",
+          "result": "0x2146928740b61c3fa2592d2bf911e9bd708eec21877b11602ae0540e609ca8897f51e2e3debd856dc5234ebc042e6898b0c47b2bdb3e51991968b5c2aa8a53131c"
+        },
+        {
+          "id": "req_095z05r5apki35",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:24:28.302Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_g5s6hc5sz3umps",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:24:28.304Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_2jrnppbkqka1kf",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:24:33.207Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_veq4yw75vv9a6n",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0xfc7f451f0770ecfc3680bc9c0ec61e7b352b9484\",\"validUntil\":\"1794925473217000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:24:33.217Z",
+          "outcome": "approved",
+          "result": "0x933d3942a73410f3463bbd874e8fc537a1fd14126eb767a3d5c21defcdea582101feb2f8c8761d5bfacf3cd22180fb1969638f9a26b1e3aeb7ad32e54932b76d1c"
+        },
+        {
+          "id": "req_vayzmrnbk2itgh",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:26:14.656Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_1okbz76318h5ou",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:26:14.660Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_d8lcdpig5mtpua",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:26:22.401Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_husdeupb02x4dt",
+          "method": "eth_sendTransaction",
+          "params": [
+            {
+              "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+              "to": "0x50d0000000000000000000000000000000000001",
+              "data": "0xa98b3cbd000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000005bff2ba0b292823f7cbb4424cb52f1c1279a4d8a000000000000000000000000000000000000000000000001158e460913d0000000000000000000000000000000000000000000000000000000065fed1277e880",
+              "value": "0x0",
+              "gas": "0xf4240",
+              "maxFeePerGas": "0x3b9aca00",
+              "maxPriorityFeePerGas": "0x0"
+            }
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:26:22.557Z",
+          "outcome": "approved",
+          "result": "0x05cb42bb4ae5b06b90a7b88b15698ce0954e55fe37ac8f8908dcfc9620dd1bc7"
+        },
+        {
+          "id": "req_0e5biiku002ac1",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:26:40.528Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_yep3jbs3t5zkef",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:26:40.530Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviews": [
+        {
+          "id": "sgr_4i4bvcx61llcvd",
+          "requestId": "req_5exexm31xalobt",
+          "testId": "setup",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "personal_sign",
+          "verdict": "check",
+          "title": "Sign in to staging-app.podtestnet.dev",
+          "summary": "The button says “MetaMask →”. The wallet is asked to sign a sign-in message for staging-app.podtestnet.dev.",
+          "ui": {
+            "buttonLabel": "MetaMask →",
+            "pageUrl": "https://staging-app.podtestnet.dev/",
+            "screenshot": "screenshots/run_k2gtwtevajollh-rpl_y58gyvjjk4vxq9-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "message",
+            "args": [],
+            "message": "staging-app.podtestnet.dev wants you to sign in with your Ethereum account:\n0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a\n\nBy signing, you are proving you own this wallet and logging in. This does not initiate a transaction or cost any fees.\n\nURI: https://staging-app.podtestnet.dev\nVersion: 1\nChain ID: 129302\nNonce: 8faac7dc954316b3d0a92872de3613c3b36ae53ecd2b153d19e330378438ec3a\nIssued At: 2026-11-10T14:24:07.595Z\nResources:\n- https://privy.io",
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "MetaMask →"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "message"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "07495d120d575a35",
+          "createdAt": "2026-11-10T14:24:23.070Z",
+          "runId": "rpl_y58gyvjjk4vxq9"
+        },
+        {
+          "id": "sgr_6lsxn8ibpsmkmg",
+          "requestId": "req_j2muo2ra3aax2l",
+          "testId": "setup",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign MintRequest for PodFaucet",
+          "summary": "The button says “Mint”. The wallet is asked to sign MintRequest typed data for PodFaucet.",
+          "ui": {
+            "buttonLabel": "Mint",
+            "pageUrl": "https://staging-app.podtestnet.dev/",
+            "screenshot": "screenshots/run_k2gtwtevajollh-rpl_il5q33bf4df0a0-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "PodFaucet",
+            "args": [
+              {
+                "name": "recipient",
+                "type": "address",
+                "value": "0x5bff2ba0b292823f7cbb4424cb52f1c1279a4d8a"
+              },
+              {
+                "name": "token",
+                "type": "address",
+                "value": "0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd"
+              },
+              {
+                "name": "deadline",
+                "type": "uint256",
+                "value": "1794320784461000"
+              }
+            ],
+            "primaryType": "MintRequest",
+            "domain": {
+              "name": "PodFaucet",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Mint"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "5ad579e0ba73c5fa",
+          "createdAt": "2026-11-10T14:24:24.786Z",
+          "runId": "rpl_il5q33bf4df0a0"
+        },
+        {
+          "id": "sgr_boph03bqw1gtfz",
+          "requestId": "req_v4oevx4uww8wul",
+          "testId": "setup",
+          "stepIndex": 0,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign MintRequest for PodFaucet",
+          "summary": "The button says “Mint”. The wallet is asked to sign MintRequest typed data for PodFaucet.",
+          "ui": {
+            "buttonLabel": "Mint",
+            "pageUrl": "https://staging-app.podtestnet.dev/",
+            "screenshot": "screenshots/run_k2gtwtevajollh-rpl_afbdgjxdxyjcv5-step0-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "PodFaucet",
+            "args": [
+              {
+                "name": "recipient",
+                "type": "address",
+                "value": "0x5bff2ba0b292823f7cbb4424cb52f1c1279a4d8a"
+              },
+              {
+                "name": "token",
+                "type": "address",
+                "value": "0x8bcb60668edcfb4523b5e75c7e7f66bb9d4743dd"
+              },
+              {
+                "name": "deadline",
+                "type": "uint256",
+                "value": "1794320786122000"
+              }
+            ],
+            "primaryType": "MintRequest",
+            "domain": {
+              "name": "PodFaucet",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Mint"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "3db4287ad248e5d1",
+          "createdAt": "2026-11-10T14:24:26.470Z",
+          "runId": "rpl_afbdgjxdxyjcv5"
+        },
+        {
+          "id": "sgr_nwhaji2de9hwwp",
+          "requestId": "req_veq4yw75vv9a6n",
+          "testId": "setup",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "Enable trading",
+            "pageUrl": "https://staging-app.podtestnet.dev/trade/AAPLUSD:perp",
+            "screenshot": "screenshots/run_k2gtwtevajollh-rpl_ja0zf9m4j7g2jx-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0xfc7f451f0770ecfc3680bc9c0ec61e7b352b9484"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925473217000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Enable trading"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "2a7a46864b73cab5",
+          "createdAt": "2026-11-10T14:24:48.802Z",
+          "runId": "rpl_ja0zf9m4j7g2jx"
+        },
+        {
+          "id": "sgr_r432yla3mvtjta",
+          "requestId": "req_husdeupb02x4dt",
+          "testId": "test_nureehpwmb85kf",
+          "stepIndex": 0,
+          "chainId": 129302,
+          "method": "eth_sendTransaction",
+          "verdict": "check",
+          "title": "Withdraw on 0x50d0…0001",
+          "summary": "The button says “My connected wallet 0x5bfF…4d8a →”. The wallet is asked to call withdraw(0xEeee…EEeE (wallet address), 0x5bfF…4d8a (wallet address), 20000000000000000000, 1794321682000000) on 0x50d0…0001.",
+          "ui": {
+            "buttonLabel": "My connected wallet 0x5bfF…4d8a →",
+            "pageUrl": "https://staging-app.podtestnet.dev/home",
+            "screenshot": "screenshots/run_99wp4cgrmffuyy-rpl_0b8smora5e4g9h-step0-wallet.png"
+          },
+          "decoded": {
+            "kind": "transaction",
+            "to": "0x50d0000000000000000000000000000000000001",
+            "functionName": "withdraw",
+            "signature": "withdraw(address,address,uint256,uint128)",
+            "args": [
+              {
+                "name": "arg0",
+                "type": "address",
+                "value": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+                "display": "0xEeee…EEeE (wallet address)"
+              },
+              {
+                "name": "arg1",
+                "type": "address",
+                "value": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+                "display": "0x5bfF…4d8a (wallet address)"
+              },
+              {
+                "name": "arg2",
+                "type": "uint256",
+                "value": "20000000000000000000"
+              },
+              {
+                "name": "arg3",
+                "type": "uint128",
+                "value": "1794321682000000"
+              }
+            ],
+            "value": "0",
+            "calldata": "0xa98b3cbd000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000005bff2ba0b292823f7cbb4424cb52f1c1279a4d8a000000000000000000000000000000000000000000000001158e460913d0000000000000000000000000000000000000000000000000000000065fed1277e880",
+            "abiSource": "signature-db"
+          },
+          "simulation": {
+            "status": "ok",
+            "balanceChanges": [],
+            "revertReason": "Live chain: balance changes aren't measured"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "My connected wallet 0x5bfF…4d8a →"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "unverified",
+              "detail": "Couldn't check 0x50d0…0001: Sourcify didn't answer."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "pass",
+              "detail": "0x50d0…0001 was deployed 2 months ago."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "pass",
+              "detail": "Not a proxy."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation: 0xa98b3cbd(), to 0x50d0…0001.",
+              "evidence": {
+                "expectation": {
+                  "kind": "transaction",
+                  "to": "0x50d0000000000000000000000000000000000001",
+                  "functionName": "0xa98b3cbd"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "pass",
+              "detail": "No balance change now.",
+              "evidence": {
+                "balanceChanges": [],
+                "stake": false
+              }
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "02f7f7c916e6c0e7",
+          "createdAt": "2026-11-10T14:26:38.692Z",
+          "runId": "rpl_0b8smora5e4g9h"
+        }
+      ],
+      "issues": [],
+      "console": [],
+      "costUsd": 0.568,
+      "before": "Cash $49,815.23",
+      "verdict": {
+        "ok": true,
+        "reason": "Home shows CASH $49,795.23, which is $20 below the earlier $49,815.23, and the withdraw transaction was approved and mined."
+      },
+      "finalScreenshot": "screenshots/run_99wp4cgrmffuyy-final.png",
+      "video": "videos/run_99wp4cgrmffuyy.webm"
+    },
+    "steps": [
+      {
+        "text": "Open the Account menu",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Account"
+            },
+            "note": "Open Account menu"
+          }
+        ]
+      },
+      {
+        "text": "Click Withdraw",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Withdraw",
+              "withinDialog": true
+            },
+            "note": "Click \"Withdraw\""
+          }
+        ]
+      },
+      {
+        "text": "Enter 20 as the amount",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "role": "textbox",
+              "name": "Withdraw amount",
+              "withinDialog": true
+            },
+            "value": "20"
+          }
+        ]
+      },
+      {
+        "text": "Click Continue",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Continue",
+              "withinDialog": true
+            },
+            "note": "Click \"Continue\""
+          }
+        ]
+      },
+      {
+        "text": "Choose My connected wallet",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "text": "My connected wallet0x5bfF…4d8a→",
+              "withinDialog": true
+            },
+            "note": "Click \"My connected wallet0x5bfF…4d8a→\""
+          }
+        ]
+      },
+      {
+        "text": "Approve in the wallet",
+        "actions": [
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "transaction",
+              "to": "0x50d0000000000000000000000000000000000001",
+              "functionName": "0xa98b3cbd"
+            },
+            "note": "Approve eth_sendTransaction to 0x50d0…0001"
+          }
+        ]
+      },
+      {
+        "text": "Reload Home and read Cash",
+        "actions": [
+          {
+            "kind": "goto",
+            "url": "/home"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "testId": "test_paovnevxx9ih72",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": true,
+        "shared": true,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Click \"Account\""
+          ],
+          "screenshot": "screenshots/run_efp2x1otrs7bg8-step1.png",
+          "durationMs": 452
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Click \"Withdraw\""
+          ],
+          "screenshot": "screenshots/run_efp2x1otrs7bg8-step2.png",
+          "durationMs": 412
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"1000000\" into \"Withdraw amount\""
+          ],
+          "screenshot": "screenshots/run_efp2x1otrs7bg8-step3.png",
+          "durationMs": 83
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "See \"amount exceeds your withdrawable balance\""
+          ],
+          "screenshot": "screenshots/run_efp2x1otrs7bg8-step4.png",
+          "durationMs": 38
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_et6lfk7uze059z",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:26:49.484Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_qz5pd9yi2bw488",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:26:49.486Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviews": [],
+      "issues": [],
+      "console": [],
+      "costUsd": 0.031,
+      "before": "Withdrawable balance: not on this page (no withdraw dialog open); Continue button: not on this page; message \"amount exceeds your withdrawable balance\": not on this page. Nearest figures: Cash $49,795.23; Margin available $49,793.73.",
+      "verdict": {
+        "ok": true,
+        "reason": "Withdraw dialog shows amount 1000000, the message \"amount exceeds your withdrawable balance\" (max $49,793.73), and the Continue button is disabled."
+      },
+      "finalScreenshot": "screenshots/run_efp2x1otrs7bg8-final.png",
+      "video": "videos/run_efp2x1otrs7bg8.webm"
+    },
+    "steps": [
+      {
+        "text": "Open the Account menu",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Account"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Click Withdraw",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Withdraw",
+              "withinDialog": true
+            },
+            "note": "Click \"Withdraw\""
+          }
+        ]
+      },
+      {
+        "text": "Enter 1000000 as the amount",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "role": "textbox",
+              "name": "Withdraw amount",
+              "withinDialog": true
+            },
+            "value": "1000000"
+          }
+        ]
+      },
+      {
+        "text": "See the error and disabled Continue",
+        "actions": [
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "amount exceeds your withdrawable balance"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "testId": "test_d14pgb072mu7ov",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": true,
+        "shared": true,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Click \"Long\""
+          ],
+          "screenshot": "screenshots/run_9tozvk82dw3udb-step1.png",
+          "durationMs": 469
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"300000\" into \"0.00\""
+          ],
+          "screenshot": "screenshots/run_9tozvk82dw3udb-step2.png",
+          "durationMs": 151
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"300\" into \"div:nth-of-type(2) > aside > section > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > input\""
+          ],
+          "screenshot": "screenshots/run_9tozvk82dw3udb-step3.png",
+          "durationMs": 134
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Try submitting over-limit order",
+            "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          ],
+          "screenshot": "screenshots/run_9tozvk82dw3udb-step4.png",
+          "durationMs": 16852
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "See \"Over your 5x limit\""
+          ],
+          "screenshot": "screenshots/run_9tozvk82dw3udb-step5.png",
+          "durationMs": 75
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "See \"Long AAPL/USD\""
+          ],
+          "screenshot": "screenshots/run_9tozvk82dw3udb-step6.png",
+          "durationMs": 82
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_nqewd0j4mlvuc0",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:27:05.266Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_mpc2159ecx7s1w",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:27:05.269Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_q6duc67hf0j4pd",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:27:16.829Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_vd0zjp9zu88wj9",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0x57abf36f8025935dc622ed284b4fe34fc9223d3a\",\"validUntil\":\"1794925636842000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:27:16.843Z",
+          "outcome": "approved",
+          "result": "0xb3e007216301605afc1275ef0a463a941b897e5239ea73e23c61e5777841f12e2a6f10e661a799896ccf88c35005ca6b689d93bf58b2555fd2f42c463355fd0a1b"
+        }
+      ],
+      "signingReviews": [
+        {
+          "id": "sgr_s3lwfpe2qoiopp",
+          "requestId": "req_vd0zjp9zu88wj9",
+          "testId": "test_d14pgb072mu7ov",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "Enable trading",
+            "pageUrl": "https://staging-app.podtestnet.dev/trade/AAPLUSD:perp",
+            "screenshot": "screenshots/run_9tozvk82dw3udb-rpl_wy9el390ifqyu4-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0x57abf36f8025935dc622ed284b4fe34fc9223d3a"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925636842000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Enable trading"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "0759d1845a175ef4",
+          "createdAt": "2026-11-10T14:27:32.316Z",
+          "runId": "rpl_wy9el390ifqyu4"
+        }
+      ],
+      "issues": [],
+      "console": [],
+      "costUsd": 0.048,
+      "before": "\"Over your 5x limit\" message: not on this page; \"Long AAPL/USD\" button: not on this page (only \"Long\" tab and \"Enable trading\" button, enabled); Orders: All 40 (1–10 of 40), newest Buy limit $300.00 0.3333 AAPL Cancelled 32m ago",
+      "verdict": {
+        "ok": true,
+        "reason": "The screenshot shows \"Over your 5x limit ($248,968.73) — raise Max leverage or lower the amount\". The \"Long AAPL/USD\" button is disabled. Orders still reads \"All 40\" with the same newest entry (Buy limit $300.00 Cancelled 32m ago), so no new order was added."
+      },
+      "finalScreenshot": "screenshots/run_9tozvk82dw3udb-final.png",
+      "video": "videos/run_9tozvk82dw3udb.webm"
+    },
+    "steps": [
+      {
+        "text": "Click Long",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Long"
+            },
+            "note": "Click \"Long\""
+          }
+        ]
+      },
+      {
+        "text": "Enter 300000 USD as the amount",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "role": "textbox",
+              "name": "0.00"
+            },
+            "value": "300000"
+          }
+        ]
+      },
+      {
+        "text": "Type 300 as the limit price",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "css": "div:nth-of-type(2) > aside > section > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > input"
+            },
+            "value": "300"
+          }
+        ]
+      },
+      {
+        "text": "Click Enable trading and sign if asked",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Enable trading"
+            },
+            "note": "Try submitting over-limit order"
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "typedData"
+            },
+            "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          }
+        ]
+      },
+      {
+        "text": "Check the over-limit message shows",
+        "actions": [
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Over your 5x limit"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Check Long AAPL/USD is disabled",
+        "actions": [
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Long AAPL/USD"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "testId": "test_v60ac61y4awi9p",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": true,
+        "shared": true,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Enable trading",
+            "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          ],
+          "screenshot": "screenshots/run_jxhujez2fe45ql-step1.png",
+          "durationMs": 16937
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Ensure USD unit selected",
+            "Type \"100\" into \"0.00\"",
+            "See \"Buying power\""
+          ],
+          "screenshot": "screenshots/run_jxhujez2fe45ql-step2.png",
+          "durationMs": 503
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"290\" into \"div:nth-of-type(2) > aside > section > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > input\"",
+            "See \"290\""
+          ],
+          "screenshot": "screenshots/run_jxhujez2fe45ql-step3.png",
+          "durationMs": 99
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Place long limit order"
+          ],
+          "screenshot": "screenshots/run_jxhujez2fe45ql-step4.png",
+          "durationMs": 2567
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open /trade/AAPLUSD:perp",
+            "See \"Open\""
+          ],
+          "screenshot": "screenshots/run_jxhujez2fe45ql-step5.png",
+          "durationMs": 5522
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Cancel the $290 limit order",
+            "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          ],
+          "screenshot": "screenshots/run_jxhujez2fe45ql-step6.png",
+          "durationMs": 1692
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open /trade/AAPLUSD:perp",
+            "See \"Cancelled\""
+          ],
+          "screenshot": "screenshots/run_jxhujez2fe45ql-step7.png",
+          "durationMs": 3281
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_181yitmmmn3c21",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:27:44.443Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_e7rsbuhbcp3sic",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:27:44.447Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_sa4122xyw126cs",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:02.365Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_1he6mxvbmiw4id",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0xbfb2782023e0ed5da27b6427b00896ddb18de29d\",\"validUntil\":\"1794925682372000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:28:02.372Z",
+          "outcome": "approved",
+          "result": "0x1dfb45740fe13de4b543a2010cc42d58242ca642d246a8528aaf297b67e2cf035a9a852481d4b62de66c34a0cb47fa13296348a6a64292a436b5db635ff3c2ef1c"
+        },
+        {
+          "id": "req_iup8wq117cdtsy",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:23.126Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_q9vsqr7xmp1cah",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:23.135Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_p2lktjz4v3k6r0",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:27.973Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_zo2a2ziwv7ag5v",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0xe305174b0bc81434d00a78bbf12b3bea026aeeda\",\"validUntil\":\"1794925707978000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:28:27.979Z",
+          "outcome": "approved",
+          "result": "0xdd9df97d53c8bc9d06210a33313c00ce41c376681c3536c571a94554cc08b348232c3f8ea4d2164da5f733431ea9efcbb27d460e0730e9ca5e5aba23959843d91c"
+        },
+        {
+          "id": "req_hcga17m1jafody",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:30.107Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_wnpnbq4vjczeou",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:30.109Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviews": [
+        {
+          "id": "sgr_d84ikaz7lo10ao",
+          "requestId": "req_1he6mxvbmiw4id",
+          "testId": "test_v60ac61y4awi9p",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "Enable trading",
+            "pageUrl": "https://staging-app.podtestnet.dev/trade/AAPLUSD:perp",
+            "screenshot": "screenshots/run_jxhujez2fe45ql-rpl_wz7kjoo1sf2ilz-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0xbfb2782023e0ed5da27b6427b00896ddb18de29d"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925682372000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Enable trading"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "a7a64e6fee1ba10f",
+          "createdAt": "2026-11-10T14:28:17.931Z",
+          "runId": "rpl_wz7kjoo1sf2ilz"
+        },
+        {
+          "id": "sgr_hqv47en9ocsgrk",
+          "requestId": "req_zo2a2ziwv7ag5v",
+          "testId": "test_v60ac61y4awi9p",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “Cancel order”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "Cancel order",
+            "pageUrl": "https://staging-app.podtestnet.dev/trade/AAPLUSD:perp",
+            "screenshot": "screenshots/run_jxhujez2fe45ql-rpl_cd7p4txxq6ik7n-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0xe305174b0bc81434d00a78bbf12b3bea026aeeda"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925707978000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Cancel order"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "a7a64e6fee1ba10f",
+          "createdAt": "2026-11-10T14:28:28.327Z",
+          "runId": "rpl_cd7p4txxq6ik7n"
+        }
+      ],
+      "issues": [],
+      "console": [],
+      "costUsd": 0.047,
+      "before": "Orders tab \"All 40\"; no order shows Open, none listed. Newest row: Buy limit @ $300.00, 0.3333 AAPL, Cancelled, 33m ago. Open orders count: not on this page.",
+      "verdict": {
+        "ok": true,
+        "reason": "The newest order row reads \"Buy limit @ $290.00 0.3448 AAPL Cancelled just now\". That matches 100 USD at a $290 limit (100/290 = 0.3448). The Orders count rose from 40 to 41, so this run added one order, and it is Cancelled rather than Open. The earlier Open state isn't on screen, but the end state fits the steps."
+      },
+      "finalScreenshot": "screenshots/run_jxhujez2fe45ql-final.png",
+      "video": "videos/run_jxhujez2fe45ql.webm"
+    },
+    "steps": [
+      {
+        "text": "Click Enable trading and sign",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Enable trading"
+            },
+            "note": "Enable trading"
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "typedData"
+            },
+            "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          }
+        ]
+      },
+      {
+        "text": "Enter 100 USD as the amount",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "USD"
+            },
+            "note": "Ensure USD unit selected"
+          },
+          {
+            "kind": "fill",
+            "target": {
+              "role": "textbox",
+              "name": "0.00"
+            },
+            "value": "100"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Buying power"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Type 290 as the limit price",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "css": "div:nth-of-type(2) > aside > section > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > input"
+            },
+            "value": "290"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "290"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Click Long AAPL/USD",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Long AAPL/USD"
+            },
+            "note": "Place long limit order"
+          }
+        ]
+      },
+      {
+        "text": "Reload and see the order Open in Orders",
+        "actions": [
+          {
+            "kind": "goto",
+            "url": "/trade/AAPLUSD:perp"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Open"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Click Cancel on that order",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "css": "div:nth-of-type(2) > div > section:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(6) > button:nth-of-type(2)"
+            },
+            "note": "Cancel the $290 limit order"
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "typedData"
+            },
+            "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          }
+        ]
+      },
+      {
+        "text": "Sign in the wallet and reload",
+        "actions": [
+          {
+            "kind": "goto",
+            "url": "/trade/AAPLUSD:perp"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Cancelled"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "testId": "test_yscxaam6gt2swf",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": true,
+        "shared": true,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Select Long side"
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step1.png",
+          "durationMs": 489
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"50\" into \"0.00\"",
+            "See \"Enable trading\""
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step2.png",
+          "durationMs": 126
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Enable trading",
+            "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step3.png",
+          "durationMs": 16852
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Place long order"
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step4.png",
+          "durationMs": 2332
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open /home",
+            "See \"long\""
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step5.png",
+          "durationMs": 2056
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Select Apple position",
+            "Close Apple position at market"
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step6.png",
+          "durationMs": 819
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step7.png",
+          "durationMs": 1328
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Expand Apple row to find close action",
+            "Close Apple position",
+            "Open /home",
+            "See \"Google 100.0%\""
+          ],
+          "screenshot": "screenshots/run_uogj567b6nj5y8-step8.png",
+          "durationMs": 2714
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_g6rp1v4mx30zx7",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:45.836Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_m19kan0m0tcxah",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:45.841Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_rgcb8iph3an0pf",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:28:56.011Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_ub2yj4zmwr95q6",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0xfd918908573d300d4fc3199f2969c6ec097883b9\",\"validUntil\":\"1794925736023000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:28:56.025Z",
+          "outcome": "approved",
+          "result": "0xbffeda805449c34af43c2ad40eccd0e861df124693030f510bb092fed1677f95202b18e6e6055b88e75a76726e1953811216201328e04571edc5a87f11d4764d1b"
+        },
+        {
+          "id": "req_etdampkd9kwn71",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:29:15.854Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_rc0s5x1n0tos2v",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:29:15.856Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_qdnb3oefp5ckql",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:29:17.611Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_go43pahdpnge1d",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0x351f0c12ebb392f7c9155d9e61ca44650875189b\",\"validUntil\":\"1794925757616000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:29:17.617Z",
+          "outcome": "approved",
+          "result": "0x012f9a1a0181a48991bc054d6e18a1e9fd28ec3ef2c8c109573b15ee8603dc820ec7b7a392d7e2f0ee482a163cfa697bd65903eeebbc8bf2c64156474869f1991c"
+        },
+        {
+          "id": "req_91r0g1aq0ylqhh",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:29:20.658Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_4tlzw7awq0gdnp",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:29:20.666Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviews": [
+        {
+          "id": "sgr_ohnh5as146guq4",
+          "requestId": "req_ub2yj4zmwr95q6",
+          "testId": "test_yscxaam6gt2swf",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "Enable trading",
+            "pageUrl": "https://staging-app.podtestnet.dev/trade/AAPLUSD:perp",
+            "screenshot": "screenshots/run_uogj567b6nj5y8-rpl_swoq37ks7phw2p-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0xfd918908573d300d4fc3199f2969c6ec097883b9"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925736023000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Enable trading"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "2928a0ec79481cf0",
+          "createdAt": "2026-11-10T14:29:11.498Z",
+          "runId": "rpl_swoq37ks7phw2p"
+        },
+        {
+          "id": "sgr_8i00dovfmo511y",
+          "requestId": "req_go43pahdpnge1d",
+          "testId": "test_yscxaam6gt2swf",
+          "stepIndex": 0,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “CLOSE AT MARKET”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "CLOSE AT MARKET",
+            "pageUrl": "https://staging-app.podtestnet.dev/home",
+            "screenshot": "screenshots/run_uogj567b6nj5y8-rpl_6f31fpww3llpd2-step0-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0x351f0c12ebb392f7c9155d9e61ca44650875189b"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925757616000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "CLOSE AT MARKET"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "0a9deef398d0edc9",
+          "createdAt": "2026-11-10T14:29:18.055Z",
+          "runId": "rpl_6f31fpww3llpd2"
+        }
+      ],
+      "issues": [],
+      "console": [],
+      "costUsd": 0.047,
+      "before": "Latest Buy market order in Orders: Buy market @$352.48, 0.1390 AAPL, Filled, 36m ago (Orders total 41; newest row is a Buy limit @$290.00 Cancelled, just now). Home Holdings AAPL perp: not on this page (this is the AAPL trade page).",
+      "verdict": {
+        "ok": true,
+        "reason": "Home Holdings (count 1) lists only the Google short, with no AAPL perp, so the close worked. The Filled order isn't visible because the Orders tab is closed. Two approved delegation signatures show the buy and the close both went through, and Total P&L (-$3.31) is lower than Unrealized (-$0.82), which fits a closed round trip."
+      },
+      "finalScreenshot": "screenshots/run_uogj567b6nj5y8-final.png",
+      "video": "videos/run_uogj567b6nj5y8.webm"
+    },
+    "steps": [
+      {
+        "text": "Click Long",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Long"
+            },
+            "note": "Select Long side"
+          }
+        ]
+      },
+      {
+        "text": "Enter 50 as the amount in USD",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "role": "textbox",
+              "name": "0.00"
+            },
+            "value": "50"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Enable trading"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Click Enable trading if shown and sign",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Enable trading"
+            },
+            "note": "Enable trading"
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "typedData"
+            },
+            "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          }
+        ]
+      },
+      {
+        "text": "Click Long AAPL/USD",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Long AAPL/USD"
+            },
+            "note": "Place long order"
+          }
+        ]
+      },
+      {
+        "text": "Open Home and check Holdings lists AAPL long",
+        "actions": [
+          {
+            "kind": "goto",
+            "url": "/home"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "long"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Click Close Apple, then All",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "checkbox",
+              "name": "Select Apple"
+            },
+            "note": "Select Apple position"
+          },
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Close at market"
+            },
+            "note": "Close Apple position at market"
+          }
+        ]
+      },
+      {
+        "text": "Click Enable trading if shown and sign",
+        "actions": [
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "typedData"
+            },
+            "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          }
+        ]
+      },
+      {
+        "text": "Click Close long and open Home",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "text": "ApplePerp→AAPL/USDlong0.3916$136.55-$0.80-11.7%"
+            },
+            "note": "Expand Apple row to find close action"
+          },
+          {
+            "kind": "click",
+            "target": {
+              "role": "link",
+              "name": "Close Apple"
+            },
+            "note": "Close Apple position"
+          },
+          {
+            "kind": "goto",
+            "url": "/home"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Google 100.0%"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "testId": "test_l6iokcpzpqvq0t",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": true,
+        "shared": true,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "agent",
+          "did": [
+            "Open deposit dialog via Add funds"
+          ],
+          "note": "The page has no \"Deposit\" button, so I clicked \"Add funds\". That opened the Deposit dialog, which asks \"How much would you like to deposit?\".",
+          "screenshot": "screenshots/run_08tu486n1z9kt2-step1.png",
+          "durationMs": 59748
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"5\" into \"Deposit amount\""
+          ],
+          "screenshot": "screenshots/run_08tu486n1z9kt2-step2.png",
+          "durationMs": 50
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "See \"Min $10\""
+          ],
+          "screenshot": "screenshots/run_08tu486n1z9kt2-step3.png",
+          "durationMs": 35
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "See \"Min $10\""
+          ],
+          "screenshot": "screenshots/run_08tu486n1z9kt2-step4.png",
+          "durationMs": 32
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_vtv6qkojczpjfb",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:29:36.458Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_rm23h0aaarbonq",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:29:36.461Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviews": [],
+      "issues": [],
+      "console": [],
+      "costUsd": 0.267,
+      "before": "Deposit dialog is not open on this page, so \"Min $10\" is not on this page; Continue button not on this page (only \"Add funds\" button is present).",
+      "verdict": {
+        "ok": true,
+        "reason": "The Deposit dialog shows amount 5, the \"Min $10\" text, and the \"Continue\" button is disabled (e40 \"Continue\" disabled, greyed out in screenshot)."
+      },
+      "finalScreenshot": "screenshots/run_08tu486n1z9kt2-final.png",
+      "video": "videos/run_08tu486n1z9kt2.webm"
+    },
+    "steps": [
+      {
+        "text": "Click Deposit",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Add funds"
+            },
+            "note": "Open deposit dialog via Add funds"
+          }
+        ]
+      },
+      {
+        "text": "Enter 5 as the amount",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "role": "textbox",
+              "name": "Deposit amount",
+              "withinDialog": true
+            },
+            "value": "5"
+          }
+        ]
+      },
+      {
+        "text": "See Min $10 shown",
+        "actions": [
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Min $10"
+            }
+          }
+        ]
+      },
+      {
+        "text": "See Continue disabled",
+        "actions": [
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Min $10"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "testId": "test_3ju9qhyt9235g3",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": true,
+        "shared": true,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Click Long"
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-step1.png",
+          "durationMs": 492
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"100\" into \"0.00\""
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-step2.png",
+          "durationMs": 131
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Type \"300\" into \"div:nth-of-type(2) > aside > section > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > input\"",
+            "See \"Limit\""
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-step3.png",
+          "durationMs": 138
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Enable trading",
+            "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-step4.png",
+          "durationMs": 16813
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Place the limit buy"
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-step5.png",
+          "durationMs": 2552
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open /home"
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-step6.png",
+          "durationMs": 2140
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open Orders tab",
+            "See \"$300.00\""
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-step7.png",
+          "durationMs": 439
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_607kigezyxvpuj",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:30:48.380Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_9cqfmmcf12pzft",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:30:48.383Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_wvp4bwxk70t88a",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:31:02.569Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_9ayz8xt9v357n4",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0xc57e16269cadb40a5f0d2955877e5eec688c55af\",\"validUntil\":\"1794925862580000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:31:02.581Z",
+          "outcome": "approved",
+          "result": "0x19cfd5dfebfbb7c6ed40041fc56bd12f33754720f3ca48b2d394b9f291367075218495410f680fa3794d0667ca5a9427b76a23585048cb5818cc7e7cc8b4276e1b"
+        },
+        {
+          "id": "req_yg97z2u3n0radj",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:31:22.617Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_2rxufdpsf2w6l2",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:31:22.626Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_u20fhttjftz9um",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:31:28.065Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        },
+        {
+          "id": "req_0p9um0goin3x5f",
+          "method": "eth_signTypedData_v4",
+          "params": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+            "{\"domain\":{\"name\":\"pod delegation\",\"version\":\"1\",\"chainId\":129302},\"message\":{\"delegate\":\"0xd32b814430ec793f1c29b64f7d734b344bd0a68d\",\"validUntil\":\"1794925888070000\"},\"primaryType\":\"DelegationAuth\",\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"version\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"DelegationAuth\":[{\"name\":\"delegate\",\"type\":\"address\"},{\"name\":\"validUntil\",\"type\":\"uint64\"}]}}"
+          ],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "sign",
+          "at": "2026-11-10T14:31:28.070Z",
+          "outcome": "approved",
+          "result": "0x081b1e031a9a5e2d3f98e2a5498a8e3616391ba7c65fd0f070023af1feffa1634cc0c82a8d81636f8ba60dfc1fc584e1da80d2a4b617fbfa6db1ab331560695d1b"
+        }
+      ],
+      "signingReviews": [
+        {
+          "id": "sgr_qesjj1ucl0ylb3",
+          "requestId": "req_9ayz8xt9v357n4",
+          "testId": "test_3ju9qhyt9235g3",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “Enable trading”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "Enable trading",
+            "pageUrl": "https://staging-app.podtestnet.dev/trade/AAPLUSD:perp",
+            "screenshot": "screenshots/run_mkvkgjfdcevh1y-rpl_di7s32yq35rpp5-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0xc57e16269cadb40a5f0d2955877e5eec688c55af"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925862580000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Enable trading"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "12a0128a173264c7",
+          "createdAt": "2026-11-10T14:31:18.045Z",
+          "runId": "rpl_di7s32yq35rpp5"
+        },
+        {
+          "id": "sgr_9xnv8bemcp5s52",
+          "requestId": "req_0p9um0goin3x5f",
+          "testId": "test_3ju9qhyt9235g3",
+          "stepIndex": 1,
+          "chainId": 129302,
+          "method": "eth_signTypedData_v4",
+          "verdict": "check",
+          "title": "Sign DelegationAuth for pod delegation",
+          "summary": "The button says “Cancel order”. The wallet is asked to sign DelegationAuth typed data for pod delegation.",
+          "ui": {
+            "buttonLabel": "Cancel order",
+            "pageUrl": "https://staging-app.podtestnet.dev/home",
+            "screenshot": "screenshots/run_mkvkgjfdcevh1y-rpl_ggfhc9zwuxg3uk-step1-wallet.png"
+          },
+          "decoded": {
+            "kind": "typedData",
+            "contractName": "pod delegation",
+            "args": [
+              {
+                "name": "delegate",
+                "type": "address",
+                "value": "0xd32b814430ec793f1c29b64f7d734b344bd0a68d"
+              },
+              {
+                "name": "validUntil",
+                "type": "uint64",
+                "value": "1794925888070000"
+              }
+            ],
+            "primaryType": "DelegationAuth",
+            "domain": {
+              "name": "pod delegation",
+              "version": "1",
+              "chainId": 129302
+            },
+            "abiSource": "none"
+          },
+          "approvals": [],
+          "checks": [
+            {
+              "id": "ui-match",
+              "label": "Matches the button",
+              "status": "unverified",
+              "detail": "The label doesn't say enough to compare with the request, and no model was available.",
+              "evidence": {
+                "via": "none",
+                "buttonLabel": "Cancel order"
+              }
+            },
+            {
+              "id": "verified-source",
+              "label": "Contract has verified source",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "baseline",
+              "label": "Same as last run",
+              "status": "skip",
+              "detail": "No accepted earlier run to compare against."
+            },
+            {
+              "id": "contract-age",
+              "label": "Contract age",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "proxy",
+              "label": "Proxy",
+              "status": "skip",
+              "detail": "No contract involved."
+            },
+            {
+              "id": "token",
+              "label": "Token contract",
+              "status": "skip",
+              "detail": "No token involved."
+            },
+            {
+              "id": "known-bad",
+              "label": "Known-bad lists",
+              "status": "pass",
+              "detail": "Not on any list we check (ScamSniffer, MetaMask)."
+            },
+            {
+              "id": "approval",
+              "label": "Approval scope",
+              "status": "skip",
+              "detail": "Nothing is approved."
+            },
+            {
+              "id": "expectation",
+              "label": "Test expectation",
+              "status": "pass",
+              "detail": "Matches the test's expectation.",
+              "evidence": {
+                "expectation": {
+                  "kind": "typedData"
+                }
+              }
+            },
+            {
+              "id": "simulation",
+              "label": "Simulated",
+              "status": "skip",
+              "detail": "Nothing to simulate for a signature."
+            },
+            {
+              "id": "erc7730",
+              "label": "ERC-7730 descriptor",
+              "status": "skip",
+              "detail": "No clear-signing descriptor published for this contract."
+            }
+          ],
+          "explanation": "Worth a look. Couldn't compare with the button.",
+          "advice": "No button label was captured; give the control an accessible name so the request can be compared with it.",
+          "fingerprint": "12a0128a173264c7",
+          "createdAt": "2026-11-10T14:31:28.445Z",
+          "runId": "rpl_ggfhc9zwuxg3uk"
+        }
+      ],
+      "issues": [],
+      "console": [],
+      "costUsd": 0.045,
+      "before": "Home Orders tab: not on this page (this is the AAPL trade page). Its Orders list: top row Sell market $350.98 0.1392 AAPL Filled 1m ago; only $300.00 buy limit is 0.3333 AAPL Cancelled 36m ago; no open order.",
+      "verdict": {
+        "ok": true,
+        "reason": "Orders tab's top row reads \"Apple BUY LIMIT $300.00 0.3333 AAPL Open just now\" with Modify/Cancel, above the older Cancelled $300.00 row (36m ago)."
+      },
+      "after": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Cancel the $300 limit order",
+            "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+            "See \"Cancelled\""
+          ],
+          "screenshot": "screenshots/run_mkvkgjfdcevh1y-after1.png",
+          "durationMs": 1725
+        }
+      ],
+      "finalScreenshot": "screenshots/run_mkvkgjfdcevh1y-final.png",
+      "video": "videos/run_mkvkgjfdcevh1y.webm"
+    },
+    "steps": [
+      {
+        "text": "Click Long",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Long"
+            },
+            "note": "Click Long"
+          }
+        ]
+      },
+      {
+        "text": "Enter 100 USD as size",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "role": "textbox",
+              "name": "0.00"
+            },
+            "value": "100"
+          }
+        ]
+      },
+      {
+        "text": "Type 300 as the limit price",
+        "actions": [
+          {
+            "kind": "fill",
+            "target": {
+              "css": "div:nth-of-type(2) > aside > section > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > input"
+            },
+            "value": "300"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Limit"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Click Enable trading and sign",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Enable trading"
+            },
+            "note": "Enable trading"
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "typedData"
+            },
+            "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          }
+        ]
+      },
+      {
+        "text": "Click Long AAPL/USD",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Long AAPL/USD"
+            },
+            "note": "Place the limit buy"
+          }
+        ]
+      },
+      {
+        "text": "Open Home and reload",
+        "actions": [
+          {
+            "kind": "goto",
+            "url": "/home"
+          }
+        ]
+      },
+      {
+        "text": "Click the Orders tab",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "tab",
+              "name": "Orders"
+            },
+            "note": "Open Orders tab"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "$300.00"
+            }
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "text": "Cancel the new $300 limit order from Home's Orders tab",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Cancel order"
+            },
+            "note": "Cancel the $300 limit order"
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "typedData"
+            },
+            "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)"
+          },
+          {
+            "kind": "expect",
+            "assert": {
+              "type": "visible",
+              "text": "Cancelled"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "testId": "test_vvo6zc0ms8akma",
+    "status": "pass",
+    "result": {
+      "setup": {
+        "ok": true,
+        "steps": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Continue with a wallet"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step1.png",
+            "durationMs": 564
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Choose MetaMask",
+              "Approve personal_sign"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step2.png",
+            "durationMs": 17163
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open Mint",
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)",
+              "Click Mint in the left rail"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step3.png",
+            "durationMs": 2081
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Approve eth_signTypedData_v4 MintRequest (PodFaucet)"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step4.png",
+            "durationMs": 1312
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Open /trade/AAPLUSD:perp",
+              "See \"Enable trading\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step5.png",
+            "durationMs": 5384
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Enable trading",
+              "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "See \"trading enabled\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-setup-step6.png",
+            "durationMs": 16930
+          }
+        ],
+        "when": "once",
+        "reused": true,
+        "shared": true,
+        "reset": [
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Home\"",
+              "Click \"Orders\"",
+              "See \"Orders\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step1-1.png",
+            "durationMs": 801
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open status filter"
+            ],
+            "note": "The Open filter shows 0 orders and is disabled, so there are no open orders from earlier runs to undo.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step2-1.png",
+            "durationMs": 55065
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Click \"Part filled2\""
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step3-1.png",
+            "durationMs": 437
+          },
+          {
+            "status": "pass",
+            "via": "cache",
+            "did": [
+              "Press Escape",
+              "Press Enter"
+            ],
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step4-1.png",
+            "durationMs": 81
+          },
+          {
+            "status": "pass",
+            "via": "agent",
+            "did": [
+              "Open the position",
+              "Close the Google position",
+              "Close full size",
+              "Submit close"
+            ],
+            "note": "Closed the Google short (0.0683 GOOGL) at market; the app showed \"Order submitted\" and the position panel went away.",
+            "screenshot": "screenshots/run_k2gtwtevajollh-reset-step5-1.png",
+            "durationMs": 26683
+          }
+        ]
+      },
+      "steps": [
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Spot filter"
+          ],
+          "screenshot": "screenshots/run_gktd7vgu2gm0fu-step1.png",
+          "durationMs": 471
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Open NVDAx spot"
+          ],
+          "screenshot": "screenshots/run_gktd7vgu2gm0fu-step2.png",
+          "durationMs": 475
+        },
+        {
+          "status": "pass",
+          "via": "cache",
+          "did": [
+            "Show book"
+          ],
+          "screenshot": "screenshots/run_gktd7vgu2gm0fu-step3.png",
+          "durationMs": 417
+        }
+      ],
+      "walletRequests": [
+        {
+          "id": "req_319uixyp098iu4",
+          "method": "eth_accounts",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:31:35.543Z",
+          "outcome": "approved",
+          "result": [
+            "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a"
+          ]
+        },
+        {
+          "id": "req_jc6t0qobsv971s",
+          "method": "eth_chainId",
+          "params": [],
+          "chainId": 129302,
+          "from": "0x5bfF2Ba0B292823F7cbb4424Cb52f1C1279a4d8a",
+          "wallet": "metamask",
+          "kind": "other",
+          "at": "2026-11-10T14:31:35.599Z",
+          "outcome": "approved",
+          "result": "0x1f916"
+        }
+      ],
+      "signingReviews": [],
+      "issues": [],
+      "console": [
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.073Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.103Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.103Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.103Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.122Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.165Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.359Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.361Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.362Z"
+        },
+        {
+          "level": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "at": "2026-11-10T14:31:36.362Z"
+        }
+      ],
+      "costUsd": 0.06,
+      "before": "NVDAx/USD spot price: not on this page (only NVDA/USD perp $172.70 -0.6%); Order Book panel: not on this page; Buy/Sell order form: not on this page. Explore shows \"57 markets · 51 perps, 6 spot\"; Spot filter \"Spot+0.0%\" unchecked.",
+      "verdict": {
+        "ok": true,
+        "reason": "The URL is /trade/NVDAxUSD:spot and the page shows \"NVDAx/USD $188.47\", an \"Order Book\" panel with PRICE/SIZE/TOTAL columns (the toggle now reads \"Hide book\"), and the BUY/SELL order form with Amount, Price and \"Enable trading\"."
+      },
+      "finalScreenshot": "screenshots/run_gktd7vgu2gm0fu-final.png",
+      "video": "videos/run_gktd7vgu2gm0fu.webm"
+    },
+    "steps": [
+      {
+        "text": "Click the Spot filter",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Spot+0.0%"
+            },
+            "note": "Spot filter"
+          }
+        ]
+      },
+      {
+        "text": "Click the NVDAx spot market",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "link",
+              "name": "Trade NVDAx"
+            },
+            "note": "Open NVDAx spot"
+          }
+        ]
+      },
+      {
+        "text": "Click Show book",
+        "actions": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Show book"
+            },
+            "note": "Show book"
+          }
+        ]
+      }
+    ]
+  }
+]

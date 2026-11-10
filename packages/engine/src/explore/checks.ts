@@ -4,12 +4,12 @@
  * that can't be made comes back as "error", not as a pass.
  */
 import { erc20Abi, formatEther, formatUnits } from "viem";
-import { chainName, shortAddress, type CheckAssert, type ExploreCheckStatus, type WalletRequest } from "@dappdrill/core";
+import { chainName, isLabel, shortAddress, type CheckAssert, type ExploreCheckStatus, type TestCheck, type TestCheckResult, type WalletRequest } from "@dappdrill/core";
 import { decodeWalletRequest } from "../agent/wallet-decode.js";
 import { settle } from "../agent/tools.js";
 import type { DrillSession, Hex } from "../types.js";
 import { carried, tokensNamed, type NamedToken } from "./carried.js";
-import { addsUp, asRead, brokenValues, loosely, numberOnPage, shownNumber } from "./display.js";
+import { addsUp, asRead, brokenValues, labelled, loosely, noLabel, numberOnPage, shownNumber } from "./display.js";
 import { referencePrices } from "./prices.js";
 
 export interface CheckResult {
@@ -19,6 +19,24 @@ export interface CheckResult {
 
 const TX_WAIT_MS = 15_000;
 const SHOW_WAIT_MS = 3_000;
+
+/** The checks kept on a test's step, in their order. `since`: wallet requests before the test began. Never throws. */
+export async function runChecks(session: DrillSession, checks: TestCheck[], since: number): Promise<TestCheckResult[]> {
+  const out: TestCheckResult[] = [];
+  for (const c of checks) {
+    const r = await evaluateCheck(session, c.assert, since).catch((e): CheckResult => ({ status: "error", evidence: `The check couldn't be made: ${e instanceof Error ? e.message.split("\n")[0] : String(e)}` }));
+    out.push({ name: c.name, ...r });
+  }
+  return out;
+}
+
+/** The number a claim is about: the value as given, or the figure under that label on the page when the value names one. */
+async function figureOf(session: DrillSession, value: string): Promise<{ text: string } | { error: CheckResult }> {
+  if (!isLabel(value)) return { text: value };
+  const text = await pageText(session);
+  const figure = labelled(text, value);
+  return figure ? { text: figure.text } : { error: { status: "error", evidence: noLabel([value], text) } };
+}
 
 /** `since`: wallet requests before this index belong to an earlier path. */
 export async function evaluateCheck(session: DrillSession, assert: CheckAssert, since = 0): Promise<CheckResult> {
@@ -51,21 +69,27 @@ export async function evaluateCheck(session: DrillSession, assert: CheckAssert, 
         const names = hex?.length === 40 ? addressesIn(signs.at(-1)!, session.wallet.address()) : "";
         return { status: "fail", evidence: `The wallet was asked: ${summaries.at(-1)}, without “${value}”.${names}` };
       }
-      case "wallet-amount":
+      case "wallet-amount": {
         if (!value) return missing("the amount the page shows");
         if (!assert.token) return missing("which token the amount is of");
-        return await checkAmount(session, signs, value, assert.token);
+        const shown = await figureOf(session, value);
+        return "error" in shown ? shown.error : await checkAmount(session, signs, shown.text, assert.token);
+      }
       case "no-wallet":
         return signs.length === 0 ? { status: "pass", evidence: "Nothing was asked to sign on this path." } : { status: "fail", evidence: `The wallet was asked: ${decodeWalletRequest(signs.at(-1)!).summary}.` };
       case "tx":
         return await checkTx(session, signs);
-      case "balance":
+      case "balance": {
         if (!value) return missing("the number the page shows");
-        return await checkBalance(session, value, assert.token);
-      case "price":
+        const shown = await figureOf(session, value);
+        return "error" in shown ? shown.error : await checkBalance(session, shown.text, assert.token);
+      }
+      case "price": {
         if (!value) return missing("the price the page shows");
         if (!assert.token) return missing("which asset the price is of");
-        return await checkPrice(session, value, assert.token);
+        const shown = await figureOf(session, value);
+        return "error" in shown ? shown.error : await checkPrice(session, shown.text, assert.token);
+      }
       case "adds-up": {
         if (!value) return missing("the sum");
         const r = addsUp(value, await pageText(session));

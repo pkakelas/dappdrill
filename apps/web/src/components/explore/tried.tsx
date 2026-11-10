@@ -1,4 +1,6 @@
+import { repeatable, testCheckKey } from "@dappdrill/core";
 import Link from "next/link";
+import { KeepCheck, type KeepTarget } from "@/components/explore/keep-check";
 import { StateMark } from "@/components/tests/status";
 import { cx } from "@/components/ui";
 import type { TriedKind, TriedLine } from "@/lib/explore";
@@ -27,10 +29,14 @@ function Chip({ href, on, label, n, bad }: { href: string; on: boolean; label: s
   );
 }
 
-function Row({ line, tests, appId }: { line: TriedLine; tests: Map<string, string>; appId: string }) {
-  const testId = line.became?.testName ? tests.get(line.became.testName) : undefined;
+function Row({ line, tests, kept, passId, appId }: { line: TriedLine; tests: KeepTarget[]; kept: Map<string, KeepTarget>; passId: string; appId: string }) {
+  const byName = new Map(tests.map((t) => [t.name, t.id]));
+  const testId = line.became?.testName ? byName.get(line.became.testName) : undefined;
   const bugId = line.became?.bugId;
   const href = testId ? `/apps/${appId}/tests/${testId}` : bugId && `/apps/${appId}?tab=bugs&bug=${bugId}#${bugId}`;
+  // A check that passed and copied nothing off the page can be kept on a test, where every run makes it again.
+  const on = line.assert && kept.get(testCheckKey({ name: line.name, assert: line.assert }));
+  const keepable = !on && line.kind === "pass" && line.assert && repeatable(line.assert);
   return (
     <li className="flex items-start gap-3 px-3.5 py-2.5">
       <StateMark state={line.kind === "gap" ? "skipped" : line.kind} className="mt-0.5" />
@@ -40,6 +46,14 @@ function Row({ line, tests, appId }: { line: TriedLine; tests: Map<string, strin
           <span className="line-clamp-2 text-xs break-words text-muted-foreground">{line.kind === "gap" ? `Not covered: ${line.detail}` : line.detail}</span>
         </div>
         <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground sm:pt-0.5">
+          {on && (
+            <Link href={`/apps/${appId}/tests/${on.id}`} className="rounded-sm text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
+              Checked on every run
+            </Link>
+          )}
+          {on && <span aria-hidden="true">·</span>}
+          {keepable && <KeepCheck passId={passId} checkId={line.id} tests={tests} suggested={line.became?.testName} />}
+          {keepable && <span aria-hidden="true">·</span>}
           {line.became &&
             (href ? (
               <Link href={href} className={cx("rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring", line.became.tone === "bad" ? "text-bad" : "text-foreground")}>
@@ -58,9 +72,10 @@ function Row({ line, tests, appId }: { line: TriedLine; tests: Map<string, strin
 
 /**
  * Every check the explorers made, as a log. A check runs once: one that passed may have been kept
- * as a test, one that failed may have turned into a bug. `tests` maps a saved test's name to its id.
+ * as a test, one that failed may have turned into a bug, and one that can be made again may be kept
+ * on a test's step. `tests` are the app's tests; `kept` says which test holds each kept check, by its key.
  */
-export function Tried({ appId, lines, kind, tests, running }: { appId: string; lines: TriedLine[]; kind?: TriedKind; tests: Map<string, string>; running: boolean }) {
+export function Tried({ appId, passId, lines, kind, tests, kept, running }: { appId: string; passId: string; lines: TriedLine[]; kind?: TriedKind; tests: KeepTarget[]; kept: Map<string, KeepTarget>; running: boolean }) {
   const count = (k: TriedKind) => lines.filter((l) => l.kind === k).length;
   const shown = kind ? lines.filter((l) => l.kind === kind) : lines;
   const href = (k?: TriedKind) => `/apps/${appId}?tab=checks${k ? `&kind=${k}` : ""}`;
@@ -78,7 +93,7 @@ export function Tried({ appId, lines, kind, tests, running }: { appId: string; l
       </nav>
       <ul className="divide-y border-t">
         {shown.slice(0, MOST).map((l) => (
-          <Row key={l.id} line={l} tests={tests} appId={appId} />
+          <Row key={l.id} line={l} tests={tests} kept={kept} passId={passId} appId={appId} />
         ))}
       </ul>
       {shown.length > MOST && <p className="border-t px-3.5 py-2.5 text-xs text-muted-foreground">Showing the newest {MOST} of {shown.length}.</p>}

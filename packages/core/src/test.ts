@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TestCheck, TestCheckResult } from "./check.js";
 import { EdgeCaseId } from "./edge-cases.js";
 import { Step } from "./script.js";
 import { ConsoleEntry, Issue } from "./issues.js";
@@ -13,15 +14,17 @@ export const TestStep = z.object({
   text: z.string().min(1),
   /** Recorded on the last run that passed this step. Empty: the step needed no action. */
   actions: z.array(Step).optional(),
+  /** Made by code right after the step, on every run. A failed one fails the test. */
+  checks: z.array(TestCheck).optional(),
 });
 export type TestStep = z.infer<typeof TestStep>;
 
-/** New steps from text, keeping the cached actions of steps whose text didn't change. */
+/** New steps from text, keeping the cached actions and the checks of steps whose text didn't change. */
 export function keepActions(texts: string[], old: TestStep[]): TestStep[] {
-  const byText = new Map(old.map((s) => [norm(s.text), s.actions]));
+  const byText = new Map(old.map((s) => [norm(s.text), s]));
   return texts.map((text) => {
-    const actions = byText.get(norm(text));
-    return actions ? { text, actions } : { text };
+    const was = byText.get(norm(text));
+    return { text, ...(was?.actions ? { actions: was.actions } : {}), ...(was?.checks?.length ? { checks: was.checks } : {}) };
   });
 }
 
@@ -145,6 +148,8 @@ export const TestStepResult = z.object({
   did: z.array(z.string()).default([]),
   /** Why it failed, or what the model noticed. */
   note: z.string().optional(),
+  /** How the step's kept checks went, in their order. */
+  checks: z.array(TestCheckResult).optional(),
   screenshot: z.string().optional(),
   durationMs: z.number().default(0),
 });

@@ -82,6 +82,18 @@ describe("evaluateCheck", () => {
     for (const value of ["Secret", "token-123", "hunter2"]) expect(await check({ kind: "shows", value }, html)).toMatchObject({ status: "fail" });
   }, 30_000);
 
+  it("reads a figure by its label when the value names one", async () => {
+    chain = { ...chain, token: 1_000_500_000n };
+    expect(await check({ kind: "balance", value: "Balance", token: USDC })).toEqual({ status: "pass", evidence: "The page shows 1000.5; the chain says 1000.5." });
+    chain = { ...chain, token: 1_000_000_000n };
+    expect(await check({ kind: "balance", value: "Balance", token: USDC })).toMatchObject({ status: "fail" });
+    chain = { ...chain, token: 1_000_500_000n };
+    expect(await check({ kind: "price", value: "ETH =", token: "ETH" })).toMatchObject({ status: "pass", evidence: "The page shows 3,365.12; Coinbase says 3365 (not confirmed on the fork)." });
+    expect(await check({ kind: "balance", value: "Cash", token: USDC })).toEqual({ status: "error", evidence: "No figure labelled “Cash” on the page. The figures on it are labelled “Balance”, “You pay”, “You receive”." });
+    requests = [call([RECIPIENT, USDC, 1_680_000_000n])];
+    expect(await check({ kind: "wallet-amount", value: "You receive", token: "USDC" })).toMatchObject({ status: "pass" });
+  }, 30_000);
+
   it("checks the address", async () => {
     await stub.page.goto(`${stub.baseUrl}/vault.html`);
     expect(await evaluateCheck(session(), { kind: "url", value: "/vault" })).toMatchObject({ status: "pass" });

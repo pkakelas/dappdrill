@@ -1,7 +1,7 @@
 "use server";
 
-import { BugTriage, bugTestName, newId, openSuggestion } from "@dappdrill/core";
-import { BUG_TEST_NOTE, db, explorations, NEW_TEST_NOTE, nextPosition, queueRuns, tests } from "@dappdrill/db";
+import { BugTriage, bugTestName, newId, openSuggestion, repeatable, testCheckKey, type TestCheck } from "@dappdrill/core";
+import { BUG_TEST_NOTE, db, explorations, NEW_TEST_NOTE, nextPosition, queueRuns, tests, touched } from "@dappdrill/db";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { enqueue } from "@/lib/jobs";
@@ -70,6 +70,22 @@ export async function addBugTestAction(passId: string, bugId: string): Promise<v
   const batchId = await queueRuns(db(), row.appId, [id], "manual");
   if (batchId) await enqueue("tests.run", { batchId });
   refresh(row.appId);
+}
+
+/** Keeps a check the pass made on a step of one of the app's tests, so every run of the test makes it again. */
+export async function keepCheckAction(passId: string, checkId: string, testId: string, stepIndex: number): Promise<{ error?: string }> {
+  const row = await ownPass(passId);
+  const check = row.state?.checks.find((c) => c.id === checkId);
+  if (!check) return { error: "That check no longer exists." };
+  if (!repeatable(check.assert)) return { error: "This check copied a number off the page, so it can't be made again as it is." };
+  const [t] = await db().select({ id: tests.id, steps: tests.steps, baseId: tests.baseId }).from(tests).where(and(eq(tests.id, testId), eq(tests.appId, row.appId)));
+  if (!t || t.baseId) return { error: "Pick one of the app's tests." };
+  if (!t.steps[stepIndex]) return { error: "Pick a step of the test." };
+  const kept: TestCheck = { name: check.name, assert: check.assert };
+  const steps = t.steps.map((s, i) => (i !== stepIndex || s.checks?.some((c) => testCheckKey(c) === testCheckKey(kept)) ? s : { ...s, checks: [...(s.checks ?? []), kept] }));
+  await db().update(tests).set({ steps, ...touched() }).where(eq(tests.id, t.id));
+  refresh(row.appId);
+  return {};
 }
 
 /** Dismisses a bug, or brings a dismissed one back. Written as one key, so two people deciding on different bugs don't overwrite each other. */

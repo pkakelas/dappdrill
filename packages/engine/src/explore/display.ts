@@ -118,6 +118,32 @@ export function labelled(pageText: string, label: string): { text: string; value
   return undefined;
 }
 
+/**
+ * The labels the page shows figures under, for saying which one a claim could have named: the words
+ * before a figure on its line, else the line above when that has no figure of its own.
+ */
+export function labelsOnPage(pageText: string, most = 12): string[] {
+  const lines = pageText.split("\n").map((l) => loosely(l)).filter(Boolean);
+  const words = (s: string | undefined) => Boolean(s && /[A-Za-z]{2,}/.test(s));
+  const out: string[] = [];
+  for (let i = 0; i < lines.length && out.length < most; i++) {
+    const m = FIGURE.exec(lines[i]!);
+    if (!m) continue;
+    const before = lines[i]!.slice(0, m.index).replace(/[:$€£]\s*$/, "").trim();
+    const above = lines[i - 1];
+    const label = words(before) ? before : words(above) && !FIGURE.test(above!) ? above! : undefined;
+    if (label && label.length <= 40 && !out.includes(label)) out.push(label);
+  }
+  return out;
+}
+
+/** How a missing label reads, with the labels the page does show figures under. */
+export function noLabel(missing: string[], pageText: string): string {
+  const labels = labelsOnPage(pageText);
+  const quoted = (xs: string[]) => xs.map((l) => `“${l}”`).join(", ");
+  return `No figure labelled ${quoted(missing)} on the page.${labels.length ? ` The figures on it are labelled ${quoted(labels)}.` : ""}`;
+}
+
 /** × and ÷ as the operators evaluate reads, and " x " as a times sign too. */
 const asSum = (text: string) => text.replace(/\s[x×]\s/g, " * ").replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-");
 
@@ -152,7 +178,7 @@ export function addsUp(claim: string, pageText: string): SumResult {
         .join(""),
     ),
   );
-  if (missing.length) return { ok: false, error: `No figure labelled ${missing.map((l) => `“${l}”`).join(", ")} on the page.` };
+  if (missing.length) return { ok: false, error: noLabel(missing, pageText) };
   const read = named ? `${resolved[0]} = ${resolved[1]}` : undefined;
   try {
     const left = evaluate(resolved[0]!);

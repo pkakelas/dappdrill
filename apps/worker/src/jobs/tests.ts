@@ -137,10 +137,12 @@ function knownLook(run: TestRunRow | undefined, test: TestRow) {
 async function saveSteps(db: Db, testId: string, steps: TestStep[]): Promise<void> {
   const [current] = await db.select({ steps: tests.steps }).from(tests).where(eq(tests.id, testId));
   if (!current) return;
-  await db
-    .update(tests)
-    .set({ steps: keepActions(current.steps.map((s) => s.text), steps) })
-    .where(eq(tests.id, testId));
+  // The run brings the actions; the checks stay as the row has them, since one may have been kept or removed while it ran.
+  const learned = keepActions(current.steps.map((s) => s.text), steps).map(({ checks: _ran, ...s }, i) => {
+    const checks = current.steps[i]?.checks;
+    return checks?.length ? { ...s, checks } : s;
+  });
+  await db.update(tests).set({ steps: learned }).where(eq(tests.id, testId));
 }
 
 /** Same as saveSteps, for the test's cleanup steps. */

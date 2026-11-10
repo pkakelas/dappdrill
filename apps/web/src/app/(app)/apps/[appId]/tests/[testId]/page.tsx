@@ -13,6 +13,7 @@ import { ConditionFork } from "@/components/tests/condition-branches";
 import { AddConditions } from "@/components/tests/conditions";
 import { Duplicate } from "@/components/tests/duplicate";
 import { RunButton } from "@/components/tests/run-button";
+import { RemoveCheck } from "@/components/tests/remove-check";
 import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/tests/run-details";
 import { StepList } from "@/components/tests/setup-steps";
 import { SigningFlag } from "@/components/tests/signing-flag";
@@ -207,7 +208,16 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                   <Verdict result={result} />
                 </Block>
                 {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-                <Steps steps={steps} result={result} url={url} failed={failed} forks={forks} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
+                <Steps
+                  steps={steps}
+                  result={result}
+                  url={url}
+                  failed={failed}
+                  forks={forks}
+                  wallet={test.baseId ? undefined : wallet}
+                  hasConditions={children.length > 0}
+                  removeCheck={test.drafting ? undefined : (i, j) => <RemoveCheck testId={test.id} step={i} check={j} />}
+                />
                 {test.after && test.after.length > 0 && <Cleanup after={test.after} run={result?.after} url={url} />}
               </div>
             }
@@ -297,6 +307,7 @@ function Steps({
   forks,
   wallet,
   hasConditions,
+  removeCheck,
 }: {
   failed?: "fail" | "input" | "skipped";
   steps: TestStep[];
@@ -305,6 +316,8 @@ function Steps({
   forks?: React.ReactNode;
   wallet?: ReturnType<typeof walletUse>;
   hasConditions?: boolean;
+  /** A way to take the check at `check` off step `step`; none where the steps aren't this test's to edit. */
+  removeCheck?: (step: number, check: number) => React.ReactNode;
 }) {
   if (steps.length === 0)
     return (
@@ -327,6 +340,8 @@ function Steps({
             result: result?.steps[i],
             shot: url(result?.steps[i]?.screenshot),
             signs: stepSigns(s),
+            // A check kept since the run has no result yet; the names say which result is whose.
+            checks: s.checks?.map((c, j) => ({ name: c.name, result: result?.steps[i]?.checks?.find((r) => r.name === c.name), remove: removeCheck?.(i, j) })),
             after: wallet === "signs" && i === branchAt ? <div id="conditions" className="scroll-mt-24">{forks}</div> : undefined,
           }))}
         />

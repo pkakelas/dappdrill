@@ -1,4 +1,4 @@
-import { BUG_STATUS_LABEL, checkFate, openSuggestion, VARIATION_LABEL, type Active, type BugTriage, type ExploreBug, type ExploreCheckStatus, type ExploreFeedLine, type ExplorePhase, type ExploreState, type ExplorerStatus, type ExploreSuggestion, type Settled } from "@dappdrill/core";
+import { BUG_STATUS_LABEL, checkFate, openSuggestion, VARIATION_LABEL, type Active, type BugTriage, type CheckAssert, type ExploreBug, type ExploreCheckStatus, type ExploreFeedLine, type ExplorePhase, type ExploreState, type ExplorerStatus, type ExploreSuggestion, type Settled } from "@dappdrill/core";
 import type { explorations } from "@dappdrill/db";
 import { artifactUrl } from "./artifacts";
 
@@ -168,6 +168,8 @@ export interface TriedLine {
   variation?: string;
   /** What became of it: the test it was kept as, or the bug it turned into. */
   became?: { text: string; testName?: string; bugId?: string; tone?: "bad" };
+  /** What the check asserted, for keeping it on a test. */
+  assert?: CheckAssert;
 }
 
 /**
@@ -206,7 +208,7 @@ export function triedLines(state: ExploreState): TriedLine[] {
     const bug = bugs.get(c.id);
     // A check that failed on the way to a test that was kept says nothing: only the ones that passed are in the test.
     const fate = bug ? bugFate(bug) : became(state, c.suggestionId);
-    return { id: c.id, kind: c.status, name: c.name, feature: c.feature, detail: c.evidence, variation: VARIATION_LABEL[c.variation], became: c.status === "pass" || bug || fate?.bugId ? fate : undefined };
+    return { id: c.id, kind: c.status, name: c.name, feature: c.feature, detail: c.evidence, variation: VARIATION_LABEL[c.variation], became: c.status === "pass" || bug || fate?.bugId ? fate : undefined, assert: c.assert };
   });
   const gaps = state.gaps.map((g, i): TriedLine => ({ id: `gap-${i}`, kind: "gap", name: g.what, feature: g.feature, detail: g.why }));
   return [...checks, ...gaps];

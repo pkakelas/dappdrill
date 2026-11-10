@@ -5,7 +5,7 @@
  * which is then proved on a clean fork without the explorer.
  */
 import { z } from "zod";
-import { BugSeverity, CheckAssert, ExploreVariation, TIER_TESTS, TestDraft, describeStep, newId, nowIso, type BugEvidence, type ExploreBug, type ExploreCheck, type ExploreFeature, type ExploreSuggestion } from "@dappdrill/core";
+import { BugSeverity, CheckAssert, ExploreVariation, TIER_TESTS, TestDraft, describeStep, newId, nowIso, repeatable, type BugEvidence, type ExploreBug, type ExploreCheck, type ExploreFeature, type ExploreSuggestion } from "@dappdrill/core";
 import { liveLine } from "../agent/tester.js";
 import { describeRequest, createToolkit, inboxTool, noteTool, pendingSign, Recorder } from "../agent/tools.js";
 import type { Env } from "../pipeline/env.js";
@@ -68,11 +68,12 @@ Kinds of check:
 - wallet-amount: a request the wallet was asked to sign carries the amount the page showed. value is the number exactly as the page shows it (what is paid, what is received, the minimum received), token is that token's symbol as the page writes it, or its address. It reads the request's own data, on any contract, and passes within 5% of the number, which leaves room for slippage. When it can't tell the token's units it says so, and that isn't a failure.
 - no-wallet: nothing was asked to sign on this path, from its start. After an earlier request on the same path (one you approved or rejected), begin a new path first.
 - tx: the latest transaction was mined and didn't revert.
-- balance: value is a number exactly as the page shows it, and it must match the chain. token is the ERC-20 address; leave it out for the native coin.
-- price: value is the dollar price of one unit exactly as the page shows it, token is the asset's ticker (ETH, AAPL, XAU for gold) or its token address. It passes within 3% of the market. What an amount is worth ("0.01 ETH ≈ $22.31") is not a price: check it with adds-up against the unit price when the page shows one.
+- balance: value is a number exactly as the page shows it, or the label the page shows it under ("Cash", "Wallet balance"), and it must match the chain. token is the ERC-20 address; leave it out for the native coin.
+- price: value is the dollar price of one unit exactly as the page shows it, or its label on the page ("Mark price"); token is the asset's ticker (ETH, AAPL, XAU for gold) or its token address. It passes within 3% of the market. What an amount is worth ("0.01 ETH ≈ $22.31") is not a price: check it with adds-up against the unit price when the page shows one.
 - adds-up: value is a sum in the page's own numbers, like "0.5 * 3365.12 = 1682.56". Every number must be on the page as written; only small whole constants (1, 100, 365) may be your own. Where a figure follows the market, name it by its label on the page instead of copying it ("Size × Mark price = Position value"): the check reads each label's figure when it runs, so it still holds once prices have moved.
 - well-formed: nothing on the page reads NaN, undefined, Infinity or the like where a value goes.
 Prefer tx and balance for anything that moves funds: a success message proves little.
+A check that passed on a path you save as a test is kept on the test and made again on every run, when nothing in it was copied off the page: name figures by their label (balance, price, wallet-amount and the terms of adds-up) and it keeps working once the numbers have moved; copy the number and it is checked this once.
 
 A check that fails may be your own wrong guess, so look at the page before deciding; a failed check isn't filed for you. Call report_bug only for what is really wrong for a user and you can point at: a transaction that reverted, a number on the page that disagrees with the chain, a price far from the market or a total that doesn't add up, the wallet asked for something the button didn't say, an action that silently did nothing. What a control does is what the page calls it, not what such a control usually does: read its label and any hint beside it before saying it was ignored ("Max leverage" is a limit on the order, not the leverage the position gets). When you can't check something, call record_gap with what and why. Call note now and then with what you learned. People watch the titles come in, so write each like a heading of 3 to 7 words ("Withdrawals wait seven days").
 
@@ -157,6 +158,9 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
     recorder.start(path.name);
     const tries = new Map<string, number>();
     let summary: string | undefined;
+    // The path's checks that passed and can be made again, with where on the path each was made, for the test it becomes.
+    const keptChecks = (): NonNullable<ExploreSuggestion["checks"]> =>
+      board.state.checks.filter((c) => path.checkIds.includes(c.id) && c.status === "pass" && repeatable(c.assert)).map((c) => ({ name: c.name, assert: c.assert, after: c.path.length }));
 
     const left = () => budgetMs - (Date.now() - started);
     const budgetNote = () => {
@@ -292,18 +296,20 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
             if (!s) return "No suggested test of your feature has that id.";
             if (s.status !== "suggested" && s.status !== "trying") return "That one is already settled.";
             if (clash(draft.name, test)) return "Another test already has that name. Keep the suggested name.";
+            const checks = keptChecks();
             settle(test, (x) => {
               x.draft = draft;
               x.status = "worked";
               x.explorerId = id;
               x.note = undefined;
+              x.checks = checks;
             });
             run.recorded.set(test, recorder.snapshot());
             queueProof(run, test);
           } else {
             if (clash(draft.name)) return "There is already a test with that name, so this one isn't needed.";
             if (board.state.suggested.filter((x) => x.feature === feature.name && counts(x)).length >= TIER_TESTS[feature.tier]) return "This feature has its tests. Leave this one as a check.";
-            const s: ExploreSuggestion = { id: newId("sug"), feature: feature.name, tier: feature.tier, draft, explorerId: id, status: "worked", conditions: [] };
+            const s: ExploreSuggestion = { id: newId("sug"), feature: feature.name, tier: feature.tier, draft, explorerId: id, status: "worked", conditions: [], checks: keptChecks() };
             board.change((state) => {
               state.suggested.push(s);
               for (const c of state.checks) if (path.checkIds.includes(c.id)) c.suggestionId = s.id;

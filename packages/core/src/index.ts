@@ -8,6 +8,7 @@ export * from "./ids.js";
 export * from "./format.js";
 export * from "./hints.js";
 export * from "./setup.js";
+export * from "./check.js";
 export * from "./test.js";
 export * from "./brief.js";
 export * from "./rollup.js";

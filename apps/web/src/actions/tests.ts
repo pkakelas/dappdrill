@@ -86,7 +86,7 @@ export async function reRecordAction(appId: string, testIds: string[]): Promise<
     .select({ id: tests.id, steps: tests.steps, after: tests.after })
     .from(tests)
     .where(and(eq(tests.appId, appId), inArray(tests.id, testIds), isNull(tests.baseId)));
-  const words = (steps: TestStep[]) => steps.map((s) => ({ text: s.text }));
+  const words = (steps: TestStep[]) => steps.map(({ text, checks }) => ({ text, ...(checks?.length ? { checks } : {}) }));
   for (const t of own) {
     await db()
       .update(tests)
@@ -201,6 +201,19 @@ export async function updateTestAction(testId: string, input: z.input<typeof Edi
     .where(eq(tests.id, testId));
   refresh(t.appId);
   return {};
+}
+
+/** Takes a kept check off a step of the test; runs stop making it. */
+export async function removeCheckAction(testId: string, stepIndex: number, checkIndex: number): Promise<void> {
+  const t = await ownTest(testId);
+  const steps = t.steps.map((s, i) => {
+    if (i !== stepIndex || !s.checks) return s;
+    const { checks, ...rest } = s;
+    const left = checks.filter((_, j) => j !== checkIndex);
+    return left.length ? { ...rest, checks: left } : rest;
+  });
+  await db().update(tests).set({ steps, ...touched() }).where(eq(tests.id, testId));
+  refresh(t.appId);
 }
 
 /** Conditions on a test (its steps with something going wrong); they run right away. */

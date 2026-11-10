@@ -104,7 +104,7 @@ describe("addsUp", () => {
     });
 
     it("says which label has no figure on the page", () => {
-      expect(addsUp("Size * Index price = Position value", perp).error).toBe("No figure labelled “Index price” on the page.");
+      expect(addsUp("Size * Index price = Position value", perp).error).toBe("No figure labelled “Index price” on the page. The figures on it are labelled “Size”, “Mark price”, “Position value”, “Funding”.");
       expect(labelled(perp, "Funding")).toMatchObject({ text: "-0.01%", value: -0.0001 });
       expect(labelled(perp, "Volume")).toBeUndefined();
     });
