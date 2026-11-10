@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { CTA, NAV } from "@/site";
 import { Wordmark } from "./logo";
 
-/** The floating bar. It turns light-on-dark while a dark section (data-dark) is behind it. */
-export function Nav() {
-  const [onDark, setOnDark] = useState(true);
+/** The floating bar. It turns light-on-dark while a dark section (data-dark) is behind it; `dark` is what the page starts with. */
+export function Nav({ dark = true }: { dark?: boolean }) {
+  const [onDark, setOnDark] = useState(dark);
 
   useEffect(() => {
     const check = () => {
@@ -33,7 +33,7 @@ export function Nav() {
         data-on-dark={onDark}
         className="group pointer-events-auto mx-auto flex h-14 max-w-[1240px] items-center gap-8 rounded-full border border-ink/8 bg-white/85 pr-2 pl-5 text-ink shadow-[0_8px_30px_-18px_rgb(15_15_14/0.35)] backdrop-blur-md transition-colors duration-300 data-[on-dark=true]:border-white/10 data-[on-dark=true]:bg-white/6 data-[on-dark=true]:text-white data-[on-dark=true]:shadow-none"
       >
-        <a href="#top" aria-label="DappDrill">
+        <a href="/#top" aria-label="DappDrill">
           <Wordmark />
         </a>
         <div className="hidden items-center gap-7 text-[14.5px] opacity-75 md:flex">

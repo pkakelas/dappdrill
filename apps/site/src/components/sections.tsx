@@ -1,6 +1,6 @@
-import { CTA, NAV } from "@/site";
+import { CTA } from "@/site";
 import { AppPicture } from "./app-pictures";
-import { Wordmark } from "./logo";
+import { Footer } from "./footer";
 
 /** The mark, very large, rising behind the browser. */
 function Sunrise() {
@@ -261,17 +261,7 @@ export function Close() {
           </a>
         </div>
       </div>
-      <footer className="wrap flex flex-wrap items-center gap-x-10 gap-y-4 border-t border-white/10 py-8 text-[14px] text-white/50">
-        <span className="text-white">
-          <Wordmark size={18} />
-        </span>
-        {NAV.map((item) => (
-          <a key={item.href} href={item.href} className="transition-colors hover:text-white">
-            {item.label}
-          </a>
-        ))}
-        <span className="sm:ml-auto">© 2026 DappDrill</span>
-      </footer>
+      <Footer />
     </section>
   );
 }

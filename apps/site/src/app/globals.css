@@ -108,3 +108,58 @@
     opacity: 0;
   }
 }
+
+/* Text on the About and Privacy pages. */
+.doc {
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: rgb(15 15 14 / 0.78);
+}
+
+.doc h2 {
+  margin: 2.6em 0 0.7em;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--color-ink);
+}
+
+.doc h2:first-child {
+  margin-top: 0;
+}
+
+.doc p + p,
+.doc p + ul,
+.doc ul + p {
+  margin-top: 0.9em;
+}
+
+.doc ul {
+  padding-left: 1.2em;
+  list-style: disc;
+}
+
+.doc li + li {
+  margin-top: 0.45em;
+}
+
+.doc li::marker {
+  color: rgb(15 15 14 / 0.3);
+}
+
+.doc b {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.doc a {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: rgb(15 15 14 / 0.25);
+  text-underline-offset: 3px;
+}
+
+.doc a:hover {
+  text-decoration-color: currentColor;
+}
