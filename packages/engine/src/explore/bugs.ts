@@ -14,7 +14,8 @@ import { setupRunner } from "../pipeline/setup.js";
 import { openSession, plain } from "../pipeline/steps.js";
 import type { TestOutcome } from "../pipeline/tests.js";
 import type { AgentTool, ImageInput } from "../types.js";
-import { refuseMainnet, type ExploreRun } from "./run-context.js";
+import { refuseMainnet } from "../pipeline/env.js";
+import type { ExploreRun } from "./run-context.js";
 
 const REPRODUCE_TURNS = 60;
 
@@ -182,7 +183,7 @@ async function reproduce(run: ExploreRun, env: Env, bugId: string): Promise<void
       const recorder = new Recorder(session);
       recorder.start(bug.name);
       const tools: AgentTool[] = [
-        ...browserTools({ session, recorder, inbox: env.inbox, refuseApprove: (r) => refuseMainnet(env, r) }),
+        ...browserTools({ session, recorder, inbox: env.inbox, refuseApprove: (r) => refuseMainnet(env, r, "Reject it and record a gap.") }),
         {
           name: "complete_reproduction",
           description: "Say whether the bug happened, and what you saw.",

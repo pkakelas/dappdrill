@@ -25,19 +25,15 @@ import { analyzeApp } from "./agent/analyst.js";
 import { browseTask, chat, type ChatInput } from "./agent/chat.js";
 import { createLlm } from "./agent/index.js";
 import { draftTest, type DraftInput } from "./agent/writer.js";
-import { diagnoseStall } from "./browser/traffic.js";
 import { runExploration, type ExploreHooks, type ExploreOptions, type ExploreOutput, type KnownBug, type KnownTest } from "./explore/run.js";
 import { openEnv, withoutFallback, type Env } from "./pipeline/env.js";
 import { pin } from "./pipeline/pin.js";
-import { landingBotCheck, runTestItems, type RunTestsOptions, type TestHooks, type TestItem, type TestOutcome } from "./pipeline/tests.js";
+import { debug, landingBotCheck, stalledOn } from "./pipeline/steps.js";
+import { runTestItems, type RunTestsOptions, type TestHooks, type TestItem, type TestOutcome } from "./pipeline/tests.js";
 import { createSession, type EngineSession } from "./runtime.js";
 import type { Llm } from "./types.js";
 
 export type { TestItem, TestOutcome, TestHooks, DraftInput, ExploreHooks, ExploreOptions, ExploreOutput, KnownBug, KnownTest };
-
-const debug = (m: string) => {
-  if (process.env.DAPPDRILL_DEBUG) console.error(`[engine] ${m}`);
-};
 
 export interface AnalyzeOutput {
   map?: AppMap;
@@ -83,9 +79,7 @@ export async function analyze(
       await env.log(blockedLine(out.blocked), "warn");
     } else if (out.tests.length === 0 && !signal?.aborted) {
       // Nothing to test usually means the app's data never loaded; say what it was waiting on.
-      const missing = env.chains.missing();
-      const waiting = diagnoseStall(session.traffic, session.rpc, env.chains.configs().map((c) => c.id));
-      const stalled = missing.length ? { backends: [], rpc: [], ...waiting, chains: missing } : waiting;
+      const stalled = stalledOn(env, session);
       if (stalled) {
         out = { ...out, stalled };
         await env.log(stalledLine(stalled), "warn");

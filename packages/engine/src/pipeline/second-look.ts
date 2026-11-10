@@ -3,10 +3,10 @@
  * fork and says whose fault it was. Until it agrees the app is wrong, the failure is only probable.
  */
 import { z } from "zod";
-import { MAINNET_CHAIN_IDS, urlOnApp, type SecondLook, type TestSpec, type WalletRequest } from "@dappdrill/core";
+import { urlOnApp, type SecondLook, type TestSpec } from "@dappdrill/core";
 import { browserTools, inboxTool, Recorder } from "../agent/tools.js";
 import type { AgentTool } from "../types.js";
-import type { Env } from "./env.js";
+import { refuseMainnet, type Env } from "./env.js";
 import { pin } from "./pin.js";
 import type { Prepared } from "./setup.js";
 import { openSession, plain } from "./steps.js";
@@ -34,13 +34,6 @@ const Verdict = z.object({
     .describe("Only with verdict app"),
 });
 
-/** The look goes off the written steps, so nothing it does may reach a mainnet, even for an app that allows live mainnet. */
-function refuseLive(env: Env, request: WalletRequest): string | undefined {
-  if (!MAINNET_CHAIN_IDS.has(request.chainId)) return undefined;
-  if (env.chains.has(request.chainId) && env.chains.mode(request.chainId) === "fork") return undefined;
-  return `Refused: this would sign on live chain ${request.chainId}. Reject it and say what you saw so far.`;
-}
-
 export interface SecondLookOptions {
   artifactsDir: string;
   /** What the test starts from, when the app has a setup. */
@@ -59,7 +52,7 @@ export async function secondLook(env: Env, spec: TestSpec, failure: string, opts
       const recorder = new Recorder(session);
       recorder.start(spec.name);
       const tools: AgentTool[] = [
-        ...browserTools({ session, recorder, inbox: env.inbox, refuseApprove: (r) => refuseLive(env, r) }),
+        ...browserTools({ session, recorder, inbox: env.inbox, refuseApprove: (r) => refuseMainnet(env, r, "Reject it and say what you saw so far.") }),
         ...(env.inbox ? [inboxTool(env.inbox)] : []),
         {
           name: "verdict",

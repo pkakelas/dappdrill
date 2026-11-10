@@ -4,11 +4,10 @@
  * up, and never with a bug unreviewed or a Critical feature unaccounted for.
  */
 import { AppSetup, blockedLine, closeGate, newId, nowIso, stalledLine, TIER_TIME, type Blocked, type ChainConfig, type DrillEventSink, type DrillTarget, type ExploreFeature, type ExploreState, type TestSpec, type TestStep } from "@dappdrill/core";
-import { diagnoseStall } from "../browser/traffic.js";
 import { openEnv, withoutFallback } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
 import { setupRunner } from "../pipeline/setup.js";
-import { landingBotCheck, openSession, plain } from "../pipeline/steps.js";
+import { landingBotCheck, openSession, plain, stalledOn } from "../pipeline/steps.js";
 import { runExplorer, type ExplorerJob } from "./explorer.js";
 import { withToken, type WalletToken } from "./funding.js";
 import { lookAround, type Found } from "./look.js";
@@ -111,9 +110,7 @@ async function look(run: ExploreRun): Promise<boolean> {
         return stop(blockedLine(blocked));
       }
       // Nothing to test usually means the app's data never loaded; say what it was waiting on.
-      const missing = base.chains.missing();
-      const waiting = diagnoseStall(session.traffic, session.rpc, base.chains.configs().map((c) => c.id));
-      const stalled = missing.length ? { backends: [], rpc: [], ...waiting, chains: missing } : waiting;
+      const stalled = stalledOn(base, session);
       return stop(stalled ? stalledLine(stalled) : "Nothing to test turned up while looking around the app.");
     }
     await take(run, found);

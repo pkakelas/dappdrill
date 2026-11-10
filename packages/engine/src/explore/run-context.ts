@@ -1,6 +1,6 @@
 /** What every stage of a pass shares. */
-import { MAINNET_CHAIN_IDS, type AppMap, type AppSetup, type Blocked, type DrillEvent, type DrillEventSink, type ExploreCosts, type ExploreSuggestion, type SigningReview, type Step, type TestStep, type WalletRequest } from "@dappdrill/core";
-import { openEnv, type Env } from "../pipeline/env.js";
+import { type AppMap, type AppSetup, type Blocked, type DrillEvent, type DrillEventSink, type ExploreCosts, type ExploreSuggestion, type SigningReview, type Step, type TestStep } from "@dappdrill/core";
+import { openEnv, roundUsd, type Env } from "../pipeline/env.js";
 import type { Prepared, SetupRunner } from "../pipeline/setup.js";
 import { Board } from "./board.js";
 import type { WalletToken } from "./funding.js";
@@ -101,7 +101,7 @@ export class ExploreRun {
   }
 
   costUsd(): number {
-    return round(Object.values(this.costs().stage).reduce((a, b) => a + b, 0));
+    return roundUsd(Object.values(this.costs().stage).reduce((a, b) => a + b, 0));
   }
 
   /** What the base env spends from now on counts towards `stage`. */
@@ -116,7 +116,7 @@ export class ExploreRun {
     bump(out.stage, this.baseStage, this.base.costUsd() - this.baseSeen);
     for (const [model, usd] of Object.entries(this.base.costs())) bump(out.model, model, usd);
     for (const [env, stage] of this.open) add(out, stage, env);
-    for (const part of [out.stage, out.model]) for (const k of Object.keys(part)) part[k] = round(part[k]!);
+    for (const part of [out.stage, out.model]) for (const k of Object.keys(part)) part[k] = roundUsd(part[k]!);
     return out;
   }
 
@@ -182,15 +182,6 @@ export class ExploreRun {
     }
   }
 }
-
-/** A pass runs unattended, so nothing it does may reach a mainnet, even for an app that allows live mainnet. */
-export function refuseMainnet(env: Env, request: WalletRequest): string | undefined {
-  if (!MAINNET_CHAIN_IDS.has(request.chainId)) return undefined;
-  if (env.chains.has(request.chainId) && env.chains.mode(request.chainId) === "fork") return undefined;
-  return `Refused: this would sign on live chain ${request.chainId}. Reject it and record a gap.`;
-}
-
-const round = (usd: number) => Math.round(usd * 1000) / 1000;
 
 function bump(into: Record<string, number>, key: string, usd: number): void {
   into[key] = (into[key] ?? 0) + usd;

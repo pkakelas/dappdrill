@@ -94,3 +94,6 @@ export function freePort(): Promise<number> {
 }
 
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** An RPC on this machine: our own Anvil, or a chain the developer runs. */
+export const LOCAL_URL = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/;

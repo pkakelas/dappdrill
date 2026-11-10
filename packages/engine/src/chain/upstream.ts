@@ -15,7 +15,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { chainInfo, type ChainConfig } from "@dappdrill/core";
-import { rpcCall, toHex } from "./rpc.js";
+import { LOCAL_URL, rpcCall, sleep, toHex } from "./rpc.js";
 
 /** How long a run may need the fork's block: a pass and its proofs. */
 const KEEP_S = 30 * 60;
@@ -26,7 +26,6 @@ const CACHE_MS = 10 * 60_000;
 /** Anything less than a clean yes is asked again much sooner: it is as often a rate limit as an RPC that prunes. */
 const CACHE_UNSURE_MS = 30_000;
 const SOME_ADDRESS = "0x000000000000000000000000000000000000dEaD";
-const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/;
 
 const RELAY_ATTEMPTS = 6;
 const RELAY_TIMEOUT_MS = 15_000;
@@ -60,7 +59,7 @@ export function upstreamCandidates(config: Pick<ChainConfig, "id" | "rpcUrl">, e
 
 export async function pickUpstream(config: ChainConfig, log?: (message: string) => void): Promise<Upstream> {
   const candidates = upstreamCandidates(config);
-  if (LOCAL.test(config.rpcUrl)) return { rpcUrl: config.rpcUrl, via: host(config.rpcUrl), pinned: !!config.forkBlock, keeps: true };
+  if (LOCAL_URL.test(config.rpcUrl)) return { rpcUrl: config.rpcUrl, via: host(config.rpcUrl), pinned: !!config.forkBlock, keeps: true };
 
   // Twice: every RPC having a bad moment at once shouldn't put a whole run on a fork that goes stale.
   let scores = await Promise.all(candidates.map((url) => keepsState(url)));
@@ -89,7 +88,7 @@ const kept = new Map<string, { score: Promise<number>; at: number }>();
 
 /** How many of a few tries found state from half an hour ago at this RPC. All of them is remembered for ten minutes. */
 async function keepsState(url: string, fresh = false): Promise<number> {
-  if (LOCAL.test(url)) return PROBES;
+  if (LOCAL_URL.test(url)) return PROBES;
   const hit = kept.get(url);
   if (hit && ((await hit.score) === PROBES ? Date.now() - hit.at < CACHE_MS : !fresh && Date.now() - hit.at < CACHE_UNSURE_MS)) return hit.score;
   const score = probe(url).catch(() => 0);
@@ -259,8 +258,6 @@ function missing(text: string): boolean {
     return true;
   }
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const host = (url: string) => {
   try {

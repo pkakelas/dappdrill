@@ -27,14 +27,12 @@ import {
 import { createRecoveryJudge } from "../agent/index.js";
 import { judgeExpected, readBaseline } from "../agent/tester.js";
 import { runEdgeCases } from "../runtime.js";
-import type { Env } from "./env.js";
+import { anyLive, roundUsd, type Env } from "./env.js";
 import { liveShortfall, shortfallLine } from "./funds.js";
 import { pin } from "./pin.js";
 import { secondLook } from "./second-look.js";
 import { setupRunner, type Prepared, type SetupRunner, type SetupTestOutcome } from "./setup.js";
-import { BlockedError, debug, scriptOf, landingBotCheck, openSession, plain, walkSteps } from "./steps.js";
-
-export { landingBotCheck };
+import { BlockedError, debug, scriptOf, landingBotCheck, openSession, plain, skipUnfinished, walkSteps } from "./steps.js";
 
 export interface TestItem {
   spec: TestSpec;
@@ -127,7 +125,7 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
         outcome.result.secondLook = known ?? { verdict: "checking" };
         if (!known) looks.push({ item, outcome, signal });
       }
-      outcome.result.costUsd = cost(env.costUsd() - spent);
+      outcome.result.costUsd = roundUsd(env.costUsd() - spent);
       if (outcome.steps) fresh.set(item.spec.id, outcome.steps);
       if (outcome.baseSteps && base) fresh.set(base.id, outcome.baseSteps);
       outcomes.push(outcome);
@@ -137,7 +135,7 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
     for (const { item, outcome, signal } of looks) {
       const spent = env.costUsd();
       outcome.result.secondLook = await lookAgain(env, item.spec, outcome.result.failure ?? "It didn't pass.", opts, hooks, setup, signal);
-      outcome.result.costUsd = cost(outcome.result.costUsd + env.costUsd() - spent);
+      outcome.result.costUsd = roundUsd(outcome.result.costUsd + env.costUsd() - spent);
       await hooks.onSecondLook?.(outcome.testId, outcome.result);
     }
   } finally {
@@ -146,7 +144,6 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
   return outcomes;
 }
 
-const cost = (usd: number) => Math.round(usd * 1000) / 1000;
 
 /** One test, after the app's setup when it has one. */
 function runItem(env: Env, spec: TestSpec, base: TestSpec | undefined, opts: RunTestsOptions, hooks: TestHooks, setup: SetupRunner | undefined, signal?: AbortSignal): Promise<TestOutcome> {
@@ -198,7 +195,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
   const steps = spec.steps.map((s) => ({ ...s }));
   const after = (spec.after ?? []).map((s) => ({ ...s }));
   const progress = () => hooks.onProgress?.(spec.id, result);
-  const live = env.chains.configs().some((c) => c.mode === "live");
+  const live = anyLive(env.chains);
   let status: TestRunStatus = "pass";
 
   const restore = await pin(env);
@@ -225,7 +222,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
       status = walk.stuck ? "error" : "fail";
       if (walk.stuck) result.blame = "input";
       result.failure = walk.failure;
-      for (const s of result.steps) if (s.status === "pending" || s.status === "running") s.status = "skipped";
+      skipUnfinished(result.steps);
     }
 
     if (status === "pass") {
@@ -244,14 +241,14 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
         result.after = cleanup;
         await progress();
         const w = await walkSteps(env, session, { ...spec, steps: spec.after }, after, cleanup, reviews, { ...opts, signal, progress, shotPrefix: "after" }).catch((e) => ({ failure: plain(e) }));
-        for (const s of cleanup) if (s.status === "pending" || s.status === "running") s.status = "skipped";
+        skipUnfinished(cleanup);
         if (w.failure) await env.log(`Cleanup after “${spec.name}” didn't finish: ${w.failure}`, "warn");
       }
     }
   } catch (e) {
     status = signal?.aborted ? "stopped" : "error";
     if (!signal?.aborted) Object.assign(result, broke(e));
-    for (const s of result.steps) if (s.status === "pending" || s.status === "running") s.status = "skipped";
+    skipUnfinished(result.steps);
   } finally {
     result.finalScreenshot = await session.screenshot("final").catch(() => undefined);
     result.walletRequests = [...(pre.walletRequests ?? []), ...session.wallet.requests()];

@@ -1,7 +1,8 @@
 /** Going through a test's plain-English steps in an open session; shared by tests and the app's setup. */
-import { newId, type AppMap, type Blocked, type DrillEvent, type ReplayScript, type SigningReview, type Step, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
+import { newId, type AppMap, type Blocked, type DrillEvent, type ReplayScript, type SigningReview, type Stalled, type Step, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
 import { runStep } from "../agent/tester.js";
 import { detectBotCheck } from "../browser/access.js";
+import { diagnoseStall } from "../browser/traffic.js";
 import { createSession, replayScript, type EngineSession, type SessionOptions } from "../runtime.js";
 import type { Env } from "./env.js";
 
@@ -128,6 +129,18 @@ export class BlockedError extends Error {
 
 export function plain(e: unknown): string {
   return (e instanceof Error ? e.message : String(e)).split("\n")[0]!.slice(0, 300);
+}
+
+/** Steps a run never reached, once it has stopped. */
+export function skipUnfinished(steps: TestStepResult[]): void {
+  for (const s of steps) if (s.status === "pending" || s.status === "running") s.status = "skipped";
+}
+
+/** What the app was still waiting on when nothing turned up: chains we couldn't start, and backends or RPCs that never answered. */
+export function stalledOn(env: Env, session: EngineSession): Stalled | undefined {
+  const missing = env.chains.missing();
+  const waiting = diagnoseStall(session.traffic, session.rpc, env.chains.configs().map((c) => c.id));
+  return missing.length ? { backends: [], rpc: [], ...waiting, chains: missing } : waiting;
 }
 
 /** Challenges often load a moment after the page; look twice before calling the page clean. */

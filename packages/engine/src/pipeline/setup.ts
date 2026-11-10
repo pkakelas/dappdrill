@@ -12,8 +12,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { TestRunResult, type AppSetup, type Blame, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
 import { saveState } from "../browser/session.js";
-import type { Env } from "./env.js";
-import { BlockedError, landingBotCheck, openSession, plain, walkSteps, type WalkOptions } from "./steps.js";
+import { anyLive, type Env } from "./env.js";
+import { BlockedError, landingBotCheck, openSession, plain, skipUnfinished, walkSteps, type WalkOptions } from "./steps.js";
 
 /** What a test starts from. */
 export interface Prepared {
@@ -65,7 +65,7 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
   let runs = 0;
   let tests = 0;
   let dir: string | undefined;
-  const live = env.chains.configs().some((c) => c.mode !== "fork");
+  const live = anyLive(env.chains);
 
   const summary = (r: SetupRun, reused: boolean, shared: boolean): SetupRunResult => ({ ok: r.ok, steps: r.results, when: setup.when, reused, shared, ...(r.resetResults ? { reset: r.resetResults } : {}) });
 
@@ -176,7 +176,7 @@ async function runSetup(
           run.resetResults[i] = its[0]!;
           if (w.failure) undone.push(w.failure.replace(/^Step 1, /, `Step ${i + 1}, `));
         }
-        for (const r of run.resetResults) if (r.status === "pending" || r.status === "running") r.status = "skipped";
+        skipUnfinished(run.resetResults);
         if (undone.length) await env.log(`The reset didn't finish, so tests start with some of what earlier runs left: ${undone.join(" ")}`, "warn");
       }
       run.storageState = path.join(opts.dir, `state-${opts.n}.json`);
@@ -187,7 +187,7 @@ async function runSetup(
     run.stopped = Boolean(opts.signal?.aborted);
     run.failure = e instanceof BlockedError ? `Blocked: ${e.blocked.reason}` : plain(e);
     if (!(e instanceof BlockedError)) run.blame = "ours";
-    for (const r of results) if (r.status === "pending" || r.status === "running") r.status = "skipped";
+    skipUnfinished(results);
   } finally {
     run.walletRequests = session.wallet.requests();
     await session.close().catch(() => {});

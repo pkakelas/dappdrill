@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { freePort, rpcCall, sleep } from "./rpc.js";
+import { LOCAL_URL, freePort, rpcCall, sleep } from "./rpc.js";
 
 export interface AnvilFork {
   url: string;
@@ -63,8 +63,7 @@ export async function startAnvilFork(opts: {
 
 /** Public chains: stay a few blocks behind the tip so the fork doesn't race reorgs. Local chains: the tip is what we want. */
 function pinBehindTip(latest: bigint, rpcUrl: string): bigint {
-  const local = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(rpcUrl);
-  if (local || latest < 64n) return latest;
+  if (LOCAL_URL.test(rpcUrl) || latest < 64n) return latest;
   return latest - 5n;
 }
 

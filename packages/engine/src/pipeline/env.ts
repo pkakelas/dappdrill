@@ -6,7 +6,7 @@
 import os from "node:os";
 import path from "node:path";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { chainInfo, nowIso, stallReasons, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type ConditionRun, type Issue } from "@dappdrill/core";
+import { MAINNET_CHAIN_IDS, chainInfo, nowIso, stallReasons, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type EdgeCaseId, type ConditionRun, type Issue, type WalletRequest } from "@dappdrill/core";
 import { createLlm } from "../agent/index.js";
 import { openInbox } from "../inbox/index.js";
 import { detectChains, startChains } from "../runtime.js";
@@ -77,7 +77,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   const wrapped: DrillEventSink = (event: DrillEvent) => {
     if (event.type === "issue" && isDuplicate(event.issue)) return;
     if (event.type === "run") return sink({ ...event, run: canonical(event.run) });
-    return sink(event.type === "cost" ? { type: "cost", usd: Math.round(costUsd() * 1000) / 1000 } : event);
+    return sink(event.type === "cost" ? { type: "cost", usd: roundUsd(costUsd()) } : event);
   };
   const log = async (message: string, level: "info" | "warn" | "error" = "info") => {
     await wrapped({ type: "log", level, message, at: nowIso() });
@@ -189,6 +189,21 @@ function fallbackChain(): ChainConfig {
 }
 
 /** The chains without the Ethereum fallback once any chain of the app's own is known. */
+/** Costs are reported to the thousandth of a dollar. */
+export const roundUsd = (usd: number) => Math.round(usd * 1000) / 1000;
+
+/** Some chain of the run is the real network rather than a fork. */
+export function anyLive(chains: ChainController): boolean {
+  return chains.configs().some((c) => c.mode === "live");
+}
+
+/** A model-driven run is unattended, so nothing it does may reach a mainnet, even for an app that allows live mainnet. `then` tells the model what to do instead. */
+export function refuseMainnet(env: Env, request: WalletRequest, then: string): string | undefined {
+  if (!MAINNET_CHAIN_IDS.has(request.chainId)) return undefined;
+  if (env.chains.has(request.chainId) && env.chains.mode(request.chainId) === "fork") return undefined;
+  return `Refused: this would sign on live chain ${request.chainId}. ${then}`;
+}
+
 export function withoutFallback(configs: ChainConfig[]): ChainConfig[] {
   return configs.some((c) => !c.fallback) ? configs.filter((c) => !c.fallback) : configs;
 }
