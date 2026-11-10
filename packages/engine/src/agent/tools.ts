@@ -411,7 +411,7 @@ export function describeRequest(r: WalletRequest): string {
 /** Give the app a moment to react, let a busy button ("Placing…") finish, then wait for network quiet (bounded). */
 export async function settle(session: DrillSession): Promise<void> {
   await session.page.waitForTimeout(SETTLE_MS);
-  await waitQuiet(session.page, QUIET_MS);
+  await waitQuiet(session.page, QUIET_MS, () => pendingSign(session) !== undefined);
   await session.page.waitForLoadState("networkidle", { timeout: 2_500 }).catch(() => null);
 }
 

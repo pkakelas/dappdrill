@@ -26,12 +26,15 @@ export async function busyButton(page: Page): Promise<string | undefined> {
 
 /**
  * Waits while a busy button is on the page, up to `maxMs`. Returns the label it
- * waited on when it did wait, so a caller can say so.
+ * waited on when it did wait, so a caller can say so. `waitingOnUs` says the page
+ * is busy because the wallet hasn't answered yet (a signature the next step
+ * approves): there is nothing to wait for until it does.
  */
-export async function waitQuiet(page: Page, maxMs: number): Promise<string | undefined> {
+export async function waitQuiet(page: Page, maxMs: number, waitingOnUs?: () => boolean): Promise<string | undefined> {
   const deadline = Date.now() + maxMs;
   let seen: string | undefined;
   for (;;) {
+    if (waitingOnUs?.()) return seen;
     const busy = await busyButton(page);
     if (!busy) return seen;
     seen = busy;

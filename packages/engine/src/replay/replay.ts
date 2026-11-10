@@ -192,7 +192,7 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
   switch (step.kind) {
     case "goto":
       // Leaving while the app is still placing or sending throws that work away.
-      await waitQuiet(page, QUIET_MS);
+      await waitQuiet(page, QUIET_MS, () => session.wallet.peekSigns().length > 0);
       await gotoUrl(session, step.url, params, timeout);
       return;
     case "click": {
@@ -200,7 +200,7 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
       await el.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
       await el.click({ timeout });
       await page.waitForTimeout(300);
-      const busy = await waitQuiet(page, QUIET_MS);
+      const busy = await waitQuiet(page, QUIET_MS, () => session.wallet.peekSigns().length > 0);
       if (busy) (env.opts.log ?? (() => {}))(`waited for “${busy}” to finish`);
       return;
     }
