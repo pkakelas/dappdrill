@@ -34,8 +34,8 @@ export interface SetupTestOutcome {
 export interface SetupHooks {
   onProgress?(testId: string, result: TestRunResult): Promise<void>;
   onFrame?(testId: string, path: string): Promise<void>;
-  /** The setup's steps with the actions that worked, to save. */
-  onSetupSteps?(steps: TestStep[]): Promise<void>;
+  /** The setup's steps, and its reset steps when it has them, with the actions that worked, to save. */
+  onSetupSteps?(steps: TestStep[], reset?: TestStep[]): Promise<void>;
 }
 
 interface SetupRun {
@@ -43,6 +43,9 @@ interface SetupRun {
   stopped: boolean;
   results: TestStepResult[];
   steps: TestStep[];
+  /** The reset steps and how they went, when they ran. */
+  reset?: TestStep[];
+  resetResults?: TestStepResult[];
   failure?: string;
   /** Whose move a failed setup is: ours when something of ours broke, otherwise the owner's. */
   blame?: Blame;
@@ -52,6 +55,7 @@ interface SetupRun {
 }
 
 const GOAL = "Get the app ready before a test: do what every test needs first, like signing in or getting test funds.";
+const RESET_GOAL = "Put the account back the way a new run expects it: nothing left open from earlier runs (orders, positions, pending actions). A step that finds nothing to undo is done.";
 
 /** `ready`: what a runner on another fork of the same block already prepared (see `portable`), used instead of running the setup here. */
 export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions, "signal" | "progress" | "shotPrefix">, hooks: SetupHooks, ready?: Prepared) {
@@ -63,7 +67,7 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
   let dir: string | undefined;
   const live = env.chains.configs().some((c) => c.mode !== "fork");
 
-  const summary = (r: SetupRun, reused: boolean, shared: boolean): SetupRunResult => ({ ok: r.ok, steps: r.results, when: setup.when, reused, shared });
+  const summary = (r: SetupRun, reused: boolean, shared: boolean): SetupRunResult => ({ ok: r.ok, steps: r.results, when: setup.when, reused, shared, ...(r.resetResults ? { reset: r.resetResults } : {}) });
 
   return {
     when: () => setup.when,
@@ -82,14 +86,15 @@ export function setupRunner(env: Env, initial: AppSetup, opts: Omit<WalkOptions,
       const run = await runSetup(env, setup, {
         ...opts,
         signal,
+        live,
         dir: (dir ??= await mkdtemp(path.join(tmpdir(), "dappdrill-setup-"))),
         n: ++runs,
         onFrame: (p) => hooks.onFrame?.(spec.id, p) ?? Promise.resolve(),
-        progress: (results) => (quiet ? undefined : hooks.onProgress?.(spec.id, { ...pending, setup: { ok: false, steps: results, when: setup.when, reused: false, shared } })),
+        progress: (results, reset) => (quiet ? undefined : hooks.onProgress?.(spec.id, { ...pending, setup: { ok: false, steps: results, when: setup.when, reused: false, shared, ...(reset ? { reset } : {}) } })),
       });
-      const learned = run.steps.some((s, i) => s.actions !== setup.steps[i]?.actions);
-      setup = { ...setup, steps: run.steps };
-      if (learned) await hooks.onSetupSteps?.(run.steps);
+      const learned = run.steps.some((s, i) => s.actions !== setup.steps[i]?.actions) || (run.reset?.some((s, i) => s.actions !== setup.reset?.[i]?.actions) ?? false);
+      setup = { ...setup, steps: run.steps, ...(run.reset ? { reset: run.reset } : {}) };
+      if (learned) await hooks.onSetupSteps?.(run.steps, run.reset);
       const result = summary(run, false, shared);
       if (run.stopped) return { outcome: { testId: spec.id, status: "stopped", result: TestRunResult.parse({ setup: result }) } };
       // A setup we broke gets another go before the next test.
@@ -137,21 +142,43 @@ function failed(spec: TestSpec, setup: SetupRunResult, blame: Blame = "input", w
 async function runSetup(
   env: Env,
   setup: AppSetup,
-  opts: Omit<WalkOptions, "progress" | "shotPrefix"> & { dir: string; n: number; onFrame: (path: string) => Promise<void>; progress: (results: TestStepResult[]) => Promise<void> | undefined },
+  opts: Omit<WalkOptions, "progress" | "shotPrefix"> & { live: boolean; dir: string; n: number; onFrame: (path: string) => Promise<void>; progress: (results: TestStepResult[], reset?: TestStepResult[]) => Promise<void> | undefined },
 ): Promise<SetupRun> {
   const spec: TestSpec = { id: "setup", name: "Setup", goal: GOAL, expected: "The app is ready to use.", startPath: setup.startPath, steps: setup.steps };
   const steps = setup.steps.map((s) => ({ ...s }));
   const results: TestStepResult[] = setup.steps.map(() => ({ status: "pending", did: [], durationMs: 0 }));
   const reviews: SigningReview[] = [];
   const run: SetupRun = { ok: false, stopped: false, results, steps, reviews, walletRequests: [] };
+  // Only a live account carries leftovers; on a fork the reset would undo nothing.
+  if (opts.live && setup.reset?.length) {
+    run.reset = setup.reset.map((s) => ({ ...s }));
+    run.resetResults = setup.reset.map(() => ({ status: "pending", did: [], durationMs: 0 }));
+  }
   const session = await openSession(env, opts.artifactsDir, opts.onFrame, { video: false, trace: false });
   try {
     await session.page.goto(urlOnApp(setup.startPath, env.target.url), { waitUntil: "domcontentloaded", timeout: 45_000 });
     const blocked = await landingBotCheck(session);
     if (blocked) throw new BlockedError(blocked);
-    const walk = await walkSteps(env, session, spec, steps, results, reviews, { ...opts, shotPrefix: "setup-step", progress: () => opts.progress(results) });
+    const walk = await walkSteps(env, session, spec, steps, results, reviews, { ...opts, shotPrefix: "setup-step", progress: () => opts.progress(results, run.resetResults) });
     if (walk.failure) run.failure = walk.failure;
     else {
+      // The account is put back once the setup is in; what it couldn't undo is said, and the tests go on from there.
+      // Each reset step stands on its own: an order that won't cancel is no reason to leave a position open.
+      if (run.reset && run.resetResults) {
+        const undone: string[] = [];
+        for (const [i, step] of run.reset.entries()) {
+          if (opts.signal?.aborted) break;
+          const resetSpec: TestSpec = { id: "reset", name: "Reset", goal: RESET_GOAL, expected: "Nothing from earlier runs is left open.", startPath: setup.startPath, steps: [step] };
+          const one = [step];
+          const its = [run.resetResults[i]!];
+          const w = await walkSteps(env, session, resetSpec, one, its, reviews, { ...opts, shotPrefix: `reset-step${i + 1}-`, progress: () => opts.progress(results, run.resetResults) }).catch((e) => ({ failure: plain(e) }));
+          run.reset[i] = one[0]!;
+          run.resetResults[i] = its[0]!;
+          if (w.failure) undone.push(w.failure.replace(/^Step 1, /, `Step ${i + 1}, `));
+        }
+        for (const r of run.resetResults) if (r.status === "pending" || r.status === "running") r.status = "skipped";
+        if (undone.length) await env.log(`The reset didn't finish, so tests start with some of what earlier runs left: ${undone.join(" ")}`, "warn");
+      }
       run.storageState = path.join(opts.dir, `state-${opts.n}.json`);
       await saveState(session, run.storageState);
       run.ok = true;

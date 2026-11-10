@@ -114,6 +114,8 @@ export interface LiveChain {
   name: string;
   /** The funded wallet, when the app has one, with what it holds ("0.42 ETH") when the chain answered. */
   wallet?: { address: string; balance?: string };
+  /** The latest runs signed with the app's own embedded wallet, not ours, so the funded wallet's balance isn't what they spend. */
+  embeddedSigner?: boolean;
 }
 
 export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, rollup, checked, running, runs, action }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; rollup?: AppRollup; checked?: { checks: number; bugs: number }; running: number; runs: RunSummary[]; action?: ReactNode }) {
@@ -152,7 +154,7 @@ export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, roll
                     , which holds <span className="text-foreground tabular-nums">{live.wallet.balance}</span>
                   </>
                 )}
-                . Every run leaves real orders, positions and transactions on that account.
+                .{live.embeddedSigner && <> Tests sign with the app&apos;s own wallet, so this balance isn&apos;t what they spend.</>} Every run leaves real orders, positions and transactions on that account.
               </>
             ) : (
               <>

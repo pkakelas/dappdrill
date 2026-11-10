@@ -44,7 +44,8 @@ export interface ExploreOptions {
 export interface ExploreHooks {
   /** What the look learned: the app's map, and a setup when the app had none. */
   onMap?(map: AppMap, setup?: AppSetup): Promise<void>;
-  onSetupSteps?(steps: TestStep[]): Promise<void>;
+  /** The setup's steps, and its reset steps when it has them, with the actions that worked. */
+  onSetupSteps?(steps: TestStep[], reset?: TestStep[]): Promise<void>;
   /** What the look put in the test wallet, as soon as it is there: a test saved later in the pass needs the same in its own runs. */
   onTokens?(tokens: WalletToken[]): Promise<void>;
   /** A test to save: proved, or a draft with its reason. */

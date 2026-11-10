@@ -27,7 +27,7 @@ async function main() {
       for (const job of jobs) await handle(job.data, AbortSignal.any([shutdown.signal, job.signal]));
     };
 
-  await boss.work<TestsJob>(QUEUES.tests, { localConcurrency: config.testsConcurrency }, each((d, s) => runTestBatch(db, engine, d.batchId, s)));
+  await boss.work<TestsJob>(QUEUES.tests, { localConcurrency: config.testsConcurrency }, each((d, s) => runTestBatch(db, engine, boss, d.batchId, s)));
   await boss.work<DraftJob>(QUEUES.draft, { localConcurrency: config.chatConcurrency }, each((d) => runDraft(db, engine, boss, d.testId)));
   await boss.work<AgentJob>(QUEUES.agent, { localConcurrency: config.chatConcurrency }, each((d, s) => runAgentReply(db, engine, boss, d.messageId, s)));
   await boss.work<ExplorationJob>(QUEUES.exploration, { localConcurrency: config.explorationConcurrency }, each((d, s) => runExploration(db, engine, boss, d.explorationId, s)));

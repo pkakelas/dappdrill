@@ -22,9 +22,10 @@ import {
   type TestSpec,
   type TestStep,
   type WalletRequest,
+  walletUse,
 } from "@dappdrill/core";
 import { createRecoveryJudge } from "../agent/index.js";
-import { judgeExpected } from "../agent/tester.js";
+import { judgeExpected, readBaseline } from "../agent/tester.js";
 import { runEdgeCases } from "../runtime.js";
 import type { Env } from "./env.js";
 import { liveShortfall, shortfallLine } from "./funds.js";
@@ -66,8 +67,8 @@ export interface TestHooks {
   onDone?(outcome: TestOutcome): Promise<void>;
   /** The result again, once a failure has been checked a second time. */
   onSecondLook?(testId: string, result: TestRunResult): Promise<void>;
-  /** The app's setup steps with the actions that worked, to save. */
-  onSetupSteps?(steps: TestStep[]): Promise<void>;
+  /** The app's setup steps, and its reset steps when it has them, with the actions that worked, to save. */
+  onSetupSteps?(steps: TestStep[], reset?: TestStep[]): Promise<void>;
 }
 
 export interface RunTestsOptions {
@@ -90,7 +91,10 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
   const looks: { item: TestItem; outcome: TestOutcome; signal?: AbortSignal }[] = [];
   const setup = opts.setup?.steps.length ? setupRunner(env, opts.setup, opts, hooks, opts.ready) : undefined;
   // A live chain spends the funded wallet's coin; a run it can't pay for is the owner's to fix, not the app's.
-  const short = await liveShortfall(env.chains, env.target.liveKey);
+  // One whose recorded steps never ask our wallet to sign is paid by the app's own signer (an embedded wallet), so our balance says nothing about it.
+  const asksWallet = (steps: TestStep[]) => walletUse(steps) !== "none";
+  const mayPay = (opts.setup ? asksWallet(opts.setup.steps) : false) || items.some((i) => asksWallet(i.spec.steps));
+  const short = mayPay ? await liveShortfall(env.chains, env.target.liveKey) : undefined;
   if (short) {
     for (const item of items) {
       await hooks.onStart?.(item.spec.id);
@@ -212,6 +216,8 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     );
     const blocked = opened === undefined ? await landingBotCheck(session) : undefined;
     if (blocked) throw new BlockedError(blocked);
+    // A live account's figures differ on every run: what the expected result is about is noted before anything changes it.
+    if (opened === undefined && live) result.before = await readBaseline(session, env.fastLlm(), spec).catch(() => undefined);
 
     const walk = opened === undefined ? await walkSteps(env, session, spec, steps, result.steps, reviews, { ...opts, signal, progress }) : { failure: `The page didn't open: ${opened}`, stuck: false };
     if (walk.failure) {
@@ -223,7 +229,7 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     }
 
     if (status === "pass") {
-      const v = await judgeExpected(session, env.fastLlm(), spec, { live });
+      const v = await judgeExpected(session, env.fastLlm(), spec, { live, before: result.before, seen: result.steps.map((s) => s.note) });
       result.verdict = { ok: v.ok, reason: v.reason };
       if (!v.ok) {
         // On a fork the result may be there and the page unable to see it: its backends follow the real chain.
@@ -249,6 +255,8 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
   } finally {
     result.finalScreenshot = await session.screenshot("final").catch(() => undefined);
     result.walletRequests = [...(pre.walletRequests ?? []), ...session.wallet.requests()];
+    // The page broadcast a transaction our wallet never signed: the app's own signer paid, and our review and balance saw none of it.
+    if (live && !result.walletRequests.some((r) => r.kind === "sign") && session.rpc.some((e) => e.via === "page" && e.method === "eth_sendRawTransaction")) result.embeddedSigner = true;
     result.console = session.console.filter((c) => c.level === "error" || c.level === "pageerror").slice(-50);
     result.signingReviews = reviews;
     result.video = (await session.close().catch(() => ({}) as { video?: string })).video;

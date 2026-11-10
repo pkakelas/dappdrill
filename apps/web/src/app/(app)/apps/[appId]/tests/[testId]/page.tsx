@@ -265,12 +265,18 @@ function Checked({ look, aside, checking, expected, failure }: { look: SecondLoo
 }
 
 function Verdict({ result }: { result?: TestRunResult }) {
-  if (!result?.verdict) return null;
+  if (!result?.verdict && !result?.before) return null;
   return (
-    <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
-      {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
-      <span>{result.verdict.reason}</span>
-    </span>
+    <>
+      {/* On a live chain the figures the expected result is about, as the page showed them before the first step: what a change was judged against. */}
+      {result.before && <span className="mt-2 text-sm text-muted-foreground">Before the test: {result.before}</span>}
+      {result.verdict && (
+        <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
+          {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
+          <span>{result.verdict.reason}</span>
+        </span>
+      )}
+    </>
   );
 }
 
@@ -365,6 +371,11 @@ function SetupRun({ appId, run, setup, url }: { appId: string; run: SetupRunResu
     run.reused && "ran before an earlier test of this run; this test started from where it left off",
     run.shared && "on a live chain this test also started from what earlier tests left",
   ].filter(Boolean);
+  // The reset steps, when the setup has them or this run did them. Results line up only while the steps are as they were.
+  const resetTexts = setup?.reset?.map((s) => s.text) ?? [];
+  const reset = resetTexts.length > 0 ? resetTexts : (run.reset ?? []).map((_, i) => `Reset step ${i + 1}`);
+  const resetRan = run.reset && run.reset.length === reset.length ? run.reset : undefined;
+  const resetFailed = resetRan?.some((s) => s.status === "fail" || s.status === "skipped");
   return (
     <details open={!run.ok} className="group/setup flex flex-col gap-2">
       <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground hover:text-foreground">
@@ -377,6 +388,16 @@ function SetupRun({ appId, run, setup, url }: { appId: string; run: SetupRunResu
       <div className="mt-2 flex flex-col gap-2">
         {notes.length > 0 && <p className="text-sm text-muted-foreground">It {notes.join("; ")}.</p>}
         <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={texts.map((text, i) => ({ text, result: run.steps[i], shot: url(run.steps[i]?.screenshot) }))} />
+        {reset.length > 0 && (
+          <div className="mt-2 flex flex-col gap-2">
+            <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground">
+              {resetRan && <StateMark state={resetFailed ? "error" : resetRan.some((s) => s.status === "running") ? "running" : "pass"} />}
+              <span>Reset</span>
+              <span className="font-normal">· puts the account back after earlier runs{resetRan ? (resetFailed ? <> · <span className="text-warn">didn&apos;t finish</span></> : " · done") : " · didn't run this time"}</span>
+            </p>
+            <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={reset.map((text, i) => ({ text, result: resetRan?.[i], shot: url(resetRan?.[i]?.screenshot) }))} />
+          </div>
+        )}
         <Link href={`/apps/${appId}/settings#setup`} className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
           Edit the setup
         </Link>

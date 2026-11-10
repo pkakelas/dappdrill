@@ -105,6 +105,12 @@ export const AppSetup = z.object({
   when: SetupWhen.default("once"),
   /** Why `when` was picked, shown next to it. */
   why: z.string().optional(),
+  /**
+   * On a live chain the account keeps what earlier runs left. These steps put it back (cancel the
+   * open orders, close the positions) right after the setup's own steps, whenever the setup runs.
+   * How they go never fails a test.
+   */
+  reset: z.array(TestStep).optional(),
 });
 export type AppSetup = z.infer<typeof AppSetup>;
 
@@ -120,6 +126,11 @@ export const SetupDraft = z.object({
     "once: run one time per run (default; also when a step can't be repeated, like a faucet with a limit or an email code). each: run before every test, when tests use up what it gives on a live chain and it is cheap to repeat.",
   ),
   why: z.string().describe("One short sentence on why, e.g. 'The faucet allows one mint a day.'"),
+  reset: z
+    .array(z.string())
+    .max(5)
+    .optional()
+    .describe("Only when tests run on a live chain: 1-5 short steps that put the account back after earlier runs, right after the steps above, e.g. 'Open Orders', 'Cancel every open order', 'Close every open position'. Leave out otherwise."),
 });
 export type SetupDraft = z.infer<typeof SetupDraft>;
 
@@ -151,6 +162,8 @@ export const SetupRunResult = z.object({
   reused: z.boolean().default(false),
   /** A chain is live, so this test also started from whatever earlier tests left. */
   shared: z.boolean().default(false),
+  /** How the reset steps went, when the setup has them. */
+  reset: z.array(TestStepResult).optional(),
 });
 export type SetupRunResult = z.infer<typeof SetupRunResult>;
 
@@ -181,6 +194,13 @@ export const TestRunResult = z.object({
   steps: z.array(TestStepResult).default([]),
   /** How the test's after-steps went on a live chain, once the result was judged. */
   after: z.array(TestStepResult).optional(),
+  /** On a live chain, the figures the expected result is about as the start page showed them before the first step, so a change can be judged. */
+  before: z.string().optional(),
+  /**
+   * On a live chain, the page sent transactions our wallet never signed: the app's own embedded
+   * wallet signs, so the signing review and the funded wallet's balance say nothing about this run.
+   */
+  embeddedSigner: z.boolean().optional(),
   /** Did the expected result show, and how we know. */
   verdict: z.object({ ok: z.boolean(), reason: z.string() }).optional(),
   /** What went wrong, in one plain sentence. */

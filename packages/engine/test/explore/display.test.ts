@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addsUp, asRead, brokenValues, evaluate, loosely, numberOnPage, shownNumber } from "../../src/explore/display.js";
+import { addsUp, asRead, brokenValues, evaluate, labelled, loosely, numberOnPage, shownNumber } from "../../src/explore/display.js";
 import { withToken } from "../../src/explore/funding.js";
 import { SitePages } from "../../src/explore/look.js";
 
@@ -84,6 +84,30 @@ describe("addsUp", () => {
   it("wants one equals sign and a sum it can read", () => {
     expect(addsUp("0.5 * 3,365.12", page).error).toBeDefined();
     expect(addsUp("0.5 ** 3,365.12 = 1,682.56", page).error).toBeDefined();
+  });
+
+  describe("with labels", () => {
+    const perp = "AAPL/USD\nSize\n0.5\nMark price\n$3,365.12\nPosition value\n$1,682.56\nFunding\n-0.01%";
+
+    it("reads each label's figure off the page when it runs", () => {
+      expect(addsUp("Size × Mark price = Position value", perp)).toMatchObject({ ok: true, read: "0.5 * 3365.12 = 1682.56" });
+      expect(addsUp("Size x Mark price = Position value", "Size 0.5 ETH\nMark price $3,365.12\nPosition value $1,682.56").ok).toBe(true);
+      expect(addsUp("size * MARK PRICE = position value", perp).ok).toBe(true);
+    });
+
+    it("mixes labels with the page's own numbers and constants", () => {
+      expect(addsUp("Size * Mark price * (1 - 0.01%) = 1,682.39", perp.replace("1,682.56", "1,682.39")).ok).toBe(true);
+    });
+
+    it("fails when the figures don't follow", () => {
+      expect(addsUp("Size * Mark price = Position value", perp.replace("1,682.56", "1,582.56"))).toMatchObject({ ok: false, right: 1582.56 });
+    });
+
+    it("says which label has no figure on the page", () => {
+      expect(addsUp("Size * Index price = Position value", perp).error).toBe("No figure labelled “Index price” on the page.");
+      expect(labelled(perp, "Funding")).toMatchObject({ text: "-0.01%", value: -0.0001 });
+      expect(labelled(perp, "Volume")).toBeUndefined();
+    });
   });
 });
 

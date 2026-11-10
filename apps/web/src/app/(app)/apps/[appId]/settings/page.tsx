@@ -35,9 +35,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
   // What the first browser of the last pass saw: the app as it opens.
   const exploring = seen?.status === "queued" || seen?.status === "running";
   const frame = seen ? artifactUrl("explorations", seen.id, seen.state?.explorers.find((e) => e.frame)?.frame) : null;
-  const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why };
-  const setupRun = setup ? lastSetup(setup.steps, [...(await latestRuns(db(), testIds.map((t) => t.id))).values()]) : undefined;
+  const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why, reset: app.setup.reset?.map((s) => s.text) };
+  const setupRun = setup ? lastSetup(setup.steps, [...(await latestRuns(db(), testIds.map((t) => t.id))).values()], setup.reset) : undefined;
   const others = app.settings.chains.filter((c) => !CHAINS.some((k) => k.id === c.id && k.rpcUrl === c.rpcUrl));
+  // Tests on a chain we can't fork run on the real one, where the account keeps what earlier runs left.
+  const live = [...app.settings.chains, ...app.chains].some((c) => c.mode === "live");
 
   return (
     <div className="page flex flex-col">
@@ -69,7 +71,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
 
       {/* The app page links here as #setup. */}
       <SettingsSection id="setup" title="Setup" hint="Steps every test needs first, like signing in or getting test funds. They run before your tests, so the tests don't repeat them.">
-        <SetupCard appId={app.id} setup={setup ?? null} last={setupRun} />
+        <SetupCard appId={app.id} setup={setup ?? null} last={setupRun} live={live} />
       </SettingsSection>
 
       <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds what it hasn't seen. Your tests stay as they are.">

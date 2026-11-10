@@ -30,6 +30,7 @@ const LOOK_SYSTEM = `You get a couple of minutes in a web app (often a web3 dApp
 3. Call submit with:
    - a two-sentence summary of the app and the pages that matter.
    - setup, only when the app makes a new user do something before its core features work: sign in, mint or claim test funds from a faucet, make a first deposit. Its steps run before every test. Pick when it runs: once (the default, and whenever a step can't be repeated often, like a faucet with a limit or a sign-in that emails a code), or each (before every test, when tests use up what setup gives on a live chain and it is cheap to repeat). Say why in one short sentence. Leave setup out when the core features work right after connecting the wallet, and keep only steps you saw were needed. A step is something to do, not a figure to see: the account is the same on every run and the app may remember it, so "wait until Cash shows $10,000" fails the second time, when the balance is whatever the last run left.
+     When you are told the chain can't be forked, that account keeps whatever earlier runs left open. Give setup 1 to 5 reset steps that put it back, run right after the setup's own steps: where the open orders and positions are listed and how to close them ("Open the Orders tab", "Cancel every open order", "Close every open position"). Leave reset out on a fork.
    - features: what users do in the app, most important first, one per thing a user can go away happy having done (deposit, withdraw, swap, claim, borrow). Give each a tier:
      critical: what the app is for, where a bug loses a user's money or locks them out. At most ${MAX_CRITICAL}.
      important: other things that sign or move funds (faucets, approvals, housekeeping), and the balances, positions or market data users rely on.
@@ -44,7 +45,7 @@ const LOOK_SYSTEM = `You get a couple of minutes in a web app (often a web3 dApp
 Tests are read by busy developers. Write them plainly:
 - name: what the user does, e.g. "Deposit USDC into the vault".
 - goal: one sentence.
-- expected: one sentence about what the page shows at the end when it worked: final values ("Deposited shows 5 USDC"), not changes or earlier moments, and no prices or rates that move. Say "about" for amounts the page may round.
+- expected: one sentence about what the page shows at the end when it worked: final values ("Deposited shows 5 USDC"), not changes or earlier moments, and no prices or rates that move. Say "about" for amounts the page may round. On a live chain the account's figures differ on every run, so there say the change instead ("Cash falls by about $20", "Orders lists one more resting order"): the run notes those figures before its first step.
 - steps: 3 to 8 short imperative steps of 3 to 7 words, at the level a user thinks ("Connect the wallet", "Enter 5 as the amount", "Click Deposit", "Approve in the wallet"). No selectors.
 Use small amounts.
 

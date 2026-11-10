@@ -137,7 +137,10 @@ async function take(run: ExploreRun, found: Found): Promise<void> {
   run.found = found;
   run.map = { summary: found.summary, pages: found.pages };
   const saved = opts.setup?.steps.length ? opts.setup : undefined;
-  const proposed = !saved && found.setup ? AppSetup.parse({ ...found.setup, steps: found.setup.steps.map((text) => ({ text })) }) : undefined;
+  const proposed =
+    !saved && found.setup
+      ? AppSetup.parse({ ...found.setup, steps: found.setup.steps.map((text) => ({ text })), ...(found.setup.reset?.length ? { reset: found.setup.reset.map((text) => ({ text })) } : { reset: undefined }) })
+      : undefined;
   run.setup = saved ?? proposed;
   await hooks.onMap?.(run.map, proposed);
 
@@ -165,11 +168,11 @@ async function checkSetup(run: ExploreRun): Promise<boolean> {
   let entry = real ?? CONNECT;
   const runner = setupRunner(base, entry, { artifactsDir: opts.artifactsDir, map: run.map, baselines: opts.baselines }, {
     onFrame: async (_id, frame) => board.explorer("setup", { frame, activeAt: nowIso() }),
-    onSetupSteps: async (steps: TestStep[]) => {
-      entry = { ...entry, steps };
+    onSetupSteps: async (steps: TestStep[], reset?: TestStep[]) => {
+      entry = { ...entry, steps, ...(reset ? { reset } : {}) };
       if (real) {
         run.setup = entry;
-        await hooks.onSetupSteps?.(steps);
+        await hooks.onSetupSteps?.(steps, reset);
       }
     },
   });

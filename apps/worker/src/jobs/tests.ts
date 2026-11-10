@@ -1,23 +1,41 @@
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { failedAt, keepActions, TestRunResult, type Blame, type TestRunStatus, type TestStep } from "@dappdrill/core";
-import { appTests, apps, explorations, settledRuns, specOf, testRuns, tests, type Db, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { appTests, apps, explorations, settledRuns, specOf, testRuns, tests, tryAppLock, type Db, type TestRow, type TestRunRow } from "@dappdrill/db";
 import type { TestOutcome } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
+import type { PgBoss } from "pg-boss";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger } from "../log.js";
 import { notifyBatch } from "../notify/index.js";
-import { buildTarget, loadApp } from "../target.js";
+import { LIVE_RETRY_SECONDS, QUEUES, type TestsJob } from "../queues.js";
+import { buildTarget, liveChains, loadApp, type AppRow } from "../target.js";
 import { logEvents } from "./sink.js";
 import { pollStops, throttle } from "./stop.js";
 
 const FRAME_EVERY_MS = 1000;
 
 /** tests.run: run a batch of tests one after another, in the order they show on the page. */
-export async function runTestBatch(db: Db, engine: Engine, batchId: string, signal: AbortSignal): Promise<void> {
+export async function runTestBatch(db: Db, engine: Engine, boss: PgBoss, batchId: string, signal: AbortSignal): Promise<void> {
   const log = logger(`batch ${batchId}`);
   const runs = await db.select().from(testRuns).where(and(eq(testRuns.batchId, batchId), eq(testRuns.status, "queued")));
   if (runs.length === 0) return log.warn("nothing queued; skipping");
   const app = await loadApp(db, runs[0]!.appId);
+
+  // A live account is one account: jobs on it go one at a time, and the rest wait their turn (the runs stay queued).
+  const lock = liveChains(app) ? await tryAppLock(db, app.id) : undefined;
+  if (liveChains(app) && !lock) {
+    log.info(`another job is on this app's live chain; looking again in ${LIVE_RETRY_SECONDS}s`);
+    await boss.send(QUEUES.tests, { batchId } satisfies TestsJob, { startAfter: LIVE_RETRY_SECONDS });
+    return;
+  }
+  try {
+    await runBatch(db, engine, app, runs, batchId, signal, log);
+  } finally {
+    await lock?.release();
+  }
+}
+
+async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[], batchId: string, signal: AbortSignal, log: ReturnType<typeof logger>): Promise<void> {
 
   // Page order: each test followed by its condition rows.
   const ordered = await appTests(db, app.id);
@@ -84,7 +102,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
           await setRun(testId, { result });
           log.info(`${byTest.get(testId)?.name}: checked again, ${result.secondLook?.verdict}`);
         },
-        onSetupSteps: (steps) => saveSetupSteps(db, app.id, steps),
+        onSetupSteps: (steps, reset) => saveSetupSteps(db, app.id, steps, reset),
       },
       logEvents(log),
     );
@@ -155,12 +173,13 @@ async function settleBug(db: Db, test: TestRow | undefined, outcome: TestOutcome
 }
 
 /** Same as saveSteps, for the app's setup. */
-async function saveSetupSteps(db: Db, appId: string, steps: TestStep[]): Promise<void> {
+async function saveSetupSteps(db: Db, appId: string, steps: TestStep[], reset?: TestStep[]): Promise<void> {
   const [current] = await db.select({ setup: apps.setup }).from(apps).where(eq(apps.id, appId));
   if (!current?.setup) return;
+  const kept = reset && current.setup.reset ? keepActions(current.setup.reset.map((s) => s.text), reset) : current.setup.reset;
   await db
     .update(apps)
-    .set({ setup: { ...current.setup, steps: keepActions(current.setup.steps.map((s) => s.text), steps) } })
+    .set({ setup: { ...current.setup, steps: keepActions(current.setup.steps.map((s) => s.text), steps), ...(kept ? { reset: kept } : {}) } })
     .where(eq(apps.id, appId));
 }
 

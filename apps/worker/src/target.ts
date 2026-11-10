@@ -10,6 +10,11 @@ export async function loadApp(db: Db, appId: string): Promise<AppRow> {
   return app;
 }
 
+/** Whether the app's tests run on a chain that can't be forked: one live account, shared by every run. */
+export function liveChains(app: AppRow): boolean {
+  return [...(app.settings.chains ?? []), ...app.chains].some((c) => c.mode === "live");
+}
+
 /** Builds the hints string the explorer receives: general context, then how to get funds. */
 export function targetHints(settings: AppRow["settings"]): string | undefined {
   const parts: string[] = [];

@@ -55,8 +55,10 @@ export async function runTests(tests: TestsFile, target: DrillTarget, flags: Run
       items,
       { artifactsDir: join(out, "artifacts"), map: tests.map, setup: tests.setup, headless: !flags.headed, signal },
       {
-        onSetupSteps: async (steps) => {
-          if (tests.setup) tests.setup.steps = steps;
+        onSetupSteps: async (steps, reset) => {
+          if (!tests.setup) return;
+          tests.setup.steps = steps;
+          if (reset) tests.setup.reset = reset;
         },
         onStart: async (id) => void started.set(id, Date.now()),
         onDone: async (o) => {

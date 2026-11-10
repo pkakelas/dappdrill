@@ -201,7 +201,9 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   const nothing = listed.length === 0 && !((showing === "all" || showing === "waiting") && untested.length > 0);
   // Tests on a chain we can't fork run on the real one, and the owner should know what that leaves behind, and what pays for it.
   const liveChain = [...app.settings.chains, ...app.chains].find((c) => c.mode === "live");
-  const live = liveChain && (await liveWallet(liveChain, app.liveKeyAddress));
+  // The latest runs already loaded say whether the app's own embedded wallet signed, in which case the funded wallet's balance isn't what tests spend.
+  const embeddedSigner = [...latest.values()].some((r) => r.result?.embeddedSigner);
+  const live = liveChain && { ...(await liveWallet(liveChain, app.liveKeyAddress)), embeddedSigner };
   const any = counts.all > 0;
 
   return (

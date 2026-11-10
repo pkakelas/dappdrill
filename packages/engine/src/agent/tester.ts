@@ -207,16 +207,37 @@ const Verdict = z.object({
 const JUDGE_SYSTEM = `You check the end state of an end-to-end test on a web app. You get the steps that were done, what the wallet sent, the expected result, a screenshot and the page text.
 Say ok=true only when the page plainly shows the expected result. Name the exact text that shows it, or say what is missing. Don't guess.
 A value within 1% of the expected one is the same value: apps round and truncate (0.0099 for 0.01).
-The page only shows the end. When the expected result talks about a change or an earlier moment, check that the end state fits the steps and what the wallet sent; don't fail it just because the earlier state isn't on screen. Anything on the page that contradicts it is a fail.
+The page only shows the end. When the expected result talks about a change or an earlier moment, check that the end state fits the steps and what the wallet sent; don't fail it just because the earlier state isn't on screen. A step may come with what was seen while doing it ("seen:"): an earlier moment can be shown there, when the end state fits it. Anything on the page that contradicts it is a fail.
 Whether a transaction was mined is settled by what the wallet sent, not by the page: a transfer to another chain goes on reading "in progress" or "awaiting" here, because only the test chain sees it.`;
 
 /** A live account keeps what earlier runs left, so an old entry that happens to match proves nothing. */
 const JUDGE_LIVE = `
-The account is on a live chain and keeps what earlier runs left: orders, positions, balances, history. Only what this run did shows the result: the newest entry (marked "just now" or at the top), with the exact amount or price the steps entered. An older entry with the same value, or a total that merely includes it, doesn't; say so and fail it.`;
+The account is on a live chain and keeps what earlier runs left: orders, positions, balances, history. Only what this run did shows the result: the newest entry (marked "just now" or at the top), with the exact amount or price the steps entered. An older entry with the same value, or a total that merely includes it, doesn't; say so and fail it.
+When the expected result is a change ("falls by about $20", "one more order"), judge it against what the page showed before the test, given with the test. A figure that follows the market may have moved a little on its own.`;
 
 export interface JudgeOptions {
   /** A chain the test ran on is live: the account carries earlier runs' leftovers. */
   live?: boolean;
+  /** What the start page showed before the first step, from readBaseline. */
+  before?: string;
+  /** What was seen while doing each step (a step the model did has a note; a replayed one none). */
+  seen?: (string | undefined)[];
+}
+
+const Baseline = z.object({
+  before: z.string().describe('One line under 300 characters: each figure the expected result names with its value exactly as the page writes it now, e.g. "Cash $29,845.12; Open orders 2; AAPL position none". A figure not on this page: say so.'),
+});
+
+const BASELINE_SYSTEM = `Before an end-to-end test runs on a web app, you note the figures its expected result is about as the page shows them now, so a change can be judged afterwards. You get the test's expected result and the page text.
+Write each figure the expected result names (a balance, a size, a count of orders, a position) with its current value exactly as the page writes it. A figure that isn't on this page: say "not on this page". Nothing else, and no guesses.`;
+
+/** The figures a test's expected result is about, as the start page shows them before the first step. For live chains, where the account differs on every run. */
+export async function readBaseline(session: DrillSession, llm: Llm, test: TestSpec): Promise<string | undefined> {
+  await settle(session);
+  const text = formatSnapshot(await takeSnapshot(session.page, { maxChars: 12_000 }));
+  const r = await llm.structured({ system: BASELINE_SYSTEM, prompt: [`Test: ${test.name}`, `Expected: ${test.expected}`, "", "The page now:", text].join("\n"), schema: Baseline, name: "baseline" });
+  const before = r.before.trim().slice(0, 300);
+  return before || undefined;
 }
 
 /** Did the test end where it should? Asked on every run: a saved text can't tell a result from a label that always shows. */
@@ -250,7 +271,18 @@ async function askJudge(session: DrillSession, llm: Llm, test: TestSpec, opts: J
   const sent = signed.length ? await Promise.all(signed.map(async (r) => `- ${decodeWalletRequest(r).summary} (${[r.outcome, await minedOrNot(session, r)].filter(Boolean).join(", ")})`)) : ["- nothing"];
   return llm.structured({
     system: opts.live ? JUDGE_SYSTEM + JUDGE_LIVE : JUDGE_SYSTEM,
-    prompt: [`Test: ${test.name}`, "Steps done:", ...test.steps.map((s, i) => `${i + 1}. ${s.text}`), "What the wallet sent:", ...sent, `Expected: ${test.expected}`, "", "The page now:", text].join("\n"),
+    prompt: [
+      `Test: ${test.name}`,
+      "Steps done:",
+      ...test.steps.map((s, i) => `${i + 1}. ${s.text}${opts.seen?.[i] ? ` — seen: ${opts.seen[i]!.slice(0, 300)}` : ""}`),
+      "What the wallet sent:",
+      ...sent,
+      `Expected: ${test.expected}`,
+      ...(opts.before ? [`Before the test the page showed: ${opts.before}`] : []),
+      "",
+      "The page now:",
+      text,
+    ].join("\n"),
     images: [{ data: png.toString("base64"), mediaType: "image/png" }],
     schema: Verdict,
     name: "verdict",

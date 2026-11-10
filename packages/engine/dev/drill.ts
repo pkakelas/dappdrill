@@ -158,9 +158,9 @@ async function pass(until?: "look" | "setup"): Promise<void> {
       onMap: async (_map, proposed) => {
         if (proposed && !setup) await save("setup.json", proposed);
       },
-      onSetupSteps: async (steps: TestStep[]) => {
+      onSetupSteps: async (steps: TestStep[], reset?: TestStep[]) => {
         const now = (await load<AppSetup>("setup.json")) ?? setup;
-        if (now) await save("setup.json", { ...now, steps });
+        if (now) await save("setup.json", { ...now, steps, ...(reset ? { reset } : {}) });
       },
       onTest: async (s: ExploreSuggestion) => {
         if (s.status !== "proved" && s.status !== "draft") return;
@@ -211,8 +211,8 @@ async function run(): Promise<void> {
         // A draft that passes from a clean start has proved itself.
         if (t.status === "draft") Object.assign(t, { status: "proved", note: undefined });
       },
-      onSetupSteps: async (steps) => {
-        if (setup) await save("setup.json", { ...setup, steps });
+      onSetupSteps: async (steps, reset) => {
+        if (setup) await save("setup.json", { ...setup, steps, ...(reset ? { reset } : {}) });
       },
     },
     printer(),

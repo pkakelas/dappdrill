@@ -46,7 +46,13 @@ export async function analyzeCommand(url: string, flags: AnalyzeFlags): Promise<
     url: target.url,
     map: found.map,
     chains: found.chains,
-    setup: found.setup && { startPath: found.setup.startPath || "/", steps: found.setup.steps.map((text) => ({ text })), when: found.setup.when, why: found.setup.why },
+    setup: found.setup && {
+      startPath: found.setup.startPath || "/",
+      steps: found.setup.steps.map((text) => ({ text })),
+      when: found.setup.when,
+      why: found.setup.why,
+      ...(found.setup.reset?.length ? { reset: found.setup.reset.map((text) => ({ text })) } : {}),
+    },
     tests: found.tests.map((t) => ({ id: newId("test"), ...t, steps: t.steps.map((text) => ({ text })), after: t.after?.map((text) => ({ text })) })),
   };
   await writeJson(flags.file, tests);

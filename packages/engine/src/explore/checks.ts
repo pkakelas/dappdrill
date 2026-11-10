@@ -70,7 +70,10 @@ export async function evaluateCheck(session: DrillSession, assert: CheckAssert, 
         if (!value) return missing("the sum");
         const r = addsUp(value, await pageText(session));
         if (r.error) return { status: "error", evidence: r.error };
-        return r.ok ? { status: "pass", evidence: `${value.trim()} holds for the numbers on the page.` } : { status: "fail", evidence: `The left side comes to ${trim(r.left!)}, but the page shows ${trim(r.right!)}.` };
+        const read = r.read ? ` (${r.read})` : "";
+        return r.ok
+          ? { status: "pass", evidence: `${value.trim()} holds for the numbers on the page${read}.` }
+          : { status: "fail", evidence: `The left side comes to ${trim(r.left!)}, but the page shows ${trim(r.right!)}${read}.` };
       }
       case "well-formed": {
         const broken = brokenValues(await pageText(session));

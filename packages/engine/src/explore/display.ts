@@ -82,44 +82,93 @@ export function brokenValues(pageText: string): { what: string; line: string }[]
 
 export interface SumResult {
   ok: boolean;
-  /** Why it couldn't be checked at all (bad claim, a number that isn't on the page). */
+  /** Why it couldn't be checked at all (bad claim, a number or label that isn't on the page). */
   error?: string;
   left?: number;
   right?: number;
+  /** The claim with each label replaced by the figure read for it, when it named any. */
+  read?: string;
 }
 
 /** Whole constants a formula may bring itself: 1 − slippage, × 100, / 365. */
 const isConstant = (literal: string) => /^\d{1,3}$/.test(literal);
 const TOLERANCE = 0.005;
 
+/** A number as it stands in a line of the page: "3,365.12", "-1.2%", with the sign and no currency mark. */
+const FIGURE = /-?[\d,]*\.?\d+%?/;
+
+/**
+ * The figure the page shows under a label: the first number after the label on its line, else the
+ * first on the next two lines (apps put a label and its value in separate elements). Case doesn't matter.
+ */
+export function labelled(pageText: string, label: string): { text: string; value: number } | undefined {
+  const lines = pageText.split("\n").map((l) => loosely(l)).filter(Boolean);
+  const want = loosely(label).toLowerCase();
+  if (!want) return undefined;
+  for (let i = 0; i < lines.length; i++) {
+    const at = lines[i]!.toLowerCase().indexOf(want);
+    if (at < 0) continue;
+    for (const where of [lines[i]!.slice(at + want.length), lines[i + 1] ?? "", lines[i + 2] ?? ""]) {
+      const m = FIGURE.exec(where);
+      if (!m) continue;
+      const value = Number(m[0].replace(/[,%]/g, "")) / (m[0].endsWith("%") ? 100 : 1);
+      if (Number.isFinite(value)) return { text: m[0], value };
+    }
+  }
+  return undefined;
+}
+
+/** × and ÷ as the operators evaluate reads, and " x " as a times sign too. */
+const asSum = (text: string) => text.replace(/\s[x×]\s/g, " * ").replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-");
+
 /**
  * "0.5 * 3365.12 = 1682.56": the left side worked out against the right side, to the digits the
  * right side shows or half a percent. Every number has to be on the page as written, so the claim
- * is about the page and not about the claimant's arithmetic.
+ * is about the page and not about the claimant's arithmetic. A figure that moves can be named by
+ * its label instead ("Size * Mark price = Position value"): it is read off the page when the check runs.
  */
 export function addsUp(claim: string, pageText: string): SumResult {
-  const sides = claim.split(/=|≈/);
+  const sides = asSum(claim).split(/=|≈/);
   if (sides.length !== 2) return { ok: false, error: 'Write it as "left side = right side", e.g. "0.5 * 3365.12 = 1682.56".' };
   const literals = claim.match(/[\d,]*\.?\d+/g) ?? [];
   // "2226.18" is on a page that writes "2,226.18".
   const flat = loosely(pageText);
   const absent = literals.filter((l) => !isConstant(l) && !flat.includes(loosely(l)));
   if (absent.length) return { ok: false, error: `${absent.map((l) => `“${l}”`).join(", ")} ${absent.length === 1 ? "isn't" : "aren't"} on the page as written.` };
+  // Labels stand for the figures next to them on the page.
+  const missing: string[] = [];
+  let named = false;
+  const resolved = sides.map((side) =>
+    loosely(
+      (side.match(/[\d,]*\.?\d+%?|[-+*/()]|[^\d\-+*/()]+/g) ?? [])
+        .map((token) => {
+          if (!/[A-Za-z]/.test(token)) return token;
+          named = true;
+          const label = token.trim();
+          const figure = labelled(pageText, label);
+          if (!figure) missing.push(label);
+          return figure ? ` ${figure.text} ` : token;
+        })
+        .join(""),
+    ),
+  );
+  if (missing.length) return { ok: false, error: `No figure labelled ${missing.map((l) => `“${l}”`).join(", ")} on the page.` };
+  const read = named ? `${resolved[0]} = ${resolved[1]}` : undefined;
   try {
-    const left = evaluate(sides[0]!);
-    const right = evaluate(sides[1]!);
-    const digits = (sides[1]!.match(/\.(\d+)/)?.[1] ?? "").length;
+    const left = evaluate(resolved[0]!);
+    const right = evaluate(resolved[1]!);
+    const digits = (resolved[1]!.match(/\.(\d+)/)?.[1] ?? "").length;
     const slack = Math.max(10 ** -digits, Math.abs(right) * TOLERANCE);
-    return { ok: Math.abs(left - right) <= slack, left, right };
+    return { ok: Math.abs(left - right) <= slack, left, right, ...(read ? { read } : {}) };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: e instanceof Error ? e.message : String(e), ...(read ? { read } : {}) };
   }
 }
 
 /** + − × ÷, brackets and percents, nothing else. */
 export function evaluate(expr: string): number {
-  const tokens = expr.replace(/[×x]/g, "*").replace(/÷/g, "/").replace(/−/g, "-").match(/[\d,]*\.?\d+%?|[-+*/()]/g) ?? [];
-  if (tokens.join("").length !== expr.replace(/[×x]/g, "*").replace(/÷/g, "/").replace(/−/g, "-").replace(/[\s$]/g, "").length) throw new Error(`Can't read “${expr.trim()}” as a sum: use numbers, + - * / and brackets.`);
+  const tokens = asSum(expr).replace(/x/g, "*").match(/[\d,]*\.?\d+%?|[-+*/()]/g) ?? [];
+  if (tokens.join("").length !== asSum(expr).replace(/x/g, "*").replace(/[\s$]/g, "").length) throw new Error(`Can't read “${expr.trim()}” as a sum: use numbers, + - * / and brackets.`);
   let i = 0;
   const number = (): number => {
     const t = tokens[i++];

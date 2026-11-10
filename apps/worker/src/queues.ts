@@ -19,6 +19,9 @@ export const QUEUES = {
   exploration: "exploration.run",
 } as const;
 
+/** How long a job waits before it looks again when another is on the app's live chain. */
+export const LIVE_RETRY_SECONDS = 30;
+
 export interface ExplorationJob {
   explorationId: string;
 }

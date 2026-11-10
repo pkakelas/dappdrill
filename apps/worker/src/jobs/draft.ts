@@ -5,7 +5,7 @@ import { queueRuns, sentenceName, specOf, tests, touched, type Db } from "@dappd
 import type { Engine } from "@dappdrill/engine/fake";
 import { errorMessage, logger } from "../log.js";
 import { QUEUES, type TestsJob } from "../queues.js";
-import { loadApp } from "../target.js";
+import { liveChains, loadApp } from "../target.js";
 
 /**
  * test-draft.run: write a test from the developer's request (`drafting`: a sentence, or the answers
@@ -25,7 +25,13 @@ export async function runDraft(db: Db, engine: Engine, boss: PgBoss, testId: str
   const named = !base && test.name !== sentenceName(goal);
 
   try {
-    const { draft } = await engine.writeTest({ prompt: test.drafting, map: app.map ?? undefined, setup: app.setup?.steps.map((s) => s.text), base: base && specOf(base) });
+    const { draft } = await engine.writeTest({
+      prompt: test.drafting,
+      map: app.map ?? undefined,
+      setup: app.setup?.steps.map((s) => s.text),
+      live: liveChains(app),
+      base: base && specOf(base),
+    });
     await db
       .update(tests)
       .set({

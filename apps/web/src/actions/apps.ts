@@ -278,6 +278,12 @@ const SetupEdit = z.object({
     .transform((s) => s.filter(Boolean))
     .pipe(z.array(z.string()).min(1, "Add at least one step.").max(12, "Keep it under 12 steps.")),
   when: SetupWhen,
+  // On a live chain: the steps that put the account back after earlier runs. An empty list removes them.
+  reset: z
+    .array(z.string().trim().max(200))
+    .transform((s) => s.filter(Boolean))
+    .pipe(z.array(z.string().min(1)).max(5, "Keep it under 5 reset steps."))
+    .optional(),
 });
 
 /** The steps every test needs first, and when they run. Unchanged steps keep their recorded clicks. */
@@ -295,6 +301,7 @@ export async function updateSetupAction(appId: string, input: z.input<typeof Set
         when: e.data.when,
         // The analysis's reason was for its own pick.
         why: old && old.when === e.data.when ? old.why : undefined,
+        reset: e.data.reset && e.data.reset.length > 0 ? keepActions(e.data.reset, old?.reset ?? []) : undefined,
       },
     })
     .where(eq(apps.id, appId));

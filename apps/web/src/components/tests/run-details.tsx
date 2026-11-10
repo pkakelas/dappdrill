@@ -18,10 +18,13 @@ const OUTCOME_LABEL: Record<WalletRequest["outcome"], string> = { approved: "App
 /** What the app asked the wallet for, with the signing review of each signature. */
 export function WalletActivity({ result }: { result: TestRunResult }) {
   const asked = result.walletRequests.filter((r) => r.kind !== "other");
-  if (asked.length === 0) return null;
+  // On a live chain the app's own embedded wallet may have signed instead of ours, so the review has nothing to say.
+  const embedded = result.embeddedSigner && result.signingReviews.length === 0 && <p className="px-4 py-3 text-sm text-pretty text-muted-foreground">The app&apos;s own wallet signed for this run, so there was nothing for our wallet to review.</p>;
+  if (asked.length === 0) return embedded ? <Panel title="Wallet">{embedded}</Panel> : null;
   const reviews = new Map(result.signingReviews.map((s) => [s.requestId, s]));
   return (
     <Panel title="Wallet" count={asked.length}>
+      {embedded && <div className="border-b">{embedded}</div>}
       <ul className="divide-y">
         {asked.map((r) => {
           const review = reviews.get(r.id);

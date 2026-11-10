@@ -1,14 +1,14 @@
 import { and, eq, ne } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { ExploreState, newId, type AppMap, type AppSetup, type DrillEvent, type ExploreSuggestion, type TestStep } from "@dappdrill/core";
-import { addConditions, appTests, apps, BUG_TEST_NOTE, explorations, nextPosition, queueRuns, tests, type Db, type JobStatus } from "@dappdrill/db";
+import { addConditions, appTests, apps, BUG_TEST_NOTE, explorations, nextPosition, queueRuns, tests, tryAppLock, type Db, type JobStatus } from "@dappdrill/db";
 import type { KnownBug } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
 import { artifactsDir } from "../artifacts.js";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
-import { QUEUES, type TestsJob } from "../queues.js";
-import { buildTarget, loadApp, targetHints, type AppRow } from "../target.js";
+import { LIVE_RETRY_SECONDS, QUEUES, type ExplorationJob, type TestsJob } from "../queues.js";
+import { buildTarget, liveChains, loadApp, targetHints, type AppRow } from "../target.js";
 import { serialSink } from "./sink.js";
 import { pollStops, throttle } from "./stop.js";
 
@@ -31,6 +31,23 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
   if (row.stopRequested) return void (await update({ status: "stopped", finishedAt: new Date() }));
 
   const app = await loadApp(db, row.appId);
+  // A live account is one account: jobs on it go one at a time, and the rest wait their turn (the exploration stays queued).
+  const lock = liveChains(app) ? await tryAppLock(db, app.id) : undefined;
+  if (liveChains(app) && !lock) {
+    log.info(`another job is on this app's live chain; looking again in ${LIVE_RETRY_SECONDS}s`);
+    await boss.send(QUEUES.exploration, { explorationId } satisfies ExplorationJob, { startAfter: LIVE_RETRY_SECONDS });
+    return;
+  }
+  try {
+    await explore(db, engine, boss, row, app, signal, log);
+  } finally {
+    await lock?.release();
+  }
+}
+
+async function explore(db: Db, engine: Engine, boss: PgBoss, row: ExplorationRow, app: AppRow, signal: AbortSignal, log: ReturnType<typeof logger>): Promise<void> {
+  const explorationId = row.id;
+  const update = (patch: Partial<ExplorationRow>) => db.update(explorations).set(patch).where(eq(explorations.id, explorationId));
   const stop = new AbortController();
   const stopPolling = pollStops(
     async () => {
@@ -81,7 +98,7 @@ export async function runExploration(db: Db, engine: Engine, boss: PgBoss, explo
         onMap: (map, setup) => saveMap(db, app.id, map, setup),
         onTokens: (tokens) => saveTokens(db, app.id, tokens).catch((e) => log.warn(`could not save the wallet's tokens: ${errorMessage(e)}`)),
         onTest: save,
-        onSetupSteps: (steps) => saveSetup(db, app.id, steps),
+        onSetupSteps: (steps, reset) => saveSetup(db, app.id, steps, reset),
       },
       sink,
       abort,
@@ -160,7 +177,7 @@ async function saveTest(db: Db, appId: string, s: ExploreSuggestion): Promise<st
   return proved ? [testId, ...(await addConditions(db, testId, s.conditions))] : [];
 }
 
-async function saveSetup(db: Db, appId: string, steps: TestStep[]): Promise<void> {
+async function saveSetup(db: Db, appId: string, steps: TestStep[], reset?: TestStep[]): Promise<void> {
   const [current] = await db.select({ setup: apps.setup }).from(apps).where(eq(apps.id, appId));
-  if (current?.setup) await db.update(apps).set({ setup: { ...current.setup, steps } }).where(eq(apps.id, appId));
+  if (current?.setup) await db.update(apps).set({ setup: { ...current.setup, steps, ...(reset ? { reset } : {}) } }).where(eq(apps.id, appId));
 }
