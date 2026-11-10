@@ -15,6 +15,8 @@ const artifacts = process.env.ARTIFACTS_DIR ?? "./data/artifacts";
 
 export const env = {
   appUrl: (process.env.APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/$/, ""),
+  /** The marketing site, the one origin allowed to post early access requests. */
+  siteUrl: (process.env.SITE_URL ?? "http://localhost:3100").replace(/\/$/, ""),
   /** Lifts plan quotas and treats localhost as a verified domain. */
   dev: process.env.DAPPDRILL_DEV === "1",
   googleEnabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),

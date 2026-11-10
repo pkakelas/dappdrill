@@ -1,8 +1,13 @@
-/** Where every "Get early access" button goes. */
+/** Where every "Get early access" button goes: the form at the end of the home page. */
 export const CTA = {
   label: "Get early access",
-  href: "mailto:hello@dappdrill.com?subject=Early%20access%20to%20DappDrill",
+  href: "/#access",
 };
+
+/** The web app's endpoint the early access form posts to (apps/web, api/early-access). Set at build time. */
+export const EARLY_ACCESS_URL =
+  process.env.NEXT_PUBLIC_EARLY_ACCESS_URL ??
+  (process.env.NODE_ENV === "production" ? "https://app.dappdrill.com/api/early-access" : "http://localhost:3000/api/early-access");
 
 /** Who makes DappDrill. Shown on the About and Privacy pages and in the footer. */
 export const COMPANY = {
@@ -26,23 +31,27 @@ export const PAGES = [
   { label: "Terms", href: "/terms/" },
 ];
 
-/** The four steps of a pass. Each has one line and one picture (components/exhibits.tsx, in this order). */
+/** The steps of a pass. Each has one line and one picture (components/app-pictures.tsx, in this order). */
 export const STEPS = [
   {
     name: "Explore",
     line: "Finds the flows that move money and writes a test for each: a goal, an expected result, short steps.",
   },
   {
+    name: "Write",
+    line: "Write your own tests or edit the ones it wrote. Say what should happen in plain words, and an LLM checks it on every run, not just a fixed script.",
+  },
+  {
     name: "Run",
-    line: "Runs every test with its own wallet on a local fork. Real contracts, fake money. Never mainnet.",
+    line: "Runs every test with its own wallet on a local fork. Real contracts.",
   },
   {
     name: "Break",
     line: "Replays each flow the way users break it: rejected, wrong network, switched account, slow RPC.",
   },
   {
-    name: "Report",
-    line: "A failure gets a second look in a fresh browser before it is called a bug. Each one comes with its video and trace.",
+    name: "Watch",
+    line: "Runs again from CI on every commit or release, and every day on your live app. When a test stops passing, you hear about it in Slack, Telegram or email.",
   },
 ];
 

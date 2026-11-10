@@ -26,8 +26,8 @@ export default function Privacy() {
         keep the site running and secure.
       </p>
       <p>
-        <b>When you email us</b>, for example to ask for early access: your email address, your name if you give it, and what
-        you write.
+        <b>When you ask for early access</b> on this site: your email address. <b>When you email us:</b> your email address,
+        your name if you give it, and what you write.
       </p>
       <p>
         <b>When you use DappDrill:</b>
@@ -71,7 +71,8 @@ export default function Privacy() {
       <p>
         We keep account and organization data while your account is open. Test results and recordings stay until you delete
         them, delete the app, or close your account. After you close your account we delete your data within a reasonable time,
-        except what the law requires us to keep. Emails are kept as long as the conversation needs them.
+        except what the law requires us to keep. Emails are kept as long as the conversation needs them. Early access requests are kept until we invite you or you ask us
+        to remove yours.
       </p>
 
       <h2>Your rights</h2>

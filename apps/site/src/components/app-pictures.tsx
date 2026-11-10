@@ -3,7 +3,7 @@ import { HarborVault, Wallet } from "./exhibits";
 
 /*
  * DappDrill's own pages, drawn after apps/web so they stay sharp and scale with the page (styles in
- * app/app.css). The app under test is Harbor Vault (fixtures/harbor-vault) and the bugs are its seeded ones.
+ * app/app.css). The app under test is Harbor Vault (fixtures/harbor-vault) and the failures are its seeded bugs.
  * Signing review is left out on purpose: the site is about QA.
  */
 
@@ -15,16 +15,16 @@ const ICON = {
   play: ["M6 3v18l14-9z"],
   arrowUpRight: ["M7 7h10v10", "M7 17 17 7"],
   upDown: ["m7 15 5 5 5-5", "m7 9 5-5 5 5"],
-  chevronRight: ["m9 18 6-6-6-6"],
   chevronDown: ["m6 9 6 6 6-6"],
   compass: ["M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20", "m16.24 7.76-1.8 5.41a2 2 0 0 1-1.27 1.27L7.76 16.24l1.8-5.41a2 2 0 0 1 1.27-1.27z"],
   listChecks: ["m3 17 2 2 4-4", "m3 7 2 2 4-4", "M13 6h8", "M13 12h8", "M13 18h8"],
   bug: ["m8 2 1.88 1.88", "M14.12 3.88 16 2", "M9 7.13v-1a3 3 0 1 1 6 0v1", "M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6", "M12 20v-9", "M6.53 9C4.6 8.8 3 7.1 3 5", "M6 13H2", "M3 21c0-2.1 1.7-3.9 3.8-4", "M20.97 5c0 2.1-1.6 3.8-3.5 4", "M22 13h-4", "M17.2 17c2.1.1 3.8 1.9 3.8 4"],
   fork: ["M12 15a3 3 0 1 0 0 6 3 3 0 1 0 0-6", "M6 3a3 3 0 1 0 0 6 3 3 0 1 0 0-6", "M18 3a3 3 0 1 0 0 6 3 3 0 1 0 0-6", "M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9", "M12 12v3"],
-  scan: ["M3 7V5a2 2 0 0 1 2-2h2", "M17 3h2a2 2 0 0 1 2 2v2", "M21 17v2a2 2 0 0 1-2 2h-2", "M7 21H5a2 2 0 0 1-2-2v-2", "M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6", "m16 16-1.9-1.9"],
-  circleCheck: ["M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20", "m9 12 2 2 4-4"],
-  circleX: ["M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20", "m15 9-6 6", "m9 9 6 6"],
   lock: ["M5 11h14v10H5z", "M7 11V7a5 5 0 0 1 10 0v4"],
+  route: ["M6 16a3 3 0 1 0 0 6 3 3 0 1 0 0-6", "M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15", "M18 2a3 3 0 1 0 0 6 3 3 0 1 0 0-6"],
+  badgeCheck: ["M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z", "m16 9-5.5 5.5L8 12"],
+  mapPin: ["M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0", "M12 7a3 3 0 1 0 0 6 3 3 0 1 0 0-6"],
+  listOrdered: ["M11 5h10", "M11 12h10", "M11 19h10", "M4 4h1v5", "M4 9h2", "M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02"],
   wallet: ["M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1", "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"],
 } as const;
 
@@ -46,7 +46,7 @@ const Logo = () => (
 );
 
 /** The app's window: its bar, with the organization, the app and the page's tab. */
-function Window({ label, tab = "Tests", children }: { label: string; tab?: string; children: ReactNode }) {
+function Window({ label, tab = "Tests", over, children }: { label: string; tab?: string; over?: ReactNode; children: ReactNode }) {
   return (
     <div className="dd-wrap" role="img" aria-label={label}>
       <div className="dd" aria-hidden="true">
@@ -81,6 +81,7 @@ function Window({ label, tab = "Tests", children }: { label: string; tab?: strin
           </div>
           <div className="dd-page">{children}</div>
         </div>
+        {over}
       </div>
     </div>
   );
@@ -143,10 +144,11 @@ function AppHead() {
   );
 }
 
-function Tabs({ on }: { on: "tests" | "bugs" }) {
+/** The app page's tabs, on Tests. */
+function Tabs() {
   return (
     <div className="dd-tabs">
-      <span className={on === "tests" ? "on" : undefined}>
+      <span className="on">
         <I name="listChecks" size="sm" />
         <b>Tests</b>
         <em>6</em>
@@ -156,7 +158,7 @@ function Tabs({ on }: { on: "tests" | "bugs" }) {
         <b>Checks</b>
         <em>41</em>
       </span>
-      <span className={on === "bugs" ? "on" : undefined}>
+      <span>
         <I name="bug" size="sm" />
         <b>Bugs</b>
         <em className="bad">4</em>
@@ -277,7 +279,7 @@ export function AppPicture() {
           </div>
         </div>
       </div>
-      <Tabs on="tests" />
+      <Tabs />
       <TestList />
     </Window>
   );
@@ -468,117 +470,165 @@ export function TestPicture() {
   );
 }
 
-/** The tests again, further down: every test with the conditions it was replayed under. */
-export function ConditionsPicture() {
+/** One question of the Add test form: tinted tile and label on the left, the answer on the right. */
+function Question({ icon, tint, title, detail, children }: { icon: keyof typeof ICON; tint: string; title: string; detail: string; children: ReactNode }) {
   return (
-    <Window label="Harbor Vault's tests in DappDrill, each replayed under conditions: rejected in wallet, slow RPC, wrong network, not enough gas. Three conditions failed.">
-      <Tabs on="tests" />
+    <div className="dd-q">
+      <div className="dd-q-label">
+        <span className={`dd-tile ${tint}`}>
+          <I name={icon} />
+        </span>
+        <p>
+          <b>{title}</b>
+          <span>{detail}</span>
+        </p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Lines typed into a field. */
+const Typed = ({ lines, area }: { lines: string[]; area?: boolean }) => (
+  <div className={area ? "dd-input area" : "dd-input"}>
+    {lines.map((line) => (
+      <span key={line}>{line}</span>
+    ))}
+  </div>
+);
+
+/** Add a test, open over the app page: the goal, how to tell it worked (a model checks that on every run), and steps. */
+export function WritePicture() {
+  return (
+    <Window
+      label="DappDrill's Add a test form over Harbor Vault's tests. The goal is to withdraw half of the deposit; it worked if the position shows about 125 hvUSDC and the share price didn't drop."
+      over={
+        <>
+          <div className="dd-dim" />
+          <div className="dd-dialog">
+            <div className="dd-dialog-head">
+              <b>Add a test</b>
+              <span className="dd-t14 dd-muted">We write the steps from your answers and run the test right away.</span>
+            </div>
+            <div className="dd-dialog-body">
+              <Question icon="route" tint="live" title="What does the user do?" detail="One thing, start to finish.">
+                <Typed area lines={["Withdraw half of the deposit from the vault"]} />
+              </Question>
+              <Question icon="badgeCheck" tint="good" title="How do you know it worked?" detail="What the page shows at the end. We check it on every run.">
+                <Typed lines={["Position shows about 125 hvUSDC, share price didn’t drop"]} />
+              </Question>
+              <div className="dd-optional">
+                <b>Optional</b>
+                <span className="dd-t14 dd-muted">What you leave out, we work out from the app.</span>
+              </div>
+              <Question icon="mapPin" tint="fork" title="Where does it start?" detail="The page the test opens first.">
+                <div className="dd-input">
+                  <span>/vault</span>
+                  <I name="chevronDown" size="sm" />
+                </div>
+              </Question>
+              <Question icon="listOrdered" tint="pink" title="Any steps we should follow?" detail="One per line, the way a user would say them.">
+                <Typed area lines={["Open the Withdraw tab", "Enter half of your position", "Click Withdraw"]} />
+              </Question>
+            </div>
+            <div className="dd-dialog-foot">
+              <span className="dd-t14 dd-muted">It runs as soon as the steps are written.</span>
+              <div className="dd-btns">
+                <div className="dd-btn ghost">
+                  <span>Cancel</span>
+                </div>
+                <div className="dd-btn dark">
+                  <span>Write and run</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      }
+    >
+      <AppHead />
+      <Tabs />
       <TestList />
     </Window>
   );
 }
 
-const BUGS: [string, string][] = [["Deposit sent while the wallet is on the wrong network", "Deposit hUSDC into the vault · Wrong network"]];
-
-/** The bugs, one of them open: how to make it happen, expected against got, the page, and the second look. */
-export function BugsPicture() {
+/** The tests again, further down: every test with the conditions it was replayed under. */
+export function ConditionsPicture() {
   return (
-    <Window label="Harbor Vault's bugs in DappDrill. One is open: after rejecting the deposit in the wallet, the button stays on Confirming. It has the steps, expected against got, the page when it happened, and what a second look in a fresh browser saw.">
-      <Tabs on="bugs" />
-      <div className="dd-card dd-list">
-        <div className="dd-filter">
-          <span className="on">All</span>
-          <span>From a test 3</span>
-          <span>From a check 1</span>
+    <Window label="Harbor Vault's tests in DappDrill, each replayed under conditions: rejected in wallet, slow RPC, wrong network, not enough gas. Three conditions failed.">
+      <Tabs />
+      <TestList />
+    </Window>
+  );
+}
+
+/** Runs: newest first. [label, passed, failed, when, took]; a failed count marks the run failed. */
+const RUNS: [string, number, number, string, string][] = [
+  ["Daily run", 12, 1, "2 h ago", "4 min"],
+  ["Run by you", 13, 0, "yesterday", "4 min"],
+  ["Daily run", 13, 0, "yesterday", "5 min"],
+  ["After exploring", 13, 0, "2 days ago", "6 min"],
+  ["Daily run", 13, 0, "2 days ago", "4 min"],
+  ["Daily run", 13, 0, "3 days ago", "4 min"],
+  ["Run by you", 13, 0, "3 days ago", "5 min"],
+];
+
+/** The Runs page with the daily run that just failed, and the alert it sent. */
+export function WatchPicture() {
+  return (
+    <Window
+      tab="Runs"
+      label="DappDrill's Runs page for Harbor Vault: daily runs and runs by you, the latest daily run with 1 failed. Over it, the email it sent: Harbor Vault, a test stopped passing. Withdraw instantly got no quote; the market maker seems to be down."
+      over={
+        <div className="dd-mail">
+          <div className="dd-mail-head">
+            <b>Harbor Vault: a test stopped passing</b>
+            <div className="dd-mail-from">
+              <span className="dd-mail-avatar">
+                <Logo />
+              </span>
+              <p>
+                <span className="dd-t13">
+                  <b>DappDrill</b> <span className="dd-muted">&lt;alerts@dappdrill.com&gt;</span>
+                </span>
+                <span className="dd-t12 dd-muted">to team@harborlabs.xyz</span>
+              </p>
+              <span className="dd-t12 dd-muted">09:04</span>
+            </div>
+          </div>
+          <div className="dd-mail-body">
+            <p className="dd-t14">Harbor Vault: a test stopped passing</p>
+            <p className="dd-t14">
+              - Withdraw instantly: no quote came back. The market maker seems to be down; the page stayed on “Finding the best price…”
+              for 2 minutes, then said nothing.
+            </p>
+            <p className="dd-t14 dd-mail-link">app.dappdrill.com/apps/harbor-vault</p>
+          </div>
         </div>
-        {BUGS.map(([title, from]) => (
-          <div className="dd-bug" key={title}>
-            <span className="dd-tile sm bad">
-              <I name="bug" />
+      }
+    >
+      <div className="dd-runs-head">
+        <b>Runs</b>
+        <span className="dd-t14 dd-muted">Every time Harbor Vault was explored or its tests ran: by you, by the assistant, after exploring, or on the daily schedule.</span>
+      </div>
+      <div className="dd-card dd-list">
+        {RUNS.map(([label, passed, failed, when, took], i) => (
+          <div className="dd-run" key={i}>
+            <span className={`dd-mark ${failed ? "fail" : "pass"}`}>
+              <I name={failed ? "x" : "check"} />
             </span>
             <p>
-              <b>{title}</b>
-              <small>
-                <I name="listChecks" size="xs" />
-                <span className="dd-t12">From the test {from}</span>
-              </small>
+              <b>{label}</b>
+              <span className="dd-t13 dd-muted">
+                {passed} of {passed + failed} passed{failed > 0 && <em> · {failed} failed</em>}
+              </span>
             </p>
-            <span className="dd-tag high">High</span>
-            <I name="chevronRight" size="sm" />
+            <small className="dd-t12 dd-muted">
+              {passed + failed} results · {when} · {took}
+            </small>
           </div>
         ))}
-        <div className="dd-bug open">
-          <span className="dd-tile sm bad">
-            <I name="bug" />
-          </span>
-          <p>
-            <b>Deposit stuck on “Confirming…” after rejecting in wallet</b>
-            <small>
-              <I name="listChecks" size="xs" />
-              <span className="dd-t12">From the test Deposit hUSDC into the vault · Rejected in wallet</span>
-            </small>
-          </p>
-          <span className="dd-tag high">High</span>
-          <I name="chevronDown" size="sm" />
-        </div>
-        <div className="dd-bug-body">
-          <div className="dd-evidence">
-            <div className="dd-col" style={{ gap: "1.4em" }}>
-              <ol className="dd-repro">
-                {["Connect the wallet on the Vault page", "Enter 250 as the deposit amount", "Click Deposit", "Reject the request in the wallet"].map((s, i) => (
-                  <li key={s}>
-                    <i>
-                      <span>{i + 1}</span>
-                    </i>
-                    <span className="dd-t13">{s}</span>
-                  </li>
-                ))}
-              </ol>
-              <div className="dd-sides">
-                <div className="dd-side good">
-                  <h6>
-                    <I name="circleCheck" size="xs" />
-                    <span className="dd-t12">Expected</span>
-                  </h6>
-                  <span className="dd-t13">The Deposit button is back, so the user can try again</span>
-                </div>
-                <div className="dd-side bad">
-                  <h6>
-                    <I name="circleX" size="xs" />
-                    <span className="dd-t12">Got</span>
-                  </h6>
-                  <span className="dd-t13">It stays on “Confirming…”, with no message</span>
-                </div>
-              </div>
-            </div>
-            <div className="dd-browser">
-              <BrowserBar />
-              <Site width={43.3} state="stuck" />
-            </div>
-          </div>
-          <div className="dd-saw">
-            <I name="scan" size="sm" />
-            <p>
-              <b>What the fresh browser saw</b>
-              <span className="dd-t13">The wallet log shows the deposit rejected with 4001, and the button still reads “Confirming…”. The user can’t retry without reloading.</span>
-            </p>
-          </div>
-        </div>
-        {/* Below the fold of the picture, so the list carries on past its edge. */}
-        <div className="dd-bug">
-          <span className="dd-tile sm bad">
-            <I name="bug" />
-          </span>
-          <p>
-            <b>The page goes blank when withdrawing without ETH for gas</b>
-            <small>
-              <I name="listChecks" size="xs" />
-              <span className="dd-t12">From the test Withdraw hUSDC · Not enough gas</span>
-            </small>
-          </p>
-          <span className="dd-tag high">High</span>
-          <I name="chevronRight" size="sm" />
-        </div>
       </div>
     </Window>
   );

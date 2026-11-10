@@ -1,5 +1,6 @@
 import { CTA } from "@/site";
 import { AppPicture } from "./app-pictures";
+import { EarlyAccess } from "./early-access";
 import { Footer } from "./footer";
 
 /** The mark, very large, rising behind the browser. */
@@ -242,24 +243,12 @@ export function Findings() {
 
 export function Close() {
   return (
-    <section data-dark className="bg-ink text-white">
+    <section id="access" data-dark className="bg-ink text-white">
       <div className="wrap flex flex-col items-center pt-[clamp(110px,14vw,200px)] pb-[clamp(96px,12vw,170px)] text-center">
         <h2 className="display text-[clamp(46px,7.4vw,104px)]">
           Paste a URL. <span className="text-white/40">Get a bug report.</span>
         </h2>
-        <div className="mt-12 flex h-[68px] w-full max-w-[620px] items-center gap-3 rounded-full bg-white py-2 pr-2 pl-5 sm:pl-6 text-ink">
-          <svg viewBox="0 0 20 20" className="size-5 flex-none text-ink/40" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-            <circle cx="10" cy="10" r="7.5" />
-            <path d="M2.5 10h15M10 2.5c2.4 2.2 2.4 12.800 0 15M10 2.500c-2.400 2.200-2.400 12.800 0 15" />
-          </svg>
-          <span className="min-w-0 flex-1 overflow-hidden text-left font-mono text-[clamp(14px,1.6vw,19px)] whitespace-nowrap" aria-hidden="true">
-            <span className="typed">app.yourdapp.xyz</span>
-            <i className="caret" />
-          </span>
-          <a href={CTA.href} className="btn h-[52px] flex-none bg-ink px-7 text-white hover:bg-ink/85">
-            Drill
-          </a>
-        </div>
+        <EarlyAccess />
       </div>
       <Footer />
     </section>

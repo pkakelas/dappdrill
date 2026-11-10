@@ -207,26 +207,6 @@
   margin-left: auto;
 }
 
-.dd-tag {
-  padding: 0.15em 0.6em;
-  border-radius: 0.45em;
-  font-size: 1.15em;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.dd-tag.bad {
-  background: var(--bad-bg);
-  color: var(--bad-ink);
-}
-.dd-tag.high {
-  background: var(--bad-soft);
-  color: var(--bad);
-}
-.dd-tag.quiet {
-  background: var(--soft);
-  color: var(--muted);
-}
-
 /* The tinted icon squares of the New app page. */
 .dd-tile {
   display: grid;
@@ -917,117 +897,216 @@
   padding: 1.2em 1.6em;
 }
 
-/* A bug, open. */
-.dd-bug {
-  display: flex;
-  align-items: center;
-  gap: 1.2em;
-  padding: 1.3em 1.6em;
-  border-bottom: 0.1em solid var(--line);
+/* Add a test: the form, open over the dimmed app page. */
+.dd-tile.pink {
+  background: rgb(236 72 153 / 0.1);
+  color: #db2777;
 }
-.dd-bug.open {
-  border-bottom: 0;
-  background: #fafafa;
+.dd-btn.ghost {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
 }
-.dd-bug p {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 0.25em;
-  min-width: 0;
+.dd-dim {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.2em;
+  background: rgb(0 0 0 / 0.5);
 }
-.dd-bug b {
-  font-size: 1.35em;
-  font-weight: 500;
-}
-.dd-bug small {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-  color: var(--muted);
-}
-.dd-bug-body {
+.dd-dialog {
+  position: absolute;
+  top: 5.6em;
+  left: 15em;
   display: flex;
   flex-direction: column;
-  gap: 1.6em;
-  padding: 0.6em 1.6em 2em 6.4em;
+  width: 90em;
+  overflow: hidden;
+  border-radius: 1.6em;
+  background: #fff;
+  box-shadow: 0 2.5em 5em -1.2em rgb(0 0 0 / 0.45);
 }
-.dd-evidence {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  gap: 2.4em;
-}
-.dd-repro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9em;
-}
-.dd-repro li {
-  display: flex;
-  align-items: center;
-  gap: 1em;
-  list-style: none;
-}
-.dd-repro li i {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 2em;
-  height: 2em;
-  border-radius: 0.5em;
-  background: var(--soft);
-}
-.dd-repro li i span {
-  font-size: 1.1em;
-  font-style: normal;
-  color: var(--muted);
-}
-.dd-sides {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.2em;
-}
-.dd-side {
+.dd-dialog-head {
   display: flex;
   flex-direction: column;
   gap: 0.6em;
-  padding: 1.2em;
-  border-radius: 1em;
+  padding: 2.8em 3.2em 2.4em;
+  border-bottom: 0.1em solid var(--line);
 }
-.dd-side.good {
-  background: var(--good-soft);
+.dd-dialog-head b {
+  font-size: 2.4em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
-.dd-side.bad {
-  background: var(--bad-soft);
-}
-.dd-side h6 {
+.dd-dialog-body {
   display: flex;
-  align-items: center;
-  gap: 0.5em;
+  flex-direction: column;
+  gap: 2.4em;
+  padding: 2.8em 3.2em 3.2em;
 }
-.dd-side.good h6 {
-  color: var(--good);
+.dd-q {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 3.2em;
+  align-items: start;
 }
-.dd-side.bad h6 {
-  color: var(--bad);
-}
-.dd-saw {
+.dd-q-label {
   display: flex;
   gap: 1.2em;
-  padding: 1.4em 1.6em;
-  border-radius: 1em;
-  background: var(--live-soft);
 }
-.dd-saw svg.i {
-  color: var(--live);
-}
-.dd-saw p {
+.dd-q-label p {
   display: flex;
   flex-direction: column;
   gap: 0.3em;
 }
-.dd-saw b {
-  font-size: 1.3em;
+.dd-q-label b {
+  font-size: 1.4em;
   font-weight: 500;
-  color: var(--live-ink);
+  line-height: 1.3;
+}
+.dd-q-label span {
+  color: var(--muted);
+  font-size: 1.4em;
+  line-height: 1.4;
+}
+.dd-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 4.4em;
+  padding: 0 1.4em;
+  border: 0.1em solid var(--line);
+  border-radius: 0.8em;
+  box-shadow: 0 0.1em 0.2em rgb(0 0 0 / 0.04);
+}
+.dd-input span {
+  font-size: 1.4em;
+}
+.dd-input svg.i {
+  color: var(--muted);
+}
+.dd-input.area {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.4em;
+  min-height: 8em;
+  padding: 1.2em 1.4em;
+}
+.dd-optional {
+  display: flex;
+  align-items: baseline;
+  gap: 1.2em;
+  padding-top: 2.4em;
+  border-top: 0.1em solid var(--line);
+}
+.dd-optional b {
+  font-size: 1.4em;
+  font-weight: 500;
+}
+.dd-dialog-foot {
+  display: flex;
+  align-items: center;
+  padding: 1.6em 3.2em;
+  border-top: 0.1em solid var(--line);
+  background: rgb(245 245 245 / 0.4);
+}
+
+/* Runs: the app's run history, and the email a failed daily run sends. */
+.dd-runs-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+.dd-runs-head b {
+  font-size: 2.4em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+.dd-run {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  padding: 1.2em 1.6em;
+}
+.dd-run + .dd-run {
+  border-top: 0.1em solid var(--line);
+}
+.dd-run p {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2em;
+}
+.dd-run b {
+  font-size: 1.4em;
+  font-weight: 500;
+}
+.dd-run em {
+  font-style: normal;
+  color: var(--bad);
+}
+.dd-mail {
+  position: absolute;
+  right: 3em;
+  bottom: 3em;
+  width: 58em;
+  overflow: hidden;
+  border: 0.1em solid var(--line);
+  border-radius: 1.4em;
+  background: #fff;
+  box-shadow: 0 2.5em 5em -1.5em rgb(0 0 0 / 0.35);
+}
+.dd-mail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4em;
+  padding: 2.2em 2.4em 1.8em;
+  border-bottom: 0.1em solid var(--line);
+}
+.dd-mail-head > b {
+  font-size: 1.8em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.dd-mail-from {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+.dd-mail-from p {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1em;
+}
+.dd-mail-from b {
+  font-weight: 600;
+}
+.dd-mail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2em;
+  padding: 2em 2.4em 2.4em;
+  font-family: var(--font-mono);
+}
+.dd-mail-body p {
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.dd-mail-link {
+  color: #1264a3;
+}
+.dd-mail-avatar {
+  display: grid;
+  place-items: center;
+  width: 3.2em;
+  height: 3.2em;
+  border-radius: 0.7em;
+  background: var(--soft);
+}
+.dd-mail-avatar .logo {
+  width: 2em;
+  height: 2em;
 }

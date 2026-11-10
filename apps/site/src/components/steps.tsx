@@ -4,9 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CHAINS, STEPS } from "@/site";
 
 /**
- * The four steps. On a wide screen the section pins while you scroll through it: the list on the left
+ * The steps. On a wide screen the section pins while you scroll through it: the list on the left
  * moves down a step at a time and the picture on the right changes with it. On a narrow one it is
- * simply four blocks, each with its picture.
+ * simply one block per step, each with its picture.
  */
 export function Steps({ pictures }: { pictures: ReactNode[] }) {
   const section = useRef<HTMLElement>(null);
@@ -46,7 +46,7 @@ export function Steps({ pictures }: { pictures: ReactNode[] }) {
   };
 
   return (
-    <section id="how" ref={section} className="relative scroll-mt-24 lg:h-[380vh] lg:scroll-mt-0">
+    <section id="how" ref={section} className="relative scroll-mt-24 lg:h-[470vh] lg:scroll-mt-0">
       <div className="wrap relative py-24 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-center lg:py-0">
         <p className="label mb-10 text-ink/50 lg:absolute lg:top-28 lg:mb-0">How it works</p>
         <ol className="lg:w-[32%]">

@@ -73,42 +73,6 @@
   }
 }
 
-/* The address typed into the closing URL field. */
-.typed {
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  vertical-align: bottom;
-  width: 16ch;
-  animation: typed 8s steps(16) infinite;
-}
-
-.caret {
-  display: inline-block;
-  width: 2px;
-  height: 1.15em;
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  background: var(--color-red);
-  animation: caret 1s steps(1) infinite;
-}
-
-@keyframes typed {
-  from {
-    width: 0;
-  }
-  35%,
-  to {
-    width: 16ch;
-  }
-}
-
-@keyframes caret {
-  50% {
-    opacity: 0;
-  }
-}
-
 /* Text on the About and Privacy pages. */
 .doc {
   font-size: 16.5px;

@@ -252,3 +252,11 @@ export const agentMessages = pgTable(
   },
   (t) => [index("agent_messages_app_idx").on(t.appId, t.createdAt)],
 );
+
+// ---------------------------------------------------------------- marketing site
+
+/** Who asked for early access on the marketing site. One row per email. */
+export const earlyAccess = pgTable("early_access", {
+  email: text("email").primaryKey(),
+  createdAt: createdAt(),
+});

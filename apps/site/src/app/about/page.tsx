@@ -32,13 +32,14 @@ export default function About() {
       <h2>How we work</h2>
       <ul>
         <li>We build what we would use ourselves, and keep it plain.</li>
-        <li>We test on forks with fake money. DappDrill never sends a transaction to mainnet.</li>
+        <li>We test on local forks, against the real contracts.</li>
         <li>We collect only what a product needs to work. The <a href="/privacy/">privacy policy</a> says what that is.</li>
       </ul>
 
       <h2>Talk to us</h2>
       <p>
-        For early access, questions or anything else, write to <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.
+        For early access, leave your email <a href="/#access">on the home page</a>. For questions or anything else, write to{" "}
+        <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.
       </p>
     </Doc>
   );

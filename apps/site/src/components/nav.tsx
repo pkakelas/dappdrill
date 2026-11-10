@@ -8,6 +8,11 @@ import { Wordmark } from "./logo";
 export function Nav({ dark = true }: { dark?: boolean }) {
   const [onDark, setOnDark] = useState(dark);
 
+  // Coming from another page (/#how, /#access), the browser's own jump to the section gets lost on load.
+  useEffect(() => {
+    if (location.hash.length > 1) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: "instant" });
+  }, []);
+
   useEffect(() => {
     const check = () => {
       const line = 44;
