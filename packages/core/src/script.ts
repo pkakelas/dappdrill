@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 /**
- * How a step finds its element. Resolved in order: testId, role+name, label,
- * placeholder, text, css. Recorded from the accessibility tree so replays
- * survive cosmetic changes.
+ * How a step finds its element. Resolved in order: testId, the control inside the box `near`
+ * names, role+name, label, placeholder, text, css. Recorded from the accessibility tree so
+ * replays survive cosmetic changes.
  */
 export const Locator = z.object({
   testId: z.string().optional(),
@@ -12,6 +12,11 @@ export const Locator = z.object({
   label: z.string().optional(),
   placeholder: z.string().optional(),
   text: z.string().optional(),
+  /**
+   * The short text of the box the element sits in ("Price", "Amount USDC"): how a field with no
+   * label of its own is told apart from the one beside it. Tried before anything positional.
+   */
+  near: z.string().optional(),
   css: z.string().optional(),
   /** Pick the nth match (0-based) when several elements match. */
   nth: z.number().int().nonnegative().optional(),
@@ -152,7 +157,7 @@ export function paramValues(script: ReplayScript, inputs: Record<string, string>
 /** Short human description of a step, used in logs, reports and the test editor. */
 export function describeStep(step: Step): string {
   if (step.note) return step.note;
-  const t = (l?: Locator) => (l ? (l.name ?? l.text ?? l.label ?? l.placeholder ?? l.testId ?? l.css ?? "element") : "page");
+  const t = (l?: Locator) => (l ? (l.name ?? l.text ?? l.label ?? l.placeholder ?? l.near ?? l.testId ?? l.css ?? "element") : "page");
   switch (step.kind) {
     case "goto": return `Open ${step.url}`;
     case "click": return `Click "${t(step.target)}"`;

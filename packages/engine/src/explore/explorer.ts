@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import { BugSeverity, CheckAssert, ExploreVariation, TIER_TESTS, TestDraft, describeStep, newId, nowIso, type BugEvidence, type ExploreBug, type ExploreCheck, type ExploreFeature, type ExploreSuggestion } from "@dappdrill/core";
+import { liveLine } from "../agent/tester.js";
 import { describeRequest, createToolkit, inboxTool, noteTool, pendingSign, Recorder } from "../agent/tools.js";
 import type { Env } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
@@ -470,6 +471,7 @@ function brief(run: ExploreRun, job: ExplorerJob, session: DrillSession, budgetM
     run.setup
       ? `A saved test starts after the app's setup (${run.setup.steps.map((x) => x.text).join("; ")}), so its steps don't repeat that.`
       : `A saved test starts in a clean browser with nothing connected, so its first step is "Connect the wallet" even though you are connected already.`,
+    liveLine(session),
     `You have about ${Math.max(1, Math.round(budgetMs / 60_000))} minutes.`,
   ];
   return lines.filter(Boolean).join("\n\n");

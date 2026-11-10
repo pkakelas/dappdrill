@@ -9,6 +9,7 @@
  */
 import type { Locator as PwLocator, Page } from "playwright";
 import type { Locator } from "@dappdrill/core";
+import { nearLocator } from "../replay/locators.js";
 
 export interface SnapshotNode {
   ref: string;
@@ -46,6 +47,8 @@ interface ElementFacts {
   label?: string;
   placeholder?: string;
   text?: string;
+  /** The whole text of the smallest box around the element that has a little: its label in the layout. */
+  near?: string;
   inDialog: boolean;
   cssPath: string;
 }
@@ -148,16 +151,25 @@ export async function locatorFor(page: Page, ref: string): Promise<Locator> {
   }
   if (facts.text) candidates.push({ loc: { text: facts.text }, pw: scope.getByText(facts.text, { exact: true }) });
 
+  // A field named only by its placeholder (two "0.00" boxes side by side), or an element with no name at
+  // all, is also found by the box it sits in, when it is the only control of its kind there.
+  const isControl = facts.tag === "input" || facts.tag === "textarea" || facts.tag === "select";
+  const unnamed = isControl ? !facts.label && (!facts.name || facts.name === facts.placeholder) : !facts.name;
+  const near = facts.near && unnamed ? facts.near : undefined;
+  const nearPw = near ? nearLocator(scope, near, facts.role || undefined) : undefined;
+  const inBox = nearPw && (await indexOfRef(nearPw, ref)) !== null && (await nearPw.count()) === 1 ? { near } : {};
+
   for (const c of candidates) {
     const idx = await indexOfRef(c.pw, ref);
     if (idx === null) continue;
     const count = await c.pw.count();
-    const locator: Locator = { ...c.loc, ...within };
-    if (count > 1) locator.nth = idx;
+    const locator: Locator = { ...c.loc, ...inBox, ...within };
     // Prefer a selector that matches uniquely; keep looking if this one needs nth.
     if (count === 1) return locator;
+    if (c === candidates.at(-1) && !inBox.near) return { ...locator, nth: idx };
     if (c === candidates.at(-1)) return locator;
   }
+  if (inBox.near) return { role: facts.role || undefined, ...inBox, ...within };
   const css = facts.id && !looksGenerated(facts.id) ? `#${cssEscape(facts.id)}` : facts.cssPath;
   return { css, ...within };
 }
@@ -501,6 +513,17 @@ function factsInPage(args: { refAttr: string; ref: string }): ElementFacts | nul
   const name = ariaName || (isControl ? label ?? text(el.getAttribute("placeholder")) : content || text(el.querySelector("img[alt]")?.getAttribute("alt")));
   const ownText = !isControl && content && content.length <= 80 ? content : undefined;
 
+  // Up to the box that says what the element is for ("Price", "Amount Max"), stopping before a box that says more than that.
+  const nearText = (): string | undefined => {
+    let p = el.parentElement;
+    for (let i = 0; p && p !== document.body && i < 5; i++, p = p.parentElement) {
+      const t = readable(p);
+      if (t.length > 48) return undefined;
+      if (t && t !== content) return t;
+    }
+    return undefined;
+  };
+
   const cssPath = (): string => {
     const parts: string[] = [];
     let cur: Element | null = el;
@@ -524,6 +547,7 @@ function factsInPage(args: { refAttr: string; ref: string }): ElementFacts | nul
     label,
     placeholder: text(el.getAttribute("placeholder")) || undefined,
     text: ownText,
+    near: nearText(),
     inDialog: !!el.closest("[role=dialog],[role=alertdialog],dialog[open],[aria-modal=true]"),
     cssPath: cssPath(),
   };

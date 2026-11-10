@@ -14,8 +14,10 @@ const base = alias(tests, "base");
 /**
  * After a batch: tell the organization about tests that failed now and passed the time before,
  * and about Dangerous signatures it hasn't heard about yet, whatever the test's own status.
+ * `url` is another deploy the batch ran against (a preview, staging): there the point is to catch
+ * a bad deploy before it ships, so every failed test is told, not only the regressions.
  */
-export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promise<Alert | null> {
+export async function notifyBatch(db: Db, app: AppRow, runIds: string[], url?: string): Promise<Alert | null> {
   if (runIds.length === 0) return null;
   const results = await db
     .select({ testId: testRuns.testId, status: testRuns.status, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, baseName: base.name, condition: tests.condition })
@@ -27,8 +29,13 @@ export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promis
   // A condition row is named "Test · Condition", like everywhere else.
   const placeOf = (run: (typeof results)[number]) => ({ testName: run.baseName ?? run.testName, condition: run.condition ? conditionInfo(run.condition).name : undefined });
 
+  const against = url ? hostOf(url) : undefined;
   const regressions: Regression[] = [];
   for (const run of results.filter((r) => r.status === "fail")) {
+    if (against) {
+      regressions.push({ ...placeOf(run), failure: run.result?.failure });
+      continue;
+    }
     const [previous] = await db
       .select({ status: testRuns.status })
       .from(testRuns)
@@ -44,7 +51,7 @@ export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promis
     new Set(told.map((t) => t.key)),
   );
 
-  const alert = composeAlert({ appName: app.name, regressions, dangerous, link: `${config.appUrl}/apps/${app.id}` });
+  const alert = composeAlert({ appName: app.name, regressions, dangerous, link: `${config.appUrl}/apps/${app.id}`, against });
   if (!alert) return null;
 
   let delivered = false;
@@ -83,6 +90,15 @@ export async function notifyBatch(db: Db, app: AppRow, runIds: string[]): Promis
     await db.insert(signingAlerts).values(dangerous.map((d) => ({ appId: app.id, key: d.key }))).onConflictDoNothing();
   }
   return alert;
+}
+
+/** The host of a deploy's URL, for the alert's title; the URL itself when it won't parse. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
 }
 
 /** config.to (comma-separated), else everyone in the organization. */

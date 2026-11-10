@@ -1,8 +1,8 @@
 /**
  * Turn a core Locator into a Playwright locator. Candidates are tried in the
- * order the Locator schema documents (testId, role+name exact then loose,
- * label, placeholder, text, css) until one matches a visible element, polling
- * until the timeout so slow pages still work.
+ * order the Locator schema documents (testId, the control in the box `near` names,
+ * role+name exact then loose, label, placeholder, text, css) until one matches a
+ * visible element, polling until the timeout so slow pages still work.
  */
 import type { Locator as PwLocator, Page } from "playwright";
 import type { Locator } from "@dappdrill/core";
@@ -36,6 +36,11 @@ export async function resolveLocator(page: Page, loc: Locator, timeoutMs: number
 function candidates(scope: Scope, loc: Locator): { name: string; build: () => PwLocator; loose?: boolean }[] {
   const out: { name: string; build: () => PwLocator; loose?: boolean }[] = [];
   if (loc.testId) out.push({ name: `testId "${loc.testId}"`, build: () => scope.getByTestId(loc.testId!) });
+  if (loc.near) {
+    // The box the element sits in tells two fields with the same placeholder apart; with several controls in it, the name must say which.
+    if (loc.role && loc.name) out.push({ name: `${loc.role} "${loc.name}" in "${loc.near}"`, loose: true, build: () => nearLocator(scope, loc.near!, loc.role, loc.name) });
+    out.push({ name: `${loc.role ?? "control"} in "${loc.near}"`, loose: true, build: () => nearLocator(scope, loc.near!, loc.role) });
+  }
   if (loc.role && loc.name) {
     const role = loc.role as Parameters<Page["getByRole"]>[0];
     out.push({ name: `${loc.role} "${loc.name}"`, build: () => scope.getByRole(role, { name: loc.name, exact: true }) });
@@ -68,16 +73,37 @@ function candidates(scope: Scope, loc: Locator): { name: string; build: () => Pw
   return out;
 }
 
+/** Elements that hold a field and the words beside it. */
+const BOXES = "div, section, article, aside, li, dl, dd, fieldset, form, label, p, tr, td, th, header, footer, main";
+const CONTROLS = "input, textarea, select, [contenteditable=true], [contenteditable='']";
+
+/**
+ * The control inside the box whose whole text is `near` ("Price", "Amount Max"), the same way the
+ * recorder found it. A figure in the words takes any figure, since a balance shown beside a field moves.
+ */
+export function nearLocator(scope: Scope, near: string, role?: string, name?: string): PwLocator {
+  const box = scope.locator(BOXES).filter({ hasText: wording(near) });
+  if (role) return box.getByRole(role as Parameters<Page["getByRole"]>[0], name ? { name, exact: true } : {});
+  return box.locator(CONTROLS);
+}
+
+const FIGURE = /\d[\d,]*\.\d+/g;
+const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+const pattern = (words: string[]) => new RegExp(`^\\s*${words.map(literal).join("[\\d,.]+")}\\s*$`);
+
+/** The whole text, with any figure where one was recorded. */
+export function wording(text: string): RegExp {
+  return pattern(text.split(FIGURE));
+}
+
 /**
  * A name that holds a live figure ("0.01 ETH 22.223 USDC In progress") as a pattern that takes any
  * figure in its place. Only numbers with a decimal point count: "25%" and "Page 2" are labels.
  */
 export function anyFigures(text: string): RegExp | undefined {
-  const figure = /\d[\d,]*\.\d+/g;
-  const words = text.split(figure);
+  const words = text.split(FIGURE);
   if (words.length < 2 || words.join("").replace(/[^a-z]/gi, "").length < 3) return undefined;
-  const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  return new RegExp(`^\\s*${words.map(literal).join("[\\d,.]+")}\\s*$`);
+  return pattern(words);
 }
 
 /**
@@ -103,6 +129,7 @@ export function describeLocator(loc: Locator): string {
   if (loc.label) parts.push(`label="${loc.label}"`);
   if (loc.placeholder) parts.push(`placeholder="${loc.placeholder}"`);
   if (loc.text) parts.push(`text="${loc.text}"`);
+  if (loc.near) parts.push(`in "${loc.near}"`);
   if (loc.css) parts.push(`css=${loc.css}`);
   if (loc.withinDialog) parts.push("in dialog");
   return parts.join(" ") || "element";

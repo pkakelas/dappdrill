@@ -55,10 +55,12 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
   );
 
   const done = new Set<string>();
-  log.info(`started: ${items.length} tests on ${app.url}`);
+  // A batch may run against another deploy of the app (a preview, staging) instead of its own URL.
+  const url = runs[0]!.url ?? undefined;
+  log.info(`started: ${items.length} tests on ${url ?? app.url}`);
   try {
     await engine.runTests(
-      await buildTarget(db, app, "tests"),
+      { ...(await buildTarget(db, app, "tests")), ...(url ? { url } : {}) },
       items,
       { artifactsDir: artifactsDir("runs", batchId), map: app.map ?? undefined, setup: app.setup ?? undefined, signal, secondLook: true },
       {
@@ -70,6 +72,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
           await frames.get(outcome.testId)?.flush();
           await setRun(outcome.testId, { status: outcome.status, result: outcome.result, finishedAt: new Date() });
           if (outcome.steps) await saveSteps(db, outcome.testId, outcome.steps);
+          if (outcome.after) await saveAfter(db, outcome.testId, outcome.after);
           await settleDraft(db, outcome);
           await settleBug(db, byTest.get(outcome.testId), outcome);
           const baseId = byTest.get(outcome.testId)?.baseId;
@@ -94,7 +97,7 @@ export async function runTestBatch(db: Db, engine: Engine, batchId: string, sign
   }
   await finishLeftovers(db, runOf, done, "stopped");
 
-  await notifyBatch(db, app, [...runOf.values()].map((r) => r.id)).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));
+  await notifyBatch(db, app, [...runOf.values()].map((r) => r.id), url).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));
 }
 
 /**
@@ -119,6 +122,16 @@ async function saveSteps(db: Db, testId: string, steps: TestStep[]): Promise<voi
   await db
     .update(tests)
     .set({ steps: keepActions(current.steps.map((s) => s.text), steps) })
+    .where(eq(tests.id, testId));
+}
+
+/** Same as saveSteps, for the test's cleanup steps. */
+async function saveAfter(db: Db, testId: string, after: TestStep[]): Promise<void> {
+  const [current] = await db.select({ after: tests.after }).from(tests).where(eq(tests.id, testId));
+  if (!current?.after?.length) return;
+  await db
+    .update(tests)
+    .set({ after: keepActions(current.after.map((s) => s.text), after) })
     .where(eq(tests.id, testId));
 }
 

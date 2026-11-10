@@ -181,6 +181,14 @@ async function attempt(
   return { done: done ?? (res.stopReason === "end_turn" && res.text ? { ok: false, cause: "unsure", reason: res.text.slice(0, 200) } : undefined) };
 }
 
+/** Says when tests will run on the real chain, so the writer gives them cleanup steps. Empty on forks. */
+export function liveLine(session: Pick<DrillSession, "chains">): string {
+  const live = session.chains.configs().filter((c) => c.mode === "live");
+  if (live.length === 0) return "";
+  const names = live.map((c) => c.name ?? `chain ${c.id}`).join(" and ");
+  return `${names} can't be forked, so tests run on the live network with one account that keeps what every run leaves behind. A test that leaves an order, a deposit or a position open gets "after" steps that put it back.`;
+}
+
 export async function walletLine(session: DrillSession): Promise<string> {
   try {
     const address = session.wallet.address();

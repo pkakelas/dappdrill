@@ -48,6 +48,15 @@ export function forkBlindLine(reason: string, hosts: string[]): string {
   return `${reason} The app asks ${hosts.join(", ")} about this wallet, and backends like these read the real chain, not the fork. How to fix it: ${FORK_GUIDE_URL}`;
 }
 
+/**
+ * Why an expected result can't show on a fork: the transaction was mined there, but the page
+ * reads its outcome from backends that follow the real chain, where it never happened.
+ */
+export function forkUnseenLine(hosts: string[]): string {
+  const who = hosts.length === 1 ? `${hosts[0]} reads` : `${hosts.join(", ")} read`;
+  return `The transaction was mined on the fork, but ${who} the real chain and never saw it, so the page can't show the result here. Run this test on the live network to verify it, or make the app read the fork: ${FORK_GUIDE_URL}`;
+}
+
 /** One sentence per thing the app was waiting on, most likely cause first. */
 export function stallReasons(s: Stalled): string[] {
   // Rows saved before missing chains were reported have no `chains`.

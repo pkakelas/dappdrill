@@ -61,6 +61,11 @@ export const TestSpec = z.object({
   /** Same-origin path the test opens first. */
   startPath: z.string().default("/"),
   steps: z.array(TestStep),
+  /**
+   * On a live chain, what undoes what the test left on the real account (cancel the order, close
+   * the position). Run after the result is judged; how they go never changes the test's result.
+   */
+  after: z.array(TestStep).optional(),
   /** Unused: every run asks the judge. Kept until the column goes in a migration. */
   proof: z.string().optional(),
   /** A condition row: the base test's steps under a wallet or network condition. */
@@ -75,6 +80,11 @@ export const TestDraft = z.object({
   expected: z.string().describe("One sentence: what is visible on the page when it worked"),
   startPath: z.string().describe("Same-origin path the test starts on, e.g. /explore"),
   steps: z.array(z.string()).min(1).max(10).describe("3-8 imperative steps of 3-7 words each, e.g. 'Connect the wallet', 'Open the ETH market'"),
+  after: z
+    .array(z.string())
+    .max(5)
+    .optional()
+    .describe("Only when the test runs on a live chain and leaves something on the account (an open order, a position, a deposit): 1-3 short steps that undo it afterwards, e.g. 'Cancel the order from Orders'. Leave out otherwise."),
 });
 export type TestDraft = z.infer<typeof TestDraft>;
 
@@ -169,6 +179,8 @@ export type SecondLook = z.infer<typeof SecondLook>;
 export const TestRunResult = z.object({
   setup: SetupRunResult.optional(),
   steps: z.array(TestStepResult).default([]),
+  /** How the test's after-steps went on a live chain, once the result was judged. */
+  after: z.array(TestStepResult).optional(),
   /** Did the expected result show, and how we know. */
   verdict: z.object({ ok: z.boolean(), reason: z.string() }).optional(),
   /** What went wrong, in one plain sentence. */

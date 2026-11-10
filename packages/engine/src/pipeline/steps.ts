@@ -109,7 +109,7 @@ function doings(actions: Step[]): { key: string; name: string }[] {
   for (const a of actions) {
     if (a.kind === "wallet") out.push({ key: "wallet", name: a.note ?? "the wallet request" });
     else if (a.kind === "click" || a.kind === "fill" || a.kind === "select") {
-      const name = a.target.name ?? a.target.label ?? a.target.text ?? a.target.placeholder;
+      const name = a.target.name ?? a.target.label ?? a.target.text ?? a.target.placeholder ?? a.target.near;
       if (name) out.push({ key: `${a.kind}:${name.toLowerCase()}`, name });
     }
   }

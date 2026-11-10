@@ -153,6 +153,7 @@ async function saveTest(db: Db, appId: string, s: ExploreSuggestion): Promise<st
     expected: s.draft.expected,
     startPath: s.draft.startPath,
     steps: s.steps ?? s.draft.steps.map((text) => ({ text })),
+    after: s.after ?? s.draft.after?.map((text) => ({ text })) ?? null,
     position: await nextPosition(db, appId),
     draftNote: proved ? null : bug ? BUG_TEST_NOTE : (s.note ?? "It didn't pass on a clean fork."),
   });

@@ -35,3 +35,28 @@ jobs:
         env:
           # The tests run Claude when a cached step stops working.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # The same tests against a preview deployment instead of a local build: pass the deploy's URL
+  # to `url:`. The tests and their saved steps are the app's own; only the address changes.
+  # Here the URL comes from a deploy step's output (Vercel below; Netlify's action outputs `deploy-url`).
+  # Remove `if: false` once your deploy step is in place.
+  dappdrill-preview:
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - uses: dappdrill/dappdrill/.github/actions/dappdrill@main
+        with:
+          url: ${{ steps.deploy.outputs.preview-url }}
+          unhappy: "true"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

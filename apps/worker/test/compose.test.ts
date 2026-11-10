@@ -67,6 +67,16 @@ describe("composeAlert", () => {
     expect(JSON.stringify(slackPayload(alert))).toContain("Dangerous signature in Claim rewards");
   });
 
+  it("names the deploy when the batch ran against another URL", () => {
+    const failed = [{ testName: "Withdraw everything", failure: "The Withdraw button stays disabled." }, { testName: "Deposit USDC" }];
+    const alert = composeAlert({ appName: "Harbor Vault", regressions: failed, link, against: "preview-123.vercel.app" })!;
+    expect(alert.title).toBe("Harbor Vault: 2 tests failed on preview-123.vercel.app");
+    expect(alert.lines).toEqual(["Withdraw everything: The Withdraw button stays disabled.", "Deposit USDC"]);
+    expect(composeAlert({ appName: "Harbor Vault", regressions: failed.slice(0, 1), link, against: "preview-123.vercel.app" })!.title).toBe("Harbor Vault: a test failed on preview-123.vercel.app");
+    const dangerous = newDangerous([inClaim([review()])], new Set());
+    expect(composeAlert({ appName: "Harbor Vault", regressions: failed, dangerous, link, against: "preview-123.vercel.app" })!.title).toBe("Harbor Vault: a new dangerous signature, 2 tests failed on preview-123.vercel.app");
+  });
+
   it("puts both in one alert, Dangerous first so the cap can't hide it", () => {
     const dangerous = newDangerous([inClaim([review()])], new Set());
     const regressions = Array.from({ length: 9 }, (_, i) => ({ testName: `Test ${i}` }));

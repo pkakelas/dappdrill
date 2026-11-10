@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { applyParams, type Blocked, type ReplayScript, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
 import { detectBotCheck } from "../browser/access.js";
+import { fillField } from "../replay/fill.js";
 import type { AgentTool, AgentToolResult, DrillSession, Inbox } from "../types.js";
 import { elementByRef, formatSnapshot, locatorFor, takeSnapshot } from "./snapshot.js";
 import { decodeWalletRequest, matchTypedAmount, short } from "./wallet-decode.js";
@@ -226,12 +227,13 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
       schema: z.object({ ref: z.string(), text: z.string(), enter: z.boolean().optional() }),
       handler: async ({ ref, text, enter }) => {
         const { locator, el } = await target(ref);
-        await el.fill(text, { timeout: 5_000 });
+        const filled = await fillField(page(), el, text, 5_000);
         recorder.add({ kind: "fill", target: locator, value: text });
         if (enter) {
           await el.press("Enter");
           recorder.add({ kind: "press", key: "Enter", target: locator });
         }
+        if (!filled.took) return after(`Typed "${text}" into ${ref}, but the field shows "${filled.shows}". The page may format or refuse what was typed; look before going on.`);
         return after(`Typed "${text}" into ${ref}.`);
       },
     },

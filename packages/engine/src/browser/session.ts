@@ -55,6 +55,8 @@ export interface EngineSession extends DrillSession {
   touch(): void;
   /** The page's non-RPC requests per host, for explaining a scan that found nothing. */
   readonly traffic: Traffic;
+  /** Backend hosts that reported the wallet's holdings from the real chain, which we answered from the fork instead. */
+  readonly backendsAnswered: readonly string[];
 }
 
 const WalletState = z.object({ connected: z.boolean(), chainId: z.number().int() });
@@ -117,6 +119,7 @@ class Session implements EngineSession {
   readonly console: ConsoleEntry[] = [];
   readonly rpc: RpcLogEntry[] = [];
   readonly traffic = new Traffic();
+  readonly backendsAnswered: string[] = [];
   readonly artifactsDir: string;
   readonly emit: DrillEventSink;
   page!: Page;
@@ -194,7 +197,11 @@ class Session implements EngineSession {
     await installBackendBalances(context, {
       chains: this.chains,
       holders: Object.values(wallet.accounts),
-      onAnswered: (endpoint) => void this.emit({ type: "log", level: "info", message: `${endpoint} answers what the wallet holds from the real chain; answering it from the fork instead`, at: nowIso() }),
+      onAnswered: (endpoint) => {
+        const host = endpoint.split("/")[0]!;
+        if (!this.backendsAnswered.includes(host)) this.backendsAnswered.push(host);
+        void this.emit({ type: "log", level: "info", message: `${endpoint} answers what the wallet holds from the real chain; answering it from the fork instead`, at: nowIso() });
+      },
     });
     // Routes registered later run first: fixed responses, then access headers, then balances a backend reports, then the RPC router.
     await installAccessHeaders(context, this.target.url, this.target.headers ?? {});

@@ -1,5 +1,5 @@
-import { appRollup, chainName, signingOf, walletUse, type ExploreBug, type SecondLook, type Settled } from "@dappdrill/core";
-import { appTests, db, explorations, latestRuns, notWritten, runHistory, settledRuns, type TestRow } from "@dappdrill/db";
+import { appRollup, chainInfo, chainName, formatUnitsPlain, signingOf, walletUse, type ChainConfig, type ExploreBug, type SecondLook, type Settled } from "@dappdrill/core";
+import { appTests, db, explorations, latestRuns, notWritten, runHistory, settledRuns, testStability, type TestRow } from "@dappdrill/db";
 import { desc, eq, sql } from "drizzle-orm";
 import { ArrowRight, Compass, GitFork, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
@@ -13,11 +13,12 @@ import { KIND, Outcomes } from "@/components/explore/outcomes";
 import { Suggested, SuggestedPlaceholder } from "@/components/explore/suggested";
 import { Tried } from "@/components/explore/tried";
 import { AddTestButton, type AddTestProps } from "@/components/tests/add-test";
-import { AppHero } from "@/components/tests/app-hero";
+import { AppHero, type LiveChain } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
 import { ConditionBranches } from "@/components/tests/condition-branches";
 import { ConditionGrid } from "@/components/tests/condition-grid";
 import { lastSetup } from "@/components/tests/last-setup";
+import { RunAgainst } from "@/components/tests/run-against";
 import { RunButton } from "@/components/tests/run-button";
 import { isActive, OUR_ERROR, readTest, withSettled, type TestRead } from "@/components/tests/status";
 import { DraftLine, SetAsideTests, TestLine, TestList, type TestCardProps } from "@/components/tests/test-card";
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { appBugs, liveView, passRunning, suggestedTests, triedLines, type Added, type AppBug, type PassBugs, type TriedKind } from "@/lib/explore";
 import { hostFromUrl } from "@/lib/format";
+import { readBalance } from "@/lib/rpc";
 import { requireApp } from "@/lib/session";
 
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
@@ -80,7 +82,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
     appTests(db(), appId),
   ]);
   const ids = tests.map((t) => t.id);
-  const [latest, settled, history] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000))]);
+  const [latest, settled, history, stability] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000)), testStability(db(), ids)]);
   const reads = new Map<string, TestRead>(tests.map((t) => [t.id, readTest(t, latest.get(t.id), settled.get(t.id))]));
   const untested = tests.filter(notWritten);
   const roots = tests.filter((t) => !t.baseId && !notWritten(t));
@@ -191,14 +193,15 @@ export default async function AppPage({ params, searchParams }: { params: Promis
   const setupFailed = app.setup ? lastSetup(app.setup.steps.map((s) => s.text), [...latest.values()])?.failed : false;
   const cardProps = (t: TestRow): TestCardProps => {
     const bug = bugs.find((b) => b.test === t && b.confirmed);
-    return { appId, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0, found: bug && { name: bug.name, href: bugHref(bug.id) } };
+    return { appId, test: t, read: reads.get(t.id)!, run: settled.get(t.id) ?? latest.get(t.id), live: latest.get(t.id), signs: walletUse(t.steps) === "signs", signing: signingFor(t), hasConditions: conditionsOf(t).length > 0, found: bug && { name: bug.name, href: bugHref(bug.id) }, stability: stability.get(t.id) };
   };
   const branches = (t: TestRow) => conditionsOf(t).length > 0 && <ConditionBranches appId={appId} tests={conditionsOf(t)} reads={reads} runs={settled} className="relative z-10" />;
   // What the Add test questions can offer: pages to start on, tests to write from, and what setup already does.
   const adding: AddTestProps = { appId, pages: app.map?.pages, tests: roots.filter((t) => !t.drafting).map((t) => ({ id: t.id, name: t.name })), setup: app.setup?.steps.map((s) => s.text) };
   const nothing = listed.length === 0 && !((showing === "all" || showing === "waiting") && untested.length > 0);
-  // Tests on a chain we can't fork run on the real one, and the owner should know what that leaves behind.
+  // Tests on a chain we can't fork run on the real one, and the owner should know what that leaves behind, and what pays for it.
   const liveChain = [...app.settings.chains, ...app.chains].find((c) => c.mode === "live");
+  const live = liveChain && (await liveWallet(liveChain, app.liveKeyAddress));
   const any = counts.all > 0;
 
   return (
@@ -214,7 +217,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
             lastRun={lastRun}
             wallet={app.settings.wallets[0]}
             chainId={(app.settings.chains[0] ?? app.chains[0])?.id}
-            live={liveChain && chainName(liveChain.id)}
+            live={live}
             rollup={!exploring && (listedTests.length > 0 || confirmedBugs > 0) ? overall : undefined}
             checked={checks > 0 || checkBugs > 0 ? { checks, bugs: checkBugs } : undefined}
             running={activeIds.length}
@@ -232,6 +235,7 @@ export default async function AppPage({ params, searchParams }: { params: Promis
                       </Button>
                     </form>
                   )}
+                  {roots.length > 0 && <RunAgainst appId={appId} appUrl={app.url} disabled={activeIds.length > 0} />}
                   {roots.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
                 </div>
               )
@@ -314,6 +318,15 @@ export default async function AppPage({ params, searchParams }: { params: Promis
       </TooltipProvider>
     </div>
   );
+}
+
+/** The live chain's name and the funded wallet with what it holds, read from the chain's RPC when it answers in time. */
+async function liveWallet(chain: ChainConfig, address: string | null): Promise<LiveChain> {
+  const name = chainName(chain.id);
+  if (!address) return { name };
+  const wei = await readBalance(chain.rpcUrl, address);
+  const balance = wei === undefined ? undefined : `${formatUnitsPlain(wei, 18, 4)} ${chainInfo(chain.id)?.nativeSymbol ?? ""}`.trim();
+  return { name, wallet: { address, balance } };
 }
 
 function SetupWarning({ appId }: { appId: string }) {

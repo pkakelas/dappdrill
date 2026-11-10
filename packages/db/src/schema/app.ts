@@ -172,6 +172,8 @@ export const tests = pgTable(
     expected: text("expected").notNull(),
     startPath: text("start_path").notNull().default("/"),
     steps: jsonb("steps").$type<TestStep[]>().notNull(),
+    /** On a live chain: steps that undo what the test left on the account, run after the result is judged. */
+    after: jsonb("after").$type<TestStep[]>(),
     /** Condition row: runs `baseId`'s steps under this condition. Name and expected come from CONDITIONS. */
     condition: text("condition").$type<EdgeCaseId>(),
     baseId: text("base_id").references((): AnyPgColumn => tests.id, { onDelete: "cascade" }),
@@ -203,6 +205,8 @@ export const testRuns = pgTable(
     testId: text("test_id").notNull().references(() => tests.id, { onDelete: "cascade" }),
     batchId: text("batch_id").notNull(),
     trigger: text("trigger").$type<Trigger>().notNull().default("manual"),
+    /** The URL the test ran against when it wasn't the app's own (a preview deploy, a staging build). Null: the app's URL. */
+    url: text("url"),
     status: text("status").$type<TestRunStatus>().notNull().default("queued"),
     result: jsonb("result").$type<TestRunResult>(),
     liveFrame: text("live_frame"),

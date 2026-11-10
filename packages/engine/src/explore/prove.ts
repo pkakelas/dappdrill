@@ -60,6 +60,7 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
     update((x) => {
       x.status = "proved";
       x.steps = o.steps;
+      x.after = o.after;
       x.conditions = conditionsFor(x.tier, o, env);
       x.provedAt = nowIso();
     });
@@ -104,8 +105,8 @@ async function prove(run: ExploreRun, env: Env, id: string): Promise<void> {
 }
 
 function plainSpec(s: ExploreSuggestion): TestSpec {
-  const { name, goal, expected, startPath, steps } = s.draft;
-  return { id: s.id, name, goal, expected, startPath, steps: steps.map((text) => ({ text })) };
+  const { name, goal, expected, startPath, steps, after } = s.draft;
+  return { id: s.id, name, goal, expected, startPath, steps: steps.map((text) => ({ text })), after: after?.map((text) => ({ text })) };
 }
 
 const current = (state: ExploreState, id: string) => structuredClone(state.suggested.find((x) => x.id === id)!);

@@ -15,7 +15,8 @@ const NOISE = /sentry|google-analytics|analytics\.google|googletagmanager|double
 const SIGN_IN = /privy|walletconnect|web3modal|reown/i;
 /** A server saying it had enough of us. Exported so an error it caused isn't held against the app. */
 export const RATE_LIMITED = /\b429\b|rate.?limit|too many requests|exceeded .*(limit|quota)|capacity/i;
-const ADDRESS = /0x[0-9a-f]{40}/g;
+/** Addresses and transaction hashes a request carries: what the page tells its backends about. */
+const HEX_KEY = /0x[0-9a-f]{40}(?:[0-9a-f]{24})?/g;
 const TIMED_OUT = /timed? ?out|timeout|ETIMEDOUT/i;
 const PRUNED = /missing trie node|archive.*not available|pruned|header not found|historical state|state .*not available|unknown block|block not found/i;
 /** In order of precedence: the first cause any error shows names the chain's failure. */
@@ -34,7 +35,7 @@ export class Traffic {
   private readonly open = new Map<Request, { host: string; at: number }>();
   private readonly hosts = new Map<string, HostStats>();
   private readonly seen = new Set<string>();
-  /** Which hosts were told about each address. */
+  /** Which hosts were told about each address or transaction hash. */
   private readonly told = new Map<string, Set<string>>();
   /** Error answers that said why, newest last. */
   private readonly refusals: { host: string; status: number; said: string; at: number }[] = [];
@@ -45,8 +46,8 @@ export class Traffic {
       if (!host) return;
       this.open.set(r, { host, at: Date.now() });
       this.seen.add(new URL(r.url()).origin);
-      for (const [address] of `${r.url()} ${r.postData() ?? ""}`.toLowerCase().matchAll(ADDRESS)) {
-        this.told.set(address, (this.told.get(address) ?? new Set()).add(host));
+      for (const [key] of `${r.url()} ${r.postData() ?? ""}`.toLowerCase().matchAll(HEX_KEY)) {
+        this.told.set(key, (this.told.get(key) ?? new Set()).add(host));
       }
     });
     context.on("requestfinished", (r) => {
@@ -103,9 +104,9 @@ export class Traffic {
     return [...new Set(lines)].slice(0, 2);
   }
 
-  /** Backends the page sent this address to: the ones that may answer for it from the real chain. */
-  hostsTold(address: string): string[] {
-    return [...(this.told.get(address.toLowerCase()) ?? [])];
+  /** Backends the page sent this address or transaction hash to: the ones that may answer for it from the real chain. */
+  hostsTold(key: string): string[] {
+    return [...(this.told.get(key.toLowerCase()) ?? [])];
   }
 
   /** Origins the page fetched from, ones on the app's own site (e.g. app.x.dev → node.x.dev) first. */

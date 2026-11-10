@@ -75,13 +75,18 @@ function dangerousLine(d: DangerousSignature): string {
   return `Dangerous signature in ${placeText(d)}${others}: ${d.title}`;
 }
 
-/** Null when there's nothing to tell. Dangerous signatures go first, so the line cap never hides one behind a regression. */
-export function composeAlert(input: { appName: string; regressions: Regression[]; dangerous?: DangerousSignature[]; link: string }): Alert | null {
-  const { regressions, dangerous = [] } = input;
+/**
+ * Null when there's nothing to tell. Dangerous signatures go first, so the line cap never hides one
+ * behind a regression. `against` is the host of another deploy the batch ran on (a preview, staging):
+ * then `regressions` holds every test that failed there, and the title says where.
+ */
+export function composeAlert(input: { appName: string; regressions: Regression[]; dangerous?: DangerousSignature[]; link: string; against?: string }): Alert | null {
+  const { regressions, dangerous = [], against } = input;
   if (regressions.length === 0 && dangerous.length === 0) return null;
+  const tests = regressions.length === 1 ? "a test" : `${regressions.length} tests`;
   const parts = [
     dangerous.length && (dangerous.length === 1 ? "a new dangerous signature" : `${dangerous.length} new dangerous signatures`),
-    regressions.length && `${regressions.length === 1 ? "a test" : `${regressions.length} tests`} stopped passing`,
+    regressions.length && (against ? `${tests} failed on ${against}` : `${tests} stopped passing`),
   ];
   const title = `${input.appName}: ${parts.filter(Boolean).join(", ")}`;
   const lines = [...dangerous.map(dangerousLine), ...regressions.map((r) => `${placeText(r)}${r.failure ? `: ${r.failure}` : ""}`)];

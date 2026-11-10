@@ -20,6 +20,7 @@ export function specOf(t: TestRow): TestSpec {
     expected: info?.expected ?? t.expected,
     startPath: t.startPath,
     steps: t.steps,
+    after: t.after ?? undefined,
     proof: t.proof ?? undefined,
     condition: t.condition ?? undefined,
   };
@@ -82,6 +83,8 @@ export interface Batch {
   active: number;
   startedAt: Date;
   finishedAt: Date | null;
+  /** Another deploy of the app the batch ran against, when it didn't run against the app's own URL. */
+  url: string | null;
 }
 
 /** The app's runs (batches of results), newest first. Nothing is stored for a batch beyond its results. */
@@ -99,6 +102,7 @@ export async function listBatches(db: Db, appId: string, limit = 50): Promise<Ba
       active: n(["queued", "running"]),
       startedAt: min(testRuns.createdAt),
       finishedAt: max(testRuns.finishedAt),
+      url: min(testRuns.url),
     })
     .from(testRuns)
     .where(eq(testRuns.appId, appId))
@@ -134,15 +138,16 @@ export async function runHistory(db: Db, appId: string, since: Date) {
 
 /**
  * Queued results for the tests that can run, as one batch (a run). Condition rows go after
- * their base, so a base that learns its actions in this batch hands them on.
+ * their base, so a base that learns its actions in this batch hands them on. `url` runs the
+ * batch against another deploy of the app (a preview, staging) instead of its own URL.
  */
-export async function queueRuns(db: Db, appId: string, testIds: string[], trigger: Trigger): Promise<string | undefined> {
+export async function queueRuns(db: Db, appId: string, testIds: string[], trigger: Trigger, url?: string): Promise<string | undefined> {
   if (testIds.length === 0) return undefined;
   const rows = (await db.select({ id: tests.id, baseId: tests.baseId, drafting: tests.drafting, steps: tests.steps }).from(tests).where(and(eq(tests.appId, appId), inArray(tests.id, testIds)))).filter(runnable);
   const sorted = [...rows.filter((r) => !r.baseId), ...rows.filter((r) => r.baseId)];
   if (sorted.length === 0) return undefined;
   const batchId = newId("batch");
-  await db.insert(testRuns).values(sorted.map((r) => ({ id: newId("run"), appId, testId: r.id, batchId, trigger })));
+  await db.insert(testRuns).values(sorted.map((r) => ({ id: newId("run"), appId, testId: r.id, batchId, trigger, url: url ?? null })));
   return batchId;
 }
 

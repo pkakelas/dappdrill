@@ -7,7 +7,7 @@ import type { Frame, Page } from "playwright";
 import { z } from "zod";
 import { AppMap, SetupDraft, TestDraft, Tier, describeBlock, type Blocked } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
-import { walletLine } from "../agent/tester.js";
+import { liveLine, walletLine } from "../agent/tester.js";
 import { browserTools, inboxTool, noteTool, Recorder } from "../agent/tools.js";
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { fundTool, type WalletToken } from "./funding.js";
@@ -39,6 +39,7 @@ const LOOK_SYSTEM = `You get a couple of minutes in a web app (often a web3 dApp
      You are told what the test wallet holds on the test chain. When the page shows less, the app reads balances from somewhere else: still write the test for the real action. Apart from that the wallet has only the native coin, what setup gives it and what you fund, so leave out what needs more.
      Every test starts on a fresh copy of the chain, after setup and nothing else. One that needs a deposit or an open position makes it in its own steps ("Withdraw the deposit" begins by depositing), even when the app's servers remember one from before. Only that copy sees the wallet's transactions, so a transfer to another chain never arrives: expect the page to show it as sent or in progress, not as received.
      When the developer lists what to test, those come first, in their wording. Use the rest of their notes too.
+     When you are told the chain can't be forked, tests run on the live network, on one account that keeps whatever each run leaves. Give a test that leaves something behind (an open order, a deposit, a position) after: up to 5 short steps that put it back ("Open Orders", "Cancel the order"), run after the result is judged. Leave after out on a fork, and for tests that leave nothing.
 
 Tests are read by busy developers. Write them plainly:
 - name: what the user does, e.g. "Deposit USDC into the vault".
@@ -148,6 +149,7 @@ export async function lookAround(session: DrillSession, llm: Llm, opts: LookOpti
   const prompt = [
     `App: ${session.target.url}`,
     await walletLine(session),
+    liveLine(session),
     opts.hints ? `Hints from the developer: ${opts.hints}` : "",
     pages.unopened().length ? `Pages the landing page links to:\n${pages.unopened().map((p) => `- ${p}`).join("\n")}` : "",
     opts.known?.length ? `The app already has these tests, so don't write them again:\n${opts.known.map((t) => `- ${t.name}: ${t.goal}`).join("\n")}` : "",

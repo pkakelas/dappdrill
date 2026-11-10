@@ -8,7 +8,9 @@ import {
   conditionInfo,
   describeStep,
   failedAt,
+  forkUnseenLine,
   TestRunResult,
+  urlOnApp,
   type AppMap,
   type AppSetup,
   type Blame,
@@ -18,11 +20,14 @@ import {
   type Step,
   type TestRunStatus,
   type TestSpec,
-  type TestStep, urlOnApp } from "@dappdrill/core";
+  type TestStep,
+  type WalletRequest,
+} from "@dappdrill/core";
 import { createRecoveryJudge } from "../agent/index.js";
 import { judgeExpected } from "../agent/tester.js";
 import { runEdgeCases } from "../runtime.js";
 import type { Env } from "./env.js";
+import { liveShortfall, shortfallLine } from "./funds.js";
 import { pin } from "./pin.js";
 import { secondLook } from "./second-look.js";
 import { setupRunner, type Prepared, type SetupRunner, type SetupTestOutcome } from "./setup.js";
@@ -48,6 +53,8 @@ export interface TestOutcome {
   steps?: TestStep[];
   /** An unhappy path whose base had no cached actions ran the base first: its refreshed steps. */
   baseSteps?: TestStep[];
+  /** The cleanup steps with the actions that worked, when they ran. */
+  after?: TestStep[];
 }
 
 export interface TestHooks {
@@ -82,6 +89,19 @@ export async function runTestItems(env: Env, items: TestItem[], opts: RunTestsOp
   const fresh = new Map<string, TestStep[]>();
   const looks: { item: TestItem; outcome: TestOutcome; signal?: AbortSignal }[] = [];
   const setup = opts.setup?.steps.length ? setupRunner(env, opts.setup, opts, hooks, opts.ready) : undefined;
+  // A live chain spends the funded wallet's coin; a run it can't pay for is the owner's to fix, not the app's.
+  const short = await liveShortfall(env.chains, env.target.liveKey);
+  if (short) {
+    for (const item of items) {
+      await hooks.onStart?.(item.spec.id);
+      const steps = item.spec.steps.map(() => ({ status: "skipped" as const }));
+      const outcome: TestOutcome = { testId: item.spec.id, status: "error", result: TestRunResult.parse({ steps, failure: shortfallLine(short), blame: "input" }) };
+      outcomes.push(outcome);
+      await hooks.onDone?.(outcome);
+    }
+    await setup?.close();
+    return outcomes;
+  }
   try {
     for (const item of items) {
       const signal = item.signal && opts.signal ? AbortSignal.any([item.signal, opts.signal]) : (item.signal ?? opts.signal);
@@ -172,7 +192,9 @@ async function afterSetup<T>(
 async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: TestHooks, pre: Prepared, signal?: AbortSignal): Promise<TestOutcome> {
   const result = TestRunResult.parse({ setup: pre.setup, steps: spec.steps.map(() => ({ status: "pending" })) });
   const steps = spec.steps.map((s) => ({ ...s }));
+  const after = (spec.after ?? []).map((s) => ({ ...s }));
   const progress = () => hooks.onProgress?.(spec.id, result);
+  const live = env.chains.configs().some((c) => c.mode === "live");
   let status: TestRunStatus = "pass";
 
   const restore = await pin(env);
@@ -201,11 +223,23 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     }
 
     if (status === "pass") {
-      const v = await judgeExpected(session, env.fastLlm(), spec, { live: env.chains.configs().some((c) => c.mode === "live") });
+      const v = await judgeExpected(session, env.fastLlm(), spec, { live });
       result.verdict = { ok: v.ok, reason: v.reason };
       if (!v.ok) {
-        status = "fail";
-        result.failure = `The expected result didn't show: ${v.reason}`;
+        // On a fork the result may be there and the page unable to see it: its backends follow the real chain.
+        const blind = live ? [] : blindHosts(session.wallet.requests(), (key) => session.traffic.hostsTold(key), session.backendsAnswered);
+        status = blind.length ? "error" : "fail";
+        if (blind.length) result.blame = "input";
+        result.failure = `The expected result didn't show: ${v.reason}${blind.length ? ` ${forkUnseenLine(blind)}` : ""}`;
+      }
+      // What the test left on a live account is put back, whatever the verdict; it never changes the result.
+      if (live && spec.after?.length) {
+        const cleanup = TestRunResult.parse({ steps: spec.after.map(() => ({ status: "pending" })) }).steps;
+        result.after = cleanup;
+        await progress();
+        const w = await walkSteps(env, session, { ...spec, steps: spec.after }, after, cleanup, reviews, { ...opts, signal, progress, shotPrefix: "after" }).catch((e) => ({ failure: plain(e) }));
+        for (const s of cleanup) if (s.status === "pending" || s.status === "running") s.status = "skipped";
+        if (w.failure) await env.log(`Cleanup after “${spec.name}” didn't finish: ${w.failure}`, "warn");
       }
     }
   } catch (e) {
@@ -220,7 +254,19 @@ async function runHappy(env: Env, spec: TestSpec, opts: RunTestsOptions, hooks: 
     result.video = (await session.close().catch(() => ({}) as { video?: string })).video;
     await restore();
   }
-  return { testId: spec.id, status, result, steps: status === "stopped" ? undefined : steps };
+  if (status === "stopped") return { testId: spec.id, status, result };
+  return { testId: spec.id, status, result, steps, ...(result.after ? { after } : {}) };
+}
+
+/**
+ * Backends that could keep a fork's transaction from showing on the page: the ones the page told
+ * about a transaction it sent here, or that reported the wallet's holdings from the real chain.
+ * Nothing when no transaction was sent: then the page had nothing to miss.
+ */
+export function blindHosts(requests: WalletRequest[], hostsTold: (key: string) => string[], answered: readonly string[]): string[] {
+  const hashes = requests.filter((r) => r.kind === "sign" && r.outcome === "approved" && typeof r.result === "string" && /^0x[0-9a-f]{64}$/i.test(r.result)).map((r) => r.result as string);
+  if (hashes.length === 0) return [];
+  return [...new Set([...hashes.flatMap(hostsTold), ...answered])];
 }
 
 /** What a thrown error says: a bot check is the owner's to get past, anything else broke on our side. */

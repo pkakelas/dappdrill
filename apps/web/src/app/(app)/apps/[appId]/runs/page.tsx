@@ -8,7 +8,7 @@ import { BatchStatus } from "@/components/tests/batch-status";
 import { StateMark, type TestState } from "@/components/tests/status";
 import { TINT } from "@/components/tests/tile";
 import { cx, Empty, PageHeader } from "@/components/ui";
-import { dateTime, minutesBetween, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
+import { dateTime, hostFromUrl, minutesBetween, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Runs" };
@@ -120,9 +120,17 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
               <li key={b.batchId} className={ROW}>
                 <StateMark state={batchMark(b)} size="lg" />
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <Link href={`/apps/${appId}/runs/${b.batchId}`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
-                    {TRIGGER_LABEL[b.trigger]}
-                  </Link>
+                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                    <Link href={`/apps/${appId}/runs/${b.batchId}`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
+                      {TRIGGER_LABEL[b.trigger]}
+                    </Link>
+                    {/* A batch against another deploy (a preview, staging) says which. */}
+                    {b.url && (
+                      <span className="truncate text-sm text-muted-foreground" title={b.url}>
+                        against {hostFromUrl(b.url)}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-sm text-muted-foreground">
                     <BatchStatus batch={b} />
                   </span>

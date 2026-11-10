@@ -208,6 +208,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                 </Block>
                 {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
                 <Steps steps={steps} result={result} url={url} failed={failed} forks={forks} wallet={test.baseId ? undefined : wallet} hasConditions={children.length > 0} />
+                {test.after && test.after.length > 0 && <Cleanup after={test.after} run={result?.after} url={url} />}
               </div>
             }
           />
@@ -335,6 +336,24 @@ function Steps({
         )}
       </div>
     </TooltipProvider>
+  );
+}
+
+/** On a live chain, what the test puts back after the result is judged. It never changes the result, so it's folded away unless it didn't finish. */
+function Cleanup({ after, run, url }: { after: TestStep[]; run?: TestRunResult["after"]; url: (p?: string | null) => string | null }) {
+  const ran = run && run.length === after.length ? run : undefined;
+  const failed = ran?.some((s) => s.status === "fail" || s.status === "skipped");
+  return (
+    <details open={failed} className="flex flex-col gap-2">
+      <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+        {ran && <StateMark state={failed ? "error" : ran.some((s) => s.status === "running") ? "running" : "pass"} />}
+        <span>Cleanup</span>
+        <span className="font-normal">· after the result, on the live chain{ran ? (failed ? <> · <span className="text-warn">didn&apos;t finish</span></> : " · done") : " · runs on the live chain only"}</span>
+      </summary>
+      <div className="mt-2 flex flex-col gap-2">
+        <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={after.map((s, i) => ({ text: s.text, result: ran?.[i], shot: url(ran?.[i]?.screenshot) }))} />
+      </div>
+    </details>
   );
 }
 

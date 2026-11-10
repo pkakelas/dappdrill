@@ -1,5 +1,5 @@
 import { ACTIVE_LABEL, signingText, type SigningFlag as Signing } from "@dappdrill/core";
-import { specOf, type TestRow, type TestRunRow } from "@dappdrill/db";
+import { specOf, type Stability, type TestRow, type TestRunRow } from "@dappdrill/db";
 import { Bug, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -7,8 +7,10 @@ import { cx } from "@/components/ui";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { timeAgo } from "@/lib/format";
 import { failureParts, Line } from "./condition-branches";
+import { ReRecord } from "./re-record";
 import { RunButton } from "./run-button";
 import { SigningFlag } from "./signing-flag";
+import { stabilityText } from "./stability";
 import { OUR_ERROR, readLabel, REVEAL, STATE_LABEL, STATE_TEXT, StateMark, type TestRead } from "./status";
 import { WriteTest } from "./write-test";
 
@@ -24,8 +26,22 @@ export interface TestCardProps {
   hasConditions: boolean;
   /** The bug it found, and where that is listed. */
   found?: { name: string; href: string };
+  /** How its last runs went: saved steps or the agent, and the cost. Unset with no finished run. */
+  stability?: Stability;
   /** What nests under the line: its conditions. */
   children?: ReactNode;
+}
+
+/** The quiet line under a test: how its saved steps are holding up, with the way to record them again. */
+function Steady({ appId, test, read, stability }: Pick<TestCardProps, "appId" | "test" | "read" | "stability">) {
+  const text = stabilityText(stability);
+  if (!text) return null;
+  return (
+    <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+      <span className="truncate">{text}</span>
+      <ReRecord appId={appId} testId={test.id} disabled={Boolean(read.active) || read.drafting} className={cx(REVEAL, "group-hover/line:opacity-100")} />
+    </p>
+  );
 }
 
 /** What's happening right now, while a run is on. */
@@ -141,6 +157,7 @@ export function TestLine(props: TestCardProps) {
           <div className="flex min-w-0 flex-col gap-0.5">
             <Title {...props} />
             <Under read={read} run={run} found={props.found} />
+            <Steady appId={appId} test={test} read={read} stability={props.stability} />
           </div>
         }
         status={

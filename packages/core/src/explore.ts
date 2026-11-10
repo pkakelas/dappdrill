@@ -240,6 +240,8 @@ export const ExploreSuggestion = z.object({
   bugId: z.string().optional(),
   /** Steps with the actions that worked, once proved. */
   steps: z.array(TestStep).optional(),
+  /** The draft's after-steps with the actions that worked, once proved on a live chain. */
+  after: z.array(TestStep).optional(),
   /** Conditions that could change its result. */
   conditions: z.array(EdgeCaseId).default([]),
   provedAt: z.string().optional(),

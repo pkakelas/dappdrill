@@ -7,7 +7,8 @@ import { applyParams, describeStep, newId, paramValues, type ReplayScript, type 
 import type { Inbox, Llm, SigningReviewer } from "../types.js";
 import type { EngineSession } from "../browser/session.js";
 import type { PendingSignRequest } from "../wallet/controller.js";
-import { resolveLocator } from "./locators.js";
+import { fillField } from "./fill.js";
+import { describeLocator, resolveLocator } from "./locators.js";
 import { checkExpectation, decodeBuiltin, describeAsked } from "./expectation.js";
 
 /** How long to look for an optional step's element before deciding it didn't show. */
@@ -198,14 +199,8 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
     case "fill": {
       const el = await resolveLocator(page, step.target, timeout);
       const value = applyParams(step.value, params);
-      try {
-        await el.fill(value, { timeout });
-      } catch {
-        // Some controlled inputs ignore fill(); type it like a user would.
-        await el.click({ timeout });
-        await page.keyboard.press("ControlOrMeta+a");
-        await el.pressSequentially(value, { timeout });
-      }
+      const filled = await fillField(page, el, value, timeout);
+      if (!filled.took) throw new Error(`Typed "${value}" into ${describeLocator(step.target)}, but the field shows "${filled.shows}"`);
       return;
     }
     case "select": {

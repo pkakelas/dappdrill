@@ -1,8 +1,8 @@
 "use server";
 
-import { EdgeCaseId, OFFERED_CONDITIONS, TestBrief, formatBrief, keepActions, newId, setAside, walletUse } from "@dappdrill/core";
+import { EdgeCaseId, OFFERED_CONDITIONS, TestBrief, formatBrief, keepActions, newId, setAside, walletUse, type TestStep } from "@dappdrill/core";
 import { addConditions, db, nextPosition, notWritten, queueRuns, sentenceName, settledRuns, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -16,7 +16,8 @@ async function ownTest(testId: string) {
   return t;
 }
 
-async function run(appId: string, testIds: string[], trigger: Trigger = "manual") {
+/** Queues a run of the tests. `url` runs them against another deploy of the app instead of its own URL. */
+async function run(appId: string, testIds: string[], trigger: Trigger = "manual", url?: string) {
   // A test already queued or running isn't queued twice.
   const busy = testIds.length
     ? await db()
@@ -25,8 +26,15 @@ async function run(appId: string, testIds: string[], trigger: Trigger = "manual"
         .where(and(inArray(testRuns.testId, testIds), inArray(testRuns.status, ["queued", "running"])))
     : [];
   const ids = testIds.filter((id) => !busy.some((b) => b.id === id));
-  const batchId = await queueRuns(db(), appId, ids, trigger);
+  const batchId = await queueRuns(db(), appId, ids, trigger, url);
   if (batchId) await enqueue("tests.run", { batchId });
+}
+
+/** Every test of the app worth running: one that was set aside asks for something the app doesn't offer, and running it again only costs. */
+async function runnableIds(appId: string): Promise<string[]> {
+  const all = await db().select({ id: tests.id, draftNote: tests.draftNote }).from(tests).where(eq(tests.appId, appId));
+  const last = await settledRuns(db(), all.map((t) => t.id));
+  return all.filter((t) => !setAside(last.get(t.id), !t.draftNote)).map((t) => t.id);
 }
 
 /** Drafts are written by the worker, then run. */
@@ -48,10 +56,44 @@ export async function runTestsAction(appId: string, testIds: string[]): Promise<
 
 export async function runAllAction(appId: string): Promise<void> {
   await requireApp(appId);
-  const all = await db().select({ id: tests.id, draftNote: tests.draftNote }).from(tests).where(eq(tests.appId, appId));
-  // A test that was set aside asks for something the app doesn't offer: running it again only costs.
-  const last = await settledRuns(db(), all.map((t) => t.id));
-  await run(appId, all.filter((t) => !setAside(last.get(t.id), !t.draftNote)).map((t) => t.id));
+  await run(appId, await runnableIds(appId));
+  refresh(appId);
+}
+
+const DeployUrl = z
+  .string()
+  .trim()
+  .max(2000)
+  .pipe(z.url({ protocol: /^https?$/, error: "Give the deploy's address, starting with http:// or https://." }));
+
+/** Runs every test against another deploy of the app (a preview, staging) with the app's own tests and saved steps. */
+export async function runAgainstUrlAction(appId: string, url: string): Promise<{ error?: string }> {
+  await requireApp(appId);
+  const parsed = DeployUrl.safeParse(url);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  await run(appId, await runnableIds(appId), "manual", parsed.data);
+  refresh(appId);
+  return {};
+}
+
+/**
+ * Forgets the saved actions of the tests, keeping their steps' words, and runs them: the agent does
+ * every step again and records it afresh. For an app whose pages changed under working tests.
+ */
+export async function reRecordAction(appId: string, testIds: string[]): Promise<void> {
+  await requireApp(appId);
+  const own = await db()
+    .select({ id: tests.id, steps: tests.steps, after: tests.after })
+    .from(tests)
+    .where(and(eq(tests.appId, appId), inArray(tests.id, testIds), isNull(tests.baseId)));
+  const words = (steps: TestStep[]) => steps.map((s) => ({ text: s.text }));
+  for (const t of own) {
+    await db()
+      .update(tests)
+      .set({ steps: words(t.steps), after: t.after ? words(t.after) : t.after, ...touched() })
+      .where(eq(tests.id, t.id));
+  }
+  await run(appId, own.map((t) => t.id));
   refresh(appId);
 }
 
