@@ -49,8 +49,8 @@ Results from before 2026-11-05 and `labels/` come from the old scan-and-replay p
 `repeat.ts` runs the suite the dev harness saved under `.drill/<host>/` several times over and reports what moves between runs: each test's pass rate, the tests that flip, the steps that fell back to the model, cost and time. That is our own flake rate on one app.
 
 ```bash
-node_modules/.bin/tsx bench/src/repeat.ts https://staging-app.podtestnet.dev --runs 3   # costs money, runs one after another
-node_modules/.bin/tsx bench/src/repeat.ts https://staging-app.podtestnet.dev --report
+node_modules/.bin/tsx bench/src/repeat.ts https://app.example.xyz --runs 3   # costs money, runs one after another
+node_modules/.bin/tsx bench/src/repeat.ts https://app.example.xyz --report
 ```
 
 Every run keeps the saved wallet (`--keep-wallet`), so an app that makes an account of each new wallet gets none. A live app's account carries what each run leaves, so the setup's reset steps are part of what is measured. Results go to `results/<date>/repeat-<host>/` (`run<i>.json`, `run<i>.log`, `report.md`); more runs on the same date are added after the ones already there.

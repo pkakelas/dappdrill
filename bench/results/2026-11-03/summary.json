@@ -1,28 +1,28 @@
 {
   "date": "2026-11-03",
   "totals": {
-    "dapps": 12,
-    "scanned": 12,
-    "withFlows": 6,
-    "costUsd": 16.86,
-    "spentUsd": 26.97,
-    "issues": 17,
-    "labeledTrue": 7,
+    "dapps": 11,
+    "scanned": 11,
+    "withFlows": 5,
+    "costUsd": 14.77,
+    "spentUsd": 24.88,
+    "issues": 16,
+    "labeledTrue": 6,
     "labeledFalse": 10,
     "unlabeled": 0,
-    "precision": 0.41,
+    "precision": 0.38,
     "falseFixed": 10,
-    "replayIssues": 7,
-    "replayTrue": 4,
+    "replayIssues": 4,
+    "replayTrue": 1,
     "replayFalse": 3,
     "replayUnlabeled": 0,
-    "replayPrecision": 0.57,
-    "stableCells": 17,
-    "stableIssueCells": 24,
-    "cells": 29,
-    "mutationCases": 10,
-    "diagnosed": 8,
-    "caught": 8
+    "replayPrecision": 0.25,
+    "stableCells": 12,
+    "stableIssueCells": 14,
+    "cells": 17,
+    "mutationCases": 4,
+    "diagnosed": 3,
+    "caught": 3
   },
   "byMutation": [
     {
@@ -89,14 +89,14 @@
         "happy"
       ],
       "firstRun": {
-        "cases": 2,
-        "diagnosed": 2,
+        "cases": 0,
+        "diagnosed": 0,
         "noticed": 0,
         "missed": 0
       },
       "withBaseline": {
-        "cases": 3,
-        "diagnosed": 3,
+        "cases": 0,
+        "diagnosed": 0,
         "noticed": 0,
         "missed": 0
       }
@@ -127,8 +127,8 @@
         "reject"
       ],
       "firstRun": {
-        "cases": 4,
-        "diagnosed": 3,
+        "cases": 1,
+        "diagnosed": 0,
         "noticed": 0,
         "missed": 1
       },
@@ -146,10 +146,10 @@
         "wrong-network"
       ],
       "firstRun": {
-        "cases": 3,
+        "cases": 2,
         "diagnosed": 2,
         "noticed": 0,
-        "missed": 1
+        "missed": 0
       },
       "withBaseline": {
         "cases": 0,
@@ -682,185 +682,6 @@
         "sameIssues": 4,
         "flaky": []
       }
-    },
-    {
-      "id": "pod",
-      "url": "https://staging-app.podtestnet.dev/trade",
-      "scanned": true,
-      "scanMinutes": 9.3,
-      "replayMinutes": 12.7,
-      "costUsd": 2.09,
-      "spentUsd": 2.09,
-      "pages": 1,
-      "flows": [
-        {
-          "id": "flow_1g92i6g1lmwubu",
-          "name": "Sign in with wallet",
-          "steps": 4
-        },
-        {
-          "id": "flow_h3pywkzicyv69v",
-          "name": "Enable trading",
-          "steps": 6
-        },
-        {
-          "id": "flow_saixxhzgu1ot41",
-          "name": "Mint test funds",
-          "steps": 6
-        }
-      ],
-      "runs": {
-        "pass": 9,
-        "issue": 1,
-        "skipped": 4,
-        "fail": 1
-      },
-      "issues": [
-        {
-          "fingerprint": "3bbd792673b52da8",
-          "severity": "medium",
-          "category": "wallet",
-          "edgeCase": "reject",
-          "title": "No message after rejecting 'MetaMask →'",
-          "label": "true",
-          "note": "Confirmed in the final screenshot: after rejecting the sign-in signature the page goes back to the login card with no message. The report is accurate. It is a minor UX gap, not a fund-safety bug."
-        }
-      ],
-      "replayIssues": [
-        {
-          "fingerprint": "3bbd792673b52da8",
-          "severity": "medium",
-          "category": "wallet",
-          "edgeCase": "reject",
-          "title": "No message after rejecting 'MetaMask →'",
-          "label": "true",
-          "note": "Confirmed in the final screenshot: after rejecting the sign-in signature the page goes back to the login card with no message. The report is accurate. It is a minor UX gap, not a fund-safety bug."
-        },
-        {
-          "fingerprint": "f7207dae576fe2c2",
-          "severity": "high",
-          "category": "wallet",
-          "edgeCase": "wrong-network",
-          "title": "Doesn't handle the wallet being on Ethereum",
-          "label": "true",
-          "note": "Mint signs typed data for chain 129302 while the wallet is on Ethereum; the wallet refuses and the faucet shows nothing and never asks to switch."
-        },
-        {
-          "fingerprint": "dcaa88e86b85d0b4",
-          "severity": "high",
-          "category": "wallet",
-          "edgeCase": "wrong-network",
-          "title": "Doesn't handle the wallet being on Ethereum",
-          "label": "true",
-          "note": "On Ethereum the sign-in stays on \"Connecting…\" after the signature, with no prompt to switch or wrong-network message."
-        }
-      ],
-      "signingVerdicts": {
-        "consistent": 17
-      },
-      "stability": {
-        "cells": 12,
-        "sameStatus": 5,
-        "sameIssues": 10,
-        "flaky": [
-          {
-            "flowId": "flow_1g92i6g1lmwubu",
-            "flowName": "Sign in with wallet",
-            "edgeCase": "switch-account",
-            "statuses": [
-              "pass",
-              "pass",
-              "skipped"
-            ],
-            "sameStatus": false,
-            "sameIssues": true
-          },
-          {
-            "flowId": "flow_h3pywkzicyv69v",
-            "flowName": "Enable trading",
-            "edgeCase": "happy",
-            "statuses": [
-              "pass",
-              "pass",
-              "fail"
-            ],
-            "sameStatus": false,
-            "sameIssues": true
-          },
-          {
-            "flowId": "flow_h3pywkzicyv69v",
-            "flowName": "Enable trading",
-            "edgeCase": "switch-account",
-            "statuses": [
-              "pass",
-              "skipped",
-              "pass"
-            ],
-            "sameStatus": false,
-            "sameIssues": true
-          },
-          {
-            "flowId": "flow_h3pywkzicyv69v",
-            "flowName": "Enable trading",
-            "edgeCase": "wrong-network",
-            "statuses": [
-              "pass",
-              "issue",
-              "pass"
-            ],
-            "sameStatus": false,
-            "sameIssues": false
-          },
-          {
-            "flowId": "flow_saixxhzgu1ot41",
-            "flowName": "Mint test funds",
-            "edgeCase": "happy",
-            "statuses": [
-              "fail",
-              "pass",
-              "pass"
-            ],
-            "sameStatus": false,
-            "sameIssues": true
-          },
-          {
-            "flowId": "flow_saixxhzgu1ot41",
-            "flowName": "Mint test funds",
-            "edgeCase": "switch-account",
-            "statuses": [
-              "pass",
-              "pass",
-              "skipped"
-            ],
-            "sameStatus": false,
-            "sameIssues": true
-          },
-          {
-            "flowId": "flow_saixxhzgu1ot41",
-            "flowName": "Mint test funds",
-            "edgeCase": "reject",
-            "statuses": [
-              "fail",
-              "pass",
-              "pass"
-            ],
-            "sameStatus": false,
-            "sameIssues": true
-          },
-          {
-            "flowId": "flow_saixxhzgu1ot41",
-            "flowName": "Mint test funds",
-            "edgeCase": "wrong-network",
-            "statuses": [
-              "issue",
-              "issue",
-              "issue"
-            ],
-            "sameStatus": true,
-            "sameIssues": false
-          }
-        ]
-      }
     }
   ],
   "mutationScores": [
@@ -935,123 +756,6 @@
       "variant": "first-run",
       "outcome": "missed",
       "why": "run pass, nothing new vs control"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "signin-is-permit",
-      "flowId": "flow_1g92i6g1lmwubu",
-      "edgeCase": "happy",
-      "variant": "first-run",
-      "outcome": "not-fired",
-      "why": "run fail: Step 3 (Approve personal_sign): the dApp sent no signing request within 30s"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "signin-is-permit",
-      "flowId": "flow_h3pywkzicyv69v",
-      "edgeCase": "happy",
-      "variant": "first-run",
-      "outcome": "diagnosed",
-      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "signin-is-permit",
-      "flowId": "flow_saixxhzgu1ot41",
-      "edgeCase": "happy",
-      "variant": "first-run",
-      "outcome": "diagnosed",
-      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "signin-is-permit",
-      "flowId": "flow_1g92i6g1lmwubu",
-      "edgeCase": "happy",
-      "variant": "with-baseline",
-      "outcome": "diagnosed",
-      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "signin-is-permit",
-      "flowId": "flow_h3pywkzicyv69v",
-      "edgeCase": "happy",
-      "variant": "with-baseline",
-      "outcome": "diagnosed",
-      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "signin-is-permit",
-      "flowId": "flow_saixxhzgu1ot41",
-      "edgeCase": "happy",
-      "variant": "with-baseline",
-      "outcome": "diagnosed",
-      "why": "dangerous: Permit 0xA0b8…eB48 for 0x5a1E…5A1e"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "ignores-account-switch",
-      "flowId": "flow_1g92i6g1lmwubu",
-      "edgeCase": "switch-account",
-      "variant": "first-run",
-      "outcome": "not-fired",
-      "why": "run pass:"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "ignores-account-switch",
-      "flowId": "flow_h3pywkzicyv69v",
-      "edgeCase": "switch-account",
-      "variant": "first-run",
-      "outcome": "not-fired",
-      "why": "run pass:"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "ignores-account-switch",
-      "flowId": "flow_saixxhzgu1ot41",
-      "edgeCase": "switch-account",
-      "variant": "first-run",
-      "outcome": "not-fired",
-      "why": "run pass:"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "stuck-on-reject",
-      "flowId": "flow_1g92i6g1lmwubu",
-      "edgeCase": "reject",
-      "variant": "first-run",
-      "outcome": "diagnosed",
-      "why": "high wallet: Rejecting 'MetaMask →' leaves the button stuck on 'Connecting…'"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "stuck-on-reject",
-      "flowId": "flow_h3pywkzicyv69v",
-      "edgeCase": "reject",
-      "variant": "first-run",
-      "outcome": "diagnosed",
-      "why": "high wallet: Rejecting 'MetaMask →' leaves the button stuck on 'Enabling trading…'"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "stuck-on-reject",
-      "flowId": "flow_saixxhzgu1ot41",
-      "edgeCase": "reject",
-      "variant": "first-run",
-      "outcome": "diagnosed",
-      "why": "medium wallet: No message after rejecting 'MetaMask →'"
-    },
-    {
-      "dapp": "pod",
-      "mutation": "skips-chain-switch",
-      "flowId": "flow_h3pywkzicyv69v",
-      "edgeCase": "wrong-network",
-      "variant": "first-run",
-      "outcome": "missed",
-      "why": "run issue, nothing new vs control"
     }
   ]
 }

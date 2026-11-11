@@ -94,5 +94,5 @@ so set `DAPPDRILL_RPC_<chainId>` (comma-separated URLs) to an archive RPC where 
 Use `scripts/pnpm-locked.sh <pnpm args>` instead of bare pnpm when adding dependencies
 (several agents may share this checkout).
 
-Local services: Postgres `postgres://opencouncil@127.0.0.1:5499/dappdrill`, psql at
+Local services: Postgres on 127.0.0.1:5499, database `dappdrill` (the connection string is `DATABASE_URL` in `.env`), psql at
 `/Applications/Postgres.app/Contents/Versions/latest/bin/psql`. Foundry (anvil/forge/cast) on PATH.
