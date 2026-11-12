@@ -1,0 +1,367 @@
+{
+  "notes": [
+    {
+      "text": "This is the production site, and logging in makes a real account on a waitlist. Never log in or sign up: type no email into the login dialog and don't continue with a wallet. Opening the dialog to see it and closing it again is fine.",
+      "from": "owner"
+    },
+    {
+      "text": "Only what a visitor can do without logging in is tested here.",
+      "from": "owner"
+    },
+    {
+      "text": "Market cards are not links and don't open a market page: clicking one opens the login dialog. Prices and % changes are live, so check that they are there, not what they say.",
+      "from": "look"
+    },
+    {
+      "text": "The category filter stays selected after the dialog is closed.",
+      "from": "look"
+    }
+  ],
+  "signing": "refused",
+  "tests": [
+    {
+      "id": "filter-markets-by-category",
+      "name": "Filter markets by category",
+      "goal": "A logged-out visitor filters the market list by category: Equity leaves only AAPL, NVDA and GOOGL, Commodity only Gold, Index only S&P 500 and NASDAQ 100, and All brings back all six, each with its leverage (20x for the indices, 10x for the rest), a price and a daily change.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows six markets: S&P 500, NASDAQ 100, Gold, AAPL, NVDA and GOOGL. Each card shows a leverage, a dollar price and a percent daily change; S&P 500 and NASDAQ 100 show 20x and the other four show 10x."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"Equity\" button",
+          "run": [
+            {
+              "note": "Filter market list by Equity",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Equity"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows only AAPL, NVDA and GOOGL, each with 10x leverage, a dollar price and a percent daily change. S&P 500, NASDAQ 100 and Gold are not listed."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"Commodity\" button",
+          "run": [
+            {
+              "note": "Filter market list to Commodity",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Commodity"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows only Gold, with 10x leverage, a dollar price and a percent daily change. AAPL, NVDA, GOOGL, S&P 500 and NASDAQ 100 are not listed."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"Index\" button",
+          "run": [
+            {
+              "note": "Filter market list by Index category",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Index"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows only S&P 500 and NASDAQ 100, each with 20x leverage, a dollar price and a percent daily change. Gold, AAPL, NVDA and GOOGL are not listed."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"All\" button",
+          "run": [
+            {
+              "note": "Click the \"All\" category filter",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "All"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows all six markets again: S&P 500 and NASDAQ 100 with 20x, and Gold, AAPL, NVDA and GOOGL with 10x, each with a dollar price and a percent daily change."
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "Gold is listed again",
+          "expect": {
+            "kind": "shows",
+            "text": "Gold"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "open-and-close-login-dialog-from-aapl-card",
+      "name": "Open and close login dialog from AAPL card",
+      "goal": "A logged-out visitor clicks the AAPL market card under the Equity filter, gets the \"Log in or sign up\" dialog with an email field, a disabled Submit and \"Continue with a wallet\", closes it with the close button, and is still on the Equity list showing AAPL, NVDA and GOOGL.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"Equity\" filter button",
+          "run": [
+            {
+              "note": "Open the Equity filter",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Equity"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows AAPL, NVDA and GOOGL cards"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the AAPL market card",
+          "run": [
+            {
+              "note": "Open login dialog from AAPL card",
+              "kind": "click",
+              "target": {
+                "css": "main > div > div > div:nth-of-type(4) > div > div:nth-of-type(2) > div > div:nth-of-type(1)"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "A dialog titled \"Log in or sign up\" is open with an email field (placeholder \"your@email.com\") and a \"Continue with a wallet\" button"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The \"Submit\" button in the dialog is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "Submit",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"close modal\" button of the dialog",
+          "run": [
+            {
+              "note": "Close the login dialog",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "close modal",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The \"Log in or sign up\" dialog is no longer on the page",
+          "expect": {
+            "kind": "hides",
+            "text": "Log in or sign up"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page is still on the Equity list, showing the AAPL, NVDA and GOOGL cards and no S&P 500, NASDAQ 100 or Gold cards"
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "open-and-close-login-dialog-from-join-the-waitlist",
+      "name": "Open and close login dialog from Join the Waitlist",
+      "goal": "A logged-out visitor clicks \"Join the Waitlist\" in the hero, sees the \"Log in or sign up\" dialog whose Submit stays disabled while the email field is empty, and closes it again to get back to the page.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \"Join the Waitlist\" in the hero",
+          "run": [
+            {
+              "note": "Open the login dialog from the hero \"Join the Waitlist\" button",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Join the Waitlist"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "A dialog titled \"Log in or sign up\" is open, with the \"your@email.com\" field and a \"Continue with a wallet\" button"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The \"Submit\" button is disabled while the email field is empty",
+          "expect": {
+            "kind": "button",
+            "name": "Submit",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"close modal\" button of the dialog",
+          "run": [
+            {
+              "note": "Close the login dialog via its close modal button",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "close modal",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The \"Log in or sign up\" dialog is gone",
+          "expect": {
+            "kind": "hides",
+            "text": "Log in or sign up"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The hero heading \"One Market to Rule them All\" and the \"Join the Waitlist\" button are visible again",
+          "expect": {
+            "kind": "shows",
+            "text": "One Market to Rule them All"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "open-and-close-login-dialog-from-header-login",
+      "name": "Open and close login dialog from header Login",
+      "goal": "A logged-out visitor clicks Login in the header, gets the same \"Log in or sign up\" dialog with the Terms and Privacy Policy links, and closes it without logging in.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Login” in the header to open the login dialog, and leave the dialog open: do not close it, type nothing and do not continue with a wallet",
+          "run": [
+            {
+              "note": "Open the login dialog from the header Login button",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Login"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The dialog headed “Log in or sign up” is open, with an email field, a “Continue with a wallet” button, and “Terms” and “Privacy Policy” links"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "“Log in or sign up” is shown",
+          "expect": {
+            "kind": "shows",
+            "text": "Log in or sign up"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “close modal” to close the dialog without logging in",
+          "run": [
+            {
+              "note": "Close the login dialog without logging in",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "close modal",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "“Log in or sign up” is no longer shown",
+          "expect": {
+            "kind": "hides",
+            "text": "Log in or sign up"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The home page is still shown with the heading “One Market to Rule them All” and the header “Login” button, so the visitor is still logged out"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was not asked to sign anything",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ],
+      "cleanup": []
+    }
+  ]
+}

@@ -56,11 +56,13 @@ GOALS
 - Most important first. What the app is for, where a fault costs a user money or locks them out. Then the way back out of each (withdraw, cancel, close, revoke). Then what the app has to refuse (more than the balance, under a minimum) and what a user is told when they say no in the wallet. Then the lesser things that sign.
 - A goal stands alone. Its test starts as the set-up user and nothing else, so one that needs a deposit says so (“A user with 100 hUSDC in the vault takes 40 of it back.”) and the test makes that deposit itself.
 - Only what this user can do with what they hold, as the app shows it. Leave out what needs more.
+- A goal ends with something changed for the user, or with the app turning down what would have cost them: funds moved, an order placed or cancelled, a position opened or closed, a setting still there after a reload, a request refused. How the page behaves on the way is not a goal: a dialog that opens and closes, a filter or a tab that changes a list, a button that is greyed out. Those are lines inside a test of something that matters.
+- The same flow with another token, chain or route is a goal of its own when the app handles it differently (another contract, an approval first, another fee).
 - Connecting the wallet, opening a page and reading the docs are not goals. Neither is a page that only shows things, unless users rely on its figures; then the goal is that the figures agree with each other or with what the user did.
-- At most ${MAX_GOALS}. Leave out what the app's tests already cover.
+- About ten when the app has that much to do, and never more than ${MAX_GOALS}. Fewer when it doesn't: a short list of flows that matter is better than one filled up with small things. Only when the app offers this user nothing of that kind, give the one or two things most users do on it. Leave out what the app's tests already cover.
 
 NOTES
-- Only what a test writer will need and couldn't see for themselves on the page: an order things have to be done in, something that is in the way, where a thing is hidden. Usually one or two, often none.`;
+- Only what a test writer will need and couldn't see for themselves on the page: an order things have to be done in, something that is in the way, where a thing is hidden. Not a note you were given, and nothing about your own tools. Usually one or two, often none.`;
 
 export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = () => {}, say: (text: string) => void = () => {}): Promise<Looked> {
   const t0 = Date.now();

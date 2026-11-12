@@ -1,0 +1,435 @@
+{
+  "setup": {
+    "startPath": "/",
+    "steps": [
+      {
+        "type": "action",
+        "by": "llm",
+        "do": "Click “Login” in the header, then “Continue with a wallet”, choose MetaMask and approve the sign-in message in the wallet."
+      }
+    ]
+  },
+  "notes": [
+    {
+      "text": "This is the production site. The user is logged in with a wallet; type no email anywhere and don't log out.",
+      "from": "owner"
+    },
+    {
+      "text": "Nothing is approved in the wallet here: any funds are real. Rejecting a request is fine.",
+      "from": "owner"
+    },
+    {
+      "text": "The wallet has no USDC on Arbitrum, so the deposit, the withdraw after it and a wallet rejection can't be tested until it holds at least 10 USDC (the dialog's minimum).",
+      "from": "look"
+    },
+    {
+      "text": "The page asks the wallet to add or switch to Arbitrum (0xa4b1) on load; the balance reads 0 USDC only after that switch.",
+      "from": "look"
+    },
+    {
+      "text": "There is no separate trading or withdraw page: Deposit, Join the Waitlist and every market card open the same dialog, and the address menu only has Logout.",
+      "from": "look"
+    },
+    {
+      "text": "The amount field opens with 150 already filled in, so clear it before typing.",
+      "from": "look"
+    },
+    {
+      "text": "The dialog's message reads “Insufficient balance. You need at least 10 USDC.” for any amount while the wallet has no USDC, so it doesn't tell a below-minimum amount apart from a balance shortfall.",
+      "from": "maker"
+    }
+  ],
+  "signing": "setup",
+  "tests": [
+    {
+      "id": "deposit-150-with-no-usdc-is-blocked",
+      "name": "Deposit 150 with no USDC is blocked",
+      "goal": "A user with no USDC in the wallet opens Deposit, enters 150 and is shown \"Insufficient balance. You need at least 10 USDC.\", with Deposit and MAX greyed out and no wallet request sent.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Deposit”",
+          "run": [
+            {
+              "note": "Open the Deposit dialog",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Clear the amount field (placeholder “$0.0”) and type 150",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "$0.0",
+                "near": "Amount (USD)",
+                "withinDialog": true
+              },
+              "value": "150"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The dialog shows “Insufficient balance. You need at least 10 USDC.”",
+          "expect": {
+            "kind": "shows",
+            "text": "Insufficient balance. You need at least 10 USDC."
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The dialog shows Current Wallet Balance as 0 USDC"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The “Deposit” button in the dialog is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "Deposit",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The “MAX” button is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "MAX",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was not asked to sign anything",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "deposit-5-usdc-is-refused-under-the-10-usdc-minimum",
+      "name": "Deposit 5 USDC is refused under the 10 USDC minimum",
+      "goal": "A user with no USDC in the wallet enters 5 in the deposit amount, under the 10 USDC minimum, and the dialog refuses it: Deposit stays greyed out and the minimum is stated.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Deposit” in the page header to open the deposit dialog",
+          "run": [
+            {
+              "note": "Open the deposit dialog from the page header",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Clear the amount field (“$0.0”, which opens with 150) and type 5 into it",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "$0.0",
+                "near": "Amount (USD)",
+                "withinDialog": true
+              },
+              "value": "5"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The amount field in the dialog shows 5"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The dialog states the 10 USDC minimum (“You need at least 10 USDC”)",
+          "expect": {
+            "kind": "shows",
+            "text": "You need at least 10 USDC"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The “Deposit” button in the dialog is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "Deposit",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was not asked to sign anything",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "join-the-waitlist-opens-the-deposit-dialog",
+      "name": "Join the Waitlist opens the deposit dialog",
+      "goal": "A user clicks Join the Waitlist and gets the same Deposit Funds to Secure your Spot dialog as the header's Deposit button, showing USDC on Arbitrum and a wallet balance matching the wallet's USDC (0).",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Join the Waitlist”",
+          "run": [
+            {
+              "note": "Open the waitlist deposit dialog",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Join the Waitlist"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "A dialog titled “Deposit Funds to Secure your Spot” is open",
+          "expect": {
+            "kind": "shows",
+            "text": "Deposit Funds to Secure your Spot"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The dialog shows “USDC on Arbitrum” as the asset and network",
+          "expect": {
+            "kind": "shows",
+            "text": "USDC on Arbitrum"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "“Current Wallet Balance” in the dialog reads 0 USDC"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The dialog's “Deposit” button is disabled because the wallet has no USDC",
+          "expect": {
+            "kind": "button",
+            "name": "Deposit",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Close” in the dialog",
+          "run": [
+            {
+              "note": "Close the Deposit Funds dialog",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Close",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the “Deposit” button in the page header",
+          "run": [
+            {
+              "note": "Open the header Deposit dialog",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "A dialog titled “Deposit Funds to Secure your Spot” is open, showing “USDC on Arbitrum” and “Current Wallet Balance” 0 USDC"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "No wallet request was made to sign anything",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "open-a-market-card-close-the-dialog-filters-still-work",
+      "name": "Open a market card, close the dialog, filters still work",
+      "goal": "A user clicks a market card such as S&P 500 and the deposit dialog opens; closing it with Close brings back the market list, which still filters by All, Equity, Commodity and Index.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the “S&P 500” market card",
+          "run": [
+            {
+              "note": "Open the S&P 500 market card",
+              "kind": "click",
+              "target": {
+                "css": "main > div > div > div:nth-of-type(4) > div > div:nth-of-type(2) > div > div:nth-of-type(1)"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "A dialog titled “Deposit Funds to Secure your Spot” is open"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Close” in the dialog",
+          "run": [
+            {
+              "note": "Close the deposit dialog",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Close",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The dialog is closed and the market list shows S&P 500, NASDAQ 100, Gold, AAPL, NVDA and GOOGL"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the “Commodity” filter",
+          "run": [
+            {
+              "note": "Click the Commodity filter",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Commodity"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows Gold and does not show S&P 500, AAPL, NVDA or GOOGL"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the “Equity” filter",
+          "run": [
+            {
+              "note": "Click the Equity filter",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Equity"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows AAPL, NVDA and GOOGL and does not show S&P 500 or Gold"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the “Index” filter",
+          "run": [
+            {
+              "note": "Click the \"Index\" filter",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Index"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows S&P 500 and NASDAQ 100 and does not show Gold or AAPL"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the “All” filter",
+          "run": [
+            {
+              "note": "Click the \"All\" filter",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "All"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The market list shows all six markets: S&P 500, NASDAQ 100, Gold, AAPL, NVDA and GOOGL"
+        }
+      ],
+      "cleanup": []
+    }
+  ]
+}

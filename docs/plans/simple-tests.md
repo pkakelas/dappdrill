@@ -408,6 +408,52 @@ After the batch the hand-written "the tests left nothing on the account" test pa
 and no open orders. Two of the look's goals were left out on purpose: rejecting a deposit (an approval
 there reaches a real testnet) and a real withdrawal.
 
+**app.pod.network, pod's production site, an app the engine had not seen.** Its public page is a list of
+markets and a waitlist; the app itself is behind a login that makes a real account, so the suite has
+`signing: "refused"` and an owner's note not to log in (`fixtures/pod/production.json`). The look gave four
+goals in 48 s for $0.75. The maker proved all four as passing, 31 lines, in 77 to 152 s and $0.42 to $0.72
+each, with one repair: a model doing "click Login" had also closed the dialog, and its recording kept both
+clicks. As a suite the four run in 69 s for $0.09. Nothing was typed into the login and the wallet was
+never asked.
+
+Behind the login (`fixtures/pod/production-member.json`, `signing: "setup"`): the owner started the first
+sign-in by hand, since it makes an account on a live site. A model signs in with the kept wallet in 20 s
+for $0.02 on every run. There is no gate and no second page: Deposit, Join the Waitlist and every market
+card open one dialog, a deposit of USDC on Arbitrum with a 10 USDC minimum. With an empty wallet the look
+gave four goals in 72 s for $0.72; a second look that assumed funds gave seven. The maker proved all four
+as passing, 34 lines, in 104 to 243 s and $0.40 to $0.86 each, with one repair. As a suite they pass in
+about 103 s for $0.06, and the only thing approved in the wallet is the sign-in. What it showed:
+
+- The maker crashed on any setup that approves in the wallet: its mainnet rule read the open suite before
+  there was one. `openSuite` now hands the rule the env.
+- A check that said the dialog was "the same as the one before" passed three proving runs and came back
+  Couldn't verify in the suite: whoever decides a check doesn't see earlier pages. The drafter is now told
+  never to write one, and the line was reworded by hand.
+- The maker wrote two notes it had been given. They were removed by hand; the rule is in its prompt already.
+- `pnpm make` writes the suite file from the copy it read at the start, so a look or a make that runs
+  beside it loses its notes.
+- With an empty wallet the dialog says "Insufficient balance. You need at least 10 USDC." for 5 and for
+  150 alike, so the test of the minimum can't tell the two apart. The minimum, over-balance, MAX and reject
+  goals need USDC on the fork; the deposit and the withdraw need an approval, which stays refused here.
+
+**app.axelar.network, from the URL alone (`pnpm tests`, `fixtures/axelar/tests.json`).** One command: the
+look, a test for each goal, one run of them all. The suite file didn't exist, so it began with a setup of one
+sentence, connect the wallet. The look is now told that a goal ends with something changed for the user or
+with a refusal that protects them, that a dialog opening or a filter filtering is a line inside such a test,
+and to give about ten when the app has that much. It gave eight in 116 s for $0.92: bridge ETH to USDC on
+Base, to ETH on Arbitrum, to another recipient, to XRP Ledger, a malformed recipient, more than the balance,
+a rejection in the wallet, Max. Seven were proven in 122 to 350 s and $0.45 to $0.80 each, six with no
+repair, 62 lines. The XRP Ledger one was given up: no address the app would take. The run: six Passed, one
+Failed, 240 s, $0.33. All of it: 32 minutes, $5.71. What it showed:
+
+- Max puts the whole ETH balance in the amount, so the test fails on "leaves ETH for gas". The page then says
+  "Quote unavailable", but the fork wallet holds 100 ETH and the quote may be refused for its size, so what
+  follows the full balance is not shown.
+- Seen, with no test failing on it: Swap history rounds the received amount down (0.009 against a quote of 0.009962).
+- No goal used the wallet's 100 USDC, the one route with an approval first.
+- A fresh browser shows "No swaps yet" after the same wallet bridged on the fork, so the history is kept in the browser.
+- The setup stays a sentence a model does on every run (14 s, $0.02). Every action in the tests replays by code; of the $0.33 a run costs, $0.31 is checks by a model.
+
 What the trials changed in the maker, none of it about pod:
 
 - The first limit-order try wasn't proven after five runs. Its price was fixed, so this run's order
@@ -619,8 +665,14 @@ without an answer. A line starting "Lean:" is what I would do, not something dec
 48. **Recordings made again in an ordinary run.** The maker keeps them; `runSuite` hands them
     back and nobody saves them yet. Lean: the worker saves them when the test passed.
 49. **Failed, then passed on the rerun.** Shown as Passed today. Lean: say "on the second try".
-50. **What an owner forbids.** "Never approve a deposit" is a note today, which a doer reads and
-    could ignore. Lean: a rule on the suite that the wallet enforces, like the mainnet refusal.
+50. **What an owner forbids.** Partly answered: `Suite.signing: "refused"` lets nothing be
+    approved in the wallet for an app, by a model or by a recording (rejecting still works). It
+    is for a production app, or one that makes an account of whoever signs in. `"setup"` lets
+    the setup sign in and refuses everything in a test, for an account we were told to make
+    there (`fixtures/pod/production-member.json`, not run yet). The mainnet
+    refusal only knows the chain IDs in our list, so an app's own mainnet needs this rule.
+    Still a note only: forbidding one kind of request ("never approve a deposit"), and typing
+    into a form (an email into a sign-up).
 51. **Notes that go stale or say nothing.** Who removes them, and when.
 52. **A finding only the app's owner can confirm** (a leverage figure, a fill price). The test
     is kept failing; the report should say what to ask them.

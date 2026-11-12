@@ -1,0 +1,812 @@
+{
+  "setup": {
+    "startPath": "/",
+    "steps": [
+      {
+        "type": "action",
+        "by": "llm",
+        "do": "Connect the wallet to the app (it is listed as MetaMask) and close any first-visit prompt in the way. If the app shows the wallet as connected already, do nothing."
+      }
+    ]
+  },
+  "notes": [
+    {
+      "text": "When the user rejects a transaction, the page currently shows no message (the alert stays empty) and the button just goes back to \"Bridge\". A test should check the button and the balance rather than look for an error message.",
+      "from": "look"
+    },
+    {
+      "text": "Picking a destination changes the URL to /bridge/<chain>?fromChainId=…&fromCurrency=…&toCurrency=…, and it is kept on reload, so a test can open a route directly. The recipient is changed by clicking the address button above the To amount, which opens the Wallet \"To\" dialog.",
+      "from": "look"
+    },
+    {
+      "text": "Pressing Bridge asks the wallet to switch to Ethereum mainnet (chain 0x1) and then sends one eth_sendTransaction carrying the ETH as its value. No token approval comes first when the source is ETH.",
+      "from": "look"
+    },
+    {
+      "text": "Amounts that are too small, such as 0.0000001 ETH, also show \"Quote unavailable\". No minimum amount is given anywhere on the page.",
+      "from": "look"
+    },
+    {
+      "text": "The swap history list rows show only amounts and status; the recipient is only visible on the entry's detail page.",
+      "from": "maker"
+    },
+    {
+      "text": "The wallet shows calldata undecoded, so a signed check must match the recipient address as lowercase hex without 0x.",
+      "from": "maker"
+    },
+    {
+      "text": "Max on ETH fills the entire balance (100), which makes the quote fail, so this test fails at the check that Max leaves gas.",
+      "from": "maker"
+    }
+  ],
+  "signing": "allowed",
+  "tests": [
+    {
+      "id": "bridge-0-01-eth-to-usdc-on-base",
+      "name": "Bridge 0.01 ETH to USDC on Base",
+      "goal": "A user with ETH on Ethereum bridges 0.01 ETH to USDC on Base to their own address. They sign the one Bridge transaction, and the bridge then shows up in Swap history.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The source is ETH on Ethereum and the destination is USDC on Base"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 0.01 into “Source amount”",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Source amount"
+              },
+              "value": "0.01"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "“Destination amount” shows a USDC amount greater than 0 and the main button reads “Bridge”"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Bridge” and approve the request in the wallet",
+          "run": [
+            {
+              "note": "Start the bridge transaction",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Bridge"
+              }
+            },
+            {
+              "note": "Approve eth_sendTransaction to 0x88c5…8102",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0x88c59c19d54afcb83594ab4b24f67907cff08102",
+                "functionName": "0xb69eb664"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was asked to send a transaction with a value of 0.01 ETH (10000000000000000 wei)",
+          "expect": {
+            "kind": "signed",
+            "holds": "value=10000000000000000"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The transaction was mined",
+          "expect": {
+            "kind": "mined"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page shows a “Swap transaction” page for the order with status In progress, amount 0.01 ETH from Ethereum to USDC on Base, and the recipient is the same address as the sender 0xc5F3a3...5Bd6F"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Go back” to open Swap history",
+          "run": [
+            {
+              "note": "Open Swap history via \"Go back\"",
+              "kind": "click",
+              "target": {
+                "role": "link",
+                "name": "Go back"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Swap history lists an entry of 0.01 ETH to a USDC amount with status In progress"
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "bridge-0-01-eth-from-ethereum-to-eth-on-arbitrum",
+      "name": "Bridge 0.01 ETH from Ethereum to ETH on Arbitrum",
+      "goal": "A user with ETH on Ethereum bridges 0.01 ETH to ETH on Arbitrum. They see the fee and the time estimate before signing, and the bridge then shows up in Swap history.",
+      "startPath": "/bridge/arbitrum?fromChainId=ethereum&fromCurrency=eth&toCurrency=arbitrumETH",
+      "values": {},
+      "steps": [
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The swap form shows ETH on Ethereum as the source and ETH on Arbitrum as the destination"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 0.01 into “Source amount”",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Source amount"
+              },
+              "value": "0.01"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "A fee amount in dollars and a time estimate are shown between the source and destination amounts, and the “Destination amount” holds a value greater than 0"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The main button reads “Bridge” and is enabled",
+          "expect": {
+            "kind": "button",
+            "name": "Bridge",
+            "is": "enabled"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Bridge” and approve the request in the wallet",
+          "run": [
+            {
+              "note": "Start the bridge",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Bridge"
+              }
+            },
+            {
+              "note": "Approve eth_sendTransaction to 0x88c5…8102",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0x88c59c19d54afcb83594ab4b24f67907cff08102",
+                "functionName": "0xb69eb664"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was asked to send a transaction with a value of 0.01 ETH (10000000000000000 wei)",
+          "expect": {
+            "kind": "signed",
+            "holds": "value=10000000000000000"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page shows a “Swap transaction” page for the order with status “In progress”, From Ethereum amount 0.01 ETH and To Arbitrum"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Go back” to return to the Swap history list",
+          "run": [
+            {
+              "note": "Return to Swap history list",
+              "kind": "click",
+              "target": {
+                "role": "link",
+                "name": "Go back"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Swap History lists an entry with 0.01 ETH sent, an ETH amount received, and the status “In progress”"
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "bridge-0-01-eth-to-eth-on-arbitrum-with-another-recipient",
+      "name": "Bridge 0.01 ETH to ETH on Arbitrum with another recipient",
+      "goal": "A user with ETH on Ethereum enters another valid Arbitrum address as the recipient and bridges 0.01 ETH to ETH on Arbitrum. The transaction they sign and the Swap history entry both carry that recipient.",
+      "startPath": "/bridge/arbitrum",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the destination token button (it reads \"USDCArbitrum\"), and in the \"Select destination\" dialog click the \"ETH\" token that belongs to Arbitrum (the first \"ETH\" in the Tokens list).",
+          "run": [
+            {
+              "note": "Open the destination token picker",
+              "kind": "click",
+              "target": {
+                "css": "section:nth-of-type(2) > div > div > div:nth-of-type(3) > div > div > div:nth-of-type(2) > button"
+              }
+            },
+            {
+              "note": "Pick the Arbitrum ETH token as destination",
+              "kind": "click",
+              "target": {
+                "css": "div > div > div:nth-of-type(2) > section:nth-of-type(2) > div > ul > li:nth-of-type(2) > button",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The destination button reads \"ETHArbitrum\" and the source button reads \"ETHEthereum\"."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the address button above the To amount (the second \"0xc5F3a3...5Bd6F\" button) to open the Wallet \"To\" dialog.",
+          "run": [
+            {
+              "note": "Open the Wallet \"To\" dialog from the address button above the To amount",
+              "kind": "click",
+              "target": {
+                "css": "main > div > section:nth-of-type(2) > div > div > div:nth-of-type(1) > div:nth-of-type(1) > button"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 into \"Enter an Arbitrum address\" and click \"Confirm\".",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Enter an Arbitrum address",
+                "near": "Paste",
+                "withinDialog": true
+              },
+              "value": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+            },
+            {
+              "note": "Confirm the Arbitrum recipient address",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Confirm",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The address button above the To amount reads \"0x709979...c79C8\" instead of the user's own address."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 0.01 into \"Source amount\".",
+          "run": [
+            {
+              "note": "Click \"0xc5F3a3...5Bd6F\"",
+              "kind": "click",
+              "target": {
+                "css": "main > div > section:nth-of-type(1) > div > div > div:nth-of-type(1) > div:nth-of-type(1) > button"
+              }
+            },
+            {
+              "note": "Close the Wallet \"From\" dialog I opened by mistake",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Close",
+                "withinDialog": true
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Source amount"
+              },
+              "value": "0.01"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "A \"Bridge\" button is shown and the Destination amount is filled with an amount slightly below 0.01 ETH."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \"Bridge\" and approve the request in the wallet.",
+          "run": [
+            {
+              "note": "Start the bridge transaction",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Bridge"
+              }
+            },
+            {
+              "note": "Approve eth_sendTransaction to 0x88c5…8102",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0x88c59c19d54afcb83594ab4b24f67907cff08102",
+                "functionName": "0xb69eb664"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was asked to send a transaction whose calldata contains the recipient address 70997970c51812dc3a010c7d01b50e0d17dc79c8.",
+          "expect": {
+            "kind": "signed",
+            "holds": "70997970c51812dc3a010c7d01b50e0d17dc79c8"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The transaction sent was mined.",
+          "expect": {
+            "kind": "mined"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page shows a \"Swap transaction\" detail with status \"In progress\", From Ethereum amount 0.01 ETH, To Arbitrum, and Recipient 0x709979...c79C8 (not the sender 0xc5F3a3...5Bd6F)."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open \"Swap history\" at /swaps and click the newest entry (0.01 ETH).",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/swaps"
+            },
+            {
+              "note": "Open the newest swap entry (0.01 ETH)",
+              "kind": "click",
+              "target": {
+                "text": "0.01 ETH0.009 ETHIn progressJust now"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The Swap transaction page for that entry shows To Arbitrum with Recipient 0x709979...c79C8 and the recipient link points to arbiscan.io/address/0x70997970C51812dc3A010C7d01b50e0d17dc79C8."
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "refuse-bridge-to-a-malformed-recipient-address",
+      "name": "Refuse bridge to a malformed recipient address",
+      "goal": "A user with ETH on Ethereum enters a malformed recipient address such as 0x1234. The app refuses to bridge and the button says \"Invalid destination address\".",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 0.01 into “Source amount” (source is ETH on Ethereum, destination USDC on Base)",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Source amount"
+              },
+              "value": "0.01"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The main action button is labelled “Bridge” while the recipient is still the connected wallet",
+          "expect": {
+            "kind": "button",
+            "name": "Bridge",
+            "is": "enabled"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the recipient address button (0xc5F3a3...5Bd6F) above the To amount to open the Wallet “To” dialog",
+          "run": [
+            {
+              "note": "Open the Wallet \"To\" dialog via the recipient address button above the To amount",
+              "kind": "click",
+              "target": {
+                "css": "main > div > section:nth-of-type(2) > div > div > div:nth-of-type(1) > div:nth-of-type(1) > button"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 0x1234 into the “Enter a Base address” field",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Enter a Base address",
+                "near": "Paste",
+                "withinDialog": true
+              },
+              "value": "0x1234"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The “Confirm” button in the Wallet “To” dialog is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "Confirm",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Close” in the Wallet “To” dialog",
+          "run": [
+            {
+              "note": "Close the Wallet \"To\" dialog",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Close",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The main action button now reads “Invalid destination address” and the To recipient shows 0x1234"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The “Bridge” button no longer exists on the page, so a bridge cannot be started",
+          "expect": {
+            "kind": "hides",
+            "text": "Bridge"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was not asked to sign or send any transaction",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "enter-more-eth-than-the-balance-and-see-quote-unavailable",
+      "name": "Enter more ETH than the balance and see Quote unavailable",
+      "goal": "A user with ETH on Ethereum enters more than their ETH balance. The app gives no quote and won't let them bridge (\"Quote unavailable\").",
+      "startPath": "/",
+      "values": {
+        "amount": {
+          "from": 150,
+          "to": 900,
+          "decimals": 0
+        }
+      },
+      "steps": [
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The source side shows ETH on Ethereum with a balance of 100 ETH"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type {{amount}} into \"Source amount\"",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Source amount"
+              },
+              "value": "{{amount}}"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The main button reads \"Quote unavailable\" and is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "Quote unavailable",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page shows \"Quote unavailable\" and the \"Destination amount\" has no quote filled in (it is empty or 0)"
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The source balance still reads 100 ETH, more than which the user tried to bridge, and the wallet was not asked to send anything"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was not asked to sign or send any transaction",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "reject-a-0-01-eth-bridge-in-the-wallet",
+      "name": "Reject a 0.01 ETH bridge in the wallet",
+      "goal": "A user with ETH on Ethereum starts a 0.01 ETH bridge and rejects the transaction in the wallet. The form goes back to Bridge with the amount still filled in, no history entry is added, and their ETH balance doesn't change.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 0.01 into “Source amount” (source is ETH on Ethereum)",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Source amount"
+              },
+              "value": "0.01"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The “Bridge” button is shown and enabled",
+          "expect": {
+            "kind": "button",
+            "name": "Bridge",
+            "is": "enabled"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Bridge” and reject the transaction request in the wallet",
+          "run": [
+            {
+              "note": "Start the 0.01 ETH bridge",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Bridge"
+              }
+            },
+            {
+              "note": "Reject eth_sendTransaction to 0x88c5…8102",
+              "kind": "wallet",
+              "respond": "reject",
+              "expect": {
+                "kind": "transaction",
+                "to": "0x88c59c19d54afcb83594ab4b24f67907cff08102",
+                "functionName": "0xb69eb664"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The wallet was asked to send a transaction carrying 0.01 ETH, and it was not mined"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The button reads “Bridge” again and is enabled, not “Awaiting confirmation…”",
+          "expect": {
+            "kind": "button",
+            "name": "Bridge",
+            "is": "enabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "“Source amount” still holds 0.01"
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The source balance beside ETH on Ethereum still reads 100 ETH"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the “Swap history” link",
+          "run": [
+            {
+              "note": "Open the Swap history page",
+              "kind": "click",
+              "target": {
+                "role": "link",
+                "name": "Swap history"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The Swap History page lists no swaps and says “No swaps yet”",
+          "expect": {
+            "kind": "shows",
+            "text": "No swaps yet"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "bridge-max-eth-from-ethereum-to-eth-on-arbitrum",
+      "name": "Bridge max ETH from Ethereum to ETH on Arbitrum",
+      "goal": "A user with ETH on Ethereum presses Max and bridges to ETH on Arbitrum. The amount filled in leaves enough ETH for gas, so the transaction can go through.",
+      "startPath": "/",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the destination token selector showing \"USDC Base\", choose the chain \"Arbitrum\", then choose the token \"ETH\"",
+          "run": [
+            {
+              "note": "Open the destination token selector showing USDC Base",
+              "kind": "click",
+              "target": {
+                "css": "section:nth-of-type(2) > div > div > div:nth-of-type(3) > div > div > div:nth-of-type(2) > button"
+              }
+            },
+            {
+              "note": "Choose chain Arbitrum",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Arbitrum",
+                "withinDialog": true
+              }
+            },
+            {
+              "note": "Choose token ETH on Arbitrum",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "ETH",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \"Max\" above the source amount",
+          "run": [
+            {
+              "note": "Press Max above the source amount",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Max"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The \"Source amount\" is filled with a number smaller than the ETH balance shown next to \"Max\", so some ETH is left for gas"
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "A quote is shown: the \"Destination amount\" is greater than 0 and the page does not say \"Quote unavailable\""
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \"Bridge\" button and approve the request in the wallet",
+          "run": []
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The transaction was mined and did not revert",
+          "expect": {
+            "kind": "mined"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page shows the bridge went through or in progress, and the button is no longer waiting on the wallet"
+        }
+      ],
+      "cleanup": []
+    }
+  ]
+}

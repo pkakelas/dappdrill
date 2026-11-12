@@ -4,7 +4,7 @@
  * our side is tried once more quietly before the test is called Couldn't verify.
  */
 import path from "node:path";
-import type { DrillEventSink, DrillTarget, LineResult, Suite, SuiteResult, Test, TestResult } from "@dappdrill/core";
+import type { DrillEventSink, DrillTarget, LineResult, Suite, SuiteResult, Test, TestResult, WalletRequest } from "@dappdrill/core";
 import { openEnv, type Env } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
 import { debug, plain } from "../pipeline/session.js";
@@ -38,14 +38,23 @@ export interface OpenSuite {
   close(): Promise<void>;
 }
 
-export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () => {}, more: Pick<RunOptions, "refuseApprove" | "onLine"> = {}): Promise<OpenSuite> {
+export interface OpenSuiteOptions {
+  /** Why a request may not be approved, asked for the setup's lines too, so it is handed the env rather than waiting for the open suite. */
+  refuseApprove?: (request: WalletRequest, env: Env) => string | undefined;
+  onLine?: RunOptions["onLine"];
+}
+
+export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () => {}, more: OpenSuiteOptions = {}): Promise<OpenSuite> {
   const { suite, artifactsDir, signal } = input;
   const env = await openEnv(input.target, sink, { headless: input.headless });
-  const opts: RunOptions = { artifactsDir, signal, notes: suite.notes.map((n) => n.text), refuseApprove: more.refuseApprove };
+  // The suite's own rule comes before whatever the caller allows.
+  const refused = () => "Refused: nothing may be approved in the wallet for this app. Reject it and carry on without it.";
+  const asked = more.refuseApprove && ((request: WalletRequest) => more.refuseApprove!(request, env));
+  const opts: RunOptions = { artifactsDir, signal, notes: suite.notes.map((n) => n.text), refuseApprove: suite.signing === "allowed" ? asked : refused };
   const open: OpenSuite = { env, opts, run: (test, onLine) => onFreshState(env, test, { ...opts, onLine }), close: () => env.close() };
   if (!suite.setup) return open;
   try {
-    const done = await runSetup(env, suite.setup, { ...opts, saveTo: path.join(artifactsDir, "setup-state.json"), onLine: more.onLine });
+    const done = await runSetup(env, suite.setup, { ...opts, refuseApprove: suite.signing === "refused" ? refused : asked, saveTo: path.join(artifactsDir, "setup-state.json"), onLine: more.onLine });
     open.setup = done.steps;
     opts.storageState = done.storageState;
     if (!done.storageState) open.stuck = `The setup didn't finish. ${done.why}`;

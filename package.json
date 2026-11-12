@@ -19,7 +19,8 @@
     "drill": "corepack pnpm --filter @dappdrill/engine exec tsx dev/drill.ts",
     "suite": "corepack pnpm --filter @dappdrill/engine exec tsx dev/suite.ts",
     "make": "corepack pnpm --filter @dappdrill/engine exec tsx dev/make.ts",
-    "look": "corepack pnpm --filter @dappdrill/engine exec tsx dev/look.ts"
+    "look": "corepack pnpm --filter @dappdrill/engine exec tsx dev/look.ts",
+    "tests": "corepack pnpm --filter @dappdrill/engine exec tsx dev/tests.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

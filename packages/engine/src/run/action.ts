@@ -5,7 +5,7 @@
  * did for a code action comes back as the recording to replay from then on.
  */
 import { z } from "zod";
-import { describeStep, forkBlindLine, type Action, type Blocked, type BrowserAction } from "@dappdrill/core";
+import { describeStep, forkBlindLine, type Action, type Blocked, type BrowserAction, type WalletRequest } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { browserTools, inboxTool, Recorder, settle, walletLine } from "../agent/tools.js";
 import { debug } from "../pipeline/session.js";
@@ -36,9 +36,16 @@ async function act(run: Running, index: number): Promise<Went> {
 async function replay(run: Running, actions: BrowserAction[]): Promise<{ ok: boolean; error?: string }> {
   const { env, session } = run;
   const script = { id: run.name, name: run.name, origin: "described" as const, startUrl: session.page.url(), params: [], steps: actions };
-  const r = await replayScript(session, script, { here: true, reviewer: env.reviewer, inbox: env.inbox, signal: run.signal, log: debug });
+  // A recorded approval is held to the same rule as a model's: refused, it is rejected and the recording didn't work.
+  let refused: string | undefined;
+  const respond = async ({ step, pending }: { step: BrowserAction; pending: { request: WalletRequest } }) => {
+    if (step.kind !== "wallet" || step.respond !== "approve") return "default" as const;
+    refused ??= run.refuseApprove?.(pending.request);
+    return refused ? ("reject" as const) : ("default" as const);
+  };
+  const r = await replayScript(session, script, { here: true, reviewer: env.reviewer, inbox: env.inbox, signal: run.signal, log: debug, hooks: { respond } });
   run.reviews.push(...r.signingReviews);
-  return { ok: r.completed, error: r.error };
+  return refused ? { ok: false, error: refused } : { ok: r.completed, error: r.error };
 }
 
 const SYSTEM = `You do one action of an end-to-end test on a web app (often a web3 dApp with an injected test wallet).

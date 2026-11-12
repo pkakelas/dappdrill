@@ -135,6 +135,12 @@ export const Suite = z.object({
   /** Done once in a browser of its own: connect, sign in, get funds. Every test starts from where it ends. */
   setup: z.object({ startPath: z.string().default("/"), steps: z.array(Action).min(1) }).optional(),
   notes: z.array(Note).default([]),
+  /**
+   * What may be approved in the wallet. "setup": only while setting up (signing in), nothing in a
+   * test, for an app on a chain with real funds. "refused": nothing at all, for an app that makes
+   * an account of whoever signs in. Rejecting a request is always done.
+   */
+  signing: z.enum(["allowed", "setup", "refused"]).default("allowed"),
   tests: z.array(Test).default([]),
 });
 export type Suite = z.infer<typeof Suite>;

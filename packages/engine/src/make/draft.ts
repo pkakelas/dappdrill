@@ -4,10 +4,9 @@
  * line. Nothing it clicked is kept; the runner records the actions when it proves the test.
  */
 import { z } from "zod";
-import { CodeAssert, RunValue, Test, urlOnApp, type Blocked } from "@dappdrill/core";
+import { CodeAssert, RunValue, Test, urlOnApp, type Blocked, type WalletRequest } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { browserTools, inboxTool, Recorder, settle, walletLine } from "../agent/tools.js";
-import { refuseOnLiveMainnet } from "../chain/controller.js";
 import type { Env } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
 import { landingBotCheck, openSession } from "../pipeline/session.js";
@@ -70,7 +69,7 @@ CHECKS
 - A check says what a user is entitled to expect, from the goal and from the app's own words: the amount asked for is the amount the wallet signs, a balance moves by what was moved, the page says it went through, the new thing is listed where the app lists such things. Don't write a check only because something happened to be on the page.
 - When the app did something a user wouldn't accept (a wrong amount, a message the page contradicts, a balance that didn't move), write the check for what should be true anyway and put what you saw under problems. Never bend the test around a fault.
 - Never put in a check a figure that will be different on the next run: a price, a balance, a growing count, a date, an id. Say how it moves, or tie it to a value of the test.
-- by "llm" is the usual choice: a model answers the claim from the page as it is then (its text and a picture), from what the page showed during the latest action and took away again, and from what the wallet was asked. It doesn't see earlier pages. Write the claim so it can be answered from that.
+- by "llm" is the usual choice: a model answers the claim from the page as it is then (its text and a picture), from what the page showed during the latest action and took away again, and from what the wallet was asked. It doesn't see earlier pages, so a claim never says “the same as before”, “unchanged” or “back to what it was”: it names what should be there. Write the claim so it can be answered from that.
 - by "code" when code can read the fact exactly. Then give expect, one of:
   {kind:"signed", holds}: the wallet was asked to sign something that holds this text: a function name ("deposit("), an address, an amount.
   {kind:"not-signed", holds?}: it wasn't asked at all, or for nothing that holds this.
@@ -114,6 +113,8 @@ export interface DraftInput {
   /** Names of the tests the app already has. */
   existing: string[];
   artifactsDir: string;
+  /** Why a wallet request must not be approved, when it mustn't. */
+  refuseApprove?: (request: WalletRequest) => string | undefined;
   signal?: AbortSignal;
 }
 
@@ -136,7 +137,7 @@ export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
         recorder,
         inbox: env.inbox,
         onBlocked: (b) => (blocked = b),
-        refuseApprove: (r) => refuseOnLiveMainnet(env.chains, r),
+        refuseApprove: input.refuseApprove,
         budgetNote: () => (++steps >= WRITE_UP_AFTER ? "You have taken many steps. Write the test now with write_test, or call give_up." : undefined),
       }),
       ...(env.inbox ? [inboxTool(env.inbox)] : []),

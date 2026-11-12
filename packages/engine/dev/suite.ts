@@ -27,7 +27,7 @@ if (!url || !suiteFile) {
 const whole = Suite.parse(JSON.parse(await readFile(fromCwd(suiteFile), "utf8")));
 const only = flags.only?.toLowerCase();
 const suite: Suite = { ...whole, tests: whole.tests.filter((t) => !only || t.name.toLowerCase().includes(only)) };
-if (!suite.tests.length) throw new Error(`No test named like “${flags.only}”.`);
+if (!suite.tests.length) throw new Error(only ? `No test named like “${flags.only}”.` : "The suite has no tests yet.");
 
 const target = await loadTarget(url, flags);
 const out = outDir("suites", url);

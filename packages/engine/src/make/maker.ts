@@ -30,7 +30,7 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
   const t0 = Date.now();
   const { suite, artifactsDir } = input;
   // Nothing made here may sign on a live mainnet, whoever does the line.
-  const open = await openSuite(input, sink, { refuseApprove: (r) => refuseOnLiveMainnet(open.env.chains, r) });
+  const open = await openSuite(input, sink, { refuseApprove: (r, env) => refuseOnLiveMainnet(env.chains, r) });
   const { env } = open;
   let draftUsd = 0;
   const done = (more: Partial<Proved>): Made => ({ proven: false, notes: [], findings: [], repairs: [], runs: [], ...more, setup: open.setup, draftUsd, costUsd: env.costUsd(), durationMs: Date.now() - t0 });
@@ -46,6 +46,7 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       notes,
       existing: suite.tests.map((t) => t.name),
       artifactsDir: path.join(artifactsDir, "draft"),
+      refuseApprove: open.opts.refuseApprove,
       signal: input.signal,
     });
     draftUsd = env.costUsd();

@@ -90,6 +90,7 @@ corepack pnpm drill look <url>           # one stage of a pass at a time: look |
 corepack pnpm suite <url> <suite.json>  # run a suite file (fixtures/harbor-vault/tests.json, fixtures/pod/tests.json) and print each line's result, time and cost; --runs n, --only text, --target <a kept target.json: its accounts, chains and inbox>
 corepack pnpm look <url> <suite.json>   # list the goals worth a test, and add what it learned about the app to the suite file's notes
 corepack pnpm make <url> <suite.json> "<goal>"   # make one test from a goal and add it to the suite file once it is proven; --start /path, --dry
+corepack pnpm tests <url> <suite.json>  # the whole way, as a user gets it: the look, a test made for each of its first ten goals, then one run of them all; --count n, --target
 ```
 
 `pnpm drill` (packages/engine/dev/drill.ts) is for working on the engine without waiting for a whole pass: each
