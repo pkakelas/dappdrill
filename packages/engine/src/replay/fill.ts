@@ -3,7 +3,7 @@
  * typed (a price box that keeps the old value, an amount box that adds the thousands separators),
  * so the field is read back and typed into again before the step goes on.
  */
-import type { Locator as PwLocator, Page } from "playwright";
+import type { ElementHandle, Locator as PwLocator, Page } from "playwright";
 
 /** How long a field gets to show what was typed before it is typed again. */
 const SETTLE_MS = 1_200;
@@ -16,32 +16,38 @@ export interface Filled {
 }
 
 export async function fillField(page: Page, el: PwLocator, value: string, timeout: number): Promise<Filled> {
+  // The element itself from here on. Typing can change the words that found it (a price box marked
+  // "Est." is marked otherwise once it holds a price), and a locator would then wait for nothing.
+  const field = await el.elementHandle({ timeout });
+  if (!field) throw new Error("The field went away before it could be typed into.");
   try {
-    await el.fill(value, { timeout });
+    await field.fill(value, { timeout });
   } catch {
-    await typeLikeAUser(page, el, value, timeout);
+    await typeLikeAUser(page, field, value, timeout);
   }
-  let shows = await settled(el, value);
+  let shows = await settled(field, value);
   if (shows === undefined || sameValue(value, shows)) return { shows, took: true };
   // Typed as a user would, key by key, for an input that ignores a programmatic fill.
-  await typeLikeAUser(page, el, value, timeout);
-  shows = await settled(el, value);
+  await typeLikeAUser(page, field, value, timeout);
+  shows = await settled(field, value);
   return { shows, took: shows === undefined || sameValue(value, shows) };
 }
 
-async function typeLikeAUser(page: Page, el: PwLocator, value: string, timeout: number): Promise<void> {
-  await el.click({ timeout });
+type Field = ElementHandle<SVGElement | HTMLElement>;
+
+async function typeLikeAUser(page: Page, field: Field, value: string, timeout: number): Promise<void> {
+  await field.click({ timeout });
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("Backspace");
-  await el.pressSequentially(value, { timeout, delay: 15 });
+  await page.keyboard.type(value, { delay: 15 });
 }
 
 /** The field's value once it shows what was typed, or whatever it shows when the time is up; undefined when it can't be read. */
-async function settled(el: PwLocator, value: string): Promise<string | undefined> {
+async function settled(field: Field, value: string): Promise<string | undefined> {
   const until = Date.now() + SETTLE_MS;
   let shows: string | undefined;
   do {
-    shows = await el.evaluate((e) => ("value" in e ? String((e as HTMLInputElement).value) : (e.textContent ?? ""))).catch(() => undefined);
+    shows = await field.evaluate((e) => ("value" in e ? String((e as HTMLInputElement).value) : (e.textContent ?? ""))).catch(() => undefined);
     if (shows === undefined || sameValue(value, shows)) return shows;
     await new Promise((r) => setTimeout(r, 100));
   } while (Date.now() < until);

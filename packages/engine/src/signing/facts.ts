@@ -63,6 +63,3 @@ export function hasStake(facts: Facts): boolean {
   return facts.approvals.length > 0 || nativeValue(facts) > 0n || outgoing(facts).length > 0;
 }
 
-export function subjectName(s: Subject | undefined): string | undefined {
-  return s?.info.name;
-}

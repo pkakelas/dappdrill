@@ -209,6 +209,7 @@ describe("signing reviewer", () => {
       const prompts: string[] = [];
       return {
         backend: "api",
+        model: "scripted",
         prompts,
         runAgent: async () => ({ text: "" }),
         async structured<T>(opts: { prompt: string; schema: ZodType<T>; name: string }): Promise<T> {

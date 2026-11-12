@@ -54,7 +54,7 @@ export function decodeWalletRequest(req: WalletRequest): DecodedRequest {
     case "eth_sign":
       return {
         kind: "message",
-        summary: `${req.method}: "${clip(messageText(params, req.method), 120)}"`,
+        summary: `${req.method}: "${clip(messageText(params, req.method), 400)}"`,
         expectation: { kind: "message" },
         amounts: [],
         unlimitedApproval: false,

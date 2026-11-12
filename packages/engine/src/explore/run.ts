@@ -8,7 +8,7 @@ import { diagnoseStall } from "../browser/traffic.js";
 import { openEnv, withoutFallback } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
 import { setupRunner } from "../pipeline/setup.js";
-import { landingBotCheck, openSession, plain } from "../pipeline/steps.js";
+import { landingBotCheck, openSession, plain } from "../pipeline/session.js";
 import { runExplorer, type ExplorerJob } from "./explorer.js";
 import { withToken, type WalletToken } from "./funding.js";
 import { lookAround, type Found } from "./look.js";

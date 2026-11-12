@@ -1,29 +1,10 @@
 /** Going through a test's plain-English steps in an open session; shared by tests and the app's setup. */
-import { newId, type AppMap, type Blocked, type DrillEvent, type ReplayScript, type SigningReview, type Step, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
+import { type AppMap, type Blocked, type ReplayScript, type SigningReview, type Step, type TestSpec, type TestStep, type TestStepResult, type WalletRequest } from "@dappdrill/core";
 import { runStep } from "../agent/tester.js";
-import { detectBotCheck } from "../browser/access.js";
 import { runChecks } from "../explore/checks.js";
-import { createSession, replayScript, type EngineSession, type SessionOptions } from "../runtime.js";
+import { replayScript, type EngineSession } from "../runtime.js";
 import type { Env } from "./env.js";
-
-export const debug = (m: string) => {
-  if (process.env.DAPPDRILL_DEBUG) console.error(`[engine] ${m}`);
-};
-
-/** A session whose live frames go to `onFrame`. */
-export function openSession(env: Env, artifactsDir: string, onFrame: ((path: string) => Promise<void>) | undefined, extra: Partial<SessionOptions> = {}): Promise<EngineSession> {
-  return createSession(env.target, env.chains, {
-    artifactsDir,
-    headless: env.headless,
-    runId: newId("run"),
-    log: debug,
-    sink: async (e: DrillEvent) => {
-      if (e.type === "frame") await onFrame?.(e.path);
-      else if (e.type === "log" && e.level !== "info") await env.sink(e);
-    },
-    ...extra,
-  });
-}
+import { debug } from "./session.js";
 
 export interface WalkOptions {
   artifactsDir: string;
@@ -171,14 +152,3 @@ export class BlockedError extends Error {
   }
 }
 
-export function plain(e: unknown): string {
-  return (e instanceof Error ? e.message : String(e)).split("\n")[0]!.slice(0, 300);
-}
-
-/** Challenges often load a moment after the page; look twice before calling the page clean. */
-export async function landingBotCheck(session: EngineSession): Promise<Blocked | undefined> {
-  const first = await detectBotCheck(session.page);
-  if (first) return first;
-  await session.page.waitForTimeout(2_500);
-  return detectBotCheck(session.page);
-}

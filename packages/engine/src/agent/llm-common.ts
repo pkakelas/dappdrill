@@ -10,6 +10,8 @@ export const DEFAULT_MODEL = "claude-opus-5-5";
 export const DEFAULT_ACT_MODEL = "claude-opus-5-5";
 /** Runs test steps, judges results, writes tests and answers in the agent panel. */
 export const DEFAULT_FAST_MODEL = "claude-sonnet-5-5";
+/** Does a test's model actions first; the fast model gets the ones it can't do. */
+export const DEFAULT_QUICK_MODEL = "claude-haiku-5-5";
 
 export type LlmErrorCode = "refusal" | "max_tokens" | "max_turns" | "aborted" | "invalid_output" | "api";
 
@@ -63,16 +65,3 @@ export async function runTool(tool: AgentTool, input: unknown): Promise<{ result
   }
 }
 
-/** Pull a JSON object out of a text reply (plain or fenced). */
-export function extractJson(text: string): unknown {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-  const candidate = fenced?.[1] ?? text;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  if (start < 0 || end < start) throw new LlmError("invalid_output", "No JSON object in the reply");
-  try {
-    return JSON.parse(candidate.slice(start, end + 1));
-  } catch (err) {
-    throw new LlmError("invalid_output", `Reply is not valid JSON: ${(err as Error).message}`);
-  }
-}

@@ -1,0 +1,1111 @@
+{
+  "setup": {
+    "startPath": "/",
+    "steps": [
+      {
+        "type": "action",
+        "by": "code",
+        "do": "Click “Continue with a wallet”, choose MetaMask and approve the sign-in message in the wallet.",
+        "run": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Continue with a wallet"
+            }
+          },
+          {
+            "kind": "click",
+            "target": {
+              "text": "MetaMask→"
+            },
+            "optional": true
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "message"
+            }
+          },
+          {
+            "kind": "wait",
+            "until": "text",
+            "text": "Portfolio value"
+          }
+        ]
+      }
+    ]
+  },
+  "tests": [
+    {
+      "id": "withdraw-too-much",
+      "name": "Withdrawing more than the account holds is refused",
+      "goal": "A user asks to withdraw far more than their cash and is stopped before the wallet is asked.",
+      "startPath": "/home",
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open the Account menu and click “Withdraw”.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Account"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Withdraw",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 1000000 into “Withdraw amount”.",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Withdraw amount",
+                "withinDialog": true
+              },
+              "value": "1000000"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The dialog says the amount is more than can be withdrawn.",
+          "expect": {
+            "kind": "shows",
+            "text": "amount exceeds your withdrawable balance"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "Continue can't be clicked.",
+          "expect": {
+            "kind": "button",
+            "name": "Continue",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The dialog shows how much can be withdrawn, and that figure is not more than the Cash figure on the Home page behind it."
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet wasn't asked for anything.",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "enable-trading-rejected",
+      "name": "Rejecting “Enable trading” in the wallet leaves trading off",
+      "goal": "A user who declines the trading permission in the wallet is told so, can't trade, and can ask again.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Enable trading” and reject the request in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "reject",
+              "expect": {
+                "kind": "typedData"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "A notice says the request was rejected.",
+          "expect": {
+            "kind": "shows",
+            "text": "User rejected the request."
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was asked for the trading permission.",
+          "expect": {
+            "kind": "signed",
+            "holds": "DelegationAuth"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The page doesn't say trading is enabled.",
+          "expect": {
+            "kind": "hides",
+            "text": "trading enabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "“Enable trading” can be clicked again.",
+          "expect": {
+            "kind": "button",
+            "name": "Enable trading",
+            "is": "enabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page shows no raw error: no error code, no stack trace, no “[object Object]”."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Enable trading” again and approve the request in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "trading enabled"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The page says trading is enabled.",
+          "expect": {
+            "kind": "shows",
+            "text": "trading enabled"
+          }
+        }
+      ]
+    },
+    {
+      "id": "order-over-limit",
+      "name": "An order over the leverage limit is blocked",
+      "goal": "A user tries to buy far more AAPL than their margin allows and is stopped before the order is placed.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Enable trading” and approve the request in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "trading enabled"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Long”, choose USD as the unit and type 900000 as the amount.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "USD"
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0.00"
+              },
+              "value": "900000"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The form says the order is over the limit.",
+          "expect": {
+            "kind": "shows",
+            "text": "Over your 5x limit"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The button that places the order can't be clicked.",
+          "expect": {
+            "kind": "button",
+            "name": "Long AAPL/USD",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The order form shows the most the user could buy, and 900,000 USD is more than that."
+        }
+      ]
+    },
+    {
+      "id": "home-adds-up",
+      "name": "Home's figures agree with each other",
+      "goal": "A user reading Home sees totals that follow from the rows under them.",
+      "startPath": "/home",
+      "steps": [
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Portfolio value equals Cash plus Unrealized P&L, give or take two cents."
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Position value equals the sum of the Value column of the rows under Holdings, give or take two cents, and the number beside the Holdings tab is the number of rows."
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Margin available is not more than Cash, and the share of equity in use is consistent with the two (0% only when they are within a few dollars of each other)."
+        }
+      ]
+    },
+    {
+      "id": "limit-cancel",
+      "name": "Place a resting limit order and cancel it",
+      "goal": "A user places a limit buy for AAPL far below the market, finds it resting in their orders, and cancels it.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "values": {
+        "price": {
+          "from": 150,
+          "to": 180,
+          "decimals": 2
+        }
+      },
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Enable trading” and approve the request in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "trading enabled"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Long”, choose USD as the unit and type 100 as the amount.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "USD"
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0.00"
+              },
+              "value": "100"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type {{price}} into the Price field of the order form, so the order is a limit order at {{price}}.",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "near": "Est."
+              },
+              "value": "{{price}}"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The order form shows a limit order, not a market one: a long of 100 USD of AAPL at a price of {{price}}."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Long AAPL/USD” to place the order.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long AAPL/USD"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page confirms the order was placed and shows no error."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home afresh and its Orders tab.",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/home"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "tab",
+                "name": "Orders"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The orders list has an Apple BUY LIMIT order at ${{price}}, its status is Open, and its size times its price is 100 USD, give or take a cent."
+        },
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "Cancel the Apple order priced ${{price}} and no other: click Cancel on its row, and approve the wallet request if one comes."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home afresh and its Orders tab.",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/home"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "tab",
+                "name": "Orders"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The Apple BUY LIMIT order at ${{price}} shows as Cancelled."
+        }
+      ],
+      "cleanup": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home afresh and its Orders tab.",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/home"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "tab",
+                "name": "Orders"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "If an Apple order priced ${{price}} is listed as Open, cancel it with Cancel on its row and approve the wallet request. If there is none, there is nothing to do."
+        }
+      ]
+    },
+    {
+      "id": "order-list-fresh",
+      "name": "Home’s Orders keeps up without a reload",
+      "goal": "A user places a limit buy for AAPL, clicks over to Home, finds the order there and cancels it, and the list follows each time without the page being reloaded.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "values": {
+        "price": {
+          "from": 150,
+          "to": 180,
+          "decimals": 2
+        }
+      },
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Enable trading” and approve the request in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "trading enabled"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Long”, choose USD as the unit, type 100 as the amount and {{price}} as the price.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "USD"
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0.00"
+              },
+              "value": "100"
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "near": "Est."
+              },
+              "value": "{{price}}"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Long AAPL/USD” to place the order.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long AAPL/USD"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Home” in the left rail and open the Orders tab.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "link",
+                "name": "Home"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "tab",
+                "name": "Orders"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The order at ${{price}} is in the list within five seconds, with no reload.",
+          "expect": {
+            "kind": "shows",
+            "text": "${{price}}"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Cancel order” on the row of the order priced ${{price}}, the newest in the list, and wait for the notice that it was confirmed.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Cancel order"
+              }
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "confirmed"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The row of the order at ${{price}} doesn't say Open any more: it says Cancelled, or the order is gone from the list."
+        }
+      ],
+      "cleanup": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home afresh and its Orders tab.",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/home"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "tab",
+                "name": "Orders"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "If an Apple order priced ${{price}} is listed as Open, cancel it with Cancel on its row and approve the wallet request. If there is none, there is nothing to do."
+        }
+      ]
+    },
+    {
+      "id": "withdraw",
+      "name": "Withdraw to the connected wallet",
+      "goal": "A user takes ${{amount}} of their cash out to the wallet they signed in with.",
+      "startPath": "/home",
+      "values": {
+        "amount": {
+          "from": 20,
+          "to": 21,
+          "decimals": 2
+        }
+      },
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open the Account menu and click “Withdraw”.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Account"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Withdraw",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type {{amount}} into “Withdraw amount” and click “Continue”.",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Withdraw amount",
+                "withinDialog": true
+              },
+              "value": "{{amount}}"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Continue",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page asks where to send ${{amount}} and offers the connected wallet, 0x5bfF…4d8a, as a destination."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Choose “My connected wallet” and approve the transaction in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "text": "My connected wallet0x5bfF…4d8a→",
+                "withinDialog": true
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0x50d0000000000000000000000000000000000001"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was asked to send a transaction to pod's withdraw contract.",
+          "expect": {
+            "kind": "signed",
+            "holds": "0x50d0000000000000000000000000000000000001"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The withdrawal was mined and didn't revert.",
+          "expect": {
+            "kind": "mined",
+            "holds": "0x50d0000000000000000000000000000000000001"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page says the withdrawal of ${{amount}} was submitted or is on its way, and shows no error."
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "Cash on Home fell by {{amount}}.",
+          "expect": {
+            "kind": "changes",
+            "figure": "Cash",
+            "by": "-{{amount}}",
+            "on": "/home"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deposit-rejected",
+      "name": "Rejecting a deposit in the wallet queues nothing",
+      "goal": "A user starts a $25 deposit from their wallet, declines it in the wallet, and nothing is taken or queued.",
+      "startPath": "/home",
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Add funds” and type 25 into “Deposit amount”.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Add funds"
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Deposit amount",
+                "withinDialog": true
+              },
+              "value": "25"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Continue”, choose “Deposit $25 from your wallet” and reject the request in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Continue",
+                "withinDialog": true
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "text": "Deposit $25 from your wallet"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "reject",
+              "expect": {
+                "kind": "typedData"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "A notice says the request was rejected.",
+          "expect": {
+            "kind": "shows",
+            "text": "User rejected the request."
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was asked to sign a permit for the deposit.",
+          "expect": {
+            "kind": "signed",
+            "holds": "Permit"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The wallet request for the deposit was rejected, not approved, and the permit it was asked for was for 25 USDC and no more."
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The user can try again: “Deposit $25 from your wallet” is still offered and isn't greyed out or stuck loading."
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The page shows no raw error (no error code, no stack trace) and doesn't say a deposit was made."
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "Cash on Home didn't move.",
+          "expect": {
+            "kind": "changes",
+            "figure": "Cash",
+            "by": 0,
+            "on": "/home"
+          }
+        }
+      ]
+    },
+    {
+      "id": "market-long-close",
+      "name": "Open a market long on AAPL and close it",
+      "goal": "A user buys about ${{amount}} of AAPL at the market, finds the position in their holdings, and closes all of it.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "values": {
+        "amount": {
+          "from": 50,
+          "to": 60,
+          "decimals": 2
+        }
+      },
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Enable trading” and approve the request in the wallet.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "trading enabled"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Long”, choose USD as the unit and type {{amount}} as the amount, leaving the price at market.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "USD"
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0.00"
+              },
+              "value": "{{amount}}"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The order form shows a market order for {{amount}} USD of AAPL, with an estimated price within 2% of the price in the page's heading and estimated fees under a dollar."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Long AAPL/USD” to place the order.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long AAPL/USD"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The order form says the order was submitted and shows no error."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home afresh.",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/home"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Holdings lists an Apple (AAPL/USD) long position whose value is no more than about ${{amount}}."
+        },
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "Close the whole Apple position at market and no other position: tick “Select Apple”, click “Close at market”, confirm if the page asks, and approve the wallet request if one comes."
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home afresh.",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/home"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "Holdings doesn't list Apple any more.",
+          "expect": {
+            "kind": "hides",
+            "text": "AAPL/USD"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home afresh.",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/home"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "If Holdings lists an Apple position, close all of it at market: tick “Select Apple”, click “Close at market”, confirm, and approve the wallet request if one comes. If it lists none, there is nothing to do. Leave every other position alone."
+        }
+      ]
+    },
+    {
+      "id": "left-clean",
+      "name": "The tests left nothing on the account",
+      "goal": "After the tests above, the account has no order still open and no Apple position.",
+      "startPath": "/home",
+      "steps": [
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "Holdings doesn't list Apple.",
+          "expect": {
+            "kind": "hides",
+            "text": "AAPL/USD"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open the Orders tab and the filter at its right, which counts the orders of each status.",
+          "run": [
+            {
+              "kind": "click",
+              "target": {
+                "role": "tab",
+                "name": "Orders"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "All"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The filter's menu counts 0 orders as Open."
+        }
+      ]
+    }
+  ]
+}

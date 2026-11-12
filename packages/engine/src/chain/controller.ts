@@ -63,6 +63,16 @@ function refuseMainnetLive(c: ChainConfig, opts: StartChainsOptions): void {
   }
 }
 
+/**
+ * Why a model working off the written steps may not approve a request: it would sign on a mainnet
+ * that isn't forked. This holds even for an app that allows live mainnet.
+ */
+export function refuseOnLiveMainnet(chains: ChainController, request: { chainId: number }): string | undefined {
+  if (!MAINNET_CHAIN_IDS.has(request.chainId)) return undefined;
+  if (chains.has(request.chainId) && chains.mode(request.chainId) === "fork") return undefined;
+  return `Refused: this would sign on live chain ${request.chainId}. Reject it and carry on without it.`;
+}
+
 /** Hosts the page called that we try as RPCs for a chain the app wants. */
 const MAX_HINTS = 6;
 

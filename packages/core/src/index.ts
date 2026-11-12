@@ -13,3 +13,4 @@ export * from "./test.js";
 export * from "./brief.js";
 export * from "./rollup.js";
 export * from "./explore.js";
+export * from "./suite.js";

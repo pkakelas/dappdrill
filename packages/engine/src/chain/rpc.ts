@@ -70,11 +70,6 @@ export function probeChainId(url: string): Promise<number | undefined> {
   return p;
 }
 
-/** Lets tests pre-seed or reset the probe cache. */
-export function setProbedChainId(url: string, chainId: number | undefined): void {
-  chainIdCache.set(url, Promise.resolve(chainId));
-}
-
 export function hexToNumber(hex: unknown): number {
   if (typeof hex === "number") return hex;
   if (typeof hex !== "string") throw new Error(`expected hex quantity, got ${typeof hex}`);

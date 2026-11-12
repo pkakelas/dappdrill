@@ -32,9 +32,11 @@ export interface Env {
   actLlm(): Llm;
   /** Runs test steps and judges results (Sonnet by default). */
   fastLlm(): Llm;
+  /** Does a test's model actions first (Haiku by default). */
+  quickLlm(): Llm;
   costUsd(): number;
   /** The same spend, by which model did the work. */
-  costs(): Record<"think" | "act" | "fast", number>;
+  costs(): Record<"think" | "act" | "fast" | "quick", number>;
   /** True for a repeat of an app-wide issue another test already reported. */
   isDuplicate(issue: Issue): boolean;
   /** The run with repeated issues replaced by the one that was reported. */
@@ -56,6 +58,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   let think: Llm | undefined;
   let act: Llm | undefined;
   let fast: Llm | undefined;
+  let quick: Llm | undefined;
   const costUsd = () => llms.reduce((sum, l) => sum + l.costUsd(), 0);
 
   // Wallet-setup problems (wrong network, account switch, two wallets) are the
@@ -146,8 +149,12 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
       if (!fast) llms.push((fast = createLlm({ role: "fast" })));
       return fast;
     },
+    quickLlm() {
+      if (!quick) llms.push((quick = createLlm({ role: "quick" })));
+      return quick;
+    },
     costUsd,
-    costs: () => ({ think: think?.costUsd() ?? 0, act: act?.costUsd() ?? 0, fast: fast?.costUsd() ?? 0 }),
+    costs: () => ({ think: think?.costUsd() ?? 0, act: act?.costUsd() ?? 0, fast: fast?.costUsd() ?? 0, quick: quick?.costUsd() ?? 0 }),
     isDuplicate,
     canonical,
     log,

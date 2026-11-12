@@ -35,7 +35,8 @@ import { liveShortfall, shortfallLine } from "./funds.js";
 import { pin } from "./pin.js";
 import { secondLook } from "./second-look.js";
 import { setupRunner, type Prepared, type SetupRunner, type SetupTestOutcome } from "./setup.js";
-import { BlockedError, debug, scriptOf, landingBotCheck, openSession, plain, walkSteps } from "./steps.js";
+import { debug, landingBotCheck, openSession, plain } from "./session.js";
+import { BlockedError, scriptOf, walkSteps } from "./steps.js";
 
 export { landingBotCheck };
 

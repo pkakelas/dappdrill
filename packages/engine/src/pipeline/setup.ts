@@ -13,7 +13,8 @@ import path from "node:path";
 import { TestRunResult, type AppSetup, type Blame, type SetupRunResult, type SigningReview, type TestSpec, type TestStep, type TestStepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
 import { saveState } from "../browser/session.js";
 import type { Env } from "./env.js";
-import { BlockedError, landingBotCheck, openSession, plain, walkSteps, type WalkOptions } from "./steps.js";
+import { landingBotCheck, openSession, plain } from "./session.js";
+import { BlockedError, walkSteps, type WalkOptions } from "./steps.js";
 
 /** What a test starts from. */
 export interface Prepared {

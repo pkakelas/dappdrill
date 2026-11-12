@@ -9,7 +9,7 @@ import { AppMap, SetupDraft, TestDraft, TestIdea, describeBlock, type Blocked } 
 import type { AgentTool, DrillSession, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
 import { browserTools, inboxTool, noteTool, Recorder } from "./tools.js";
-import { walletLine } from "./tester.js";
+import { walletLine } from "./tools.js";
 
 export const ANALYZE_SYSTEM = `You get about two minutes in a web app (often a web3 dApp, with a test wallet injected on a local fork) to learn it and pick what to test.
 

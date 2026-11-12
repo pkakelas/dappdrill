@@ -4,6 +4,7 @@
  * Step with a robust Locator, so whatever the agent did can be replayed
  * without a model.
  */
+import { formatEther } from "viem";
 import { z } from "zod";
 import { applyParams, type Blocked, type ReplayScript, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
 import { detectBotCheck } from "../browser/access.js";
@@ -413,6 +414,17 @@ export async function settle(session: DrillSession): Promise<void> {
   await session.page.waitForTimeout(SETTLE_MS);
   await waitQuiet(session.page, QUIET_MS, () => pendingSign(session) !== undefined);
   await session.page.waitForLoadState("networkidle", { timeout: 2_500 }).catch(() => null);
+}
+
+/** What the test wallet holds, for a model that would otherwise take a page showing 0 at its word. */
+export async function walletLine(session: DrillSession): Promise<string> {
+  try {
+    const address = session.wallet.address();
+    const wei = await session.chains.client(session.wallet.chainId()).getBalance({ address });
+    return `The test wallet ${address} holds ${formatEther(wei)} of the native coin on the test chain.`;
+  } catch {
+    return "";
+  }
 }
 
 /** Render a script's steps for the model, one per line with indices. */

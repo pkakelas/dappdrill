@@ -6,6 +6,7 @@
  * - runTests: run tests (after the app's setup); cached actions first, the fast model when they break.
  * - writeTest: write or fork a test from a sentence.
  * - chatTurn: one answer from the assistant in the side panel.
+ * - runSuite: run a suite of tests made of actions and checks, each done by code or by a model.
  * - explore: one pass over the app: map it, give each feature an explorer, prove what works as tests and settle the bugs.
  */
 import {
@@ -33,6 +34,10 @@ import { landingBotCheck, runTestItems, type RunTestsOptions, type TestHooks, ty
 import { createSession, type EngineSession } from "./runtime.js";
 import type { Llm } from "./types.js";
 
+export { runSuite, type RunSuiteInput, type SuiteProgress } from "./run/suite.js";
+export { makeTest, type Made, type MakeInput } from "./make/maker.js";
+export { lookForGoals, type Goal, type Looked } from "./make/look.js";
+export type { Finding } from "./make/draft.js";
 export type { TestItem, TestOutcome, TestHooks, DraftInput, ExploreHooks, ExploreOptions, ExploreOutput, KnownBug, KnownTest };
 
 const debug = (m: string) => {

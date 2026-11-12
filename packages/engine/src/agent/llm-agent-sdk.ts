@@ -89,6 +89,7 @@ export function createAgentSdkLlm(opts: { model: string; effort: Effort }): Llm 
 
   return {
     backend: "agent-sdk",
+    model: opts.model,
     costUsd: () => cost,
 
     async runAgent({ system, prompt, images, tools, maxTurns, signal, onText }) {

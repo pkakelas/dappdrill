@@ -25,6 +25,7 @@ function scripted(next: () => ScriptStep[], finalText: string): ScriptedLlm {
   const results: string[] = [];
   return {
     backend: "api",
+    model: "scripted",
     results,
     costUsd: () => 0,
     async runAgent({ tools, maxTurns }) {

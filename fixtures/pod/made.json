@@ -1,0 +1,688 @@
+{
+  "setup": {
+    "startPath": "/",
+    "steps": [
+      {
+        "type": "action",
+        "by": "code",
+        "do": "Click \u201cContinue with a wallet\u201d, choose MetaMask and approve the sign-in message in the wallet.",
+        "run": [
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Continue with a wallet"
+            }
+          },
+          {
+            "optional": true,
+            "kind": "click",
+            "target": {
+              "text": "MetaMask\u2192"
+            }
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve",
+            "expect": {
+              "kind": "message"
+            }
+          },
+          {
+            "kind": "wait",
+            "until": "text",
+            "text": "Portfolio value"
+          }
+        ]
+      }
+    ]
+  },
+  "notes": [
+    {
+      "text": "Never approve a deposit in the wallet (\u201cAdd funds\u201d): the app's server sends it on to a real testnet. Rejecting one is fine.",
+      "from": "owner"
+    },
+    {
+      "text": "Don't use Mint or any faucet: it is rate-limited and the account has what it needs.",
+      "from": "owner"
+    },
+    {
+      "text": "The account is kept between runs and holds a short Google position, deposits waiting in a queue and many old orders. Leave them alone; a test only touches what it made itself, and trades Apple (AAPL/USD).",
+      "from": "owner"
+    },
+    {
+      "text": "Before the first order, the order button reads 'Enable trading' and asks for a one-time eth_signTypedData_v4 DelegationAuth (pod delegation) signature; the order button only appears after that is signed.",
+      "from": "look"
+    },
+    {
+      "text": "There is no Market/Limit switch: typing into the Price field turns the order into a Limit order, and the refresh icon next to it puts the mid price back. Leverage and TP/SL are hidden behind 'More options\u203a'.",
+      "from": "look"
+    },
+    {
+      "text": "Close, Edit and Set TP/SL for a position are on Home: expand its Holdings row and they appear as links to the market page. The account already holds a Google short, so look for Apple rows only.",
+      "from": "look"
+    },
+    {
+      "text": "Withdraw is in the Account menu (avatar, top right). The per-deposit Withdraw buttons on Home belong to old queued deposits: leave them alone.",
+      "from": "look"
+    },
+    {
+      "text": "The Orders list does not update by itself after placing or cancelling an order: reload the page to see the new row or its Cancelled status.",
+      "from": "maker"
+    },
+    {
+      "text": "After every page reload the order button reads \u201cEnable trading\u201d again, and the first Cancel click asks for a new DelegationAuth signature, so approve it in the wallet.",
+      "from": "maker"
+    },
+    {
+      "text": "Position value on Home includes the existing Google short (about $45), so only its change is meaningful.",
+      "from": "maker"
+    },
+    {
+      "text": "Closing: Home Apple row > Close Apple opens the market page; click Enable trading (sign DelegationAuth), then All, then Close long. Reload to see Orders update.",
+      "from": "maker"
+    },
+    {
+      "text": "The account's buying power is large, so $900,000 at 5\u00d7 trips the limit; the limit figure in the message (about $398k) changes with the balance, so don't assert it.",
+      "from": "maker"
+    },
+    {
+      "text": "Nothing is created by this test, so there is nothing to clean up.",
+      "from": "maker"
+    },
+    {
+      "text": "Withdraw is in the Account menu (avatar); the per-deposit Withdraw buttons on Home are for old queued deposits, not this dialog.",
+      "from": "maker"
+    },
+    {
+      "text": "Position opened from the order panel shows Leverage 19.96\u00d7 and Margin used $2.45 on Home regardless of the 5\u00d7 chosen under More options.",
+      "from": "maker"
+    },
+    {
+      "text": "Market order size for $50 comes out at 0.1372 AAPL (~$49), sized at a price about 2% above mid, so match 'about $50', not exactly 50.",
+      "from": "maker"
+    }
+  ],
+  "tests": [
+    {
+      "id": "place-a-50-long-limit-order-on-apple-well-below-mid-and-see-it-rest-open",
+      "name": "Place a $50 Long limit order on Apple well below mid and see it rest open",
+      "goal": "A user with cash places a $50 Long limit order on Apple at $300, well below the mid price. It shows in the Orders list as a resting (open) Buy limit at $300.00 and does not fill.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "values": {
+        "limit": {
+          "from": 295,
+          "to": 305,
+          "decimals": 0
+        }
+      },
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cEnable trading\u201d and approve the DelegationAuth signature request in the wallet",
+          "run": [
+            {
+              "note": "Click \"Enable trading\" to start the one-time DelegationAuth signature",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Make sure the \u201cLong\u201d tab is selected and the amount unit is \u201cUSD\u201d, then type 50 into the Amount field (placeholder \u201c0.00\u201d)",
+          "run": [
+            {
+              "note": "Make sure the Long tab is selected",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long"
+              }
+            },
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0.00",
+                "near": "USDAAPL"
+              },
+              "value": "50"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type {{limit}} into the Price field",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "near": "Est."
+              },
+              "value": "{{limit}}"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The Price field shows {{limit}}, the form describes it as a Limit order that rests until the price is reached, and the badge next to the price reads \"BELOW MID\" (the price is below the mid price)"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \u201cLong AAPL/USD\u201d button",
+          "run": [
+            {
+              "note": "Place the $50 long limit order at {{limit}}",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long AAPL/USD"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The order button shows \u201cOrder submitted\u201d (a confirmed notice appears)"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Reload the page /trade/AAPLUSD:perp so the Orders list refreshes (the list does not update by itself)",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/trade/AAPLUSD:perp"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The first row of the Orders list is a BUY LIMIT at ${{limit}}.00 for AAPL placed \u201cjust now\u201d (or seconds ago) with status Open and Modify / Cancel buttons \u2014 it is not Filled and not Cancelled"
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The Orders list shows no Filled row placed just now for AAPL at ${{limit}}.00, so the limit order did not fill"
+        },
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "In the Orders list, click \u201cCancel order\u201d on the first row (the Open BUY LIMIT at ${{limit}}.00) and approve the DelegationAuth signature request in the wallet if one appears"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Reload the page /trade/AAPLUSD:perp",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/trade/AAPLUSD:perp"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The first row of the Orders list is the BUY LIMIT at ${{limit}}.00 and its status is Cancelled, and no row in the Orders list is still Open"
+        }
+      ],
+      "cleanup": [
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "On the Apple (AAPL/USD) market page, cancel every open AAPL order in the Orders list that is a Buy limit with status Open, using its Cancel button, and approve the delegation signature in the wallet if asked"
+        }
+      ]
+    },
+    {
+      "id": "open-a-50-long-on-apple-at-5-and-see-it-under-holdings",
+      "name": "Open a $50 Long on Apple at 5\u00d7 and see it under Holdings",
+      "goal": "A user opens a $50 market Long on Apple (AAPL/USD) at 5\u00d7 max leverage. The order shows as Filled, and an Apple LONG position of matching size shows up under Holdings on Home, with Position value and Margin available changed to match.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cMore options\u203a\u201d in the order panel",
+          "run": [
+            {
+              "note": "Open More options in the order panel",
+              "kind": "click",
+              "target": {
+                "text": "More options\u203a"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201c5\u00d7\u201d under \u201cMax leverage\u201d",
+          "run": [
+            {
+              "note": "Select 5\u00d7 max leverage",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "5\u00d7"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "With \u201cLong\u201d selected and the amount in USD, type 50 into the amount field (placeholder \u201c0.00\u201d)",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0.00",
+                "near": "USDAAPL"
+              },
+              "value": "50"
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cEnable trading\u201d and approve the DelegationAuth signature request in the wallet",
+          "run": [
+            {
+              "note": "Enable trading to get the DelegationAuth signature request",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was asked for the DelegationAuth signature",
+          "expect": {
+            "kind": "signed",
+            "holds": "DelegationAuth"
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cLong AAPL/USD\u201d",
+          "run": [
+            {
+              "note": "Place the $50 Long AAPL/USD order",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Long AAPL/USD"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Reload the Apple page (/trade/AAPLUSD:perp) so the Orders list refreshes",
+          "run": [
+            {
+              "kind": "goto",
+              "url": "/trade/AAPLUSD:perp"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The first row of the Orders list is a BUY MARKET order on AAPL with status Filled, placed \u201cjust now\u201d or within the last minute, and its size is about 50 dollars worth of AAPL at that row's price (roughly 0.137 AAPL at about $357)"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cHome\u201d in the left rail",
+          "run": [
+            {
+              "note": "Open Home from the left rail",
+              "kind": "click",
+              "target": {
+                "role": "link",
+                "name": "Home"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Under Holdings, there is an Apple PERP AAPL/USD row marked LONG whose size is about 0.137 AAPL and whose Value is about $49 to $50 (the $50 order)"
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "Position value at the top equals the sum of the Values of the rows under Holdings (the Apple long plus the existing Google short), within about a dollar, and Margin available is lower than Cash"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the Apple row under Holdings to expand it",
+          "run": [
+            {
+              "note": "Expand the Apple row under Holdings",
+              "kind": "click",
+              "target": {
+                "text": "ApplePerp\u2192AAPL/USDlong0.1371$48.91-$0.10-4.1%"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The expanded Apple row shows the position was opened at 5\u00d7 leverage: Leverage reads about 5\u00d7 and Margin used is about one fifth of the position Value (about $10)"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cClose Apple\u201d in the expanded Apple row",
+          "run": []
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "On the Apple market page, click \u201cEnable trading\u201d and approve the DelegationAuth signature request in the wallet",
+          "run": []
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cAll\u201d in the Close position panel, then click \u201cClose long\u201d",
+          "run": []
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open Home again and confirm the Apple row is gone from Holdings, leaving only the Google short",
+          "run": []
+        }
+      ],
+      "cleanup": [
+        {
+          "type": "action",
+          "by": "llm",
+          "do": "Close any open Apple (AAPL/USD) long position: on Home expand the Apple row, click Close Apple, click Enable trading and approve the DelegationAuth signature, click All, then click Close long. Leave the Google short and the queued deposits alone."
+        }
+      ]
+    },
+    {
+      "id": "over-leverage-apple-long-is-refused",
+      "name": "Over-leverage Apple Long is refused",
+      "goal": "A user enters a $900,000 Apple Long at 5\u00d7 max leverage and is told 'Over your 5x limit \u2026 raise Max leverage or lower the amount'. No order is placed.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cEnable trading\u201d and approve the DelegationAuth signature request in the wallet",
+          "run": [
+            {
+              "note": "Click Enable trading to start the DelegationAuth signature",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "note": "Approve eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "typedData"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cMore options\u203a\u201d to show the leverage settings",
+          "run": [
+            {
+              "note": "Show the leverage settings (line 2)",
+              "kind": "click",
+              "target": {
+                "text": "More options\u203a"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click the \u201c5\u00d7\u201d button under \u201cMax leverage\u201d",
+          "run": [
+            {
+              "note": "Set Max leverage to 5\u00d7",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "5\u00d7"
+              }
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 900000 into the Amount field (USD)",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "0.00",
+                "near": "USDAAPL"
+              },
+              "value": "900000"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The order form shows a red message that starts with \u201cOver your 5x limit\u201d and ends with \u201craise Max leverage or lower the amount\u201d"
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The order button \u201cLong AAPL/USD\u201d is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "Long AAPL/USD",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was not asked to sign any order or transaction after the DelegationAuth signature",
+          "expect": {
+            "kind": "not-signed",
+            "holds": "createOrder"
+          }
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "reject-enable-trading-signature-on-apple",
+      "name": "Reject Enable trading signature on Apple",
+      "goal": "A user who clicks Enable trading on the Apple page and rejects the signature in the wallet sees the button go back to Enable trading, and no order is placed.",
+      "startPath": "/trade/AAPLUSD:perp",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \u201cEnable trading\u201d and reject the DelegationAuth signature request in the wallet.",
+          "run": [
+            {
+              "note": "Start trading enablement so the DelegationAuth signature request appears",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Enable trading"
+              }
+            },
+            {
+              "note": "Reject eth_signTypedData_v4 DelegationAuth (pod delegation)",
+              "kind": "wallet",
+              "respond": "reject",
+              "expect": {
+                "kind": "typedData"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The wallet was asked for a DelegationAuth signature, and that was the only signature request."
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The order button reads \u201cEnable trading\u201d again and is not stuck on \u201cEnabling trading\u2026\u201d.",
+          "expect": {
+            "kind": "button",
+            "name": "Enable trading",
+            "is": "enabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "No order was placed: the wallet was asked to sign no order, and the page shows no order confirmation."
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "withdraw-more-than-the-withdrawable-balance-is-refused",
+      "name": "Withdraw more than the withdrawable balance is refused",
+      "goal": "A user types a withdrawal of $90,000, more than the $79,598 available, and sees 'amount exceeds your withdrawable balance' with Continue disabled.",
+      "startPath": "/home",
+      "values": {},
+      "steps": [
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \"Account\" in the top right, then click \"Withdraw\" in the menu",
+          "run": [
+            {
+              "note": "Open Account menu (top right)",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Account"
+              }
+            },
+            {
+              "note": "Open Withdraw from the Account menu",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Withdraw",
+                "withinDialog": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "llm",
+          "claim": "The withdraw dialog asks \"How much would you like to withdraw?\" and shows a \"Max available\" figure"
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type 90000 into \"Withdraw amount\"",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Withdraw amount",
+                "withinDialog": true
+              },
+              "value": "90000"
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The page shows the message \"amount exceeds your withdrawable balance\"",
+          "expect": {
+            "kind": "shows",
+            "text": "amount exceeds your withdrawable balance"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The \"Continue\" button is disabled",
+          "expect": {
+            "kind": "button",
+            "name": "Continue",
+            "is": "disabled"
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The wallet was not asked to sign anything",
+          "expect": {
+            "kind": "not-signed"
+          }
+        }
+      ],
+      "cleanup": []
+    }
+  ]
+}

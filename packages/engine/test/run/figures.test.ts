@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { addsUp, asRead, brokenValues, evaluate, labelled, loosely, numberOnPage, shownNumber } from "../../src/explore/display.js";
+import { addsUp, asRead, brokenValues, evaluate, labelled, loosely, numberOnPage, shownNumber } from "../../src/run/figures.js";
 import { withToken } from "../../src/explore/funding.js";
-import { SitePages } from "../../src/explore/look.js";
+import { SitePages } from "../../src/browser/site-pages.js";
 
 describe("shownNumber", () => {
   it("reads numbers as pages write them", () => {

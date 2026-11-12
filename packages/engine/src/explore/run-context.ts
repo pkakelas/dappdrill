@@ -1,5 +1,5 @@
 /** What every stage of a pass shares. */
-import { MAINNET_CHAIN_IDS, chainName, type AppMap, type AppSetup, type Blocked, type DrillEvent, type DrillEventSink, type ExploreCosts, type ExploreSuggestion, type SigningReview, type Step, type TestRunResult, type TestStep, type WalletRequest } from "@dappdrill/core";
+import { chainName, type AppMap, type AppSetup, type Blocked, type DrillEvent, type DrillEventSink, type ExploreCosts, type ExploreSuggestion, type SigningReview, type Step, type TestRunResult, type TestStep } from "@dappdrill/core";
 import { openEnv, type Env } from "../pipeline/env.js";
 import type { Prepared, SetupRunner } from "../pipeline/setup.js";
 import { Board } from "./board.js";
@@ -196,13 +196,6 @@ export class ExploreRun {
       if (reviews === this.reviews && !this.busy()) return;
     }
   }
-}
-
-/** A pass runs unattended, so nothing it does may reach a mainnet, even for an app that allows live mainnet. */
-export function refuseMainnet(env: Env, request: WalletRequest): string | undefined {
-  if (!MAINNET_CHAIN_IDS.has(request.chainId)) return undefined;
-  if (env.chains.has(request.chainId) && env.chains.mode(request.chainId) === "fork") return undefined;
-  return `Refused: this would sign on live chain ${request.chainId}. Reject it and record a gap.`;
 }
 
 const round = (usd: number) => Math.round(usd * 1000) / 1000;

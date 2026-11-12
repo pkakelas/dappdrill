@@ -194,6 +194,7 @@ export interface AgentTool<I = any> {
 export interface Llm {
   /** Which backend is active: an API key, or the local Claude Code login via the Agent SDK. */
   readonly backend: "api" | "agent-sdk";
+  readonly model: string;
   /** Tool loop until the model stops calling tools or maxTurns is hit. */
   runAgent(opts: {
     system: string;

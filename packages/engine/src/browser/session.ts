@@ -15,6 +15,7 @@ import { toHex } from "../chain/rpc.js";
 import { installAccessHeaders, USER_AGENT } from "./access.js";
 import { installBackendBalances } from "./backend-balances.js";
 import { RpcRouter } from "./rpc-route.js";
+import { Said } from "./said.js";
 import { installResponses, installStorage } from "./setup.js";
 import { Traffic } from "./traffic.js";
 
@@ -57,6 +58,8 @@ export interface EngineSession extends DrillSession {
   readonly traffic: Traffic;
   /** Backend hosts that reported the wallet's holdings from the real chain, which we answered from the fork instead. */
   readonly backendsAnswered: readonly string[];
+  /** Every line of text the page showed, and when. */
+  readonly said: Said;
 }
 
 const WalletState = z.object({ connected: z.boolean(), chainId: z.number().int() });
@@ -120,6 +123,7 @@ class Session implements EngineSession {
   readonly console: ConsoleEntry[] = [];
   readonly rpc: RpcLogEntry[] = [];
   readonly traffic = new Traffic();
+  readonly said = new Said();
   readonly backendsAnswered: string[] = [];
   readonly artifactsDir: string;
   readonly emit: DrillEventSink;
@@ -208,6 +212,7 @@ class Session implements EngineSession {
     await installAccessHeaders(context, this.target.url, this.target.headers ?? {});
     await installResponses(context, this.target.responses ?? []);
     this.traffic.install(context);
+    await this.said.install(context);
 
     context.on("page", (p) => this.watchPage(p));
     this.page = await context.newPage();
@@ -217,6 +222,7 @@ class Session implements EngineSession {
   }
 
   private watchPage(page: Page): void {
+    this.said.watchDialogs(page);
     page.on("console", (msg) => {
       const type = msg.type();
       const level: ConsoleEntry["level"] = type === "error" ? "error" : type === "warning" ? "warn" : type === "info" ? "info" : "log";

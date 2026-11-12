@@ -9,7 +9,8 @@ import { decodeWalletRequest } from "../agent/wallet-decode.js";
 import { settle } from "../agent/tools.js";
 import type { DrillSession, Hex } from "../types.js";
 import { carried, tokensNamed, type NamedToken } from "./carried.js";
-import { addsUp, asRead, brokenValues, labelled, loosely, noLabel, numberOnPage, shownNumber } from "./display.js";
+import { addsUp, brokenValues, labelled, loosely, noLabel, numberOnPage, shownNumber } from "../run/figures.js";
+import { pageText, showsText } from "../run/page.js";
 import { referencePrices } from "./prices.js";
 
 export interface CheckResult {
@@ -33,7 +34,7 @@ export async function runChecks(session: DrillSession, checks: TestCheck[], sinc
 /** The number a claim is about: the value as given, or the figure under that label on the page when the value names one. */
 async function figureOf(session: DrillSession, value: string): Promise<{ text: string } | { error: CheckResult }> {
   if (!isLabel(value)) return { text: value };
-  const text = await pageText(session);
+  const text = await pageText(session.page);
   const figure = labelled(text, value);
   return figure ? { text: figure.text } : { error: { status: "error", evidence: noLabel([value], text) } };
 }
@@ -47,10 +48,10 @@ export async function evaluateCheck(session: DrillSession, assert: CheckAssert, 
     switch (assert.kind) {
       case "shows":
         if (!value) return missing("the text to look for");
-        return (await visible(session, value)) ? { status: "pass", evidence: `Shows “${value}”.` } : { status: "fail", evidence: `“${value}” isn't on the page.` };
+        return (await showsText(session.page, value, SHOW_WAIT_MS)) ? { status: "pass", evidence: `Shows “${value}”.` } : { status: "fail", evidence: `“${value}” isn't on the page.` };
       case "hides":
         if (!value) return missing("the text that should be gone");
-        return (await visible(session, value, 0)) ? { status: "fail", evidence: `“${value}” is still on the page.` } : { status: "pass", evidence: `“${value}” isn't on the page.` };
+        return (await showsText(session.page, value, 0)) ? { status: "fail", evidence: `“${value}” is still on the page.` } : { status: "pass", evidence: `“${value}” isn't on the page.` };
       case "url": {
         if (!value) return missing("part of the address");
         const url = session.page.url();
@@ -92,7 +93,7 @@ export async function evaluateCheck(session: DrillSession, assert: CheckAssert, 
       }
       case "adds-up": {
         if (!value) return missing("the sum");
-        const r = addsUp(value, await pageText(session));
+        const r = addsUp(value, await pageText(session.page));
         if (r.error) return { status: "error", evidence: r.error };
         const read = r.read ? ` (${r.read})` : "";
         return r.ok
@@ -100,7 +101,7 @@ export async function evaluateCheck(session: DrillSession, assert: CheckAssert, 
           : { status: "fail", evidence: `The left side comes to ${trim(r.left!)}, but the page shows ${trim(r.right!)}${read}.` };
       }
       case "well-formed": {
-        const broken = brokenValues(await pageText(session));
+        const broken = brokenValues(await pageText(session.page));
         return broken.length
           ? { status: "fail", evidence: `The page shows ${broken.slice(0, 3).map((b) => `${b.what} in “${b.line}”`).join("; ")}.` }
           : { status: "pass", evidence: "No NaN, undefined or other broken value on the page." };
@@ -112,13 +113,6 @@ export async function evaluateCheck(session: DrillSession, assert: CheckAssert, 
 }
 
 const missing = (what: string): CheckResult => ({ status: "error", evidence: `The check didn't say ${what}.` });
-
-/** In one element as written, or across elements and fields the way a person reads them ("Fee" above "$0.04", "1,000" for 1000). */
-async function visible(session: DrillSession, text: string, waitMs = SHOW_WAIT_MS): Promise<boolean> {
-  const el = session.page.getByText(text).first();
-  const inOne = await (waitMs === 0 ? el.isVisible().catch(() => false) : el.waitFor({ state: "visible", timeout: waitMs }).then(() => true, () => false));
-  return inOne || loosely(await pageText(session)).includes(loosely(text));
-}
 
 async function checkTx(session: DrillSession, signs: WalletRequest[]): Promise<CheckResult> {
   const sent = signs.filter((r) => r.outcome === "approved" && typeof r.result === "string" && /^0x[0-9a-f]{64}$/i.test(r.result)).at(-1);
@@ -135,7 +129,7 @@ async function checkTx(session: DrillSession, signs: WalletRequest[]): Promise<C
  * doesn't show says nothing about the app: there is nothing to compare.
  */
 async function checkBalance(session: DrillSession, shown: string, token?: string): Promise<CheckResult> {
-  if (!loosely(await pageText(session)).includes(loosely(shown))) return { status: "error", evidence: `“${shown}” isn't on the page, so there is nothing to compare with the chain. Give the number as the page shows it.` };
+  if (!loosely(await pageText(session.page)).includes(loosely(shown))) return { status: "error", evidence: `“${shown}” isn't on the page, so there is nothing to compare with the chain. Give the number as the page shows it.` };
   const chainId = session.wallet.chainId();
   const client = session.chains.client(chainId);
   const holder = session.wallet.address();
@@ -164,7 +158,7 @@ const AMOUNT_TOLERANCE = 0.05;
 async function checkAmount(session: DrillSession, signs: WalletRequest[], shown: string, token: string): Promise<CheckResult> {
   const want = shownNumber(shown);
   if (want === undefined || want <= 0) return { status: "error", evidence: `“${shown}” isn't an amount.` };
-  if (!loosely(await pageText(session)).includes(loosely(shown))) return { status: "error", evidence: `“${shown}” isn't on the page, so there is nothing to compare the request with. Give the number as the page shows it.` };
+  if (!loosely(await pageText(session.page)).includes(loosely(shown))) return { status: "error", evidence: `“${shown}” isn't on the page, so there is nothing to compare the request with. Give the number as the page shows it.` };
   const requests = signs.map((r) => ({ r, has: carried(r) })).filter(({ has }) => has.amounts.length > 0).reverse();
   if (!signs.length) return { status: "fail", evidence: "Nothing was asked to sign on this path." };
   const asked = (r: WalletRequest) => `The wallet was asked: ${decodeWalletRequest(r).summary}`;
@@ -212,7 +206,7 @@ const PRICE_TOLERANCE = 0.03;
 
 async function checkPrice(session: DrillSession, claimed: string, asset: string): Promise<CheckResult> {
   // A live price has often ticked since it was read, so the page's own number nearest the one named is what gets checked.
-  const shown = numberOnPage(await pageText(session), claimed);
+  const shown = numberOnPage(await pageText(session.page), claimed);
   if (!shown) return { status: "error", evidence: `“${claimed}” isn't on the page, and nothing close to it is, so there is nothing to compare with the market.` };
   const away = (p: { usd: number }) => Math.abs(shown.value - p.usd) / p.usd;
   // A ticker can name a coin and a stock (ETH is both): the one the page agrees with, else the coin.
@@ -224,14 +218,6 @@ async function checkPrice(session: DrillSession, claimed: string, asset: string)
   return off <= PRICE_TOLERANCE ? { status: "pass", evidence: `${said}.` } : { status: "fail", evidence: `${said}, ${(off * 100).toFixed(1)}% apart.` };
 }
 
-/** What a user can read: the body's text (an open dialog's is part of it) and what the fields hold. */
-async function pageText(session: DrillSession): Promise<string> {
-  const text = await session.page.evaluate(() => {
-    const fields = [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].filter((f) => f.value && f.type !== "password" && f.type !== "hidden" && f.checkVisibility());
-    return [document.body.innerText, ...fields.map((f) => f.value)].join("\n");
-  });
-  return asRead(text);
-}
 const trim = (n: number) => String(Number(n.toPrecision(8)));
 
 /** "1,000.50" agrees with 1000.4999 or 1000.5001: the page rounds to the digits it shows. */

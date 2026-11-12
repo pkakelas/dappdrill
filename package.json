@@ -16,7 +16,10 @@
     "fixture": "corepack pnpm --filter @dappdrill/harbor-vault start",
     "fixture:stop": "corepack pnpm --filter @dappdrill/harbor-vault stop",
     "cli": "corepack pnpm --filter @dappdrill/cli exec tsx src/main.ts",
-    "drill": "corepack pnpm --filter @dappdrill/engine exec tsx dev/drill.ts"
+    "drill": "corepack pnpm --filter @dappdrill/engine exec tsx dev/drill.ts",
+    "suite": "corepack pnpm --filter @dappdrill/engine exec tsx dev/suite.ts",
+    "make": "corepack pnpm --filter @dappdrill/engine exec tsx dev/make.ts",
+    "look": "corepack pnpm --filter @dappdrill/engine exec tsx dev/look.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

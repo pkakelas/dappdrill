@@ -11,13 +11,14 @@ import { describeRequest, createToolkit, inboxTool, noteTool, pendingSign, Recor
 import type { Env } from "../pipeline/env.js";
 import { pin } from "../pipeline/pin.js";
 import { setupRunner } from "../pipeline/setup.js";
-import { openSession, plain } from "../pipeline/steps.js";
+import { openSession, plain } from "../pipeline/session.js";
 import type { EngineSession } from "../runtime.js";
 import type { AgentTool, DrillSession } from "../types.js";
 import { fileBug, matchReport, seenAgain } from "./bugs.js";
 import { evaluateCheck } from "./checks.js";
 import { queueProof } from "./prove.js";
-import { refuseMainnet, type ExploreRun } from "./run-context.js";
+import { refuseOnLiveMainnet } from "../chain/controller.js";
+import type { ExploreRun } from "./run-context.js";
 
 const MAX_TURNS = 200;
 /** A slow last step gets this long after the time is up. */
@@ -176,7 +177,7 @@ export async function runExplorer(run: ExploreRun, env: Env, job: ExplorerJob, b
       recorder,
       inbox: env.inbox,
       budgetNote,
-      refuseApprove: (r) => refuseMainnet(env, r),
+      refuseApprove: (r) => refuseOnLiveMainnet(env.chains, r),
       onBlocked: (blocked) => {
         run.blocked = blocked;
         board.change((s) => void s.gaps.push({ feature: feature.name, what: feature.name, why: `Blocked: ${blocked.reason}` }));

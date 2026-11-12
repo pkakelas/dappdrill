@@ -24,6 +24,11 @@ packages/engine   The backend that drills a dApp. No DB. Public API in src/api.t
   src/browser/      Playwright session: video, trace, console + RPC capture, page JSON-RPC routing, and a wallet
                     balance the app's own server reports answered from the fork
   src/pipeline/     analyze (the CLI's quick look: find what to test, write tests) and runTests (cached actions first, the agent when they stop working)
+  src/run/          The new runner: a suite of tests, each a flat list of actions and checks done by code or by a model
+                    (types in core's suite.ts). The worker, the web app and the CLI are still on pipeline/ and explore/
+  src/make/         Writing those tests: the look lists goals worth a test (it signs nothing), and the maker turns a goal
+                    into a test by doing it once, writing it as sentences, then running and repairing it until two
+                    runs in a row go the same way. A test that fails every time on a fault of the app is kept: a bug found
   src/replay/       Replaying recorded actions + unhappy-path conditions, used by pipeline/
   src/explore/      One pass over an app: look around and suggest tests, check the setup, an explorer per feature,
                     prove each test on a fresh fork (replaying the explorer's actions first), confirm bugs
@@ -82,6 +87,9 @@ corepack pnpm fixture                    # Harbor Vault test dApp: anvil :8545 +
 corepack pnpm cli analyze http://localhost:5173
 corepack pnpm typecheck
 corepack pnpm drill look <url>           # one stage of a pass at a time: look | setup | explore --feature <name> | pass | run | show
+corepack pnpm suite <url> <suite.json>  # run a suite file (fixtures/harbor-vault/tests.json, fixtures/pod/tests.json) and print each line's result, time and cost; --runs n, --only text, --target <a kept target.json: its accounts, chains and inbox>
+corepack pnpm look <url> <suite.json>   # list the goals worth a test, and add what it learned about the app to the suite file's notes
+corepack pnpm make <url> <suite.json> "<goal>"   # make one test from a goal and add it to the suite file once it is proven; --start /path, --dry
 ```
 
 `pnpm drill` (packages/engine/dev/drill.ts) is for working on the engine without waiting for a whole pass: each

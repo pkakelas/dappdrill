@@ -36,6 +36,7 @@ export function createApiLlm(opts: { model: string; apiKey?: string; effort: Eff
 
   return {
     backend: "api",
+    model: opts.model,
     costUsd: () => cost,
 
     async runAgent({ system, prompt, images, tools, maxTurns, signal, onText }) {

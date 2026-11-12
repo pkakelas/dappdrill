@@ -4,12 +4,11 @@
  * step with the browser tools and its actions become the new cache. A step
  * the fast model can't settle goes to the acting model once.
  */
-import { formatEther } from "viem";
 import { z } from "zod";
 import { describeStep, forkBlindLine, type AppMap, type Blocked, type Step, type TestSpec, type WalletRequest } from "@dappdrill/core";
 import type { AgentTool, DrillSession, Hex, Inbox, Llm } from "../types.js";
 import { formatSnapshot, takeSnapshot } from "./snapshot.js";
-import { browserTools, inboxTool, Recorder, settle } from "./tools.js";
+import { browserTools, inboxTool, Recorder, settle, walletLine } from "./tools.js";
 import { openDialog } from "../replay/locators.js";
 import { unpaid as unpaidBy } from "../wallet/errors.js";
 import { decodeWalletRequest } from "./wallet-decode.js";
@@ -189,16 +188,6 @@ export function liveLine(session: Pick<DrillSession, "chains">): string {
   if (live.length === 0) return "";
   const names = live.map((c) => c.name ?? `chain ${c.id}`).join(" and ");
   return `${names} can't be forked, so tests run on the live network with one account that keeps what every run leaves behind. A test that leaves an order, a deposit or a position open gets "after" steps that put it back.`;
-}
-
-export async function walletLine(session: DrillSession): Promise<string> {
-  try {
-    const address = session.wallet.address();
-    const wei = await session.chains.client(session.wallet.chainId()).getBalance({ address });
-    return `The test wallet ${address} holds ${formatEther(wei)} of the native coin on the test chain.`;
-  } catch {
-    return "";
-  }
 }
 
 const Verdict = z.object({
