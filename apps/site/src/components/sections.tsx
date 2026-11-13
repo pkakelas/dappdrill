@@ -41,18 +41,26 @@ export function Hero() {
   );
 }
 
-const RUN = [
-  ["ok", "Deposit hUSDC", "41s"],
-  ["ok", "Withdraw hUSDC", "38s"],
-  ["ok", "Claim rewards", "22s"],
-  ["ok", "Get test hUSDC", " 9s"],
-  ["gap"],
-  ["fail", "Deposit hUSDC · Rejected in wallet", "17s"],
-  ["why", "The Deposit button stays on “Confirming…” after the wallet rejects."],
-  ["ok", "Deposit hUSDC · Slow RPC", "58s"],
-  ["ok", "Deposit hUSDC · Wrong network", "12s"],
-  ["ok", "Deposit hUSDC · Not enough gas", "14s"],
-] as const;
+/** What `dappdrill run --unhappy` prints for Harbor Vault's 6 tests and 8 conditions (packages/cli, run.ts), the
+ *  same run as the app pictures: [label, seconds, why it failed]. */
+const RUN: [string, number, string?][] = [
+  ["Deposit hUSDC into the vault", 41],
+  ["Withdraw hUSDC", 38],
+  ["Withdraw half of the deposit", 35],
+  ["Claim the deposit bonus", 22],
+  ["Get test hUSDC", 9],
+  ["Connect a wallet", 6],
+  ["Deposit hUSDC into the vault · Rejected in wallet", 17, "The Deposit button stays on “Confirming…” after the wallet rejects."],
+  ["Deposit hUSDC into the vault · Slow RPC", 58],
+  ["Deposit hUSDC into the vault · Wrong network", 12, "The deposit was sent without asking to switch networks."],
+  ["Deposit hUSDC into the vault · Switched account", 24],
+  ["Deposit hUSDC into the vault · Not enough gas", 14],
+  ["Withdraw hUSDC · Rejected in wallet", 16],
+  ["Withdraw hUSDC · Slow RPC", 52],
+  ["Withdraw hUSDC · Not enough gas", 13, "Clicking Withdraw does nothing and shows no message."],
+];
+const LABEL_WIDTH = Math.max(...RUN.map(([label]) => label.length));
+const FAILED = RUN.filter(([, , why]) => why).length;
 
 export function Ci() {
   return (
@@ -72,38 +80,35 @@ export function Ci() {
               <i className="size-2.5 rounded-full bg-white/15" />
               <i className="size-2.5 rounded-full bg-white/15" />
             </div>
-            <pre className="overflow-x-auto px-6 py-6 font-mono text-[12.5px] leading-[1.75] sm:px-8 sm:py-7 sm:text-[13.5px] lg:pb-24">
-              <span className="text-red">$</span> dappdrill run --unhappy{"\n"}
-              <span className="text-white/45">Running 4 tests on https://harborvault.xyz</span>
-              {"\n\n"}
-              {RUN.map((row, i) => {
-                if (row[0] === "gap") return "\n";
-                if (row[0] === "why") {
-                  return (
-                    <span key={i} className="text-red">
-                      {"      "}
-                      {row[1]}
-                      {"\n"}
+            {/* Rows rather than a padded <pre>, so a long line wraps on a phone instead of running off the side. */}
+            <div className="px-5 py-6 font-mono text-[11.5px] leading-[1.75] break-words sm:px-8 sm:py-7 sm:text-[13.5px] lg:pb-24">
+              <p>
+                <span className="text-red">$</span> dappdrill run --unhappy
+              </p>
+              <p className="mb-[1.75em] text-white/45">Running {RUN.length} tests on https://harborvault.xyz</p>
+              {RUN.map(([label, secs, why]) => (
+                <div key={label} className={why ? "text-red" : undefined}>
+                  <p className="flex gap-[1ch] pl-[2ch]">
+                    <span className={why ? undefined : "text-pass"}>{why ? "✗" : "✓"}</span>
+                    <span className="min-w-0 flex-1 sm:flex-none" style={{ width: `${LABEL_WIDTH}ch` }}>
+                      {label}
                     </span>
-                  );
-                }
-                const [state, name, secs] = row;
-                return (
-                  <span key={i} className={state === "fail" ? "text-red" : undefined}>
-                    {"  "}
-                    <span className={state === "ok" ? "text-pass" : undefined}>{state === "ok" ? "✓" : "✗"}</span> {name.padEnd(36)}
-                    <span className={state === "ok" ? "text-white/40" : undefined}>{secs}</span>
-                    {"\n"}
-                  </span>
-                );
-              })}
-              {"\n"}
-              <span className="text-red">7 of 8 passed, 1 failed.</span> <span className="text-white/45">Videos and screenshots: dappdrill-out/artifacts</span>
-            </pre>
+                    <span className={`ml-[1ch] shrink-0 ${why ? "" : "text-white/40"}`}>{secs}s</span>
+                  </p>
+                  {why && <p className="pl-[6ch]">{why}</p>}
+                </div>
+              ))}
+              <p className="mt-[1.75em]">
+                <span className="text-red">
+                  {RUN.length - FAILED} of {RUN.length} passed, {FAILED} failed.
+                </span>{" "}
+                <span className="text-white/45">Videos and screenshots: dappdrill-out/artifacts</span>
+              </p>
+            </div>
           </div>
           <div className="mt-4 rounded-[18px] border border-ink/8 bg-white p-5 shadow-[0_30px_60px_-36px_rgb(15_15_14/0.45)] sm:p-6 lg:absolute lg:bottom-0 lg:-left-16 lg:mt-0 lg:w-[540px]">
             <p className="font-mono text-[12px] text-ink/45">.github/workflows/dappdrill.yml</p>
-            <pre className="mt-3 overflow-x-auto font-mono text-[12.5px] leading-[1.7] text-ink/85">
+            <pre className="mt-3 font-mono text-[11.5px] leading-[1.7] whitespace-pre-wrap text-ink/85 [overflow-wrap:anywhere] sm:overflow-x-auto sm:text-[12.5px] sm:whitespace-pre">
               <span className="text-ink/45">- uses:</span> dappdrill/dappdrill/.github/actions/dappdrill@main{"\n"}
               <span className="text-ink/45">{"  with:"}</span>
               {"\n"}
@@ -125,10 +130,10 @@ export function Why() {
   return (
     <section id="why" className="wrap scroll-mt-24">
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="flex min-h-[400px] lg:min-h-[520px] flex-col rounded-[28px] bg-paper-2 p-8 sm:p-12">
+        <div className="flex flex-col rounded-[28px] bg-paper-2 p-8 sm:p-12">
           <p className="label text-ink/50">The contract</p>
           <h2 className="display mt-5 text-[clamp(34px,3.6vw,52px)]">Audited, fuzzed, proven, bountied.</h2>
-          <ul className="mt-auto space-y-3 pt-16 text-[17px] text-ink/70">
+          <ul className="mt-auto space-y-3 pt-12 lg:pt-16 text-[17px] text-ink/70">
             {CONTRACT.map((item) => (
               <li key={item} className="flex items-center gap-3.5">
                 <svg viewBox="0 0 16 16" className="size-4 text-ink/40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -139,12 +144,12 @@ export function Why() {
             ))}
           </ul>
         </div>
-        <div data-dark className="flex min-h-[400px] lg:min-h-[520px] flex-col rounded-[28px] bg-ink p-8 text-white sm:p-12">
+        <div data-dark className="flex flex-col rounded-[28px] bg-ink p-8 text-white sm:p-12">
           <p className="label text-white/50">The screen</p>
           <h2 className="display mt-5 text-[clamp(34px,3.6vw,52px)]">
             Clicked through by hand, <span className="text-red">the day before release.</span>
           </h2>
-          <ul className="mt-auto space-y-3 pt-16 text-[17px] text-white/75">
+          <ul className="mt-auto space-y-3 pt-12 lg:pt-16 text-[17px] text-white/75">
             {SCREEN.map((item) => (
               <li key={item} className="flex items-center gap-3.5">
                 <span className="grid size-4 place-items-center rounded-full border border-red font-mono text-[10px] leading-none text-red" aria-hidden="true">

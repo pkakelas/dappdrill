@@ -8,6 +8,68 @@
   width: 100%;
 }
 
+/* The window is 120em wide, so one em is a 120th of the picture's width. */
+.dd-view {
+  font-size: calc(100cqw / 120);
+}
+
+/*
+ * On a narrow screen a whole window would shrink its text to a few pixels, so the picture zooms in on one part:
+ * --cx, --cy, --cw and --ch (set by the picture, in em) are the part to show. An em grows to fit --cw in the width,
+ * up to 7.5px, and never below the whole-window size. Wide panels reflow to fit the part shown.
+ */
+@media (max-width: 1023.98px) {
+  .dd-view {
+    position: relative;
+    height: calc(var(--ch) * 1em);
+    overflow: hidden;
+    border-radius: 1.4em;
+    box-shadow:
+      0 0 0 1px rgb(15 15 14 / 0.08),
+      0 24px 48px -28px rgb(15 15 14 / 0.4);
+    font-size: max(calc(100cqw / 120), min(calc(100cqw / var(--cw)), 7.5px));
+  }
+  .dd-view .dd {
+    width: 120em;
+    translate: calc(-1 * clamp(0em, var(--cx) * 1em, 120em - 100cqw)) calc(-1 * var(--cy) * 1em);
+  }
+  .dd-view .dd-win {
+    border-radius: 0;
+  }
+  .dd-view .dd-cols {
+    grid-template-columns: 44em 1fr;
+  }
+  .dd-view .dd-conds {
+    max-width: 44em;
+  }
+  .dd-view .dd-dialog {
+    top: 4.4em;
+    left: 4em;
+    width: 44em;
+  }
+  .dd-view .dd-dialog-head,
+  .dd-view .dd-dialog-body,
+  .dd-view .dd-dialog-foot {
+    padding-right: 2.4em;
+    padding-left: 2.4em;
+  }
+  .dd-view .dd-q {
+    grid-template-columns: 1fr;
+    gap: 1.2em;
+  }
+  .dd-view .dd-optional,
+  .dd-view .dd-optional ~ .dd-q {
+    display: none;
+  }
+  .dd-view .dd-mail {
+    top: 26em;
+    right: auto;
+    bottom: auto;
+    left: 5em;
+    width: 43em;
+  }
+}
+
 .dd {
   --fg: #0a0a0a;
   --muted: #737373;
@@ -28,7 +90,6 @@
   --fork-line: #c4b5fd;
   position: relative;
   aspect-ratio: 120 / 76.8;
-  font-size: calc(100cqw / 120);
   line-height: 1.4;
   text-align: left;
   color: var(--fg);
@@ -741,6 +802,31 @@
 .dd-status .good {
   color: var(--good);
 }
+.dd-status .bad {
+  color: var(--bad);
+}
+
+/* A condition's page: the test's conditions as chips, the open one outlined. */
+.dd-conds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8em;
+}
+.dd-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.5em 1.1em 0.5em 0.6em;
+  border: 0.1em solid var(--line);
+  border-radius: 99em;
+  color: var(--muted);
+}
+.dd-chip.on {
+  border-color: var(--fg);
+  box-shadow: 0 0 0 0.1em var(--fg);
+  color: var(--fg);
+  font-weight: 500;
+}
 .dd-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -774,6 +860,12 @@
 .dd-proved svg.i {
   margin-top: 0.15em;
   color: #059669;
+}
+.dd-proved.missed {
+  color: var(--bad-ink);
+}
+.dd-proved.missed svg.i {
+  color: var(--bad);
 }
 .dd-steps {
   display: flex;
@@ -869,6 +961,10 @@
   border-radius: 1em;
   background: #fff;
 }
+.dd-video-bar .track.bad b {
+  inset: 0 12% 0 0;
+  background: #fb7190;
+}
 .dd-wallet-row {
   display: flex;
   align-items: center;
@@ -889,6 +985,10 @@
 .dd-wallet-row small {
   font-size: 1.15em;
   color: var(--muted);
+}
+.dd-wallet-row .bad {
+  color: var(--bad);
+  font-weight: 500;
 }
 .dd-wallet-head {
   display: flex;
@@ -1094,6 +1194,11 @@
 .dd-mail-body p {
   line-height: 1.5;
   text-wrap: pretty;
+}
+.dd-mail-line {
+  display: block;
+  padding-left: 2ch;
+  text-indent: -2ch;
 }
 .dd-mail-link {
   color: #1264a3;

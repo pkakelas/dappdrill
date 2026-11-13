@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { HarborVault, Wallet } from "./exhibits";
 
 /*
@@ -45,43 +45,50 @@ const Logo = () => (
   </svg>
 );
 
+/** Where a picture zooms in on a narrow screen: the left and top edge, width and height of the part to show, in the
+ *  picture's em (the window is 120 by 76.8). See .dd-view in app.css. */
+type Focus = { x: number; y: number; w: number; h: number };
+
 /** The app's window: its bar, with the organization, the app and the page's tab. */
-function Window({ label, tab = "Tests", over, children }: { label: string; tab?: string; over?: ReactNode; children: ReactNode }) {
+function Window({ label, tab = "Tests", focus, over, children }: { label: string; tab?: string; focus: Focus; over?: ReactNode; children: ReactNode }) {
+  const vars = { "--cx": focus.x, "--cy": focus.y, "--cw": focus.w, "--ch": focus.h } as CSSProperties;
   return (
-    <div className="dd-wrap" role="img" aria-label={label}>
-      <div className="dd" aria-hidden="true">
-        <div className="dd-win">
-          <div className="dd-dots">
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="dd-bar">
-            <Logo />
-            <b>DappDrill</b>
-            <span className="dd-pick">
-              <span>Harbor Labs</span>
-              <I name="upDown" />
-            </span>
-            <span className="dd-slash">/</span>
-            <span className="dd-pick" style={{ marginLeft: 0 }}>
-              <span>Harbor Vault</span>
-              <I name="upDown" />
-            </span>
-            <div className="dd-nav">
-              {["Tests", "Runs", "Settings"].map((t) => (
-                <span key={t} className={t === tab ? "on" : undefined}>
-                  {t}
-                </span>
-              ))}
+    <div className="dd-wrap" role="img" aria-label={label} style={vars}>
+      <div className="dd-view">
+        <div className="dd" aria-hidden="true">
+          <div className="dd-win">
+            <div className="dd-dots">
+              <i />
+              <i />
+              <i />
             </div>
-            <div className="dd-avatar">
-              <span>H</span>
+            <div className="dd-bar">
+              <Logo />
+              <b>DappDrill</b>
+              <span className="dd-pick">
+                <span>Harbor Labs</span>
+                <I name="upDown" />
+              </span>
+              <span className="dd-slash">/</span>
+              <span className="dd-pick" style={{ marginLeft: 0 }}>
+                <span>Harbor Vault</span>
+                <I name="upDown" />
+              </span>
+              <div className="dd-nav">
+                {["Tests", "Runs", "Settings"].map((t) => (
+                  <span key={t} className={t === tab ? "on" : undefined}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+              <div className="dd-avatar">
+                <span>H</span>
+              </div>
             </div>
+            <div className="dd-page">{children}</div>
           </div>
-          <div className="dd-page">{children}</div>
+          {over}
         </div>
-        {over}
       </div>
     </div>
   );
@@ -167,10 +174,19 @@ function Tabs() {
   );
 }
 
-/** Runs over the last two weeks: passed, with failed on top. */
-const HISTORY = [0, 0, 0, 0, 0, 0, 2, 3, 2, 4, 3, 6, 5, 6];
-const FAILED = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 3];
+/*
+ * One story runs through every picture, the CLI excerpt and the alert: Harbor Vault has 6 tests and 8 conditions
+ * (14 results a run). Two minutes ago a CI run on commit a3f9e1c broke 3 conditions; every run before it passed.
+ */
 
+/** Runs per day over the last two weeks (the app was added eight days ago): passed, and failed. Matches RUNS. */
+const HISTORY = [0, 0, 0, 0, 0, 0, 2, 2, 1, 2, 1, 2, 2, 1];
+const FAILED = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+const RUN_COUNT = sum(HISTORY) + sum(FAILED);
+const BAR_MAX = Math.max(...HISTORY.map((n, i) => n + (FAILED[i] ?? 0))) + 1;
+
+/** The 6 tests, with the conditions each is replayed under. `false` is a condition that failed in the latest run. */
 const TESTS: { name: string; conditions?: [string, boolean][] }[] = [
   {
     name: "Deposit hUSDC into the vault",
@@ -178,6 +194,7 @@ const TESTS: { name: string; conditions?: [string, boolean][] }[] = [
       ["Rejected in wallet", false],
       ["Slow RPC", true],
       ["Wrong network", false],
+      ["Switched account", true],
       ["Not enough gas", true],
     ],
   },
@@ -189,6 +206,7 @@ const TESTS: { name: string; conditions?: [string, boolean][] }[] = [
       ["Not enough gas", false],
     ],
   },
+  { name: "Withdraw half of the deposit" },
   { name: "Claim the deposit bonus" },
   { name: "Get test hUSDC" },
   { name: "Connect a wallet" },
@@ -236,7 +254,7 @@ function TestList() {
 /** The app's page: how it is doing over the last two weeks, then its tests. */
 export function AppPicture() {
   return (
-    <Window label="DappDrill's page for Harbor Vault: 3 conditions failed, 4 bugs from 41 checks, and the tests with their conditions.">
+    <Window label="DappDrill's page for Harbor Vault: 3 conditions failed, 4 bugs from 41 checks, and the tests with their conditions." focus={{ x: 3, y: 0, w: 46, h: 76.8 }}>
       <AppHead />
       <div className="dd-hero">
         <div className="dd-verdict">
@@ -250,14 +268,14 @@ export function AppPicture() {
           <div className="dd-chart-top">
             <b>Last 14 days</b>
             <span className="dd-t13 dd-muted">
-              <b style={{ fontSize: "1em", color: "var(--fg)" }}>91%</b> of 46 runs passed
+              <b style={{ fontSize: "1em", color: "var(--fg)" }}>{Math.round((sum(HISTORY) / RUN_COUNT) * 100)}%</b> of {RUN_COUNT} runs passed
             </span>
           </div>
           <div className="dd-bars">
             {HISTORY.map((n, i) => {
               const failed = FAILED[i] ?? 0;
               return (
-                <i key={i} style={{ height: n ? `${((n + failed) / 9) * 100}%` : "12%" }}>
+                <i key={i} style={{ height: n + failed ? `${((n + failed) / BAR_MAX) * 100}%` : "12%" }}>
                   {failed > 0 && <s style={{ height: `${(failed / (n + failed)) * 100}%` }} />}
                   {n > 0 && <b style={{ flex: 1 }} />}
                 </i>
@@ -274,7 +292,7 @@ export function AppPicture() {
               <span className="dd-t12">Failed</span>
             </span>
             <span className="dd-t12" style={{ marginLeft: "auto" }}>
-              41s typical run
+              4 min typical run
             </span>
           </div>
         </div>
@@ -299,7 +317,9 @@ const DOT: Record<string, string> = { bug: "#c9184a", fail: "#c9184a", test: "#0
 /** Exploring, as it happens: what one browser sees, and what they've all found so far. */
 export function ExploreAppPicture() {
   return (
-    <Window label="DappDrill exploring Harbor Vault: a browser using the app on the left; on the right, 5 tests, 23 checks and 2 bugs so far, with what each browser just did.">
+    <Window label="DappDrill exploring Harbor Vault: a browser using the app on the left; on the right, 5 tests, 23 checks and 2 bugs so far, with what each browser just did."
+      focus={{ x: 71, y: 15.8, w: 46, h: 48 }}
+    >
       <AppHead />
       <div className="dd-pass">
         <div className="dd-browser">
@@ -378,7 +398,9 @@ const STEPS: [string, string][] = [
 /** A test: what it is for, its steps, and the run's video and wallet requests. */
 export function TestPicture() {
   return (
-    <Window label="A DappDrill test, Deposit hUSDC into the vault: its goal, expected result and steps, the run's video, and the three requests the wallet approved.">
+    <Window label="A DappDrill test, Deposit hUSDC into the vault: its goal, expected result and steps, the run's video, and the three requests the wallet approved."
+      focus={{ x: 3.5, y: 10.6, w: 46, h: 66 }}
+    >
       <span className="dd-crumb dd-t13 dd-muted">Tests</span>
       <div className="dd-title">
         <h4>Deposit hUSDC into the vault</h4>
@@ -502,6 +524,7 @@ export function WritePicture() {
   return (
     <Window
       label="DappDrill's Add a test form over Harbor Vault's tests. The goal is to withdraw half of the deposit; it worked if the position shows about 125 hvUSDC and the share price didn't drop."
+      focus={{ x: 3.5, y: 3.2, w: 46, h: 59 }}
       over={
         <>
           <div className="dd-dim" />
@@ -553,37 +576,144 @@ export function WritePicture() {
   );
 }
 
-/** The tests again, further down: every test with the conditions it was replayed under. */
-export function ConditionsPicture() {
+/** Steps of the Deposit test replayed with the wallet rejecting: [step, how, passed]. */
+const REJECT_STEPS: [string, string, boolean][] = [
+  ["Enter 250 as the deposit amount", "Type “250” into “Amount”", true],
+  ["Approve in the wallet", "Approve hUSDC for HarborVault 0xe7f1…0512", true],
+  ["Click Deposit", "Click “Deposit”", true],
+  ["Reject in the wallet", "The wallet answers 4001, user rejected the request", true],
+  ["Deposit can be clicked again", "Still “Confirming…” after the reject", false],
+];
+
+/** One condition opened: the Deposit test, replayed with the wallet rejecting, and what went wrong. */
+export function BreakPicture() {
+  const conditions = TESTS[0]?.conditions ?? [];
   return (
-    <Window label="Harbor Vault's tests in DappDrill, each replayed under conditions: rejected in wallet, slow RPC, wrong network, not enough gas. Three conditions failed.">
-      <Tabs />
-      <TestList />
+    <Window
+      label="A condition in DappDrill: Deposit hUSDC into the vault, replayed with the wallet rejecting. Failed: after the reject the Deposit button stays on Confirming. The other conditions are slow RPC, wrong network (also failed), switched account and not enough gas."
+      focus={{ x: 3.5, y: 10.6, w: 46, h: 66 }}
+    >
+      <span className="dd-crumb dd-t13 dd-muted">Tests / Deposit hUSDC into the vault</span>
+      <div className="dd-title">
+        <h4>Rejected in wallet</h4>
+        <div className="dd-btns">
+          <span className="dd-btn dark">
+            <I name="play" size="xs" />
+            <span>Run</span>
+          </span>
+        </div>
+      </div>
+      <div className="dd-status">
+        <span className="dd-mark sm fail">
+          <I name="x" />
+        </span>
+        <span className="dd-t13">
+          <span className="bad">Failed</span> · 2 min ago · took 17s · checked again in a fresh browser
+        </span>
+      </div>
+      <div className="dd-conds">
+        {conditions.map(([name, passed]) => (
+          <span key={name} className={name === "Rejected in wallet" ? "dd-chip on" : "dd-chip"}>
+            <span className={`dd-mark sm ${passed ? "pass" : "fail"}`}>
+              <I name={passed ? "check" : "x"} />
+            </span>
+            <span className="dd-t13">{name}</span>
+          </span>
+        ))}
+      </div>
+      <div className="dd-cols">
+        <div className="dd-col">
+          <div className="dd-field">
+            <h6>Expected result</h6>
+            <p>The page says the deposit was cancelled, and Deposit can be clicked again.</p>
+            <span className="dd-proved missed">
+              <I name="x" size="sm" />
+              <span className="dd-t13">The button stays on “Confirming…” and nothing on the page mentions the reject.</span>
+            </span>
+          </div>
+          <div className="dd-card dd-steps">
+            {REJECT_STEPS.map(([name, how, passed]) => (
+              <div className="dd-step" key={name}>
+                <span className={`dd-mark sm ${passed ? "pass" : "fail"}`}>
+                  <I name={passed ? "check" : "x"} />
+                </span>
+                <p>
+                  <b>{name}</b>
+                  <small>{how}</small>
+                </p>
+                <i />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="dd-col">
+          <div className="dd-video">
+            <Site width={53.4} state="stuck" />
+            <div className="dd-video-bar">
+              <I name="play" size="sm" />
+              <span className="dd-t12">0:15 / 0:17</span>
+              <span className="track bad">
+                <b />
+              </span>
+            </div>
+          </div>
+          <div className="dd-card">
+            <div className="dd-wallet-head">
+              <I name="wallet" size="sm" />
+              <span className="dd-t13">Wallet</span>
+              <span className="dd-t13 dd-muted">3</span>
+            </div>
+            {(
+              [
+                ["Connect", "0x7a3F…41e1 on Ethereum (fork)", "Approved"],
+                ["Approve hUSDC", "For HarborVault 0xe7f1…0512", "Approved"],
+                ["Deposit 250 hUSDC", "To HarborVault 0xe7f1…0512", "Rejected"],
+              ] as const
+            ).map(([what, detail, answer]) => (
+              <div className="dd-wallet-row" key={what}>
+                <p>
+                  <b>{what}</b>
+                  <small>{detail}</small>
+                </p>
+                <span className={answer === "Rejected" ? "dd-t12 bad" : "dd-t12 dd-muted"}>{answer}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </Window>
   );
 }
 
-/** Runs: newest first. [label, passed, failed, when, took]; a failed count marks the run failed. */
+/** Runs: newest first. [label, passed, failed, when, took]; a failed count marks the run failed. Matches HISTORY. */
 const RUNS: [string, number, number, string, string][] = [
-  ["Daily run", 12, 1, "2 h ago", "4 min"],
-  ["Run by you", 13, 0, "yesterday", "4 min"],
-  ["Daily run", 13, 0, "yesterday", "5 min"],
-  ["After exploring", 13, 0, "2 days ago", "6 min"],
-  ["Daily run", 13, 0, "2 days ago", "4 min"],
-  ["Daily run", 13, 0, "3 days ago", "4 min"],
-  ["Run by you", 13, 0, "3 days ago", "5 min"],
+  ["CI · a3f9e1c Show deposit status", 11, 3, "2 min ago", "4 min"],
+  ["Daily run", 14, 0, "6 h ago", "4 min"],
+  ["CI · 7c21d08 Fix rewards rounding", 14, 0, "yesterday", "4 min"],
+  ["Daily run", 14, 0, "yesterday", "5 min"],
+  ["Run by you", 14, 0, "2 days ago", "4 min"],
+  ["Daily run", 14, 0, "2 days ago", "4 min"],
+  ["Daily run", 14, 0, "3 days ago", "4 min"],
 ];
 
-/** The Runs page with the daily run that just failed, and the alert it sent. */
+/** What the CI run broke, as the alert lists it. */
+const BROKE = [
+  "Deposit · Rejected in wallet: stays on “Confirming…”",
+  "Deposit · Wrong network: sent without asking to switch",
+  "Withdraw · Not enough gas: nothing happens, no message",
+];
+
+/** The Runs page with the CI run that just failed, and the alert it sent. */
 export function WatchPicture() {
   return (
     <Window
       tab="Runs"
-      label="DappDrill's Runs page for Harbor Vault: daily runs and runs by you, the latest daily run with 1 failed. Over it, the email it sent: Harbor Vault, a test stopped passing. Withdraw instantly got no quote; the market maker seems to be down."
+      label="DappDrill's Runs page for Harbor Vault: CI runs, daily runs and a run by you. The latest, from CI on commit a3f9e1c, has 3 failed. Over it, the email it sent: 3 conditions stopped passing."
+      focus={{ x: 3.5, y: 9.8, w: 46, h: 54 }}
       over={
         <div className="dd-mail">
           <div className="dd-mail-head">
-            <b>Harbor Vault: a test stopped passing</b>
+            <b>Harbor Vault: 3 conditions stopped passing</b>
             <div className="dd-mail-from">
               <span className="dd-mail-avatar">
                 <Logo />
@@ -598,10 +728,13 @@ export function WatchPicture() {
             </div>
           </div>
           <div className="dd-mail-body">
-            <p className="dd-t14">Harbor Vault: a test stopped passing</p>
+            <p className="dd-t14">After a3f9e1c (Show deposit status), from CI:</p>
             <p className="dd-t14">
-              - Withdraw instantly: no quote came back. The market maker seems to be down; the page stayed on “Finding the best price…”
-              for 2 minutes, then said nothing.
+              {BROKE.map((line) => (
+                <span key={line} className="dd-mail-line">
+                  - {line}
+                </span>
+              ))}
             </p>
             <p className="dd-t14 dd-mail-link">app.dappdrill.com/apps/harbor-vault</p>
           </div>
@@ -610,7 +743,7 @@ export function WatchPicture() {
     >
       <div className="dd-runs-head">
         <b>Runs</b>
-        <span className="dd-t14 dd-muted">Every time Harbor Vault was explored or its tests ran: by you, by the assistant, after exploring, or on the daily schedule.</span>
+        <span className="dd-t14 dd-muted">Every time Harbor Vault’s tests ran: from CI, by you, after exploring, or on the daily schedule.</span>
       </div>
       <div className="dd-card dd-list">
         {RUNS.map(([label, passed, failed, when, took], i) => (

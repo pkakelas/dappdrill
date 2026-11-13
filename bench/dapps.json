@@ -166,15 +166,6 @@
       "hints": "Hyperliquid testnet perps exchange. The wallet has no exchange balance; still try connecting, accepting the terms, enabling trading, and placing a small order."
     },
     {
-      "id": "pod",
-      "url": "https://staging-app.podtestnet.dev/trade",
-      "chains": [
-        129302
-      ],
-      "tokens": [],
-      "hints": "pod staging runs live (no fork). Sign in with a wallet, enable trading, mint test funds, then open a small long."
-    },
-    {
       "id": "aave-local",
       "url": "http://127.0.0.1:4101/",
       "serve": "~/workspace/dappdrill-frontends/serve.sh aave",
