@@ -1,7 +1,7 @@
 import { chainInfo, chainName, formatUnitsPlain, type ChainConfig } from "@dappdrill/core";
 import { appTests, db, latestRuns, makes, runHistory, settledRuns } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
-import { TriangleAlert } from "lucide-react";
+import { CircleDashed, ListChecks, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { AppActions } from "@/components/tests/app-actions";
@@ -13,7 +13,7 @@ import { SetupStuckNotice } from "@/components/tests/setup-stuck";
 import { StartBand } from "@/components/tests/start-band";
 import { readTest } from "@/components/tests/status";
 import { TestLine, TestList } from "@/components/tests/test-card";
-import { Tile } from "@/components/tests/tile";
+import { SectionHead, Tile } from "@/components/tests/tile";
 import { plainError, plural } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { readBalance } from "@/lib/rpc";
@@ -37,6 +37,9 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const making = make && (make.status === "queued" || make.status === "running") ? make : undefined;
   // The app's first tests: nothing to report yet, so the page says what is happening and how long it takes.
   const first = Boolean(making && !making.goal && tests.length === 0);
+  // The tests the running make has kept so far, listed first and marked New when there are older ones to tell them from.
+  const kept = new Set(making?.state.goals.flatMap((g) => (g.status === "kept" && g.testId ? [g.testId] : [])));
+  const fresh = kept.size < tests.length ? kept : new Set<string>();
   const activeIds = tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
 
   const by = (outcome: string) => tests.filter((t) => reads.get(t.id)!.settled === outcome).length;
@@ -50,10 +53,20 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const manage = can(role, "apps.manage");
   // What the makes since tests were last made for the whole app left without a test, and why, until each is tried again or dismissed.
   const since = recent.slice(0, recent.findIndex((m) => !m.goal) + 1 || recent.length);
-  const notKept = making ? [] : since.flatMap((m) => m.state.goals.flatMap((goal, index) => (goal.status === "not-kept" && !goal.dismissed ? [{ goal, ref: { makeId: m.id, index } }] : [])));
+  const notKept = (making ? [making] : since).flatMap((m) => m.state.goals.flatMap((goal, index) => (goal.status === "not-kept" && !goal.dismissed ? [{ goal, ref: { makeId: m.id, index } }] : [])));
   // The setup didn't finish: said once, in parts, in place of the plainer notices below.
   const stuck = !making && make?.status === "done" ? make.state.stuck : undefined;
   const stoppedEarly = !making && make && !stuck && (make.status === "failed" || (make.status === "done" && make.state.goals.length === 0 && !make.goal));
+
+  const testList = (
+    <TestList>
+      {[...tests]
+        .sort((a, b) => Number(kept.has(b.id)) - Number(kept.has(a.id)))
+        .map((t) => (
+          <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} fresh={fresh.has(t.id)} />
+        ))}
+    </TestList>
+  );
 
   return (
     <div className="page">
@@ -71,21 +84,13 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
           rollup={tests.length > 0 ? rollup : undefined}
           running={activeIds.length}
           runs={history}
-          writing={first ? { email: making?.requestedBy === user.id ? user.email : undefined } : undefined}
           action={!first && (tests.length > 0 || make) && <AppActions appId={appId} appUrl={app.url} tests={tests.length} running={activeIds.length > 0} making={Boolean(making)} canMake={manage} />}
         />
 
-        {making && <MakeBand appId={appId} appUrl={app.url} make={making} />}
+        {making && <MakeBand appId={appId} appUrl={app.url} make={making} wait={first ? { email: making.requestedBy === user.id ? user.email : undefined } : undefined} />}
 
         {stuck && make && (
-          <SetupStuckNotice
-            appId={appId}
-            stuck={stuck}
-            kept={make.state.goals.filter((g) => g.status === "kept").length}
-            left={make.state.goals.filter((g) => g.status === "waiting").length}
-            chain={live?.name}
-            canMake={manage}
-          />
+          <SetupStuckNotice appId={appId} stuck={stuck} kept={make.state.goals.filter((g) => g.status === "kept").length} left={make.state.goals.filter((g) => g.status === "waiting").length} chain={live?.name} canMake={manage} />
         )}
 
         {stoppedEarly && make && (
@@ -93,29 +98,43 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
             <Tile icon={TriangleAlert} tint="warn" />
             <div className="flex min-w-0 flex-col gap-1">
               <p className="font-medium">{make.status === "failed" ? "Making tests stopped early" : "We found nothing to test"}</p>
-              <p className="text-pretty text-muted-foreground">{make.status === "failed" ? (make.error ? plainError(make.error, app.url) : "Something went wrong on our side.") : (make.state.why ?? "The app showed nothing a user could do.")}</p>
+              <p className="text-pretty text-muted-foreground">
+                {make.status === "failed" ? (make.error ? plainError(make.error, app.url) : "Something went wrong on our side.") : (make.state.why ?? "The app showed nothing a user could do.")}
+              </p>
             </div>
           </div>
         )}
 
-        {tests.length > 0 ? (
-          <TestList>
-            {tests.map((t) => (
-              <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} />
-            ))}
-          </TestList>
+        {making ? (
+          <section aria-label="Tests" className="flex flex-col gap-4">
+            <SectionHead
+              icon={ListChecks}
+              tint="good"
+              title="Tests"
+              detail={tests.length === 0 ? "None kept yet. Each one shows here as soon as it is." : fresh.size > 0 ? `${plural(tests.length, "test")}, ${fresh.size} kept just now.` : `${plural(tests.length, "test")} kept so far.`}
+            />
+            {tests.length > 0 && testList}
+          </section>
+        ) : tests.length > 0 ? (
+          testList
         ) : (
           !make && <StartBand appId={appId} url={app.url} site={(await readSite(app.url)) ?? { url: app.url, framable: false }} wallet={app.settings.wallets[0]} chainId={(app.settings.chains[0] ?? app.chains[0])?.id} live={live?.name} />
         )}
 
         {notKept.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-medium">{plural(notKept.length, "goal")} without a test</h2>
-              <p className="text-sm text-pretty text-muted-foreground">Tried, and no test was kept. Each says why: try it again with what we should know, or dismiss it.</p>
-            </div>
-            <div className="rounded-xl border bg-card p-1.5 shadow-sm">
-              <GoalList appId={appId} goals={notKept.map((n) => n.goal)} aside={(g, i) => <GoalActions key={`${notKept[i]!.ref.makeId}:${notKept[i]!.ref.index}`} appId={appId} goal={g.goal} whyNot={g.whyNot} retries={notKept[i]!.ref} />} />
+          <section aria-label="Goals without a test" className="flex flex-col gap-4">
+            <SectionHead
+              icon={CircleDashed}
+              tint="quiet"
+              title={`${plural(notKept.length, "goal")} without a test`}
+              detail={making ? "Tried, and no test was kept. Each says why, and can be tried again once these tests are made." : "Tried, and no test was kept. Each says why: try it again with what we should know, or dismiss it."}
+            />
+            <div className="rounded-xl border border-dashed p-1.5">
+              <GoalList
+                appId={appId}
+                goals={notKept.map((n) => n.goal)}
+                aside={making ? undefined : (g, i) => <GoalActions key={`${notKept[i]!.ref.makeId}:${notKept[i]!.ref.index}`} appId={appId} goal={g.goal} whyNot={g.whyNot} retries={notKept[i]!.ref} />}
+              />
             </div>
           </section>
         )}

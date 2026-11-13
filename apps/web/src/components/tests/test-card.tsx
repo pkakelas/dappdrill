@@ -37,6 +37,8 @@ export interface TestLineProps {
   read: TestRead;
   run?: TestRunRow;
   live?: TestRunRow;
+  /** Kept by the make that is running now. */
+  fresh?: boolean;
 }
 
 /** What's happening right now, while a run is on. */
@@ -44,7 +46,12 @@ function progress({ read, live }: TestLineProps): ReactNode {
   if (!read.active) return null;
   const steps = live?.result?.steps ?? [];
   const done = steps.filter((s) => s.status !== "skipped").length;
-  if (read.active === "running" && steps.length > 0) return <span className="text-live">Line {Math.min(done + 1, steps.length)} of {steps.length}</span>;
+  if (read.active === "running" && steps.length > 0)
+    return (
+      <span className="text-live">
+        Line {Math.min(done + 1, steps.length)} of {steps.length}
+      </span>
+    );
   return <span className="text-live">{read.active === "running" ? "Starting" : "Queued"}</span>;
 }
 
@@ -69,18 +76,21 @@ function Under({ test, read, run }: Pick<TestLineProps, "test" | "read" | "run">
 
 /** A test as one line, with the bug it found or the reason it stopped under its name. */
 export function TestLine(props: TestLineProps) {
-  const { appId, test, read, run } = props;
+  const { appId, test, read, run, fresh } = props;
   const now = progress(props);
   return (
-    <li className="p-1.5">
+    <li className={cx("p-1.5", fresh && "animate-in duration-500 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none")}>
       <Line
         className="min-h-11 py-2"
         mark={<StateMark state={read.mark} size="lg" />}
         name={
           <div className="flex min-w-0 flex-col gap-0.5">
-            <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
-              {test.name}
-            </Link>
+            <span className="flex min-w-0 items-center gap-2">
+              <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
+                {test.name}
+              </Link>
+              {fresh && <span className="shrink-0 rounded-full bg-live-soft px-1.5 py-px text-[11px] font-medium text-live">New</span>}
+            </span>
             <Under test={test} read={read} run={run} />
           </div>
         }

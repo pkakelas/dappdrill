@@ -1,6 +1,6 @@
 import { chainName, shortAddress, type WalletProfileId } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight, Mail, Radio } from "lucide-react";
+import { ArrowUpRight, Radio } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
@@ -9,7 +9,6 @@ import { hostFromUrl, timeAgo } from "@/lib/format";
 import { Separator } from "@/components/ui/separator";
 import { AppIcon } from "./app-icon";
 import { RunHistory } from "./app-stats";
-import { IntroNote } from "./intro-note";
 import { Tile } from "./tile";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -184,61 +183,6 @@ function Where({ url, wallet, chainId }: { url: string; wallet?: WalletProfileId
   );
 }
 
-/**
- * The top of the page while the app's first tests are made: what is happening, how long it takes and who
- * hears when it's done, and, on a chain that can't be forked, the account that pays.
- */
-function MakingIntro({ appId, name, url, wallet, chainId, live, email }: { appId: string; name: string; url: string; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; email?: string }) {
-  return (
-    <header className="flex flex-col items-center gap-8 pt-4 text-center sm:pt-8">
-      <div className="flex flex-col items-center gap-2.5">
-        <h1 className="text-3xl font-semibold tracking-tight text-balance">Writing tests for {name}</h1>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Where url={url} wallet={wallet} chainId={chainId} />
-        </div>
-      </div>
-      <div className="grid w-full max-w-2xl gap-3">
-        <IntroNote id={`${appId}:wait`} icon={<Mail aria-hidden="true" />} tint="good" title="This takes up to an hour.">
-          You can close this page.
-          <br />
-          {email ? (
-            <>
-              We&apos;ll email <span className="font-medium whitespace-nowrap">{email}</span> when the tests are ready.
-            </>
-          ) : (
-            "Each test shows here as soon as it is proven."
-          )}
-        </IntroNote>
-        {live && (
-          <IntroNote id={`${appId}:live`} icon={<Radio aria-hidden="true" />} tint="live" title={`${live.name} can't be forked, so tests run on it for real.`}>
-            {live.wallet ? (
-              <>
-                They pay from <span className="font-mono font-medium">{shortAddress(live.wallet.address)}</span>
-                {live.wallet.balance && (
-                  <>
-                    , which holds <span className="font-medium whitespace-nowrap tabular-nums">{live.wallet.balance}</span>
-                  </>
-                )}
-                .
-                <br />
-                Every run leaves real orders, positions and transactions on it.
-              </>
-            ) : (
-              <>
-                {live.funding ? "Each run signs in with a new account and gets test funds the way you described. " : "Each run needs an account with test funds there. "}
-                <Link href={`/apps/${appId}/settings`} className="underline underline-offset-4">
-                  {live.funding ? "Add a funded key" : "Add a funded key or say how to get test funds"}
-                </Link>
-                .
-              </>
-            )}
-          </IntroNote>
-        )}
-      </div>
-    </header>
-  );
-}
-
 /** The top of an app: what it is, how its tests stand, and what you can do next. */
 export function AppHero({
   appId,
@@ -252,7 +196,6 @@ export function AppHero({
   running,
   runs,
   action,
-  writing,
 }: {
   appId: string;
   name: string;
@@ -266,10 +209,7 @@ export function AppHero({
   running: number;
   runs: RunSummary[];
   action?: ReactNode;
-  /** The app's first tests are being made: the page is a waiting room, not a report. */
-  writing?: { email?: string };
 }) {
-  if (writing) return <MakingIntro appId={appId} name={name} url={url} wallet={wallet} chainId={chainId} live={live} email={writing.email} />;
   // A chart of the last two weeks says nothing about an app that has only run today.
   const charted = new Set(runs.map((r) => Math.floor(r.createdAt.getTime() / DAY))).size > 1;
   return (
