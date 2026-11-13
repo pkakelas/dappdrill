@@ -25,6 +25,10 @@ export interface SnapshotNode {
   inDialog?: boolean;
   /** Entirely outside the viewport; dropped first when the snapshot is over budget. Not shown to the model. */
   offscreen?: boolean;
+  /** In a long list (orders, history): which list, which row of it, and how many rows it has. Not shown to the model. */
+  row?: { list: number; item: number; size: number };
+  /** The rows of this node's list that aren't listed, after its last listed one. */
+  more?: number;
 }
 
 export interface Snapshot {
@@ -56,11 +60,20 @@ interface ElementFacts {
 export const REF_ATTR = "data-dd-ref";
 const DEFAULT_MAX_CHARS = 14_000;
 const TEXT_CHARS = 2_000;
+/** A list with this many alike rows is long: an account's orders, transfers or history. */
+const LONG_LIST = 15;
+/** The rows of a long list that are shown; the newest are usually first. */
+const LIST_ROWS = 8;
 
-export async function takeSnapshot(page: Page, opts: { maxChars?: number } = {}): Promise<Snapshot> {
+/**
+ * `wholeLists` keeps every row of a long list, for a check that may have to find this run's row
+ * among many. A model finding its way gets the first rows and the ones on screen.
+ */
+export async function takeSnapshot(page: Page, opts: { maxChars?: number; wholeLists?: boolean } = {}): Promise<Snapshot> {
   await shimKeepNames(page);
-  const raw = await page.evaluate(collectInPage, { refAttr: REF_ATTR, textChars: TEXT_CHARS });
-  const snap: Snapshot = { url: page.url(), title: await page.title().catch(() => ""), ...raw };
+  const listRows = opts.wholeLists ? Number.MAX_SAFE_INTEGER : LIST_ROWS;
+  const raw = await page.evaluate(collectInPage, { refAttr: REF_ATTR, textChars: TEXT_CHARS, longList: LONG_LIST, listRows });
+  const snap: Snapshot = { url: page.url(), title: await page.title().catch(() => ""), ...raw, nodes: opts.wholeLists ? raw.nodes : shortLists(raw.nodes) };
   return trim(snap, opts.maxChars ?? DEFAULT_MAX_CHARS);
 }
 
@@ -90,7 +103,32 @@ function formatNode(n: SnapshotNode): string {
   if (n.checked !== undefined) flags.push(`checked=${n.checked}`);
   if (n.expanded !== undefined) flags.push(`expanded=${n.expanded}`);
   if (n.options) flags.push(`options=[${n.options.join(", ")}]`);
-  return `[${n.ref}] ${n.role} "${n.name}"${flags.length ? " " + flags.join(" ") : ""}`;
+  const line = `[${n.ref}] ${n.role} "${n.name}"${flags.length ? " " + flags.join(" ") : ""}`;
+  return n.more ? `${line}\n… ${n.more} more rows like these in this list, not listed: scroll down to see them` : line;
+}
+
+/**
+ * A long list on the page keeps its first rows and the rows on screen. An account kept between runs
+ * piles up orders and history, and listing all of them would leave no room for the rest of the page.
+ * Lists in a dialog stay whole: a picker's options are what the dialog is for.
+ */
+export function shortLists(nodes: SnapshotNode[]): SnapshotNode[] {
+  const out: SnapshotNode[] = [];
+  const kept = new Map<number, Set<number>>();
+  const last = new Map<number, SnapshotNode>();
+  for (const n of nodes) {
+    const row = n.inDialog ? undefined : n.row;
+    if (row && row.item >= LIST_ROWS && n.offscreen) continue;
+    out.push(n);
+    if (!row) continue;
+    kept.set(row.list, (kept.get(row.list) ?? new Set()).add(row.item));
+    last.set(row.list, n);
+  }
+  return out.map((n) => {
+    if (!n.row || last.get(n.row.list) !== n) return n;
+    const more = n.row.size - Math.max(LIST_ROWS, kept.get(n.row.list)!.size);
+    return more > 0 ? { ...n, more } : n;
+  });
 }
 
 const FORM_ROLES = new Set(["textbox", "searchbox", "spinbutton", "combobox", "listbox", "slider", "checkbox", "radio", "switch"]);
@@ -215,8 +253,8 @@ function shimKeepNames(page: Page): Promise<void> {
 
 type RawSnapshot = Omit<Snapshot, "url" | "title">;
 
-function collectInPage(args: { refAttr: string; textChars: number }): RawSnapshot {
-  const { refAttr, textChars } = args;
+function collectInPage(args: { refAttr: string; textChars: number; longList: number; listRows: number }): RawSnapshot {
+  const { refAttr, textChars, longList, listRows } = args;
   const w = window as unknown as { __ddSnap?: { refs: WeakMap<Element, string>; next: number } };
   const state = (w.__ddSnap ??= { refs: new WeakMap(), next: 1 });
 
@@ -366,6 +404,31 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
     return corner ? `unlabeled icon in the top-right corner of "${clip(near.text, 50)}"` : `unlabeled, next to "${clip(near.text, 60)}"`;
   };
 
+  // Long lists: a box with many children alike (same tag and class) is a list, and each of them a row.
+  type List = { id: number; sig: string; items: Element[] };
+  const lists = new Map<Element, List | null>();
+  const sig = (e: Element) => `${e.tagName}.${e.getAttribute("class") ?? ""}`;
+  const listOf = (box: Element): List | null => {
+    if (lists.has(box)) return lists.get(box)!;
+    let list: List | null = null;
+    if (box.children.length >= longList) {
+      const counts = new Map<string, number>();
+      for (const k of box.children) counts.set(sig(k), (counts.get(sig(k)) ?? 0) + 1);
+      const [top, n] = [...counts].reduce((a, b) => (b[1] > a[1] ? b : a));
+      if (n >= longList) list = { id: lists.size + 1, sig: top, items: Array.from(box.children).filter((k) => sig(k) === top) };
+    }
+    lists.set(box, list);
+    return list;
+  };
+  const rowOf = (el: Element): SnapshotNode["row"] => {
+    let e: Element | null = el;
+    for (let depth = 0; e?.parentElement && depth < 10; depth++, e = e.parentElement) {
+      const list = listOf(e.parentElement);
+      if (list && sig(e) === list.sig) return { list: list.id, item: list.items.indexOf(e), size: list.items.length };
+    }
+    return undefined;
+  };
+
   const refFor = (el: Element): string => {
     let ref = state.refs.get(el);
     if (!ref) {
@@ -412,6 +475,8 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
         const name = accessibleName(el, role) || (role ? "" : unlabeledName(el));
         const node: SnapshotNode = { ref: refFor(el), role: role || "generic", name: clip(name, 90) };
         if (inDialog) node.inDialog = true;
+        const row = rowOf(el);
+        if (row) node.row = row;
         const box = el.getBoundingClientRect();
         if (box.bottom <= 0 || box.right <= 0 || box.top >= innerHeight || box.left >= innerWidth) node.offscreen = true;
         if (tag === "input" || tag === "textarea") {
@@ -446,7 +511,30 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
   const openDialogs = dialogs.filter((d) => d.getAttribute("aria-hidden") !== "true");
   const topDialog = openDialogs.at(-1);
   const source = (topDialog ?? document.body) as HTMLElement;
-  const pageText = clip(text(source.innerText), textChars);
+  // The page's text with the rows of its long lists after the first few taken out, the way the elements are.
+  let full = source.innerText;
+  if (!topDialog) {
+    for (const box of source.querySelectorAll("*")) if (box.children.length >= longList) listOf(box);
+    for (const list of lists.values()) {
+      if (!list || list.items.length <= listRows) continue;
+      const rest = list.items.slice(listRows);
+      // Search after the last row kept, so a row that reads the same as a kept one isn't taken out in its place.
+      const kept = (list.items[listRows - 1] as HTMLElement).innerText ?? "";
+      const keptAt = kept.trim() ? full.indexOf(kept) : -1;
+      const start = keptAt < 0 ? 0 : keptAt + kept.length;
+      let from = -1;
+      for (const item of rest) {
+        const t = (item as HTMLElement).innerText ?? "";
+        if (!t.trim()) continue;
+        const at = full.indexOf(t, from < 0 ? start : from);
+        if (at < 0) continue;
+        const mark = from < 0 ? `\n… ${rest.length} more rows like these\n` : "";
+        full = full.slice(0, at) + mark + full.slice(at + t.length);
+        if (from < 0) from = at + mark.length;
+      }
+    }
+  }
+  const pageText = clip(text(full), textChars);
 
   return {
     dialogs: openDialogs.map((d) => clip(text(d.getAttribute("aria-label") ?? d.querySelector("h1,h2,h3,[role=heading]")?.textContent ?? "dialog"), 60)).reverse(),

@@ -5,7 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { enqueue } from "./jobs";
 
 /** How many tests a make without a goal writes: one for each of the first goals the look finds. */
-const TESTS_PER_MAKE = 10;
+const TESTS_PER_MAKE = 20;
 
 /**
  * Starts making tests for the app: with a goal, the one test; without, a look over the app and a test

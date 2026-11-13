@@ -209,4 +209,27 @@ describe("locatorFor", () => {
     expect(names).not.toContain("Market 399 wstETH / USDC 86% LLTV");
     expect(formatSnapshot(snap)).not.toContain("offscreen");
   });
+
+  it("lists a long list's first rows and the ones on screen, and leaves the rest out of the text", async () => {
+    // An account kept between runs: 59 old orders under the trade form.
+    const rows = Array.from({ length: 59 }, (_, i) => `<div class="order"><span>GOOGL Buy limit order ${i}</span><button>Cancel</button></div>`).join("");
+    await s.page.setContent(`
+      <h2>Trade</h2>
+      <input aria-label="Amount" />
+      <button>Place order</button>
+      <div style="height:2000px"></div>
+      <div class="orders">${rows}</div>
+    `);
+    const snap = await takeSnapshot(s.page);
+    expect(snap.nodes.filter((n) => n.name === "Cancel")).toHaveLength(8);
+    expect(formatSnapshot(snap)).toContain("… 51 more rows like these in this list, not listed: scroll down to see them");
+    expect(snap.text).toContain("GOOGL Buy limit order 7");
+    expect(snap.text).not.toContain("GOOGL Buy limit order 8");
+    expect(snap.text).toContain("… 51 more rows like these");
+
+    // Scrolled to a later row, the rows on screen are listed too.
+    await s.page.getByText("GOOGL Buy limit order 40", { exact: true }).scrollIntoViewIfNeeded();
+    const there = await takeSnapshot(s.page);
+    expect(there.nodes.filter((n) => n.name === "Cancel").length).toBeGreaterThan(8);
+  });
 });

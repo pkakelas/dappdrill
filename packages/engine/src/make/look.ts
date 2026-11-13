@@ -20,7 +20,7 @@ import { fundTool, withToken, type WalletToken } from "./funding.js";
 const MAX_TURNS = 50;
 /** Browser steps after which the look is told to write up. */
 const WRITE_UP_AFTER = 30;
-export const MAX_GOALS = 12;
+export const MAX_GOALS = 20;
 
 export const Goal = z.object({
   goal: z.string().min(1).describe("One sentence of at most 20 words: who the user is, what they do and how it ends. “A user with hUSDC in the wallet deposits 100 of it into the vault.”"),
@@ -76,13 +76,19 @@ GOALS
 - A goal ends with something changed for the user, or with the app turning down what would have cost them: funds moved, an order placed or cancelled, a position opened or closed, a setting still there after a reload, a request refused. How the page behaves on the way is not a goal: a dialog that opens and closes, a filter or a tab that changes a list, a button that is greyed out. Those are lines inside a test of something that matters.
 - The same flow with another token, chain or route is a goal of its own when the app handles it differently (another contract, an approval first, another fee).
 - Connecting the wallet, opening a page and reading the docs are not goals. Neither is a page that only shows things, unless users rely on its figures; then the goal is that the figures agree with each other or with what the user did.
-- About ten when the app has that much to do, and never more than ${MAX_GOALS}. Fewer when it doesn't: a short list of flows that matter is better than one filled up with small things. Only when the app offers this user nothing of that kind, give the one or two things most users do on it. Leave out what the app's tests already cover.
+- About fifteen when the app has that much to do, and never more than ${MAX_GOALS}. Fewer when it doesn't: a short list of flows that matter is better than one filled up with small things. Only when the app offers this user nothing of that kind, give the one or two things most users do on it. Leave out what the app's tests already cover.
 
 NOTES
 - Only what a test writer will need and couldn't see for themselves on the page: an order things have to be done in, something that is in the way, where a thing is hidden. Not a note you were given, and nothing about your own tools. Usually one or two, often none.
 
 PROBLEMS
 - Something that looked wrong while you looked, and that you can quote: figures that don't agree with each other, a message the page contradicts, a control that says one thing and does another. Give each a goal a test can be made from: the test decides whether it is a fault. Not a guess at what might break, and nothing that comes from the test wallet's own funds or from the chain being a local copy. Usually none.`;
+
+/** For an app whose chain can't be copied: the account its tests run as is used and keeps everything they do. */
+const LIVE = `This app's chain is live, not a local copy. The account keeps everything: the positions, orders and history earlier tests left stay, and every test adds to them. So:
+- A goal is about what this run does, not about the account as a whole. Say how what the user already holds moves: “A user opens a $20 long on GOOGL, and their GOOGL position goes up by about $20.”, not “… and sees a long under Holdings”, which an earlier short would swallow.
+- A goal that opens something ends by taking it back (closing the position, cancelling the order, withdrawing the deposit), so the account is left as it was found: “A user places a GOOGL limit buy well under the price, sees it among the open orders, and cancels it.”
+- Leave out what needs an empty or new account (a first deposit, an empty state).`;
 
 export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = () => {}, say: (text: string) => void = () => {}): Promise<Looked> {
   const t0 = Date.now();
@@ -144,6 +150,7 @@ export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = 
         `App: ${env.target.url}`,
         await walletLine(session),
         ours(env),
+        env.chains.configs().some((c) => c.mode === "live") ? `\n${LIVE}` : "",
         suite.notes.length ? `\nWhat is known about this app:\n${suite.notes.map((n) => `- ${n.text}`).join("\n")}` : "",
         suite.tests.length ? `\nTests it already has:\n${suite.tests.map((t) => `- ${t.name}: ${t.goal}`).join("\n")}` : "",
         linked.length ? `\nPages this page links to:\n${linked.map((p) => `- ${p}`).join("\n")}` : "",

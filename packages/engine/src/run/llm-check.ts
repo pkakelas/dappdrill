@@ -55,7 +55,7 @@ export async function checkByModel(run: Running, index: number): Promise<Went> {
       ...(gone.length ? gone.map((g) => `- ${g}`) : ["- nothing"]),
       "",
       "The page now:",
-      formatSnapshot(await takeSnapshot(session.page, { maxChars: 12_000 })),
+      formatSnapshot(await takeSnapshot(session.page, { maxChars: 12_000, wholeLists: true })),
     ].join("\n"),
     images: [{ data: png.toString("base64"), mediaType: "image/png" }],
     schema: Answer,

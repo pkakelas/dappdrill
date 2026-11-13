@@ -5,7 +5,7 @@
 import type { SetupStuck, Suite } from "@dappdrill/core";
 import type { RunSuiteInput } from "../run/suite.js";
 import type { Finding } from "./draft.js";
-import type { Looked } from "./look.js";
+import { MAX_GOALS, type Looked } from "./look.js";
 import type { Made, MakeInput } from "./maker.js";
 
 /** How many things that looked wrong get a test of their own. */
@@ -146,7 +146,7 @@ export async function makeEach(
 
   const together = Math.max(1, input.together ?? 1);
   const go = () => !stuck && !(stopped ??= input.overBudget?.());
-  await pooled(looked.goals.slice(0, input.count ?? 10), together, go, (g) => attempt(g.goal, g.startPath));
+  await pooled(looked.goals.slice(0, input.count ?? MAX_GOALS), together, go, (g) => attempt(g.goal, g.startPath));
 
   const into: { goal: string; startPath: string; finding: Finding }[] = [];
   const asked = new Set<string>();

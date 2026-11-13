@@ -190,11 +190,28 @@ describe("prove", () => {
     expect(proved).toMatchObject({ proven: false, why: expect.stringMatching(/^Still not steady after 4 repairs\. “/) });
   });
 
-  it("stops after seven runs", async () => {
+  it("doesn't take out a check that never passed when the repairs run out", async () => {
     const refused = { verdict: "test", edits: [{ line: 8, op: "remove" }] };
-    const { proved } = await proving(["ppp", "ppf", "ppp", "ppf", "ppp", "ppf", "ppp"], [refused, refused, refused]);
+    const { proved } = await proving(["ppf", "ppf", "ppf", "ppf", "ppf"], [refused, refused, refused, refused]);
+    expect(proved).toMatchObject({ proven: false, why: expect.stringMatching(/^Still not steady after 4 repairs/) });
+    expect(proved.runs).toHaveLength(5);
+  });
+
+  it("out of runs, takes out a check that went both ways and keeps the test when two more runs hold", async () => {
+    const refused = { verdict: "test", edits: [{ line: 8, op: "remove" }] };
+    const { proved, runsLeft } = await proving(["ppp", "ppf", "ppp", "ppf", "ppp", "ppf", "ppp", "pp", "pp"], [refused, refused, refused]);
+    expect(proved).toMatchObject({ proven: true, stands: "passed" });
+    expect(lines(proved.test)).toEqual(["Click Go.", "It went."]);
+    expect(proved.repairs.at(-1)).toMatch(/“The total is right\.” was taken out: it passed in some runs and not in others/);
+    expect(proved.runs).toHaveLength(9);
+    expect(runsLeft).toBe(0);
+  });
+
+  it("gives up when the test without the unsteady check doesn't hold either", async () => {
+    const refused = { verdict: "test", edits: [{ line: 8, op: "remove" }] };
+    const { proved } = await proving(["ppp", "ppf", "ppp", "ppf", "ppp", "ppf", "ppp", "pp", "pf"], [refused, refused, refused]);
     expect(proved).toMatchObject({ proven: false, why: "Still not steady after 7 runs." });
-    expect(proved.runs).toHaveLength(7);
+    expect(proved.runs).toHaveLength(9);
   });
 
   it("keeps a failing test when a second look agrees, and asks once about a fault two lines stand on", async () => {
