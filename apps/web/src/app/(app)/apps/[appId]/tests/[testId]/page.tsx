@@ -8,8 +8,8 @@ import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { TestEditor } from "@/components/tests/lines-editor";
 import { SigningReviews } from "@/components/tests/run-details";
-import { Evidence, shortSigned } from "@/components/tests/signed";
-import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
+import { Evidence } from "@/components/tests/signed";
+import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, shortReason } from "@/components/tests/status";
 import { TestActions } from "@/components/tests/test-actions";
 import { TestRunView, type ViewLine } from "@/components/tests/test-run-view";
 import { cx } from "@/components/ui";
@@ -85,9 +85,6 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const lined = result && result.steps.length === spec.steps.length ? result.steps : undefined;
   // The run on screen failed and the test was kept for a bug: the bug is the explanation.
   const onBug = run?.status === "failed" && test.faults.length > 0;
-  const rerun = result?.rerun && (
-    <p className="text-sm opacity-80">It was run a second time before it counted{result.firstReason && result.firstReason !== result.reason ? `. The first time: ${result.firstReason}` : ", and went the same way."}</p>
-  );
   const editing = edit !== undefined && !state.active;
   const here = `/apps/${appId}/tests/${test.id}`;
 
@@ -96,6 +93,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const ranCleanup = result?.cleanup && result.cleanup.length === spec.cleanup.length ? result.cleanup : undefined;
   const cleanupFailed = ranCleanup?.some((s) => s.status !== "pass");
   const wrong = lines.find((l) => l.state === "failed" || l.state === "unverified");
+  // A failure counts once a second run goes the same way; when the first went another way, that is worth a line.
+  const firstOther = result?.rerun && result.firstReason && result.firstReason !== result.reason ? shortReason(result.firstReason, true) : undefined;
 
   return (
     <div className="page flex flex-col gap-10">
@@ -117,7 +116,11 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y py-3 text-sm">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <StateMark state={state.mark} />
-            <span className={cx("font-medium", STATE_TEXT[state.mark])}>{readLabel(state)}</span>
+            <span className={cx("font-medium", STATE_TEXT[state.mark])}>
+              {readLabel(state)}
+              {/* Where it went wrong; that line is picked below, with what it found. */}
+              {wrong && !state.active && run?.id === settled?.id && ` at line ${lines.indexOf(wrong) + 1}`}
+            </span>
             {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
             {settled?.result && <span className="text-muted-foreground">· took {formatDuration(settled.result.durationMs)}</span>}
           </p>
@@ -140,13 +143,13 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             </div>
           )}
 
-          {result?.reason && run && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
-            <div role="status" className={cx("-mt-4 flex flex-col gap-1 rounded-xl px-5 py-4 leading-relaxed", run.status === "failed" ? "bg-bad-soft text-bad-ink" : "bg-warn-soft text-warn-ink")}>
-              {/* The line that went wrong shows what the wallet was asked in full; here it is named. */}
-              {wrong ? <p className="text-pretty [overflow-wrap:anywhere]">{shortSigned(result.reason)}</p> : <Evidence text={result.reason} textClassName="text-pretty [overflow-wrap:anywhere]" />}
-              {rerun}
+          {/* A reason that is a line's is said by that line, below. Only one that isn't (blocked, a dangerous signature, a page error) gets said here. */}
+          {result?.reason && run && !wrong && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
+            <div role="status" className={cx("-mt-4 rounded-xl px-5 py-4 leading-relaxed", run.status === "failed" ? "bg-bad-soft text-bad-ink" : "bg-warn-soft text-warn-ink")}>
+              <Evidence text={result.reason} textClassName="text-pretty [overflow-wrap:anywhere]" />
             </div>
           )}
+          {firstOther && <p className="-mt-6 text-sm text-muted-foreground">It was run twice before it counted. The first time: {firstOther}.</p>}
 
           {/* A failure on the bug the test was kept for is said once, as that bug. */}
           {test.faults.length > 0 && (
@@ -176,7 +179,6 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                   </dl>
                 </div>
               ))}
-              {onBug && rerun}
             </section>
           )}
 

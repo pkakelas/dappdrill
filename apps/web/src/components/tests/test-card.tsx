@@ -5,8 +5,7 @@ import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
 import { timeAgo } from "@/lib/format";
 import { RunButton } from "./run-button";
-import { readLabel, REVEAL, STATE_TEXT, StateMark, type TestRead } from "./status";
-import { shortSigned } from "./signed";
+import { readLabel, REVEAL, STATE_TEXT, StateMark, type TestRead, shortReason } from "./status";
 
 /** One line of a list: its name and one status on the right. Pointing at the line swaps the status for its action. */
 export function Line({ mark, name, status, action, className }: { mark: ReactNode; name: ReactNode; status: ReactNode; action?: ReactNode; className?: string }) {
@@ -69,8 +68,8 @@ function Under({ test, read, run }: Pick<TestLineProps, "test" | "read" | "run">
   const reason = run?.result?.reason;
   if (read.settled === "passed" || read.settled === "never" || !reason) return null;
   return (
-    <p className={cx("truncate text-xs", STATE_TEXT[read.settled])} title={shortSigned(reason)}>
-      {shortSigned(reason)}
+    <p className={cx("truncate text-xs", STATE_TEXT[read.settled])} title={shortReason(reason, read.settled === "failed")}>
+      {shortReason(reason, read.settled === "failed")}
     </p>
   );
 }
