@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { switchOrgAction } from "@/actions/organization";
 import { Header } from "@/components/shell/header";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { hostFromUrl } from "@/lib/format";
 import { currentOrg, orgApps } from "@/lib/session";
 
@@ -20,7 +21,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         orgs={all.map((m) => ({ id: m.org.id, name: m.org.name }))}
         switchOrg={switchOrgAction}
       />
-      <main>{children}</main>
+      <main>
+        <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+      </main>
     </>
   );
 }

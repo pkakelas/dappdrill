@@ -1,5 +1,6 @@
-import { chainName, type ChainInfo, type WalletProfileId } from "@dappdrill/core";
+import { type ChainInfo, type WalletProfileId } from "@dappdrill/core";
 import { Network } from "lucide-react";
+import { cx } from "@/components/ui";
 
 // Logos in public/icons come from web3icons (MIT).
 const LOGO = "size-[18px] shrink-0";
@@ -17,22 +18,16 @@ const CHAIN_LOGOS: Record<number, string> = {
   11155420: "optimism",
 };
 
-const WALLET_NAME: Record<WalletProfileId, string> = { metamask: "MetaMask", rabby: "Rabby", coinbase: "Coinbase Wallet" };
+export const WALLET_NAME: Record<WalletProfileId, string> = { metamask: "MetaMask", rabby: "Rabby", coinbase: "Coinbase Wallet" };
 
-/** `labelled` is for a logo with no name beside it: it then carries the name itself. */
-export function WalletIcon({ wallet, labelled }: { wallet: WalletProfileId; labelled?: boolean }) {
-  const name = labelled ? WALLET_NAME[wallet] : undefined;
-  return <img src={`/icons/${wallet}.svg`} alt={name ?? ""} title={name} className={LOGO} />;
+/** A logo is decoration: its name is written beside it. */
+export function WalletIcon({ wallet, className }: { wallet: WalletProfileId; className?: string }) {
+  return <img src={`/icons/${wallet}.svg`} alt="" className={cx(LOGO, className)} />;
 }
 
 /** Testnets share their mainnet's logo. Chains we have no logo for get a plain one. */
-export function ChainIcon({ chain, labelled }: { chain: Pick<ChainInfo, "id">; labelled?: boolean }) {
+export function ChainIcon({ chain, className }: { chain: Pick<ChainInfo, "id">; className?: string }) {
   const logo = CHAIN_LOGOS[chain.id];
-  const name = labelled ? chainName(chain.id) : undefined;
-  if (logo) return <img src={`/icons/${logo}.svg`} alt={name ?? ""} title={name} className={LOGO} />;
-  return (
-    <span role={name ? "img" : undefined} aria-label={name} title={name} className="inline-flex">
-      <Network className={`${LOGO} text-muted-foreground`} aria-hidden="true" />
-    </span>
-  );
+  if (logo) return <img src={`/icons/${logo}.svg`} alt="" className={cx(LOGO, className)} />;
+  return <Network className={cx(LOGO, "text-muted-foreground", className)} aria-hidden="true" />;
 }

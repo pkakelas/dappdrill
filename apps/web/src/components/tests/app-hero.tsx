@@ -1,15 +1,16 @@
-import { shortAddress, type WalletProfileId } from "@dappdrill/core";
+import { chainName, shortAddress, type WalletProfileId } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, Mail, Play, Radio, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Mail, Radio } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
-import { ChainIcon, WalletIcon } from "@/components/web3-icons";
-import { hostFromUrl, plural, timeAgo } from "@/lib/format";
+import { ChainIcon, WALLET_NAME, WalletIcon } from "@/components/web3-icons";
+import { hostFromUrl, timeAgo } from "@/lib/format";
 import { Separator } from "@/components/ui/separator";
+import { AppIcon } from "./app-icon";
 import { RunHistory } from "./app-stats";
 import { IntroNote } from "./intro-note";
-import { Tile, type TINT } from "./tile";
+import { Tile } from "./tile";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -22,61 +23,91 @@ export interface Rollup {
   notRun: number;
 }
 
-/** How the tests are doing, worst first. A failed test is one the app got wrong. */
-function Verdict({ rollup }: { rollup: Rollup }) {
-  const { failed, unverified, passed, total } = rollup;
-  const of = <span className="text-muted-foreground/70"> of {plural(total, "test")}</span>;
-  if (failed > 0)
-    return (
-      <>
-        <span className="text-bad">{failed} failed</span>
-        {of}
-      </>
-    );
-  if (unverified > 0)
-    return (
-      <>
-        <span className="text-warn">{unverified} couldn&apos;t be verified</span>
-        {of}
-      </>
-    );
-  if (passed === 0) return <span className="text-muted-foreground">Not run yet</span>;
-  if (passed === total) return <span className="text-good">{total === 1 ? "1 test passed" : `All ${total} tests passed`}</span>;
+/** The share of tests in each result, failures first from the top; what hasn't run is the empty track. */
+function Ring({ rollup }: { rollup: Rollup }) {
+  const r = 18;
+  const around = 2 * Math.PI * r;
+  const parts = [
+    { n: rollup.failed, stroke: "stroke-bad-mid" },
+    { n: rollup.unverified, stroke: "stroke-warn-bar" },
+    { n: rollup.passed, stroke: "stroke-good-bar" },
+  ].filter((p) => p.n > 0);
+  const gap = parts.length > 1 ? 2 : 0;
+  let at = 0;
   return (
-    <>
-      <span className="text-good">{passed} passed</span>
-      {of}
-    </>
+    <svg viewBox="0 0 44 44" aria-hidden="true" className="size-11 shrink-0 -rotate-90">
+      <circle cx="22" cy="22" r={r} fill="none" strokeWidth="5" className="stroke-foreground/8" />
+      {parts.map(({ n, stroke }) => {
+        const length = (n / rollup.total) * around;
+        const arc = <circle key={stroke} cx="22" cy="22" r={r} fill="none" strokeWidth="5" className={stroke} strokeDasharray={`${Math.max(0, length - gap)} ${around}`} strokeDashoffset={-at} />;
+        at += length;
+        return arc;
+      })}
+    </svg>
   );
 }
 
-/** The counts behind the headline, each with its own tile. */
-function stats({ passed, failed, unverified, notRun, total }: Rollup, running: number) {
-  const items: { icon: LucideIcon; tint: keyof typeof TINT; n: number; label: string }[] = [];
-  if (running > 0) items.push({ icon: Play, tint: "live", n: running, label: "Running now" });
-  // The headline names the worst; what comes after it gets a tile.
-  if (failed > 0 && unverified > 0) items.push({ icon: CircleQuestionMark, tint: "warn", n: unverified, label: "Couldn't verify" });
-  if (passed > 0 && passed < total) items.push({ icon: Check, tint: "good", n: passed, label: "Passed" });
-  // When nothing has run, the headline already says so.
-  if (notRun > 0 && notRun < total) items.push({ icon: CircleDashed, tint: "quiet", n: notRun, label: "Not run yet" });
-  return items;
+function LiveDot() {
+  return (
+    <span aria-hidden="true" className="relative flex size-1.5">
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-60 motion-reduce:animate-none" />
+      <span className="relative inline-flex size-1.5 rounded-full bg-live" />
+    </span>
+  );
 }
 
-function Stats({ rollup, running }: { rollup: Rollup; running: number }) {
-  const items = stats(rollup, running);
-  if (items.length === 0) return null;
+/** One figure in the row: a small label over its value. */
+function Figure({ label, dot, tone, children }: { label: string; dot?: ReactNode; tone?: string; children: ReactNode }) {
   return (
-    <ul className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
-      {items.map(({ icon, tint, n, label }) => (
-        <li key={label} className="flex min-w-0 items-center gap-2.5">
-          <Tile icon={icon} tint={tint} />
-          <p className="flex min-w-0 flex-col">
-            <span className="text-base leading-tight font-semibold tabular-nums">{n}</span>
-            <span className="text-xs text-pretty text-muted-foreground">{label}</span>
-          </p>
-        </li>
-      ))}
-    </ul>
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground">
+        {typeof dot === "string" ? <span aria-hidden="true" className={cx("size-1.5 rounded-full", dot)} /> : dot}
+        {label}
+      </span>
+      <span className={cx("flex h-8 items-center text-2xl font-semibold tracking-tight whitespace-nowrap tabular-nums", tone)}>{children}</span>
+    </div>
+  );
+}
+
+/** How the tests stand, in a row of figures: the share passing, each result's count, the last run and the last two weeks. */
+function Figures({ appId, rollup, running, lastRun, history }: { appId: string; rollup: Rollup; running: number; lastRun?: Date; history?: ReactNode }) {
+  const { total, passed, failed, unverified, notRun } = rollup;
+  return (
+    <section aria-label="How the tests stand" className="flex flex-wrap items-end gap-x-12 gap-y-6 border-y py-6">
+      <div className="flex items-end gap-4">
+        <Ring rollup={rollup} />
+        <Figure label="Passing">{notRun === total ? "–" : `${Math.round((passed / total) * 100)}%`}</Figure>
+      </div>
+      <Figure label="Failed" dot="bg-bad-mid" tone={failed > 0 ? "text-bad" : undefined}>
+        {failed}
+      </Figure>
+      {unverified > 0 && (
+        <Figure label="Couldn't verify" dot="bg-warn-bar" tone="text-warn">
+          {unverified}
+        </Figure>
+      )}
+      <Figure label="Passed" dot="bg-good-bar">
+        {passed}
+      </Figure>
+      {notRun > 0 && (
+        <Figure label="Not run yet" dot="bg-foreground/20">
+          {notRun}
+        </Figure>
+      )}
+      {running > 0 && (
+        <Figure label="Running now" dot={<LiveDot />} tone="text-live">
+          {running}
+        </Figure>
+      )}
+      {lastRun && (
+        <Figure label="Last run">
+          <Link href={`/apps/${appId}/runs`} className="hover:underline hover:underline-offset-4">
+            {timeAgo(lastRun)}
+          </Link>
+        </Figure>
+      )}
+      {history && <div className="sm:ml-auto">{history}</div>}
+    </section>
   );
 }
 
@@ -127,16 +158,28 @@ function LiveNote({ appId, live }: { appId: string; live: LiveChain }) {
   );
 }
 
-/** Where the app is and how it signs in: its site, wallet and chain. */
+const CHIP = "inline-flex h-6 items-center gap-1.5 rounded-full border bg-background px-2.5 text-xs font-medium whitespace-nowrap text-foreground/80";
+
+/** Where the app is and how it signs in: its site, then its wallet and chain as chips, each a logo and its name. */
 function Where({ url, wallet, chainId }: { url: string; wallet?: WalletProfileId; chainId?: number }) {
   return (
     <>
-      <a href={url} target="_blank" rel="noreferrer" className="group/site inline-flex items-center gap-0.5 hover:text-foreground">
+      <a href={url} target="_blank" rel="noreferrer" className="group/site mr-1 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
         {hostFromUrl(url)}
         <ArrowUpRight aria-hidden="true" className="size-3.5 opacity-60 transition-transform group-hover/site:translate-x-px group-hover/site:-translate-y-px" />
       </a>
-      {wallet && <WalletIcon wallet={wallet} labelled />}
-      {chainId !== undefined && <ChainIcon chain={{ id: chainId }} labelled />}
+      {wallet && (
+        <span className={CHIP}>
+          <WalletIcon wallet={wallet} className="-ml-1 size-4" />
+          {WALLET_NAME[wallet]}
+        </span>
+      )}
+      {chainId !== undefined && (
+        <span className={CHIP}>
+          <ChainIcon chain={{ id: chainId }} className="-ml-1 size-4 rounded-full" />
+          {chainName(chainId)}
+        </span>
+      )}
     </>
   );
 }
@@ -150,7 +193,7 @@ function MakingIntro({ appId, name, url, wallet, chainId, live, email }: { appId
     <header className="flex flex-col items-center gap-8 pt-4 text-center sm:pt-8">
       <div className="flex flex-col items-center gap-2.5">
         <h1 className="text-3xl font-semibold tracking-tight text-balance">Writing tests for {name}</h1>
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <Where url={url} wallet={wallet} chainId={chainId} />
         </div>
       </div>
@@ -230,33 +273,21 @@ export function AppHero({
   // A chart of the last two weeks says nothing about an app that has only run today.
   const charted = new Set(runs.map((r) => Math.floor(r.createdAt.getTime() / DAY))).size > 1;
   return (
-    <header className="flex flex-col gap-8">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="truncate text-xl font-semibold tracking-tight">{name}</h1>
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <Where url={url} wallet={wallet} chainId={chainId} />
-            {lastRun && (
-              <Link href={`/apps/${appId}/runs`} className="whitespace-nowrap hover:text-foreground">
-                Last run {timeAgo(lastRun)}
-              </Link>
-            )}
+    <header className="flex flex-col gap-10">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
+          <AppIcon appId={appId} name={name} />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{name}</h1>
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <Where url={url} wallet={wallet} chainId={chainId} />
+            </div>
           </div>
         </div>
         <div className="shrink-0">{action}</div>
       </div>
       {live && <LiveNote appId={appId} live={live} />}
-      {rollup && (
-        <div className={cx("grid items-center gap-x-10 gap-y-8", charted && "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]")}>
-          <div className="flex min-w-0 flex-col gap-6">
-            <p className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              <Verdict rollup={rollup} />
-            </p>
-            <Stats rollup={rollup} running={running} />
-          </div>
-          {charted && <RunHistory runs={runs} />}
-        </div>
-      )}
+      {rollup && <Figures appId={appId} rollup={rollup} running={running} lastRun={lastRun} history={charted && <RunHistory runs={runs} />} />}
     </header>
   );
 }
