@@ -11,6 +11,7 @@ import type { Env } from "../run/env.js";
 import { pin } from "../run/pin.js";
 import { landingBotCheck, openSession } from "../run/session.js";
 import type { AgentTool } from "../types.js";
+import { SAID } from "../agent/said.js";
 
 const MAX_TURNS = 60;
 /** Browser steps after which the walker is told to write up. */
@@ -165,7 +166,7 @@ export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
       {
         name: "give_up",
         description: "The goal can't be done here: the app has no way to do it, refuses this user, or is blocked.",
-        schema: z.object({ why: z.string().describe("One sentence, with the app's own words when it said something") }),
+        schema: z.object({ why: z.string().describe(`With the app's own words when it said something. ${SAID}`) }),
         handler: async ({ why }) => {
           out = { gaveUp: why };
           return "Recorded. Stop now.";

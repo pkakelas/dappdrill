@@ -23,7 +23,7 @@ const WRITE_UP_AFTER = 30;
 export const MAX_GOALS = 12;
 
 export const Goal = z.object({
-  goal: z.string().min(1).describe("One sentence: who the user is, what they do and how it ends. “A user with hUSDC in the wallet deposits 100 of it into the vault.”"),
+  goal: z.string().min(1).describe("One sentence of at most 20 words: who the user is, what they do and how it ends. “A user with hUSDC in the wallet deposits 100 of it into the vault.”"),
   startPath: z.string().describe("The path of the page where it is done"),
   why: z.string().describe("A few words on what a user loses when this is broken"),
 });

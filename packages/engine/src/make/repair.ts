@@ -8,6 +8,7 @@ import { z } from "zod";
 import { RunValue, sentence, type Test, type TestResult } from "@dappdrill/core";
 import type { ImageInput, Llm } from "../types.js";
 import { asLine, DraftLine, Finding, wrongValues } from "./draft.js";
+import { SAID } from "../agent/said.js";
 
 const Edit = z.object({
   line: z.number().int().min(1).describe("The line's number as listed"),
@@ -17,7 +18,7 @@ const Edit = z.object({
 
 export const Repair = z.object({
   verdict: z.enum(["test", "app", "cant-tell"]),
-  why: z.string().describe("One or two sentences, naming the text or figures that decide it"),
+  why: z.string().describe(`What decides it. ${SAID}`),
   edits: z.array(Edit).default([]),
   values: z.array(z.object({ name: z.string().regex(/^\w+$/), ...RunValue.shape })).optional().describe("Only when the values change: all of them, as they should be now"),
   finding: Finding.optional().describe("With verdict app, unless it is a problem already written down"),

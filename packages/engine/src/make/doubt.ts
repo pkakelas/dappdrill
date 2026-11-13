@@ -10,10 +10,11 @@ import { chainName, sentence, type Test, type TestResult } from "@dappdrill/core
 import type { Env } from "../run/env.js";
 import type { ImageInput, Llm } from "../types.js";
 import type { Finding } from "./draft.js";
+import { SAID } from "../agent/said.js";
 
 export const Doubt = z.object({
   verdict: z.enum(["app", "other"]),
-  why: z.string().describe("One or two sentences. With app: the words or figures that show the fault. With other: the explanation, so the test's author can act on it"),
+  why: z.string().describe(`With app: the words or figures that show the fault. With other: what it is instead, so the test can be fixed. ${SAID}`),
 });
 export type Doubt = z.infer<typeof Doubt>;
 

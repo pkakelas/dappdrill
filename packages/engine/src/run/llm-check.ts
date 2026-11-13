@@ -8,10 +8,11 @@ import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { decodeWalletRequest } from "../agent/wallet-decode.js";
 import { saidAndGone } from "./page.js";
 import { numbered, sentHash, signRequests, type Running, type Went } from "./running.js";
+import { SAID } from "../agent/said.js";
 
 const Answer = z.object({
   answer: z.enum(["yes", "no", "cant-tell"]),
-  why: z.string().describe("One short sentence naming the exact text or the wallet request that shows it, or what is missing"),
+  why: z.string().describe(`The exact text or the wallet request that shows it, or what is missing. ${SAID}`),
 });
 
 const SYSTEM = `You answer one claim about a web app at one moment of an end-to-end test. You get the claim, the page as text and as a screenshot, what the page showed during the latest action and has taken away since, and what the wallet was asked to sign since the test began. You also get the lines of the test up to this point: they say what was attempted, not that it worked. Decide the claim from the page and the wallet alone.

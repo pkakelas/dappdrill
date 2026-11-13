@@ -13,6 +13,7 @@ import { replayScript } from "../replay/replay.js";
 import type { AgentTool, Llm } from "../types.js";
 import { unpaid } from "../wallet/errors.js";
 import { lines, reviewRequest, type Running, type Went } from "./running.js";
+import { SAID } from "../agent/said.js";
 
 const QUICK_TURNS = 12;
 const FAST_TURNS = 20;
@@ -143,7 +144,7 @@ async function attempt(run: Running, index: number, llm: Llm, maxTurns: number, 
       schema: z.object({
         ok: z.boolean(),
         cause: z.enum(["app", "unsure", "fork"]).optional().describe("When ok=false: app = the app is broken or in the way; unsure = you couldn't work it out; fork = the page disagrees with what the wallet holds on the test chain"),
-        reason: z.string().describe("One short sentence: what you did, or what's wrong. When the app shows an error, give its own words and where they came from if you can tell (the app, its sign-in provider, the wallet)"),
+        reason: z.string().describe(`What you did, or what's wrong. When the app shows an error, give its own words and where they came from if you can tell (the app, its sign-in provider, the wallet). ${SAID}`),
       }),
       handler: async (input) => {
         done = input;
