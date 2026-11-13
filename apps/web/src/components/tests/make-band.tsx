@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { artifactUrl } from "@/lib/artifacts";
 import { plural } from "@/lib/format";
 import { SaidNote, saidShort } from "./said";
+import { Evidence } from "./signed";
 import { StateMark, type TestState } from "./status";
 import { SectionHead, Tile } from "./tile";
 
@@ -65,7 +66,7 @@ export function GoalList({ appId, goals, live, aside }: { appId: string; goals: 
           <Tile icon={TriangleAlert} tint="warn" className="size-7 rounded-md" />
           <div className="flex min-w-0 flex-col gap-1">
             <p className="font-medium">{shared.count} goals got no test, for the same reason</p>
-            <p className="text-pretty text-muted-foreground">{shared.why}</p>
+            <Evidence text={shared.why} textClassName="text-pretty text-muted-foreground" />
           </div>
         </div>
       )}
@@ -93,7 +94,7 @@ export function GoalList({ appId, goals, live, aside }: { appId: string; goals: 
                 )}
                 {g.suspicion && <span className="text-xs text-pretty text-muted-foreground">Looked wrong: {g.suspicion}</span>}
                 {g.status === "making" && g.said && <SaidNote text={g.said} />}
-                {under && <span className="text-xs text-pretty text-muted-foreground">{under}</span>}
+                {under && <Evidence text={under} className="text-xs" textClassName="text-pretty text-muted-foreground" />}
               </div>
               {/* Outside the make, the list holds only goals without a test, which its heading says. */}
               {live && <span className="w-20 shrink-0 pt-0.5 text-right text-xs text-muted-foreground">{goalStatus(g, i === next)}</span>}

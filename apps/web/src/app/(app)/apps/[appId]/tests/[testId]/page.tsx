@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { TestEditor } from "@/components/tests/lines-editor";
 import { SigningReviews } from "@/components/tests/run-details";
+import { Evidence, shortSigned } from "@/components/tests/signed";
 import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
 import { TestActions } from "@/components/tests/test-actions";
 import { TestRunView, type ViewLine } from "@/components/tests/test-run-view";
@@ -141,7 +142,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
 
           {result?.reason && run && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
             <div role="status" className={cx("-mt-4 flex flex-col gap-1 rounded-xl px-5 py-4 leading-relaxed", run.status === "failed" ? "bg-bad-soft text-bad-ink" : "bg-warn-soft text-warn-ink")}>
-              <p className="text-pretty [overflow-wrap:anywhere]">{result.reason}</p>
+              {/* The line that went wrong shows what the wallet was asked in full; here it is named. */}
+              {wrong ? <p className="text-pretty [overflow-wrap:anywhere]">{shortSigned(result.reason)}</p> : <Evidence text={result.reason} textClassName="text-pretty [overflow-wrap:anywhere]" />}
               {rerun}
             </div>
           )}
@@ -166,7 +168,9 @@ export default async function TestPage({ params, searchParams }: { params: Promi
                     {f.saw && (
                       <>
                         <dt className="text-muted-foreground">The app</dt>
-                        <dd className="text-pretty">{f.saw}</dd>
+                        <dd className="min-w-0">
+                          <Evidence text={f.saw} textClassName="text-pretty" />
+                        </dd>
                       </>
                     )}
                   </dl>

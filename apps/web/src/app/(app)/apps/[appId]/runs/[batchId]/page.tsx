@@ -11,6 +11,7 @@ import { STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
 import { cx, PageHeader } from "@/components/ui";
 import { dateTime, minutesBetween, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
+import { shortSigned } from "@/components/tests/signed";
 
 type Params = { appId: string; batchId: string };
 
@@ -76,7 +77,7 @@ export default async function RunPage({ params }: { params: Promise<Params> }) {
                 <Link href={`/apps/${appId}/tests/${test.id}?run=${run.id}`} className="truncate font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
                   {test.name}
                 </Link>
-                {reason && (run.status === "failed" || run.status === "unverified") && <span className={cx("truncate text-sm", run.status === "failed" ? "text-bad" : "text-warn")}>{reason}</span>}
+                {reason && (run.status === "failed" || run.status === "unverified") && <span className={cx("truncate text-sm", run.status === "failed" ? "text-bad" : "text-warn")}>{shortSigned(reason)}</span>}
               </div>
               <span className={cx("shrink-0 text-xs", STATE_TEXT[run.status])}>{STATE_LABEL[run.status]}</span>
               <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums sm:inline">{run.finishedAt ? timeAgo(run.finishedAt) : ""}</span>

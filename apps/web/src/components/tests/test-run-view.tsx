@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { BrowserWindow, SiteLoading } from "@/components/site-preview";
 import { cx } from "@/components/ui";
+import { Evidence } from "./signed";
 import { StateMark, type TestState } from "./status";
 
 /** One line of the test as the run on screen left it, ready to draw. */
@@ -170,7 +171,7 @@ function Row({ line, last, picked, onPick }: { line: ViewLine; last: boolean; pi
         <span className="text-pretty">{line.text}</span>
         {/* What a passing check saw shows once its line is picked (folded when it can't be); a problem always shows whole. */}
         {line.note && (line.tone !== "quiet" || picked || !line.shot) && (
-          <span className={cx("text-sm text-pretty [overflow-wrap:anywhere]", TONE[line.tone ?? "quiet"], !picked && line.tone === "quiet" && "line-clamp-2")}>{line.note}</span>
+          <Evidence text={line.note} className="mt-0.5 text-sm" textClassName={cx("text-pretty [overflow-wrap:anywhere]", TONE[line.tone ?? "quiet"], !picked && line.tone === "quiet" && "line-clamp-2")} />
         )}
         {line.redone && <span className="text-sm text-pretty text-muted-foreground">The recorded actions stopped working, so it was worked out again: {line.redone}</span>}
         {line.did && line.did.length > 0 && <span className="text-xs text-pretty text-muted-foreground [overflow-wrap:anywhere]">{line.did.join(" · ")}</span>}
