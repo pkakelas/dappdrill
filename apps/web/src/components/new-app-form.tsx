@@ -2,7 +2,7 @@
 
 import { KNOWN_CHAINS, MAINNET_CHAIN_IDS, chainInfo, chainName, type WalletProfileId } from "@dappdrill/core";
 import { ArrowRight, Check, Clock, Globe, Network, ScanSearch } from "lucide-react";
-import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createAppAction } from "@/actions/apps";
 import { HintRows, LiveKeyField, useHints } from "@/components/app-hints";
 import { FundsField, UnforkableNote, type FundsWay } from "@/components/funds-field";
@@ -87,6 +87,11 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
     startTransition(() => act(data));
   }
 
+  // Enter in a field doesn't send the form: tests are generated from the button only.
+  function holdEnter(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
+  }
+
   const preview = site && (
     <SitePreview
       site={site}
@@ -107,7 +112,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   );
 
   return (
-    <form onSubmit={submit} aria-busy={pending} className="mx-auto flex w-full max-w-xl flex-col gap-8 lg:max-w-none">
+    <form onSubmit={submit} onKeyDown={holdEnter} aria-busy={pending} className="mx-auto flex w-full max-w-xl flex-col gap-8 lg:max-w-none">
       <input type="hidden" name="orgId" value={orgId} readOnly />
       <input type="hidden" name="customized" value={customized ? "1" : ""} readOnly />
       {picked && <input type="hidden" name="chain" value={picked.id} readOnly />}
