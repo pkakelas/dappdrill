@@ -4,7 +4,7 @@
  */
 import path from "node:path";
 import { z } from "zod";
-import { urlOnApp, type Blocked, type ChainConfig, type DrillEventSink, type LineResult, type SetupStuck } from "@dappdrill/core";
+import { noteText, urlOnApp, type Blocked, type ChainConfig, type DrillEventSink, type LineResult, type SetupStuck } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { browserTools, Recorder, settle, walletLine } from "../agent/tools.js";
 import { followPages } from "../browser/site-pages.js";
@@ -150,7 +150,7 @@ export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = 
         await walletLine(session),
         ours(env),
         env.chains.configs().some((c) => c.mode === "live") ? `\n${LIVE}` : "",
-        suite.notes.length ? `\nWhat is known about this app:\n${suite.notes.map((n) => `- ${n.text}`).join("\n")}` : "",
+        suite.notes.length ? `\nWhat is known about this app:\n${suite.notes.map((n) => `- ${noteText(n)}`).join("\n")}` : "",
         suite.tests.length ? `\nTests it already has:\n${suite.tests.map((t) => `- ${t.name}: ${t.goal}`).join("\n")}` : "",
         linked.length ? `\nPages this page links to:\n${linked.map((p) => `- ${p}`).join("\n")}` : "",
         "",

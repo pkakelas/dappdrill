@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Suite, Test } from "@dappdrill/core";
+import { noteText, Suite, Test } from "@dappdrill/core";
 import type { Made } from "../../src/make/maker.js";
 import { makeEach, MAX_SUSPICIONS } from "../../src/make/tests.js";
 
@@ -40,6 +40,22 @@ describe("makeEach", () => {
     });
     expect(into).toEqual(["a", "b", "c"]);
     expect(into).toHaveLength(MAX_SUSPICIONS);
+  });
+
+  it("keeps what a goal that wasn't kept learned, as less sure, and makes it sure when a kept test learns it again", async () => {
+    const heard: string[][] = [];
+    const { suite } = await makeEach({ goals: goals("long", "short", "close"), notes: [], problems: [] }, { suite: empty }, async ({ goal, suite }) => {
+      heard.push(suite.notes.map(noteText));
+      if (goal === "long") return made("long", { proven: false, test: undefined, why: "Not steady.", notes: ["The orders list is long.", "Trading needs enabling."] });
+      if (goal === "short") return made("short", { notes: ["Trading needs enabling.", "Trading needs enabling."] });
+      return made("close");
+    });
+    expect(heard[1]).toEqual(["The orders list is long. (learned while making a test that wasn't kept, so it may be wrong)", "Trading needs enabling. (learned while making a test that wasn't kept, so it may be wrong)"]);
+    expect(suite.notes).toEqual([
+      { text: "The orders list is long.", from: "unkept" },
+      { text: "Trading needs enabling.", from: "maker" },
+    ]);
+    expect(suite.tests.map((t) => t.id)).toEqual(["short", "close"]);
   });
 
   it("makes so many side by side, and gives two tests that came to one id an id each", async () => {

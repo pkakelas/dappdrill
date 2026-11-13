@@ -79,7 +79,10 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
           <ul className="divide-y rounded-xl border bg-card shadow-xs">
             {learned.map((n, i) => (
               <li key={i} className="flex items-start gap-3 px-4 py-2.5 text-sm">
-                <span className="min-w-0 flex-1 text-pretty whitespace-pre-line">{n.text}</span>
+                <span className="min-w-0 flex-1 text-pretty whitespace-pre-line">
+                  {n.text}
+                  {n.from === "unkept" && <span className="text-muted-foreground"> · from a test that wasn't kept</span>}
+                </span>
                 {manage && (
                   <form action={removeNoteAction.bind(null, app.id, n.text)}>
                     <SubmitButton variant="ghost" size="icon-sm" busy="" aria-label="Remove this note" className="text-muted-foreground">

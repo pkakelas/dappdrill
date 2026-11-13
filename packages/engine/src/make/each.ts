@@ -2,7 +2,7 @@
  * A test for each goal, so many at a time, and what each make adds to the suite. No browser and no
  * model in here: the make itself is handed in.
  */
-import type { SetupStuck, Suite } from "@dappdrill/core";
+import type { Note, SetupStuck, Suite } from "@dappdrill/core";
 import type { RunSuiteInput } from "../run/suite.js";
 import type { Finding } from "./draft.js";
 import { MAX_GOALS, type Looked } from "./look.js";
@@ -89,14 +89,17 @@ export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problem
       else if (suspicion && made.stands === "passed") tried.why = made.dismissed.at(-1) ?? "The app did it right when it was tried again, so there is nothing to keep.";
       else {
         tried.kept = true;
-        const known = new Set(suite.notes.map((note) => note.text));
         // Two made side by side may have come to the same id.
         const taken = new Set(suite.tests.map((t) => t.id));
         let test = made.test;
         for (let i = 2; taken.has(test.id); i++) test = { ...made.test, id: `${made.test.id}-${i}` };
-        suite = { ...suite, notes: [...suite.notes, ...made.notes.filter((note) => !known.has(note)).map((text) => ({ text, from: "maker" as const }))], tests: [...suite.tests, test] };
-        await progress.onSuite?.(suite);
+        suite = { ...suite, tests: [...suite.tests, test] };
       }
+      // What a goal that wasn't kept learned is often what the next one needs most, so it is kept too, as less sure.
+      if (made.notes.length) {
+        suite = { ...suite, notes: withNotes(suite.notes, made.notes, tried.kept ? "maker" : "unkept") };
+        await progress.onSuite?.(suite);
+      } else if (tried.kept) await progress.onSuite?.(suite);
     } catch (e) {
       if (input.signal?.aborted) throw e;
       tried.why = `It broke on our side: ${e instanceof Error ? e.message : String(e)}`;
@@ -128,4 +131,11 @@ async function pooled<T>(items: T[], together: number, go: () => boolean, job: (
     while (waiting.length && go()) await job(waiting.shift()!);
   };
   await Promise.all(Array.from({ length: Math.min(together, waiting.length) }, worker));
+}
+
+/** The notes with new ones added. One already there is not added again, and a kept test learning it again makes it sure. */
+export function withNotes(notes: Note[], texts: string[], from: "maker" | "unkept"): Note[] {
+  const known = new Set(notes.map((n) => n.text));
+  const sure = from === "maker" ? new Set(texts) : new Set<string>();
+  return [...notes.map((n) => (n.from === "unkept" && sure.has(n.text) ? { ...n, from } : n)), ...texts.filter((text, i) => !known.has(text) && texts.indexOf(text) === i).map((text) => ({ text, from }))];
 }

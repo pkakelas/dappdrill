@@ -4,7 +4,7 @@
  * our side is tried once more quietly before the test is called Couldn't verify.
  */
 import path from "node:path";
-import { chainName, copyBehindLine, type DrillEventSink, type DrillTarget, type LineResult, type SetupStuck, type Suite, type SuiteResult, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
+import { chainName, copyBehindLine, noteText, type DrillEventSink, type DrillTarget, type LineResult, type SetupStuck, type Suite, type SuiteResult, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
 import { openEnv, withoutFallback, type Env } from "./env.js";
 import { pin } from "./pin.js";
 import { debug, plain } from "./session.js";
@@ -54,7 +54,7 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
   // The suite's own rule comes before whatever the caller allows.
   const refused = () => "Refused: nothing may be approved in the wallet for this app. Reject it and carry on without it.";
   const asked = more.refuseApprove && ((request: WalletRequest) => more.refuseApprove!(request, env));
-  const opts: RunOptions = { artifactsDir, signal, notes: suite.notes.map((n) => n.text), refuseApprove: suite.signing === "allowed" ? asked : refused };
+  const opts: RunOptions = { artifactsDir, signal, notes: suite.notes.map(noteText), refuseApprove: suite.signing === "allowed" ? asked : refused };
   const open: OpenSuite = { env, opts, run: (test, onLine) => onFreshState(env, test, { ...opts, onLine }), close: () => env.close() };
   if (!suite.setup) return open;
   try {

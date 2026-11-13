@@ -125,10 +125,13 @@ export function fillValues(test: Test, random: () => number = Math.random): { te
  */
 export const Note = z.object({
   text: z.string().min(1),
-  /** The app's owner, the look over the app, or the maker of a test. */
-  from: z.enum(["owner", "look", "maker"]).default("owner"),
+  /** The app's owner, the look over the app, the maker of a kept test, or the maker of a test that wasn't kept. */
+  from: z.enum(["owner", "look", "maker", "unkept"]).default("owner"),
 });
 export type Note = z.infer<typeof Note>;
+
+/** A note as the models read it. One from a test that wasn't kept says so: the attempt may have gone the wrong way. */
+export const noteText = (n: Note) => (n.from === "unkept" ? `${n.text} (learned while making a test that wasn't kept, so it may be wrong)` : n.text);
 
 /** The tests of one app, and what is done once before them so each starts as a user who is already in. */
 export const Suite = z.object({
