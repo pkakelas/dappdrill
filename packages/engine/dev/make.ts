@@ -11,12 +11,12 @@
  *
  * Everything else goes under .drill/made/<host>/<time>/: made.json and the runs' artifacts.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { OUTCOME_LABEL, sentence, Suite, type Test, type TestResult } from "@dappdrill/core";
+import { OUTCOME_LABEL, sentence, type Test, type TestResult } from "@dappdrill/core";
 import { makeTest } from "../src/api.js";
-import { fromCwd, loadTarget, outDir, secs, usd } from "./target.js";
+import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs, usd } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
@@ -29,7 +29,7 @@ if (!url || !suiteFile || !goal) {
 }
 
 const suitePath = fromCwd(suiteFile);
-const suite = Suite.parse(JSON.parse(await readFile(suitePath, "utf8").catch(() => "{}")));
+const suite = await readSuite(suitePath);
 const target = await loadTarget(url, flags);
 const out = outDir("made", url);
 await mkdir(out, { recursive: true });
@@ -64,9 +64,8 @@ console.log(`\n${verdict}  ${secs(made.durationMs).trim()}, $${made.costUsd.toFi
 
 if (made.proven && made.test && suspicion && made.stands === "passed") console.log(`Not added: ${made.dismissed.at(-1) ?? "the app did it right, so there is nothing to keep."}`);
 else if (made.proven && made.test && !flags.dry) {
-  const known = new Set(suite.notes.map((n) => n.text));
-  const notes = [...suite.notes, ...made.notes.filter((n) => !known.has(n)).map((text) => ({ text, from: "maker" as const }))];
-  await writeFile(suitePath, `${JSON.stringify({ ...suite, notes, tests: [...suite.tests, made.test] }, null, 2)}\n`);
+  // Onto the file as it is now: a look or a make beside this one may have written to it meanwhile.
+  await addToSuite(suitePath, suite, { notes: made.notes.map((text) => ({ text, from: "maker" as const })), tests: [made.test] });
   console.log(`Added to ${suiteFile}.`);
 }
 console.log(out);

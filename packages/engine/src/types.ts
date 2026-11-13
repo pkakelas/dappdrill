@@ -205,8 +205,8 @@ export interface Llm {
     signal?: AbortSignal;
     onText?: (text: string) => void;
   }): Promise<{ text: string; stopReason?: "end_turn" | "max_turns" }>;
-  /** One call that returns JSON validated against `schema`. */
-  structured<T>(opts: { system: string; prompt: string; images?: ImageInput[]; schema: ZodType<T>; name: string }): Promise<T>;
+  /** One call that returns JSON validated against `schema`. A reply that doesn't fit is asked for once more. */
+  structured<T>(opts: { system: string; prompt: string; images?: ImageInput[]; schema: ZodType<T>; name: string; signal?: AbortSignal }): Promise<T>;
   /** Estimated spend so far, USD. */
   costUsd(): number;
 }

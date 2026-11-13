@@ -104,19 +104,24 @@ export async function createSession(target: DrillTarget, chains: ChainController
   await wallet.fundOnForks(target.tokens);
 
   const browser = await chromium.launch({ headless: opts.headless ?? true });
-  const context = await browser.newContext({
-    viewport: VIEWPORT,
-    userAgent: USER_AGENT,
-    locale: "en-US",
-    recordVideo: opts.video === false ? undefined : { dir: dirs.videos, size: VIEWPORT },
-    ignoreHTTPSErrors: true,
-    storageState: opts.storageState,
-  });
-  if (opts.trace !== false) await context.tracing.start({ screenshots: true, snapshots: true });
+  try {
+    const context = await browser.newContext({
+      viewport: VIEWPORT,
+      userAgent: USER_AGENT,
+      locale: "en-US",
+      recordVideo: opts.video === false ? undefined : { dir: dirs.videos, size: VIEWPORT },
+      ignoreHTTPSErrors: true,
+      storageState: opts.storageState,
+    });
+    if (opts.trace !== false) await context.tracing.start({ screenshots: true, snapshots: true });
 
-  const session = new Session(id, target, chains, wallet, browser, context, opts, dirs, log);
-  await session.init(profile, opts.twoWallets ? otherWallet(profile) : undefined, startChainId);
-  return session;
+    const session = new Session(id, target, chains, wallet, browser, context, opts, dirs, log);
+    await session.init(profile, opts.twoWallets ? otherWallet(profile) : undefined, startChainId);
+    return session;
+  } catch (err) {
+    await browser.close().catch(() => {});
+    throw err;
+  }
 }
 
 class Session implements EngineSession {
@@ -182,7 +187,10 @@ class Session implements EngineSession {
         this.lastClicked = typeof label === "string" && label ? label : undefined;
         return { result: null };
       }
-      return wallet.handle(req, { pageUrl: source.page.url(), buttonLabel: this.lastClicked, clickSeq: this.clicks });
+      // The wallet script asks for its state first thing in every new document: in the main frame, the
+      // page that asked for anything before has been reloaded or left.
+      if (req.method === "__state" && source.frame === source.page.mainFrame()) wallet.pageGone(source.page);
+      return wallet.handle(req, { pageUrl: source.page.url(), buttonLabel: this.lastClicked, clickSeq: this.clicks, page: source.page });
     });
     // With two wallets installed the later one (the second) takes over window.ethereum, like real extensions do;
     // the dApp must use the EIP-6963 provider the user picked to reach the first.
@@ -223,6 +231,7 @@ class Session implements EngineSession {
 
   private watchPage(page: Page): void {
     this.said.watchDialogs(page);
+    page.on("close", () => this.wallet.pageGone(page));
     page.on("console", (msg) => {
       const type = msg.type();
       const level: ConsoleEntry["level"] = type === "error" ? "error" : type === "warning" ? "warn" : type === "info" ? "info" : "log";

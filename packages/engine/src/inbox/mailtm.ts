@@ -6,6 +6,9 @@ import type { Inbox } from "../types.js";
 
 const API = "https://api.mail.tm";
 const POLL_MS = 3_000;
+const TIMEOUT_MS = 10_000;
+/** mail.tm stamps createdAt with its own clock, which may run behind ours. */
+const CLOCK_SLACK_MS = 30_000;
 
 export interface InboxCredentials {
   address: string;
@@ -52,7 +55,7 @@ export async function openInbox(creds: InboxCredentials, fetchFn: typeof fetch =
       const tried = new Set<string>();
       while (true) {
         const fresh = (await list())
-          .filter((m) => Date.parse(m.createdAt) >= sinceMs && !tried.has(m.id))
+          .filter((m) => Date.parse(m.createdAt) >= sinceMs - CLOCK_SLACK_MS && !tried.has(m.id))
           .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
         for (const m of fresh) {
           tried.add(m.id);
@@ -95,8 +98,9 @@ async function request<T = unknown>(
       method: opts.method ?? "GET",
       headers: { accept: "application/json", "content-type": "application/json", ...opts.headers },
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (res.status === 429 && attempt < 5) {
+    if ((res.status === 429 && attempt < 5) || (res.status >= 500 && attempt < 2)) {
       await new Promise((r) => setTimeout(r, 1_000 * (attempt + 1)));
       continue;
     }

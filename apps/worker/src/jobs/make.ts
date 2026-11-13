@@ -1,7 +1,7 @@
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { MakeState, newId, sentence, setupWithRecordings, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
-import { addTest, apps, appTests, makes, suiteOf, testRuns, tryAppLock, type Db } from "@dappdrill/db";
+import { MakeState, newId, sentence, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
+import { addTest, appTests, makes, suiteOf, testRuns, tryAppLock, type Db } from "@dappdrill/db";
 import type { Attempt, Looked } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
 import type { PgBoss } from "pg-boss";
@@ -9,7 +9,7 @@ import { artifactsDir, shareArtifacts } from "../artifacts.js";
 import { errorMessage, logger, type Logger } from "../log.js";
 import { notifyMake } from "../notify/make.js";
 import { LIVE_RETRY_SECONDS, QUEUES, type MakeJob } from "../queues.js";
-import { buildTarget, loadApp, ownerNotes, type AppRow } from "../target.js";
+import { buildTarget, keepSetup, loadApp, ownerNotes, updateApp, type AppRow } from "../target.js";
 import { pollStops, throttle } from "./stop.js";
 
 const SAVE_EVERY_MS = 1000;
@@ -45,8 +45,12 @@ export async function runMake(db: Db, engine: Engine, boss: PgBoss, makeId: stri
 async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$inferSelect, shutdown: AbortSignal, log: Logger): Promise<void> {
   const dir = artifactsDir("makes", row.id);
   const state = MakeState.parse(row.goal ? { stage: "making", goals: [{ goal: row.goal, status: "making" }] } : {});
+  /** What the look and each make came back with. */
   let costUsd = 0;
-  const saving = throttle(SAVE_EVERY_MS, () => db.update(makes).set({ state, costUsd }).where(eq(makes.id, row.id)));
+  /** What the engine says was spent so far, the makes that were stopped or broke included. */
+  let reported = 0;
+  const spent = () => Math.max(costUsd, reported);
+  const saving = throttle(SAVE_EVERY_MS, () => db.update(makes).set({ state, costUsd: spent() }).where(eq(makes.id, row.id)));
   const save = () => saving.push(undefined);
 
   const stop = new AbortController();
@@ -60,6 +64,10 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
   // A picture of a browser belongs to the look or to the make whose folder it is in.
   const sink: DrillEventSink = (event) => {
     if (event.type === "log" && event.level !== "info") return log[event.level](event.message);
+    if (event.type === "cost") {
+      reported = Math.max(reported, event.usd);
+      return save();
+    }
     if (event.type !== "frame") return;
     const rel = path.relative(dir, event.path);
     const n = /^make-(\d+)\//.exec(rel)?.[1];
@@ -107,11 +115,12 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
   };
 
   await db.update(makes).set({ status: "running", startedAt: new Date(), state }).where(eq(makes.id, row.id));
-  const suite = { ...suiteOf(app, await appTests(db, app.id)), ...ownerNotes(app) };
   log.info(row.goal ? `started: “${row.goal}” on ${app.url}` : `started: up to ${row.count} tests for ${app.url}`);
   let end: "done" | "stopped" | "failed" = "done";
   let error: string | undefined;
   try {
+    // In here, so a test that can't be read ends the make failed, with why, rather than leaving it running.
+    const suite = { ...suiteOf(app, await appTests(db, app.id)), ...ownerNotes(app) };
     if (row.goal) {
       const one = await engine.makeTest({ target: await buildTarget(db, app, "tests"), suite, goal: row.goal, artifactsDir: path.join(dir, "make-1"), signal }, sink, (text) => say(text, 1));
       await keepSetup(db, app.id, one.setup);
@@ -119,9 +128,9 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
       if (kept) await keepNotes(db, app.id, one.notes, "maker");
       await made({ goal: row.goal, made: one, kept, why: one.why }, 1);
     } else {
-      await engine.makeTests({ target: await buildTarget(db, app, "look"), suite, count: row.count, artifactsDir: dir, signal }, sink, {
+      const all = await engine.makeTests({ target: await buildTarget(db, app, "look"), suite, count: row.count, artifactsDir: dir, signal }, sink, {
         say,
-        onLooked: (looked) => {
+        onLooked: async (looked) => {
           costUsd += looked.costUsd;
           Object.assign(state, {
             stage: "making",
@@ -131,7 +140,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
             goals: looked.goals.slice(0, row.count).map((g) => ({ ...g, status: "waiting", costUsd: 0, durationMs: 0 })),
           } satisfies Partial<MakeState>);
           save();
-          void keepLooked(db, app.id, looked).catch((e) => log.warn(`could not keep what the look found: ${errorMessage(e)}`));
+          await keepLooked(db, app.id, looked).catch((e) => log.warn(`could not keep what the look found: ${errorMessage(e)}`));
         },
         onGoal: (goal, n, suspicion) => {
           // The look's goals are listed already; what looked wrong on the way is added as it comes up.
@@ -142,6 +151,8 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
         onAttempt: made,
         onSuite: (next) => keepNotes(db, app.id, notesFrom(next, "look"), "look").then(() => keepNotes(db, app.id, notesFrom(next, "maker"), "maker")),
       });
+      // The spending limit: the goals not started yet get no test, and say why.
+      if (all.stopped) for (const goal of state.goals) if (goal.status === "waiting") Object.assign(goal, { status: "not-kept", whyNot: all.stopped } satisfies Partial<MakeGoal>);
     }
   } catch (e) {
     end = stop.signal.aborted ? "stopped" : "failed";
@@ -152,8 +163,8 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
   }
   state.stage = "done";
   await saving.flush();
-  await db.update(makes).set({ status: end, state, costUsd, error, finishedAt: new Date() }).where(eq(makes.id, row.id));
-  log.info(`${end}: ${state.goals.filter((g) => g.status === "kept").length} tests kept, $${costUsd.toFixed(2)}`);
+  await db.update(makes).set({ status: end, state, costUsd: spent(), error, finishedAt: new Date() }).where(eq(makes.id, row.id));
+  log.info(`${end}: ${state.goals.filter((g) => g.status === "kept").length} tests kept, $${spent().toFixed(2)}`);
   if (end !== "stopped") await notifyMake(db, app, row.id, end);
 }
 
@@ -162,36 +173,18 @@ const notesFrom = (suite: Suite, from: "look" | "maker") => suite.notes.filter((
 /** Adds what was learned about the app to its notes. The owner may have edited them meanwhile, so only what isn't there is added. */
 async function keepNotes(db: Db, appId: string, notes: string[], from: "look" | "maker"): Promise<void> {
   if (!notes.length) return;
-  const { suite } = await loadApp(db, appId);
-  const known = new Set(suite.notes.map((n) => n.text));
-  const added = notes.filter((text) => !known.has(text)).map((text) => ({ text, from }));
-  if (added.length)
-    await db
-      .update(apps)
-      .set({ suite: { ...suite, notes: [...suite.notes, ...added] } })
-      .where(eq(apps.id, appId));
-}
-
-/** The setup's actions as a run recorded them, so the next run replays them without a model. */
-async function keepSetup(db: Db, appId: string, lines: LineResult[] | undefined): Promise<void> {
-  if (!lines?.length) return;
-  const { suite } = await loadApp(db, appId);
-  if (!suite.setup || suite.setup.steps.length !== lines.length) return;
-  await db
-    .update(apps)
-    .set({ suite: { ...suite, setup: setupWithRecordings(suite.setup, lines) } })
-    .where(eq(apps.id, appId));
+  await updateApp(db, appId, ({ suite }) => {
+    const known = new Set(suite.notes.map((n) => n.text));
+    const added = notes.filter((text) => !known.has(text)).map((text) => ({ text, from }));
+    return added.length ? { suite: { ...suite, notes: [...suite.notes, ...added] } } : undefined;
+  });
 }
 
 /** The chains the app turned out to use and the tokens the wallet was given: every run starts from these. */
 async function keepLooked(db: Db, appId: string, looked: Looked): Promise<void> {
   await keepSetup(db, appId, looked.setup);
   if (!looked.goals.length) return;
-  const app = await loadApp(db, appId);
-  await db
-    .update(apps)
-    .set({ chains: looked.chains, settings: { ...app.settings, tokens: looked.tokens } })
-    .where(eq(apps.id, appId));
+  await updateApp(db, appId, ({ settings }) => ({ chains: looked.chains, settings: { ...settings, tokens: looked.tokens } }));
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
  * Turn a core Locator into a Playwright locator. Candidates are tried in the
  * order the Locator schema documents (testId, the control in the box `near` names,
- * role+name exact then loose, label, placeholder, text, css) until one matches a
+ * role+name exact then by part of the name, label, placeholder, text, css) until exactly one matches a
  * visible element, polling until the timeout so slow pages still work.
  */
 import type { Locator as PwLocator, Page } from "playwright";
@@ -12,15 +12,20 @@ type Scope = Page | PwLocator;
 export async function resolveLocator(page: Page, loc: Locator, timeoutMs: number): Promise<PwLocator> {
   const deadline = Date.now() + timeoutMs;
   const tried: string[] = [];
+  const several = new Set<string>();
   do {
     const scope = loc.withinDialog ? await openDialog(page) : page;
     if (scope) {
-      for (const { name, build, loose } of candidates(scope, loc)) {
+      for (const { name, build } of candidates(scope, loc)) {
         if (!tried.includes(name)) tried.push(name);
         const visible = build().filter({ visible: true });
         const count = await visible.count().catch(() => 0);
-        // A loose match that fits several rows can't say which one was meant.
-        if (loose && count > 1 && loc.nth === undefined) continue;
+        // It was recorded without a position because it was the only one. Several now can't say which
+        // one was meant ("Cancel" on the oldest of three orders), so a model looks again instead.
+        if (count > 1 && loc.nth === undefined) {
+          several.add(name);
+          continue;
+        }
         if (count > 0) return visible.nth(loc.nth ?? 0);
         if (loc.nth !== undefined && loc.nth > 0) {
           const any = build();
@@ -30,16 +35,17 @@ export async function resolveLocator(page: Page, loc: Locator, timeoutMs: number
     } else tried.push("dialog");
     await page.waitForTimeout(200);
   } while (Date.now() < deadline);
-  throw new Error(`Could not find ${describeLocator(loc)} (tried ${tried.join(", ")})`);
+  const which = several.size ? `; several matched ${[...several].join(", ")}, so it can't say which` : "";
+  throw new Error(`Could not find ${describeLocator(loc)} (tried ${tried.join(", ")}${which})`);
 }
 
-function candidates(scope: Scope, loc: Locator): { name: string; build: () => PwLocator; loose?: boolean }[] {
-  const out: { name: string; build: () => PwLocator; loose?: boolean }[] = [];
+function candidates(scope: Scope, loc: Locator): { name: string; build: () => PwLocator }[] {
+  const out: { name: string; build: () => PwLocator }[] = [];
   if (loc.testId) out.push({ name: `testId "${loc.testId}"`, build: () => scope.getByTestId(loc.testId!) });
   if (loc.near) {
     // The box the element sits in tells two fields with the same placeholder apart; with several controls in it, the name must say which.
-    if (loc.role && loc.name) out.push({ name: `${loc.role} "${loc.name}" in "${loc.near}"`, loose: true, build: () => nearLocator(scope, loc.near!, loc.role, loc.name) });
-    out.push({ name: `${loc.role ?? "control"} in "${loc.near}"`, loose: true, build: () => nearLocator(scope, loc.near!, loc.role) });
+    if (loc.role && loc.name) out.push({ name: `${loc.role} "${loc.name}" in "${loc.near}"`, build: () => nearLocator(scope, loc.near!, loc.role, loc.name) });
+    out.push({ name: `${loc.role ?? "control"} in "${loc.near}"`, build: () => nearLocator(scope, loc.near!, loc.role) });
   }
   if (loc.role && loc.name) {
     const role = loc.role as Parameters<Page["getByRole"]>[0];
@@ -67,9 +73,9 @@ function candidates(scope: Scope, loc: Locator): { name: string; build: () => Pw
   if (loc.css) out.push({ name: `css ${loc.css}`, build: () => scope.locator(loc.css!) });
   // Last, the same words around other figures: a row named by a live quote reads differently on the next run.
   const named = loc.role && loc.name ? anyFigures(loc.name) : undefined;
-  if (named) out.push({ name: `${loc.role} "${loc.name}" with other figures`, loose: true, build: () => scope.getByRole(loc.role as Parameters<Page["getByRole"]>[0], { name: named }) });
+  if (named) out.push({ name: `${loc.role} "${loc.name}" with other figures`, build: () => scope.getByRole(loc.role as Parameters<Page["getByRole"]>[0], { name: named }) });
   const worded = loc.text ? anyFigures(loc.text) : undefined;
-  if (worded) out.push({ name: `text "${loc.text}" with other figures`, loose: true, build: () => scope.getByText(worded) });
+  if (worded) out.push({ name: `text "${loc.text}" with other figures`, build: () => scope.getByText(worded) });
   return out;
 }
 

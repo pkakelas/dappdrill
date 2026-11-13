@@ -11,7 +11,7 @@ export const DEFAULT_FAST_MODEL = "claude-sonnet-5-5";
 /** Does a test's model actions first; the fast model gets the ones it can't do. */
 export const DEFAULT_QUICK_MODEL = "claude-haiku-5-5";
 
-export type LlmErrorCode = "refusal" | "max_tokens" | "max_turns" | "aborted" | "invalid_output" | "api";
+export type LlmErrorCode = "refusal" | "max_tokens" | "max_turns" | "aborted" | "timeout" | "budget" | "invalid_output" | "api";
 
 export class LlmError extends Error {
   constructor(

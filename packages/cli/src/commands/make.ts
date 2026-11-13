@@ -2,7 +2,7 @@ import { access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { CONNECTED } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
-import { TestsFile, UsageError, loadTests, suiteOf, writeJson } from "../files.js";
+import { TestsFile, UsageError, addToTests, loadTests, suiteOf } from "../files.js";
 import { buildTarget, dim, warnSink, yellow, type TargetFlags } from "./target.js";
 import { interruptSignal } from "./util.js";
 
@@ -26,11 +26,20 @@ export async function makeCommand(url: string, flags: MakeFlags): Promise<number
   const known = await access(flags.file).then(() => true, () => false);
   // A new file starts with a user whose wallet is connected.
   const file = known ? await loadTests(flags.file) : TestsFile.parse({ url, setup: CONNECTED });
-  const had = file.tests.length;
   const input = { artifactsDir: join(resolve(flags.out), "make"), headless: !flags.headed, signal: interruptSignal() };
   const engine = await loadEngine();
   const t0 = Date.now();
   let costUsd = 0;
+  // The file is written with only what this make adds, onto what it holds by then; one write at a time,
+  // since the makes going side by side each add their test.
+  let kept = 0;
+  let inAll = file.tests.length;
+  let writing = Promise.resolve();
+  const add = (more: Parameters<typeof addToTests>[2]) =>
+    (writing = writing.catch(() => {}).then(async () => {
+      inAll = (await addToTests(flags.file, file, more)).tests.length;
+      kept += more.tests?.length ?? 0;
+    }));
 
   if (flags.goal) {
     // One more test for an app whose tests were made before starts where they did: the same chains, the same tokens.
@@ -39,21 +48,19 @@ export async function makeCommand(url: string, flags: MakeFlags): Promise<number
     const made = await engine.makeTest({ ...input, target, suite: suiteOf(file), goal: flags.goal, startPath: flags.start }, warnSink, (text) => console.log(dim(`  ${text}`)));
     costUsd = made.costUsd;
     if (made.proven && made.test) {
-      const notes = new Set(file.notes.map((n) => n.text));
-      file.notes.push(...made.notes.filter((n) => !notes.has(n)).map((text) => ({ text, from: "maker" as const })));
-      file.tests.push(made.test);
-      await writeJson(flags.file, file);
+      await add({ notes: made.notes.map((text) => ({ text, from: "maker" as const })), tests: [made.test] });
       console.log(`\n  ${made.test.name}: ${made.stands === "passed" ? "passes" : "fails on a fault of the app"} twice in a row`);
     } else console.log(yellow(`\n  No test: ${made.why ?? "it didn't go the same way twice in a row."}`));
   } else {
     const target = await buildTarget(url, flags, "make", file);
     console.log(`Looking at ${url}\n`);
-    const made = await engine.makeTests({ ...input, target, suite: suiteOf(file), count }, warnSink, {
+    let was = suiteOf(file);
+    let started: Pick<TestsFile, "chains" | "tokens"> | undefined;
+    const made = await engine.makeTests({ ...input, target, suite: was, count }, warnSink, {
       say: (text, n) => console.log(dim(`  ${n ? `(${n}) ` : ""}${text}`)),
       onLooked: (looked) => {
         // A run starts where the tests were made: these chains at these blocks, the wallet holding these tokens.
-        file.chains = looked.chains;
-        file.tokens = looked.tokens;
+        started = { chains: looked.chains, tokens: looked.tokens };
         if (looked.summary) console.log(`\n${looked.summary}`);
         if (looked.goals.length === 0) console.log(yellow(`\nNothing to test: ${looked.why ?? "the look found no goals."}`));
       },
@@ -64,17 +71,20 @@ export async function makeCommand(url: string, flags: MakeFlags): Promise<number
         else console.log(yellow(`  (${n}) No test: ${a.why ?? "it didn't go the same way twice in a row."}`) + spent);
       },
       onSuite: async (suite) => {
-        Object.assign(file, suite);
-        await writeJson(flags.file, file);
+        // What the suite gained since the last write: the look's notes, or a test and what its make learned.
+        const notes = suite.notes.filter((n) => !was.notes.some((w) => w.text === n.text));
+        const tests = suite.tests.filter((t) => !was.tests.some((w) => w.id === t.id));
+        was = suite;
+        await add({ notes, tests, ...started });
       },
     });
     costUsd = made.costUsd;
+    if (made.stopped) console.log(yellow(`\n${made.stopped} The goals left weren't tried.`));
     const faults = made.attempts.flatMap((a) => (a.kept ? (a.made?.findings ?? []).filter((f) => f.proven) : []));
     if (faults.length) console.log(`\nFaults a test fails on:\n${faults.map((f) => `- ${f.what}\n    expected: ${f.expected}\n    saw: ${f.saw}`).join("\n")}`);
   }
 
-  const kept = file.tests.length - had;
-  console.log(`\n${kept} ${kept === 1 ? "test" : "tests"} added to ${flags.file} (${file.tests.length} in all). ${secs(Date.now() - t0)}, $${costUsd.toFixed(2)}`);
-  if (file.tests.length) console.log(`Run them with: dappdrill run${flags.file === ".dappdrill/tests.json" ? "" : ` ${flags.file}`}`);
+  console.log(`\n${kept} ${kept === 1 ? "test" : "tests"} added to ${flags.file} (${inAll} in all). ${secs(Date.now() - t0)}, $${costUsd.toFixed(2)}`);
+  if (inAll) console.log(`Run them with: dappdrill run${flags.file === ".dappdrill/tests.json" ? "" : ` ${flags.file}`}`);
   return kept > 0 ? 0 : 2;
 }

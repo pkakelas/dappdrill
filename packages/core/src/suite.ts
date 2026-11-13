@@ -229,9 +229,17 @@ export function withRecordings(test: Test, result: TestResult): Test {
   const steps = test.steps.map((line, i) => {
     const went = result.steps[i];
     if (line.type !== "action" || line.by !== "code" || went?.status !== "pass" || !went.recorded?.length) return line;
-    let written = JSON.stringify(went.recorded);
-    // Not inside a longer number: 20.00 isn't put back into 120.005.
-    for (const [name, value] of values) written = written.replace(new RegExp(`(?<![\\d.])${value.replace(/\./g, "\\.")}(?!\\d)`, "g"), `{{${name}}}`);
+    // Only inside text (what was typed, a name), never a number of the recording's own (a row's position). Not
+    // inside a longer number: 20.00 isn't put back into 120.005. A short whole number ("3") is put back only
+    // where it is the whole text, since "Step 3" or "3 of 5" means something else.
+    const named = (text: string) => {
+      for (const [name, value] of values) {
+        if (/^\d{1,2}$/.test(value)) text = text === value ? `{{${name}}}` : text;
+        else text = text.replace(new RegExp(`(?<![\\d.])${value.replace(/\./g, "\\.")}(?!\\d)`, "g"), `{{${name}}}`);
+      }
+      return text;
+    };
+    const written = JSON.stringify(went.recorded, (_key, v: unknown) => (typeof v === "string" ? named(v) : v));
     const lost = [...line.do.matchAll(NAMED)].some(([whole, name]) => name! in test.values && !written.includes(whole));
     return lost ? line : { ...line, run: z.array(BrowserAction).parse(JSON.parse(written)) };
   });

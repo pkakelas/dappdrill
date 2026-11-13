@@ -29,6 +29,8 @@ export interface ProveInput {
   repair(asked: Omit<RepairInput, "artifactsDir" | "ours">): Promise<Repair>;
   /** A second opinion on a line the test is about to be kept failing on. Without it the repair's word is taken. */
   doubt?(asked: Omit<DoubtInput, "artifactsDir" | "ours">): Promise<Doubt>;
+  /** Why no more runs may start (the spending limit), once that is so. */
+  overBudget?(): string | undefined;
   say?(text: string): void;
 }
 
@@ -76,6 +78,8 @@ export async function prove(input: ProveInput): Promise<Proved> {
   /** Lines left to fail that a second look agreed with, by their sentence. */
   const upheld = new Set<string>();
   let repairs = 0;
+  /** Runs in a row in which no line was done. */
+  let emptyRuns = 0;
   const reworded = (to: Test) => {
     out.test = to;
     worded = [];
@@ -83,11 +87,21 @@ export async function prove(input: ProveInput): Promise<Proved> {
   };
 
   runs: while (out.runs.length < MAX_RUNS) {
+    const over = input.overBudget?.();
+    if (over) return done(over);
     const before = out.test;
     const result = await input.run(before);
     out.runs.push(result);
-    worded.push(result);
     say(`Run ${out.runs.length}: ${OUTCOME_LABEL[result.outcome]}, ${(result.durationMs / 1000).toFixed(0)} s, $${result.costUsd.toFixed(2)}${result.reason ? `. ${result.reason}` : ""}`);
+
+    // A run in which no line was done (our side broke, or the app shut us out first) says nothing about the test.
+    if (!result.steps.some((s) => s.status !== "skipped")) {
+      steady = 0;
+      if (++emptyRuns >= 2) return done(`Two runs in a row did nothing. ${result.reason ?? ""}`.trim());
+      continue;
+    }
+    emptyRuns = 0;
+    worded.push(result);
 
     const test = (out.test = keepRecordings(before, result, recordings, out.repairs));
     // A recording that had to be made again isn't steady, even when it came out the same.

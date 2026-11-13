@@ -57,14 +57,20 @@ export async function rpcCall(url: string, method: string, params: unknown[] = [
 }
 
 const chainIdCache = new Map<string, Promise<number | undefined>>();
+/** A probe that got no chain id (a timeout, a 429) may answer later, so it's forgotten after this long. */
+const FAILED_PROBE_TTL_MS = 30_000;
 
-/** Resolve the chain id an RPC endpoint serves. Cached per URL for the process lifetime; undefined when it isn't JSON-RPC. */
+/** Resolve the chain id an RPC endpoint serves; undefined when it isn't JSON-RPC. An answer is cached per URL for the process lifetime. */
 export function probeChainId(url: string): Promise<number | undefined> {
   let p = chainIdCache.get(url);
   if (!p) {
     p = rpcCall(url, "eth_chainId", [], { timeoutMs: 8_000 })
       .then((r) => (typeof r === "string" && /^0x[0-9a-f]+$/i.test(r) ? Number.parseInt(r, 16) : undefined))
       .catch(() => undefined);
+    const probe = p;
+    void probe.then((id) => {
+      if (id === undefined) setTimeout(() => chainIdCache.get(url) === probe && chainIdCache.delete(url), FAILED_PROBE_TTL_MS).unref();
+    });
     chainIdCache.set(url, p);
   }
   return p;

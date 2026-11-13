@@ -6,7 +6,7 @@
 import path from "node:path";
 import { chainName, copyBehindLine, type DrillEventSink, type DrillTarget, type LineResult, type SetupStuck, type Suite, type SuiteResult, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
 import { openEnv, withoutFallback, type Env } from "./env.js";
-import { pin } from "./pin.js";
+import { pin, spoiledBy } from "./pin.js";
 import { debug, plain } from "./session.js";
 import { runSetup, runTest, type RunOptions } from "./test.js";
 
@@ -23,6 +23,7 @@ export interface SuiteProgress {
   onStart?: (testId: string) => void;
   /** A line of the setup (`testId` undefined) or of a test finished. */
   onLine?: (testId: string | undefined, index: number, result: LineResult) => void;
+  /** A test's result. A stopped run throws, so these are all there is of the tests that finished. */
   onTest?: (result: TestResult) => void;
 }
 
@@ -50,7 +51,7 @@ export interface OpenSuiteOptions {
 
 export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () => {}, more: OpenSuiteOptions = {}): Promise<OpenSuite> {
   const { suite, artifactsDir, signal } = input;
-  const env = await openEnv(input.target, sink, { headless: input.headless });
+  const env = await openEnv(input.target, sink, { headless: input.headless, signal });
   // The suite's own rule comes before whatever the caller allows.
   const refused = () => "Refused: nothing may be approved in the wallet for this app. Reject it and carry on without it.";
   const asked = more.refuseApprove && ((request: WalletRequest) => more.refuseApprove!(request, env));
@@ -68,6 +69,8 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
     return open;
   } catch (e) {
     await env.close();
+    // Nothing is returned to count what the setup spent, so it goes on the sink.
+    await Promise.resolve(sink({ type: "cost", usd: env.costUsd() })).catch(() => {});
     throw e;
   }
 }
@@ -86,6 +89,8 @@ export async function runSuite(input: RunSuiteInput, sink: DrillEventSink = () =
         continue;
       }
       const run = () => {
+        // Stopped: no test starts, and no failed one runs again. What finished went to onTest already.
+        input.signal?.throwIfAborted();
         progress.onStart?.(test.id);
         return open.run(test, (i, r) => progress.onLine?.(test.id, i, r));
       };
@@ -119,15 +124,21 @@ const notRun = (test: Test, reason: string, durationMs = 0): TestResult => ({ te
 /** What breaks on our side gets one more try. */
 async function onFreshState(env: Env, test: Test, opts: RunOptions, retry = true): Promise<TestResult> {
   const t0 = Date.now();
-  const revert = await pin(env);
+  // A test on a fork still holding an earlier run's state could only fail for our sake.
+  const spoiled = spoiledBy(env);
+  if (spoiled) return notRun(test, `It broke on our side: ${spoiled}`);
+  let revert: (() => Promise<void>) | undefined;
+  let result: TestResult | undefined;
   try {
-    return await runTest(env, test, opts);
+    revert = await pin(env);
+    result = await runTest(env, test, opts);
   } catch (e) {
     if (opts.signal?.aborted) throw e;
     debug(`${test.name} broke on our side: ${plain(e)}`);
-    if (!retry) return notRun(test, `It broke on our side: ${plain(e)}`, Date.now() - t0);
+    if (!retry) result = notRun(test, `It broke on our side: ${plain(e)}`, Date.now() - t0);
   } finally {
-    await revert();
+    // When this fails, this test's result still stands (it began on a clean fork); the ones after it are refused above.
+    await revert?.();
   }
-  return onFreshState(env, test, opts, false);
+  return result ?? onFreshState(env, test, opts, false);
 }

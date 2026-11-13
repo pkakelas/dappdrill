@@ -24,7 +24,11 @@ export interface Decision {
 }
 
 const NEEDS_STAKE_TO_MATTER = new Set<SigningCheck["id"]>(["verified-source", "contract-age", "token", "approval", "proxy"]);
-const ALWAYS_MATTERS = new Set<SigningCheck["id"]>(["ui-match", "known-bad"]);
+/**
+ * Unverified, these keep a request from looking consistent. A transaction that couldn't be simulated counts
+ * even with nothing seen at stake: what it moves is only known from the simulation (signatures skip it).
+ */
+const ALWAYS_MATTERS = new Set<SigningCheck["id"]>(["ui-match", "known-bad", "simulation"]);
 
 export function decideVerdict(facts: Facts, checks: SigningCheck[]): Decision {
   const byId = Object.fromEntries(checks.map((c) => [c.id, c])) as Record<SigningCheck["id"], SigningCheck | undefined>;

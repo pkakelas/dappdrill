@@ -9,6 +9,7 @@ import { recoverMessageAddress, isHex, parseUnits } from "viem";
 import { KNOWN_CHAINS, MAINNET_CHAIN_IDS, SIGN_METHODS, chainName, newId, nowIso, type DrillTarget, type WalletProfileId, type WalletRequest } from "@dappdrill/core";
 import type { ChainController, Hex, PendingSign, WalletController, WalletPolicy } from "../types.js";
 import { JsonRpcError, hexToNumber, rpcCall, toHex, toRpcError } from "../chain/rpc.js";
+import { onChainInTurn } from "../chain/turns.js";
 import { WalletErrors } from "./errors.js";
 import type { BridgeRequest, BridgeResponse } from "./inject.js";
 import { nodeError, prepareTransaction, sendPrepared, signEthSign, signPersonal, signTypedData, typedDataChainId, typedDataDomain, type PreparedTx, type TxRequest } from "./signer.js";
@@ -35,6 +36,8 @@ export interface RequestContext {
   buttonLabel?: string;
   /** Number of clicks seen so far; two sign requests with the same value came from one click. */
   clickSeq: number;
+  /** The page that asked: the same object across its navigations (see pageGone). */
+  page?: object;
 }
 
 export interface PendingSignRequest extends PendingSign {
@@ -232,6 +235,18 @@ export class Wallet implements WalletController {
     return () => this.listeners.delete(cb);
   }
 
+  /**
+   * The page that asked loaded a new document or closed. Nobody is left to answer its open requests,
+   * and approving one later would send for a page that's gone, so they are rejected and dropped.
+   */
+  pageGone(page: object): void {
+    for (const [id, p] of [...this.pending]) {
+      if (p.ctx.page !== page) continue;
+      this.log(`wallet: the page left while ${p.req.method} was open; rejected it`);
+      void this.reject(id, 4001, "The page that asked was reloaded or left.");
+    }
+  }
+
   /** Reject whatever is still open (session is closing). */
   async closeAll(): Promise<void> {
     for (const id of [...this.pending.keys()]) await this.reject(id, 4001, "User rejected the request.");
@@ -246,7 +261,7 @@ export class Wallet implements WalletController {
       maxFeePerGas: (prepared.maxFeePerGas * 130n) / 100n,
       maxPriorityFeePerGas: (prepared.maxPriorityFeePerGas * 130n) / 100n,
     };
-    const hash = await sendPrepared(this.chains, this.keys[account], bumped);
+    const hash = await onChainInTurn(this.chains, prepared.chainId, () => sendPrepared(this.chains, this.keys[account], bumped));
     this.lastTx = { prepared: bumped, hash, account };
     return hash;
   }
@@ -455,7 +470,10 @@ export class Wallet implements WalletController {
   }
 
   private async sign(method: string, params: unknown[]): Promise<unknown> {
-    const account = this.keys[this.current];
+    // As they were when the user approved, should a transaction wait its turn on the chain.
+    const chain = this.chain;
+    const who = this.current;
+    const account = this.keys[who];
     const addressParam = (i: number) => {
       const a = params[i];
       if (typeof a === "string" && a.toLowerCase() !== account.address.toLowerCase()) throw WalletErrors.unauthorized();
@@ -478,36 +496,40 @@ export class Wallet implements WalletController {
         if (verifyingContract) this.chains.watchSignature?.(chainId, verifyingContract, account.address);
         return signature;
       }
-      case "eth_sendTransaction": {
-        const tx = (params[0] ?? {}) as TxRequest;
-        let prepared: PreparedTx;
-        try {
-          prepared = await prepareTransaction(this.chains, this.chain, account.address, tx);
-        } catch (e) {
-          throw e instanceof JsonRpcError && e.code === -32602 ? e : nodeError(e);
-        }
-        const hash = await sendPrepared(this.chains, account, prepared);
-        this.lastTx = { prepared, hash, account: this.current };
-        this.log(`wallet: sent ${hash} on chain ${this.chain} (nonce ${prepared.nonce})`);
-        return hash;
-      }
+      // Transactions wait for any simulation on the fork to revert first; see chain/turns.ts.
+      case "eth_sendTransaction":
+        return onChainInTurn(this.chains, chain, async () => {
+          const tx = (params[0] ?? {}) as TxRequest;
+          let prepared: PreparedTx;
+          try {
+            prepared = await prepareTransaction(this.chains, chain, account.address, tx);
+          } catch (e) {
+            throw e instanceof JsonRpcError && e.code === -32602 ? e : nodeError(e);
+          }
+          const hash = await sendPrepared(this.chains, account, prepared);
+          this.lastTx = { prepared, hash, account: who };
+          this.log(`wallet: sent ${hash} on chain ${chain} (nonce ${prepared.nonce})`);
+          return hash;
+        });
       case "eth_signTransaction": {
-        this.refuseOwnKeyOnMainnet(this.chain);
-        const prepared = await prepareTransaction(this.chains, this.chain, account.address, (params[0] ?? {}) as TxRequest);
+        this.refuseOwnKeyOnMainnet(chain);
+        const prepared = await onChainInTurn(this.chains, chain, () => prepareTransaction(this.chains, chain, account.address, (params[0] ?? {}) as TxRequest));
         return account.signTransaction({ ...prepared, type: "eip1559" });
       }
       case "wallet_sendCalls": {
         const batch = (params[0] ?? {}) as { calls?: TxRequest[]; chainId?: string };
-        if (batch.chainId && hexToNumber(batch.chainId) !== this.chain) throw WalletErrors.invalidParams("wallet_sendCalls chainId does not match the wallet's chain");
+        if (batch.chainId && hexToNumber(batch.chainId) !== chain) throw WalletErrors.invalidParams("wallet_sendCalls chainId does not match the wallet's chain");
         const id = newId("calls");
         const hashes: Hex[] = [];
-        for (const call of batch.calls ?? []) {
-          const prepared = await prepareTransaction(this.chains, this.chain, account.address, { ...call, from: account.address });
-          const hash = await sendPrepared(this.chains, account, prepared);
-          this.lastTx = { prepared, hash, account: this.current };
-          hashes.push(hash);
-        }
-        this.batches.set(id, { chainId: this.chain, hashes });
+        await onChainInTurn(this.chains, chain, async () => {
+          for (const call of batch.calls ?? []) {
+            const prepared = await prepareTransaction(this.chains, chain, account.address, { ...call, from: account.address });
+            const hash = await sendPrepared(this.chains, account, prepared);
+            this.lastTx = { prepared, hash, account: who };
+            hashes.push(hash);
+          }
+        });
+        this.batches.set(id, { chainId: chain, hashes });
         return { id };
       }
       default:

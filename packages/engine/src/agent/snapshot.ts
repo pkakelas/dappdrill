@@ -102,26 +102,37 @@ function keepScore(n: SnapshotNode): number {
 }
 
 /**
- * Drop lower-value nodes until the formatted snapshot fits the budget. Dialog
- * nodes stay; among the rest the lowest score goes first, from the end of the
- * page. Ranking by position alone would drop an on-screen side panel that
- * comes after a long table in the DOM.
+ * Drop lower-value nodes until the formatted snapshot fits the budget. Nodes
+ * behind a dialog go before the dialog's own; among those the lowest score goes
+ * first, from the end of the page. Ranking by position alone would drop an
+ * on-screen side panel that comes after a long table in the DOM. What still
+ * doesn't fit is cut off the page text, so the snapshot never goes over.
  */
 function trim(snap: Snapshot, maxChars: number): Snapshot {
-  let out = snap;
-  if (formatSnapshot(out).length <= maxChars) return out;
+  let out: Snapshot = { ...snap, url: clipText(snap.url, 300), title: clipText(snap.title, 200) };
+  let length = formatSnapshot(out).length;
+  if (length <= maxChars) return out;
   out = { ...out, text: out.text.slice(0, 600) };
-  let nodes = out.nodes;
-  while (formatSnapshot({ ...out, nodes }).length > maxChars && nodes.length > 10) {
-    let drop = -1;
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      if (nodes[i]!.inDialog) continue;
-      if (drop < 0 || keepScore(nodes[i]!) < keepScore(nodes[drop]!)) drop = i;
-    }
-    if (drop < 0) break;
-    nodes = nodes.filter((_, i) => i !== drop);
+  length = formatSnapshot(out).length;
+  // Each node is one line of the snapshot, so dropping it takes off that line (and a header with the last one).
+  const order = out.nodes
+    .map((n, i) => ({ i, dialog: n.inDialog ? 1 : 0, score: keepScore(n), chars: formatNode(n).length + 1 }))
+    .sort((a, b) => a.dialog - b.dialog || a.score - b.score || b.i - a.i);
+  const dropped = new Set<number>();
+  for (const n of order) {
+    if (length <= maxChars) break;
+    dropped.add(n.i);
+    length -= n.chars;
   }
-  return { ...out, nodes };
+  out = { ...out, nodes: out.nodes.filter((_, i) => !dropped.has(i)) };
+  const over = formatSnapshot(out).length - maxChars;
+  if (over > 0) out = { ...out, text: out.text.slice(0, Math.max(0, out.text.length - over)) };
+  if (formatSnapshot(out).length > maxChars) out = { ...out, dialogs: out.dialogs.slice(0, 3) };
+  return out;
+}
+
+function clipText(s: string, n: number): string {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
 /** Playwright locator for a ref from the latest snapshot. */
@@ -408,7 +419,7 @@ function collectInPage(args: { refAttr: string; textChars: number }): RawSnapsho
           if (input.type !== "checkbox" && input.type !== "radio" && input.type !== "password") node.value = clip(input.value, 60);
           else if (input.type !== "password") node.checked = input.indeterminate ? "mixed" : input.checked;
           const ph = text(input.placeholder);
-          if (ph && ph !== node.name) node.placeholder = ph;
+          if (ph && ph !== node.name) node.placeholder = clip(ph, 80);
         } else if (tag === "select") {
           const sel = el as HTMLSelectElement;
           node.value = clip(sel.selectedOptions[0]?.textContent ?? "", 60);

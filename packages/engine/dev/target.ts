@@ -1,7 +1,31 @@
-/** What the dev commands share: the app's target from the command line, and where results go. */
-import { readFile } from "node:fs/promises";
+/** What the dev commands share: the app's target from the command line, where results go, and writing to a suite file. */
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DrillTarget, type ChainConfig } from "@dappdrill/core";
+import { DrillTarget, Suite, type ChainConfig, type Note, type Test } from "@dappdrill/core";
+
+/** The suite in a file, or `fresh` when there is no file yet. */
+export async function readSuite(file: string, fresh: unknown = {}): Promise<Suite> {
+  const kept = await readFile(file, "utf8").catch(() => undefined);
+  return Suite.parse(kept ? JSON.parse(kept) : fresh);
+}
+
+/**
+ * Adds to the suite file as it is on disk now, so a hand edit or a command beside this one isn't lost:
+ * the notes it hasn't got, and the tests (one whose id is taken there gets another). `fresh` is what a
+ * new file starts from. Returns the suite as written.
+ */
+export async function addToSuite(file: string, fresh: unknown, add: { notes?: Note[]; tests?: Test[] }): Promise<Suite> {
+  const next = await readSuite(file, fresh);
+  for (const note of add.notes ?? []) if (!next.notes.some((n) => n.text === note.text)) next.notes.push(note);
+  for (const t of add.tests ?? []) {
+    let test = t;
+    for (let i = 2; next.tests.some((x) => x.id === test.id); i++) test = { ...t, id: `${t.id}-${i}` };
+    next.tests.push(test);
+  }
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(next, null, 2)}\n`);
+  return next;
+}
 
 /** A file named on the command line, from where the command was typed. */
 export const fromCwd = (name: string) => path.resolve(process.env.INIT_CWD ?? ".", name);

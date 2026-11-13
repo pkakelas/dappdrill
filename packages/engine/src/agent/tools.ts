@@ -160,24 +160,33 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
   const landed = page().url().startsWith("http") ? new URL(page().url()).origin : origin;
   const seenRequests = new Set<string>(session.wallet.requests().map((r) => r.id));
 
-  /** Wait for the page to settle, then describe the new state plus any new wallet request. */
+  /**
+   * Wait for the page to settle, then describe the new state plus any new wallet request. By now the
+   * action is done: a page that can't be read yet (it is navigating) is said so, and doesn't turn the
+   * action into a failed one that the model would do again.
+   */
   const after = async (what: string): Promise<AgentToolResult> => {
-    await settle(session);
     const lines = [what];
-    const blocked = await detectBotCheck(session.page);
-    if (blocked) lines.push(`WARNING: ${describeBlock(blocked)} (${blocked.reason}). Do not try to solve it; call report_blocked.`);
-    const fresh = session.wallet.requests().filter((r) => !seenRequests.has(r.id));
-    for (const r of fresh) {
-      seenRequests.add(r.id);
-      lines.push(describeRequest(r));
+    try {
+      await settle(session);
+      const blocked = await detectBotCheck(session.page);
+      if (blocked) lines.push(`WARNING: ${describeBlock(blocked)} (${blocked.reason}). Do not try to solve it; call report_blocked.`);
+      const fresh = session.wallet.requests().filter((r) => !seenRequests.has(r.id));
+      for (const r of fresh) {
+        seenRequests.add(r.id);
+        lines.push(describeRequest(r));
+      }
+      if (fresh.some((r) => r.kind === "connect")) recorder.markConnectClicks();
+      const pending = pendingSign(session);
+      if (pending) lines.push(`Wallet request ${pending.id} is waiting: ${decodeWalletRequest(pending).summary}. Call wallet_approve or wallet_reject.`);
+      const note = ctx.budgetNote?.();
+      if (note) lines.push(`NOTE: ${note}`);
+      const snap = await takeSnapshot(page(), { maxChars: ACTION_SNAPSHOT_CHARS });
+      lines.push("", formatSnapshot(snap));
+    } catch (e) {
+      const cause = (e instanceof Error ? e.message : String(e)).split("\n")[0];
+      lines.push("", `That is done, but the page is still changing and couldn't be read just now (${cause}). Don't do it again: look first.`);
     }
-    if (fresh.some((r) => r.kind === "connect")) recorder.markConnectClicks();
-    const pending = pendingSign(session);
-    if (pending) lines.push(`Wallet request ${pending.id} is waiting: ${decodeWalletRequest(pending).summary}. Call wallet_approve or wallet_reject.`);
-    const note = ctx.budgetNote?.();
-    if (note) lines.push(`NOTE: ${note}`);
-    const snap = await takeSnapshot(page(), { maxChars: ACTION_SNAPSHOT_CHARS });
-    lines.push("", formatSnapshot(snap));
     return { text: lines.join("\n") };
   };
 
@@ -324,9 +333,9 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
         const match = matchTypedAmount(recorder.typedValues(), decoded.amounts);
         const expect = { ...decoded.expectation };
         if (match) expect.amountMustEqual = match.typed;
-        recorder.add({ kind: "wallet", respond: "approve", expect, note: `Approve ${decoded.summary.split(":")[0]}` });
         await ctx.beforeApprove?.(pending);
         await session.wallet.approve(pending.id);
+        recorder.add({ kind: "wallet", respond: "approve", expect, note: `Approve ${decoded.summary.split(":")[0]}` });
         return after(`Approved ${pending.id} (${decoded.summary}).${match ? ` The amount matches what you typed ("${match.typed}").` : ""}`);
       },
     },

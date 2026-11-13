@@ -49,7 +49,13 @@ export async function startAnvilFork(opts: {
     child.once("error", (e) => reject(new Error(`could not start anvil (is Foundry on PATH?): ${e.message}`)));
   });
 
-  await Promise.race([waitForRpc(url, opts.chainId, 60_000), exited]);
+  try {
+    await Promise.race([waitForRpc(url, opts.chainId, 60_000), exited]);
+  } catch (err) {
+    // The caller tries again with a new anvil; don't leave this one running.
+    await stopProcess(child);
+    throw err;
+  }
 
   return {
     url,
@@ -90,7 +96,8 @@ async function waitForRpc(url: string, chainId: number, timeoutMs: number): Prom
 }
 
 export function stopProcess(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  // No pid: it never started (anvil not on PATH), so there's no exit to wait for.
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
   return new Promise((resolve) => {
     const t = setTimeout(() => {
       child.kill("SIGKILL");

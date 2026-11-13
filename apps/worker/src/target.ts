@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
-import { DrillTarget, type ChainConfig } from "@dappdrill/core";
-import { decrypt, apps, testWallets, type Db } from "@dappdrill/db";
+import { DrillTarget, setupWithRecordings, type ChainConfig, type LineResult } from "@dappdrill/core";
+import { decrypt, apps, testWallets, updateApp, type Db } from "@dappdrill/db";
+
+export { updateApp };
 
 export type AppRow = typeof apps.$inferSelect;
 
@@ -8,6 +10,15 @@ export async function loadApp(db: Db, appId: string): Promise<AppRow> {
   const [app] = await db.select().from(apps).where(eq(apps.id, appId));
   if (!app) throw new Error(`App ${appId} not found`);
   return app;
+}
+
+/**
+ * Saves the browser actions a model took for the setup's code actions, so the next run replays them.
+ * Nothing is saved when the setup has been changed to another number of lines meanwhile.
+ */
+export async function keepSetup(db: Db, appId: string, lines: LineResult[] | undefined): Promise<void> {
+  if (!lines?.some((s) => s.recorded?.length)) return;
+  await updateApp(db, appId, ({ suite }) => (suite.setup && suite.setup.steps.length === lines.length ? { suite: { ...suite, setup: setupWithRecordings(suite.setup, lines) } } : undefined));
 }
 
 /** Whether the app's tests run on a chain that can't be forked: one live account, shared by every run. */

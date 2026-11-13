@@ -8,6 +8,7 @@
 import { decodeEventLog, getAddress, toHex, type Address, type Hex } from "viem";
 import type { ApprovalGrant, BalanceChange } from "@dappdrill/core";
 import type { ChainController } from "../types.js";
+import { onChainInTurn } from "../chain/turns.js";
 import { BUILTIN_ABI, TRANSFER_EVENTS_ABI } from "./builtin.js";
 import type { Contracts, TokenInfo } from "./contract.js";
 import { displayAmount, displayNative } from "./format.js";
@@ -54,7 +55,8 @@ export async function simulate(input: SimulateInput): Promise<Simulation> {
   const unavailable = (why: string): Simulation => ({ status: "unavailable", balanceChanges: [], allowanceChanges: [], revertReason: why });
   if (!input.chains.has(input.chainId)) return unavailable(`Chain ${input.chainId} is not available in this session`);
   try {
-    const run = input.chains.mode(input.chainId) === "fork" ? onFork(input) : onLive(input);
+    // On a fork the wallet waits for this to finish (see chain/turns.ts), even after we stop waiting for it here.
+    const run = input.chains.mode(input.chainId) === "fork" ? onChainInTurn(input.chains, input.chainId, () => onFork(input)) : onLive(input);
     return await withTimeout(run, input.timeoutMs ?? 30_000, unavailable("Simulation timed out"));
   } catch (e) {
     return unavailable(`Simulation failed: ${(e as Error).message}`);

@@ -48,7 +48,8 @@ export async function detectChains(url: string, opts: DetectChainsOptions = {}):
         const u = tidyUrl(request.url());
         endpoints.set(u, (endpoints.get(u) ?? 0) + 1);
       }
-      return route.fallback();
+      // .catch: an error left in a route handler ends the process (see browser/backend-balances.ts).
+      return route.fallback().catch(() => {});
     });
 
     const page = await context.newPage();
