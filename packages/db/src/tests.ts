@@ -10,6 +10,20 @@ import { apps, testRuns, tests, type RunStatus, type Trigger } from "./schema/ap
 export type TestRow = typeof tests.$inferSelect;
 export type TestRunRow = typeof testRuns.$inferSelect;
 
+/**
+ * Changes the app's row from what it holds now, with the row locked until the change is written, so
+ * jobs side by side and the owner's own edits keep what each other wrote. `change` returns nothing to
+ * leave the row as it is.
+ */
+export async function updateApp(db: Db, appId: string, change: (app: typeof apps.$inferSelect) => Partial<typeof apps.$inferInsert> | undefined): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [app] = await tx.select().from(apps).where(eq(apps.id, appId)).for("update");
+    if (!app) throw new Error(`App ${appId} not found`);
+    const patch = change(app);
+    if (patch) await tx.update(apps).set(patch).where(eq(apps.id, appId));
+  });
+}
+
 /** The row as the engine's test. Its id is the row's. */
 export function testOf(t: TestRow): Test {
   return Test.parse({ id: t.id, name: t.name, goal: t.goal, startPath: t.startPath, values: t.values, steps: t.steps, cleanup: t.cleanup });

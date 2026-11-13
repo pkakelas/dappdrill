@@ -38,7 +38,8 @@ export async function installAccessHeaders(context: BrowserContext, appUrl: stri
   if (Object.keys(headers).length === 0) return;
   await context.route(
     (url) => onAppSite(url.href, appUrl),
-    (route) => route.fallback({ headers: { ...route.request().headers(), ...headers } }),
+    // .catch: the browser may have closed meanwhile, and an error left here ends the process.
+    (route) => route.fallback({ headers: { ...route.request().headers(), ...headers } }).catch(() => {}),
   );
 }
 

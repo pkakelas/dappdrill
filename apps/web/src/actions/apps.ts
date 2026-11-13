@@ -13,7 +13,7 @@ import {
   type ChainConfig,
   type FixedResponse,
 } from "@dappdrill/core";
-import { apps, db, encrypt, makes, testRuns, tests, type AppSettings } from "@dappdrill/db";
+import { apps, db, encrypt, makes, testRuns, tests, updateApp, type AppSettings } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -151,11 +151,8 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
       });
   } else if (can(a.role, "apps.manage") && (customized || hints || funding || liveKey)) {
     const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...funds };
-    const suite = hints ? { ...existing.suite, notes: withOwnerHints(existing.suite.notes, hints) } : existing.suite;
-    await db()
-      .update(apps)
-      .set({ settings, suite, ...liveKey })
-      .where(eq(apps.id, existing.id));
+    // The suite is changed as the row holds it now: a make may be writing notes to it.
+    await updateApp(db(), existing.id, (now) => ({ settings, ...(hints ? { suite: { ...now.suite, notes: withOwnerHints(now.suite.notes, hints) } } : {}), ...liveKey }));
   }
   const hasTests = existing ? (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, existing.id)).limit(1)).length > 0 : false;
   if (!hasTests) await startMake(appId!, a.user.id);
@@ -260,19 +257,16 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
     storage,
     responses,
   };
-  await db()
-    .update(apps)
-    .set({
-      name,
-      url: url.data,
-      host: hostOf(url.data),
-      settings,
-      suite: { ...app.suite, notes: withOwnerHints(app.suite.notes, hints), signing: signing.data },
-      scheduleTime: schedule || null,
-      ...(liveKey ? { liveKeyEnc: liveKey.enc, liveKeyAddress: liveKey.address } : {}),
-      ...(headers ? { accessHeadersEnc: headers.enc, accessHeaderNames: headers.names } : {}),
-    })
-    .where(eq(apps.id, app.id));
+  await updateApp(db(), app.id, (now) => ({
+    name,
+    url: url.data,
+    host: hostOf(url.data),
+    settings,
+    suite: { ...now.suite, notes: withOwnerHints(now.suite.notes, hints), signing: signing.data },
+    scheduleTime: schedule || null,
+    ...(liveKey ? { liveKeyEnc: liveKey.enc, liveKeyAddress: liveKey.address } : {}),
+    ...(headers ? { accessHeadersEnc: headers.enc, accessHeaderNames: headers.names } : {}),
+  }));
   revalidatePath("/", "layout"); // the name shows in the app switcher
   return { ok: "Saved." };
 }
@@ -308,33 +302,29 @@ const SetupEdit = z.object({
  * With no lines the app has no setup, and every test starts from a fresh visit.
  */
 export async function saveSetupAction(appId: string, input: z.input<typeof SetupEdit>): Promise<{ error?: string }> {
-  const { app, role } = await requireApp(appId);
+  const { role } = await requireApp(appId);
   if (!can(role, "apps.manage")) return { error: denied("apps.manage") };
   const e = SetupEdit.safeParse(input);
   if (!e.success) return { error: e.error.issues[0]?.message };
   if (e.data.steps.some(looksLikeKey)) return { error: "A line looks like a private key. Take it out: this text isn't encrypted." };
-  const old = app.suite.setup;
-  const kept = old?.startPath === e.data.startPath ? [...old.steps] : [];
-  const steps = e.data.steps.map((text): Action => {
-    const same = kept.findIndex((line) => line.do === text);
-    return same >= 0 ? kept.splice(same, 1)[0]! : { type: "action", by: "code", do: text, run: [] };
+  await updateApp(db(), appId, ({ suite }) => {
+    const old = suite.setup;
+    const kept = old?.startPath === e.data.startPath ? [...old.steps] : [];
+    const steps = e.data.steps.map((text): Action => {
+      const same = kept.findIndex((line) => line.do === text);
+      return same >= 0 ? kept.splice(same, 1)[0]! : { type: "action", by: "code", do: text, run: [] };
+    });
+    const { setup: _gone, ...rest } = suite;
+    return { suite: steps.length ? { ...rest, setup: { startPath: e.data.startPath, steps } } : rest };
   });
-  const { setup: _gone, ...rest } = app.suite;
-  await db()
-    .update(apps)
-    .set({ suite: steps.length ? { ...rest, setup: { startPath: e.data.startPath, steps } } : rest })
-    .where(eq(apps.id, appId));
   revalidatePath(`/apps/${appId}`, "layout");
   return {};
 }
 
 /** Takes back something a look or a maker noted about the app, when it is wrong or no longer true. */
 export async function removeNoteAction(appId: string, text: string): Promise<void> {
-  const { app, role } = await requireApp(appId);
+  const { role } = await requireApp(appId);
   if (!can(role, "apps.manage")) return;
-  await db()
-    .update(apps)
-    .set({ suite: { ...app.suite, notes: app.suite.notes.filter((n) => n.from === "owner" || n.text !== text) } })
-    .where(eq(apps.id, appId));
+  await updateApp(db(), appId, ({ suite }) => ({ suite: { ...suite, notes: suite.notes.filter((n) => n.from === "owner" || n.text !== text) } }));
   revalidatePath(`/apps/${appId}`, "layout");
 }

@@ -32,7 +32,22 @@ export async function landingBotCheck(session: EngineSession): Promise<Blocked |
   const first = await detectBotCheck(session.page);
   if (first) return first;
   await session.page.waitForTimeout(2_500);
-  return detectBotCheck(session.page);
+  return (await detectBotCheck(session.page)) ?? (await emptyPage(session));
+}
+
+export const EMPTY_PAGE = "The app's page stayed empty, so nothing could be tried on it.";
+/** How long a page with nothing on it gets to draw something. */
+const EMPTY_FOR_MS = 10_000;
+
+/**
+ * A page that stays empty (a 404 from a dev server that lost its files, an app that crashed while loading)
+ * leaves nothing to try. A model sent to work on it only spends money, so it is reported before any line.
+ */
+async function emptyPage(session: EngineSession): Promise<Blocked | undefined> {
+  const drawn = () => session.page.evaluate(() => (document.body?.innerText.trim().length ?? 0) > 0 || !!document.querySelector("button, a[href], input, canvas, img, svg, iframe, video")).catch(() => true);
+  for (const until = Date.now() + EMPTY_FOR_MS; Date.now() < until; await session.page.waitForTimeout(500)) if (await drawn()) return undefined;
+  if (await drawn()) return undefined;
+  return { reason: EMPTY_PAGE, url: session.page.url() };
 }
 
 export function plain(e: unknown): string {

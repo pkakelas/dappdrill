@@ -31,7 +31,8 @@ export class RpcRouter {
   }
 
   async install(context: BrowserContext): Promise<void> {
-    await context.route("**/*", (route, request) => this.handleHttp(route, request));
+    // Playwright leaves an error from a route handler unhandled, which ends the process (see backend-balances.ts).
+    await context.route("**/*", (route, request) => this.handleHttp(route, request).catch(() => route.fallback().catch(() => {})));
     await context.routeWebSocket("**/*", (ws) => this.handleWs(ws));
   }
 
@@ -137,7 +138,11 @@ export class RpcRouter {
             : this.answer(chainId, ws.url(), item),
         ),
       );
-      ws.send(JSON.stringify(body.batch ? answers : answers[0]));
+      try {
+        ws.send(JSON.stringify(body.batch ? answers : answers[0]));
+      } catch {
+        // The page closed the socket meanwhile.
+      }
     });
   }
 }

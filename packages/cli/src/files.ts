@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
-import { ChainConfig, DrillTarget, Suite, chainInfo, parseFixedResponse, parseStorageEntry } from "@dappdrill/core";
+import { ChainConfig, DrillTarget, Suite, chainInfo, parseFixedResponse, parseStorageEntry, type Note, type Test } from "@dappdrill/core";
 
 export class UsageError extends Error {}
 
@@ -42,6 +42,24 @@ export async function loadTests(path: string): Promise<TestsFile> {
     ids.add(t.id);
   }
   return parsed.data;
+}
+
+/**
+ * Adds to the tests file as it is on disk now, so what a command beside this one or a hand edit wrote
+ * meanwhile stays: the notes it hasn't got, and the tests (one whose id is taken there gets another).
+ * `fresh` is the file to start from when there is none yet. Returns the file as written.
+ */
+export async function addToTests(path: string, fresh: TestsFile, add: { notes?: Note[]; tests?: Test[] } & Partial<Pick<TestsFile, "chains" | "tokens">>): Promise<TestsFile> {
+  const now = (await access(path).then(() => true, () => false)) ? await loadTests(path) : fresh;
+  const next: TestsFile = { ...now, chains: add.chains ?? now.chains, tokens: add.tokens ?? now.tokens, notes: [...now.notes], tests: [...now.tests] };
+  for (const note of add.notes ?? []) if (!next.notes.some((n) => n.text === note.text)) next.notes.push(note);
+  for (const t of add.tests ?? []) {
+    let test = t;
+    for (let i = 2; next.tests.some((x) => x.id === test.id); i++) test = { ...t, id: `${t.id}-${i}` };
+    next.tests.push(test);
+  }
+  await writeJson(path, next);
+  return next;
 }
 
 export async function writeText(path: string, text: string): Promise<void> {

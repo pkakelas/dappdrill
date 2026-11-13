@@ -1,14 +1,14 @@
 import path from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
-import { LineResult, sentence, setupWithRecordings, withRecordings, type ChainConfig, type DrillEventSink, type Test, type TestResult } from "@dappdrill/core";
-import { appTests, apps, suiteOf, testOf, testRuns, tests, tryAppLock, type Db, type TestRunRow } from "@dappdrill/db";
+import { LineResult, sentence, withRecordings, type ChainConfig, type DrillEventSink, type Test, type TestResult } from "@dappdrill/core";
+import { appTests, suiteOf, testOf, testRuns, tests, tryAppLock, type Db, type TestRunRow } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import type { PgBoss } from "pg-boss";
 import { artifactsDir } from "../artifacts.js";
 import { errorMessage, logger, type Logger } from "../log.js";
 import { notifyBatch } from "../notify/index.js";
 import { LIVE_RETRY_SECONDS, QUEUES, type TestsJob } from "../queues.js";
-import { buildTarget, liveChains, loadApp, ownerNotes, type AppRow } from "../target.js";
+import { buildTarget, keepSetup, liveChains, loadApp, ownerNotes, updateApp, type AppRow } from "../target.js";
 import { pollStops, throttle } from "./stop.js";
 
 const FRAME_EVERY_MS = 1000;
@@ -36,9 +36,8 @@ export async function runTestBatch(db: Db, engine: Engine, boss: PgBoss, batchId
 
 async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[], batchId: string, shutdown: AbortSignal, log: Logger): Promise<void> {
   const runOf = new Map(runs.map((r) => [r.testId, r]));
-  // Page order.
-  const suite = { ...suiteOf(app, (await appTests(db, app.id)).filter((t) => runOf.has(t.id))), ...ownerNotes(app) };
-  const byId = new Map(suite.tests.map((t) => [t.id, t]));
+  /** The batch's tests, read inside the try below: one that can't be read ends the batch with why rather than leaving it queued. */
+  let byId = new Map<string, Test>();
   const dir = artifactsDir("runs", batchId);
   // One write at a time, in the order they were asked for: a line's progress never lands after the test's result.
   let writes: Promise<unknown> = Promise.resolve();
@@ -69,9 +68,12 @@ async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[],
   const done = new Set<string>();
   // A batch may run against another deploy of the app (a preview, staging) instead of its own URL.
   const url = runs[0]!.url ?? undefined;
-  log.info(`started: ${suite.tests.length} tests on ${url ?? app.url}`);
   let broke: string | undefined;
   try {
+    // Page order.
+    const suite = { ...suiteOf(app, (await appTests(db, app.id)).filter((t) => runOf.has(t.id))), ...ownerNotes(app) };
+    byId = new Map(suite.tests.map((t) => [t.id, t]));
+    log.info(`started: ${suite.tests.length} tests on ${url ?? app.url}`);
     const result = await engine.runSuite({ target: { ...(await buildTarget(db, app, "tests")), ...(url ? { url } : {}) }, suite, artifactsDir: dir, signal }, sink, {
       onStart: (testId) => {
         // A test that failed starts a second time: its lines begin again.
@@ -138,14 +140,6 @@ async function keepRecordings(db: Db, ran: Test, result: TestResult): Promise<vo
   await db.update(tests).set({ steps: withRecordings(now, result).steps }).where(eq(tests.id, ran.id));
 }
 
-/** Same as keepRecordings, for the app's setup. */
-async function keepSetup(db: Db, appId: string, lines: LineResult[] | undefined): Promise<void> {
-  if (!lines?.some((s) => s.recorded?.length)) return;
-  const { suite } = await loadApp(db, appId);
-  if (!suite.setup || suite.setup.steps.length !== lines.length) return;
-  await db.update(apps).set({ suite: { ...suite, setup: setupWithRecordings(suite.setup, lines) } }).where(eq(apps.id, appId));
-}
-
 /**
  * Chains whose copy fell behind the real one during the batch (after the wallet signed there, the app's
  * server acted for it on the real chain): every later run forks them near their latest block.
@@ -153,8 +147,9 @@ async function keepSetup(db: Db, appId: string, lines: LineResult[] | undefined)
 async function keepRelays(db: Db, appId: string, chains: ChainConfig[]): Promise<void> {
   const relayed = chains.filter((c) => c.relays);
   if (!relayed.length) return;
-  const { chains: stored } = await loadApp(db, appId);
-  const known = stored.map((c) => (relayed.some((r) => r.id === c.id) ? { ...c, relays: true } : c));
-  const added = relayed.filter((r) => !stored.some((c) => c.id === r.id));
-  await db.update(apps).set({ chains: [...known, ...added] }).where(eq(apps.id, appId));
+  await updateApp(db, appId, ({ chains: stored }) => {
+    const known = stored.map((c) => (relayed.some((r) => r.id === c.id) ? { ...c, relays: true } : c));
+    const added = relayed.filter((r) => !stored.some((c) => c.id === r.id));
+    return { chains: [...known, ...added] };
+  });
 }

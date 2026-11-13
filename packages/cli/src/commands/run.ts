@@ -17,11 +17,31 @@ export interface RunFlags extends TargetFlags {
 /** `dappdrill run`: run the tests in a tests file. See `exitCode` for what it exits with. */
 export async function runCommand(file: string, flags: RunFlags): Promise<number> {
   const tests = await loadTests(file);
+  const before = structuredClone(tests);
   const target = await buildTarget(flags.url ?? tests.url, flags, "run", tests);
   const code = await runTests(tests, target, flags);
-  // Lines carry the browser actions that worked; saving them keeps the next run fast.
-  await writeJson(file, tests);
+  // Lines carry the browser actions that worked; saving them keeps the next run fast. The file is read
+  // again first, so what was written to it meanwhile (a make, a hand edit) stays.
+  try {
+    await writeJson(file, learned(await loadTests(file), before, tests));
+  } catch (e) {
+    console.log(yellow(`  What this run recorded wasn't saved: ${(e as Error).message}`));
+  }
   return code;
+}
+
+/** `now` with what the run recorded, for the setup and each test still as it was when the run began. */
+function learned(now: TestsFile, before: TestsFile, after: TestsFile): TestsFile {
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  const ran = (id: string) => [before.tests.find((t) => t.id === id), after.tests.find((t) => t.id === id)] as const;
+  return {
+    ...now,
+    setup: same(now.setup, before.setup) ? after.setup : now.setup,
+    tests: now.tests.map((t) => {
+      const [was, is] = ran(t.id);
+      return was && is && same(t, was) ? is : t;
+    }),
+  };
 }
 
 /** Runs the file's tests and writes the reports. What a model had to work out is written into `file`'s lines. */
@@ -36,12 +56,26 @@ export async function runTests(file: TestsFile, target: DrillTarget, flags: RunF
   const engine = await loadEngine();
 
   console.log(`Running ${picked.length} ${picked.length === 1 ? "test" : "tests"} on ${target.url}\n`);
-  const { tests: results } = await engine.runSuite({ target, suite: { ...suiteOf(file), tests: picked }, artifactsDir: join(out, "artifacts"), headless: !flags.headed, signal: interruptSignal() }, warnSink, {
-    onLine: (testId, i, line) => {
-      if (!testId) setup[i] = line;
-    },
-    onTest: (r) => printResult(picked.find((t) => t.id === r.testId)!.name.padEnd(width), r),
-  });
+  const signal = interruptSignal();
+  const finished: TestResult[] = [];
+  let results = finished;
+  let stopped = false;
+  try {
+    const ran = await engine.runSuite({ target, suite: { ...suiteOf(file), tests: picked }, artifactsDir: join(out, "artifacts"), headless: !flags.headed, signal }, warnSink, {
+      onLine: (testId, i, line) => {
+        if (!testId) setup[i] = line;
+      },
+      onTest: (r) => {
+        finished.push(r);
+        printResult(picked.find((t) => t.id === r.testId)!.name.padEnd(width), r);
+      },
+    });
+    results = ran.tests;
+  } catch (e) {
+    // Stopped with Ctrl-C: the tests that finished are reported and keep what they recorded; the rest show as not run.
+    if (!signal.aborted) throw e;
+    stopped = true;
+  }
 
   // What this run learned: the actions a model took where nothing was recorded, or where the recording stopped working.
   if (file.setup && setup.length === file.setup.steps.length) file.setup = setupWithRecordings(file.setup, setup);
@@ -57,7 +91,7 @@ export async function runTests(file: TestsFile, target: DrillTarget, flags: RunF
 
   const code = exitCode(results, asked.length);
   const summary = summaryText(results, asked.length);
-  console.log(`\n${code ? red(summary) : summary}. Videos and screenshots: ${join(flags.out, "artifacts")}`);
+  console.log(`\n${stopped ? "Stopped. " : ""}${code ? red(summary) : summary}. Videos and screenshots: ${join(flags.out, "artifacts")}`);
   return code;
 }
 

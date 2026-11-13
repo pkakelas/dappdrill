@@ -31,12 +31,15 @@ export async function installResponses(context: BrowserContext, responses: Fixed
     (url) => matchers.some((m) => m.test(url.href)),
     (route) => {
       const { r } = matchers.find((m) => m.test(route.request().url()))!;
-      return route.fulfill({
-        status: r.status,
-        contentType: r.contentType ?? (isJson(r.body) ? "application/json" : "text/plain"),
-        headers: { "access-control-allow-origin": "*" },
-        body: r.body,
-      });
+      // .catch: the browser may have closed meanwhile, and an error left here ends the process.
+      return route
+        .fulfill({
+          status: r.status,
+          contentType: r.contentType ?? (isJson(r.body) ? "application/json" : "text/plain"),
+          headers: { "access-control-allow-origin": "*" },
+          body: r.body,
+        })
+        .catch(() => {});
     },
   );
 }

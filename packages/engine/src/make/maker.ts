@@ -11,6 +11,7 @@ import { openSuite, type RunSuiteInput } from "../run/suite.js";
 import { askOwner, type AskInput } from "./ask.js";
 import { doubt, ours } from "./doubt.js";
 import { draftTest, type Finding } from "./draft.js";
+import { spending, type Spending } from "./each.js";
 import { prove, type Proved } from "./prove.js";
 import { repair } from "./repair.js";
 
@@ -20,6 +21,10 @@ export interface MakeInput extends RunSuiteInput {
   startPath?: string;
   /** What looked wrong earlier, when the goal is to find out whether it is. */
   suspicion?: Finding;
+  /** The most this make may spend, in dollars: no run of it starts after that. */
+  maxUsd?: number;
+  /** What the makes of one makeTests spend together, in place of `maxUsd`, so its limit counts them all. */
+  spending?: Spending;
 }
 
 export interface Made extends Omit<Proved, "test"> {
@@ -38,9 +43,11 @@ export interface Made extends Omit<Proved, "test"> {
 export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}, say: (text: string) => void = () => {}): Promise<Made> {
   const t0 = Date.now();
   const { suite, artifactsDir } = input;
+  const spent = input.spending ?? spending(input.maxUsd);
   // Nothing made here may sign on a live mainnet, whoever does the line.
   const open = await openSuite(input, sink, { refuseApprove: (r, env) => refuseOnLiveMainnet(env.chains, r) });
   const { env } = open;
+  const settle = spent.follow(() => env.costUsd());
   let draftUsd = 0;
   const done = (more: Partial<Proved> & Pick<Made, "stuck">): Made => ({
     proven: false,
@@ -58,9 +65,9 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
   /** Why there is no test, from what was seen, and the question it leaves. The maker's own reason stands if this fails. */
   const asked = async (tried: Omit<AskInput, "goal" | "notes" | "ours" | "artifactsDir" | "why"> & { why?: string }): Promise<{ why?: string; ask?: string }> => {
     const why = tried.why ?? "It didn't go the same way twice.";
-    if (input.signal?.aborted) return { why };
+    if (input.signal?.aborted || spent.over()) return { why };
     try {
-      return await askOwner(env.fastLlm(), { ...tried, why, goal: input.goal, notes: open.opts.notes ?? [], ours: ours(env), artifactsDir });
+      return await askOwner(env.fastLlm(), { ...tried, why, goal: input.goal, notes: open.opts.notes ?? [], ours: ours(env), artifactsDir, signal: input.signal });
     } catch {
       return { why };
     }
@@ -98,14 +105,18 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       notes,
       run: (t) => open.run(t),
       shared: env.chains.configs().some((c) => c.mode === "live"),
-      repair: (asked) => repair(env.fastLlm(), { ...asked, ours: set, artifactsDir }),
+      repair: (asked) => repair(env.fastLlm(), { ...asked, ours: set, artifactsDir, signal: input.signal }),
       // The thinking model: it is asked once or twice a test, and only for a test about to be kept as failing.
-      doubt: (asked) => doubt(env.thinkLlm(), { ...asked, ours: set, artifactsDir }),
+      doubt: (asked) => doubt(env.thinkLlm(), { ...asked, ours: set, artifactsDir, signal: input.signal }),
+      overBudget: spent.over,
       say,
     });
     const all = { ...proved, notes: [...draft.notes, ...proved.notes] };
     return done(proved.proven ? all : { ...all, ...(await asked({ ...proved, runs: proved.runs.slice(proved.runs.length - (proved.worded ?? 0)) })) });
   } finally {
+    settle();
     await open.close();
+    // What was spent reaches the caller even when the make was stopped or broke and nothing is returned.
+    await Promise.resolve(sink({ type: "cost", usd: env.costUsd() })).catch(() => {});
   }
 }

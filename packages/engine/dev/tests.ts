@@ -14,13 +14,13 @@
  *
  * Everything else goes under .drill/tests/<host>/<time>/: the look, each make and the run.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { OUTCOME_LABEL, Suite } from "@dappdrill/core";
+import { OUTCOME_LABEL, type Suite } from "@dappdrill/core";
 import { makeTests, runSuite } from "../src/api.js";
 import { MAX_GOALS } from "../src/make/look.js";
-import { fromCwd, loadTarget, outDir, secs } from "./target.js";
+import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
@@ -40,11 +40,14 @@ const CONNECTED = {
 };
 
 const suitePath = fromCwd(suiteFile);
-const kept = await readFile(suitePath, "utf8").catch(() => undefined);
-let suite = Suite.parse(kept ? JSON.parse(kept) : { setup: CONNECTED });
-const save = async () => {
-  await mkdir(path.dirname(suitePath), { recursive: true });
-  await writeFile(suitePath, `${JSON.stringify(suite, null, 2)}\n`);
+let suite = await readSuite(suitePath, { setup: CONNECTED });
+let writing = Promise.resolve();
+/** What the suite gained since the last write, onto the file as it is now; one write at a time, as the makes side by side each add theirs. */
+const save = (next: Suite) => {
+  const notes = next.notes.filter((n) => !suite.notes.some((w) => w.text === n.text));
+  const tests = next.tests.filter((t) => !suite.tests.some((w) => w.id === t.id));
+  suite = next;
+  return (writing = writing.catch(() => {}).then(async () => void (await addToSuite(suitePath, { setup: CONNECTED }, { notes, tests }))));
 };
 const target = await loadTarget(url, flags);
 const out = outDir("tests", url);
@@ -70,12 +73,10 @@ const made = await makeTests({ target, suite, count, together: flags.together ? 
     if (!a.kept || !a.made?.test) return console.log(`  (${n}) Not kept: ${a.why}${spent}`);
     console.log(`  (${n}) ${a.made.test.name}: ${a.made.test.steps.length} lines, ${a.made.stands === "passed" ? "passes" : "fails on a fault of the app"} twice in a row, ${a.made.runs.length} runs, ${a.made.repairs.length} repairs${spent}`);
   },
-  onSuite: async (next) => {
-    suite = next;
-    await save();
-  },
+  onSuite: save,
 });
 await writeFile(path.join(out, "looked.json"), JSON.stringify(made.looked, null, 2));
+if (made.stopped) console.log(`\n${made.stopped} The goals left weren't tried.`);
 if (!made.looked.goals.length) process.exit(1);
 let costUsd = made.costUsd;
 

@@ -9,12 +9,11 @@
  *
  * The goals also go to .drill/looked/<host>/<time>/looked.json.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { Suite } from "@dappdrill/core";
 import { lookForGoals } from "../src/api.js";
-import { fromCwd, loadTarget, outDir, secs } from "./target.js";
+import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
@@ -27,7 +26,7 @@ if (!url || !suiteFile) {
 }
 
 const suitePath = fromCwd(suiteFile);
-const suite = Suite.parse(JSON.parse(await readFile(suitePath, "utf8").catch(() => "{}")));
+const suite = await readSuite(suitePath);
 const target = await loadTarget(url, flags);
 const out = outDir("looked", url);
 await mkdir(out, { recursive: true });
@@ -44,7 +43,8 @@ if (looked.why) console.log(`\nNo goals: ${looked.why}`);
 console.log(`\n${secs(looked.durationMs).trim()}, $${looked.costUsd.toFixed(2)}`);
 
 if (looked.notes.length && !flags.dry) {
-  await writeFile(suitePath, `${JSON.stringify({ ...suite, notes: [...suite.notes, ...looked.notes.map((text) => ({ text, from: "look" as const }))] }, null, 2)}\n`);
+  // Onto the file as it is now: a make beside this one may have added a test meanwhile.
+  await addToSuite(suitePath, suite, { notes: looked.notes.map((text) => ({ text, from: "look" as const })) });
   console.log(`Notes added to ${suiteFile}.`);
 }
 console.log(out);

@@ -10,6 +10,8 @@ const SCAMSNIFFER_ADDRESSES = "https://raw.githubusercontent.com/scamsniffer/sca
 const SCAMSNIFFER_DOMAINS = "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/domains.json";
 const METAMASK_CONFIG = "https://raw.githubusercontent.com/MetaMask/eth-phishing-detect/main/src/config.json";
 const DAY = 24 * 60 * 60 * 1000;
+/** After a list failed to load, how long before a review tries it again. */
+const RETRY_MS = 60_000;
 
 export interface KnownBadHit {
   kind: "address" | "domain";
@@ -25,6 +27,7 @@ export interface KnownBadResult {
 
 export class KnownBad {
   private lists?: Promise<{ addresses: Set<string>; domains: Set<string>; unavailable: string[] }>;
+  private failedAt = 0;
 
   constructor(private readonly http: Http) {}
 
@@ -50,7 +53,15 @@ export class KnownBad {
   }
 
   private load() {
-    this.lists ??= this.fetchLists();
+    if (!this.lists || (this.failedAt && Date.now() - this.failedAt > RETRY_MS)) {
+      this.failedAt = 0;
+      const lists = this.fetchLists();
+      this.lists = lists;
+      const failed = () => {
+        if (this.lists === lists) this.failedAt = Date.now();
+      };
+      void lists.then((l) => l.unavailable.length && failed(), failed);
+    }
     return this.lists;
   }
 

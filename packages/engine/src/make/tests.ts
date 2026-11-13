@@ -7,21 +7,32 @@ import path from "node:path";
 import type { DrillEventSink } from "@dappdrill/core";
 import { createLlm } from "../agent/index.js";
 import { stoppedBy } from "./blocked.js";
-import { makeEach, TOGETHER, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
+import { makeEach, spending, TOGETHER, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
 import { lookForGoals } from "./look.js";
 import { makeTest } from "./maker.js";
 
 export { makeEach, MAX_SUSPICIONS, TOGETHER, type Attempt, type StoppedBy, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
 
+/** Cost events on the sink carry what the whole make has spent so far, the look and every test made. */
 export async function makeTests(input: MakeTestsInput, sink: DrillEventSink = () => {}, progress: MakeTestsProgress = {}): Promise<MadeTests> {
   const t0 = Date.now();
+  const spent = spending(input.maxUsd);
   const looked = await lookForGoals({ ...input, artifactsDir: path.join(input.artifactsDir, "look") }, sink, progress.say);
-  progress.onLooked?.(looked);
+  spent.add(looked.costUsd);
+  await sink({ type: "cost", usd: spent.spent() });
+  await progress.onLooked?.(looked);
   const together = looked.live ? 1 : (input.together ?? TOGETHER);
   // Every test is made on the chains the look ended with, copied at the same blocks, and with the tokens it gave the wallet.
   const target = { ...input.target, chains: looked.chains, tokens: looked.tokens };
   // The fast model tells whether what stopped one goal would stop the next.
   const fast = createLlm({ role: "fast" });
-  const made = await makeEach(looked, { ...input, together, stoppedBy: stoppedBy(fast) }, (asked, n) => makeTest({ ...input, ...asked, target, artifactsDir: path.join(input.artifactsDir, `make-${n}`) }, sink, (text) => progress.say?.(text, n)), progress);
-  return { ...made, stuck: made.stuck ?? looked.stuck, looked, costUsd: looked.costUsd + fast.costUsd() + made.attempts.reduce((sum, a) => sum + (a.made?.costUsd ?? 0), 0), durationMs: Date.now() - t0 };
+  const total: DrillEventSink = (event) => sink(event.type === "cost" ? { type: "cost", usd: spent.spent() } : event);
+  const made = await makeEach(
+    looked,
+    { ...input, together, overBudget: spent.over, stoppedBy: stoppedBy(fast) },
+    (asked, n) => makeTest({ ...input, ...asked, target, spending: spent, artifactsDir: path.join(input.artifactsDir, `make-${n}`) }, total, (text) => progress.say?.(text, n)),
+    progress,
+  );
+  spent.add(fast.costUsd());
+  return { ...made, stuck: made.stuck ?? looked.stuck, looked, costUsd: spent.spent(), durationMs: Date.now() - t0 };
 }

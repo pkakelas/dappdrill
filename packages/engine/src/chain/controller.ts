@@ -53,8 +53,17 @@ export async function startChains(configs: ChainConfig[], opts: StartChainsOptio
     ids.add(c.id);
     refuseMainnetLive(c, opts);
   }
-  const entries = await Promise.all(configs.map((c) => startEntry(c, opts)));
-  return new Controller(entries, opts);
+  const started = await Promise.allSettled(configs.map((c) => startEntry(c, opts)));
+  const failed = started.find((s) => s.status === "rejected");
+  if (failed) {
+    // Don't leave the forks that did come up running.
+    await Promise.all(started.map((s) => (s.status === "fulfilled" ? s.value.fork?.close() : undefined)));
+    throw failed.reason;
+  }
+  return new Controller(
+    started.map((s) => (s as PromiseFulfilledResult<Entry>).value),
+    opts,
+  );
 }
 
 function refuseMainnetLive(c: ChainConfig, opts: StartChainsOptions): void {
@@ -142,6 +151,7 @@ class Controller implements ChainController {
   private closed = false;
   private readonly automineOff = new Set<number>();
   private heartbeat?: NodeJS.Timeout;
+  private beating = false;
   private readonly adding = new Map<number, Promise<ChainConfig>>();
   private readonly missingChains = new Map<number, MissingChain>();
   private readonly watches: RelayWatch[] = [];
@@ -153,7 +163,12 @@ class Controller implements ChainController {
 
   private startHeartbeat(): void {
     if (this.heartbeat || !this.opts.heartbeatMs || ![...this.entries.values()].some((e) => e.mode === "fork")) return;
-    this.heartbeat = setInterval(() => void this.beat(), this.opts.heartbeatMs);
+    this.heartbeat = setInterval(() => {
+      // A stalled fork would otherwise pile up a mine call every tick.
+      if (this.beating) return;
+      this.beating = true;
+      void this.beat().finally(() => (this.beating = false));
+    }, this.opts.heartbeatMs);
     this.heartbeat.unref();
   }
 

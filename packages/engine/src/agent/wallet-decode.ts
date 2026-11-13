@@ -49,7 +49,7 @@ export function decodeWalletRequest(req: WalletRequest): DecodedRequest {
   switch (req.method) {
     case "eth_sendTransaction":
     case "eth_signTransaction":
-      return decodeTransaction(req.method, params[0] as { to?: string; data?: string; value?: string } | undefined);
+      return decodeTransaction(req.method, params[0] as { to?: unknown; data?: unknown; value?: unknown } | undefined);
     case "personal_sign":
     case "eth_sign":
       return {
@@ -68,10 +68,11 @@ export function decodeWalletRequest(req: WalletRequest): DecodedRequest {
   }
 }
 
-function decodeTransaction(method: string, tx: { to?: string; data?: string; value?: string } | undefined): DecodedRequest {
-  const to = tx?.to?.toLowerCase();
-  const data = (tx?.data ?? "0x") as Hex;
-  const value = tx?.value ? BigInt(tx.value) : 0n;
+function decodeTransaction(method: string, tx: { to?: unknown; data?: unknown; value?: unknown } | undefined): DecodedRequest {
+  // The request comes from the page as it is, so any field may be missing or malformed.
+  const to = typeof tx?.to === "string" ? tx.to.toLowerCase() : undefined;
+  const data = (typeof tx?.data === "string" ? tx.data : "0x") as Hex;
+  const value = toBigInt(tx?.value);
   const expectation: WalletExpectation = { kind: "transaction", to };
   const amounts: bigint[] = value > 0n ? [value] : [];
   // A call we can't decode still says how much follows its selector: read as "0xa98b3cbd" alone, it looks like a call with nothing in it.
@@ -160,6 +161,16 @@ function messageText(params: unknown[], method: string): string {
     }
   }
   return raw;
+}
+
+/** A hex or decimal amount, or 0 when it is neither. */
+function toBigInt(v: unknown): bigint {
+  if (typeof v !== "string" && typeof v !== "number" && typeof v !== "bigint") return 0n;
+  try {
+    return BigInt(v);
+  } catch {
+    return 0n;
+  }
 }
 
 function flatten(values: unknown[]): unknown[] {

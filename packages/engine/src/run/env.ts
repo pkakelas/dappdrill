@@ -42,7 +42,8 @@ export interface Env {
 /** Used when the page makes no JSON-RPC calls we can see (apps behind their own backend). */
 const FALLBACK_CHAIN = 1;
 
-export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { headless?: boolean }): Promise<Env> {
+export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { headless?: boolean; signal?: AbortSignal }): Promise<Env> {
+  const stopIfAborted = () => opts.signal?.throwIfAborted();
   const headless = opts.headless ?? true;
   const llms: Llm[] = [];
   let think: Llm | undefined;
@@ -70,6 +71,7 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
     }
   }
 
+  stopIfAborted();
   // Forks the app added mid-run, as they were right after funding; see resetAddedChains.
   const baselines = new Map<number, string>();
   const chains = await startChains(configs, {
@@ -87,23 +89,35 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
     },
     onMissing: (m) => log(missingChainLine(m), "warn"),
   });
-  const live = chains.configs().filter((c) => c.mode === "live");
-  const target: DrillTarget = {
-    ...input,
-    chains: chains.configs(),
-    // Keys stay the same for the whole call so the setup and every test are the same user.
-    accounts: freshAccounts(live.length > 0, input) ?? input.accounts ?? { A: generatePrivateKey(), B: generatePrivateKey() },
-  };
-  // Before anything is pinned, so going back to a snapshot never leaves the wallet empty.
-  for (const c of target.chains) if (c.mode === "fork") await fundOnFork(chains, c.id, fundedAddresses(target), target.tokens);
-  await wrapped({ type: "chains", chains: target.chains });
-  for (const c of live) await log(liveChainLine(c, input.liveKey ? "key" : input.funding ? "funding" : "none"), "warn");
+  let target: DrillTarget;
+  let inbox: Inbox | undefined;
+  try {
+    stopIfAborted();
+    const live = chains.configs().filter((c) => c.mode === "live");
+    target = {
+      ...input,
+      chains: chains.configs(),
+      // Keys stay the same for the whole call so the setup and every test are the same user.
+      accounts: freshAccounts(live.length > 0, input) ?? input.accounts ?? { A: generatePrivateKey(), B: generatePrivateKey() },
+    };
+    // Before anything is pinned, so going back to a snapshot never leaves the wallet empty.
+    for (const c of target.chains) if (c.mode === "fork") await fundOnFork(chains, c.id, fundedAddresses(target), target.tokens);
+    stopIfAborted();
+    await wrapped({ type: "chains", chains: target.chains });
+    for (const c of live) await log(liveChainLine(c, input.liveKey ? "key" : input.funding ? "funding" : "none"), "warn");
+    inbox = input.inbox ? await openInbox(input.inbox) : undefined;
+    stopIfAborted();
+  } catch (err) {
+    // Nothing else holds the chains yet.
+    await chains.close().catch(() => {});
+    throw err;
+  }
 
   return {
     target,
     chains,
     reviewer: createSigningReviewer({ etherscanApiKey: process.env.ETHERSCAN_API_KEY, cacheDir: process.env.DAPPDRILL_CACHE_DIR ?? path.join(os.homedir(), ".cache", "dappdrill") }),
-    inbox: input.inbox ? await openInbox(input.inbox) : undefined,
+    inbox,
     headless,
     sink: wrapped,
     thinkLlm() {

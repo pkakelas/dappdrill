@@ -226,6 +226,7 @@ function requestSummary(facts: Facts): RequestSummary {
   return {
     kind: facts.parsed.kind === "unknown" ? "message" : facts.parsed.kind,
     functionName: call?.functionName,
+    nameGuessed: call?.abiSource === "signature-db",
     primaryType: facts.typed?.primaryType,
     approvals: facts.approvals,
     outgoing: outgoing(facts),

@@ -81,6 +81,8 @@ export function labelAmount(label: string | undefined): { amount: number; symbol
 export interface RequestSummary {
   kind: "transaction" | "typedData" | "message";
   functionName?: string;
+  /** The name came from a database of selectors, not the contract's own ABI: another function can share the selector. */
+  nameGuessed?: boolean;
   primaryType?: string;
   approvals: ApprovalGrant[];
   /** Balance changes for the signer, from the simulation. */
@@ -177,7 +179,8 @@ export function matchByRules(label: string | undefined, req: RequestSummary, tok
       return { status: "pass", detail: `Button says ${said.amount} ${said.symbol} and the transaction sends exactly that.`, via: "rules" };
     }
   }
-  if (intent && fnIntent && intent === fnIntent) return { status: "pass", detail: `${quoted} and the call is ${req.functionName}().`, via: "rules" };
+  // A name guessed from the selector alone can't confirm the label; it can still contradict it below.
+  if (intent && fnIntent && intent === fnIntent) return req.nameGuessed ? undefined : { status: "pass", detail: `${quoted} and the call is ${req.functionName}().`, via: "rules" };
   if (intent && fnIntent && intent !== "sign" && intent !== fnIntent && fnIntent !== "swap") {
     return { status: "warn", detail: `The button says ${quoted}, but the call is ${req.functionName}().`, via: "rules" };
   }

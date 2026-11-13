@@ -12,12 +12,43 @@ import type { Made, MakeInput } from "./maker.js";
 export const MAX_SUSPICIONS = 3;
 /** How many tests are made at once when every chain is a local copy. Each has its own copies and its own browser. */
 export const TOGETHER = 3;
+/** What making tests may spend unless told otherwise (DAPPDRILL_MAKE_MAX_USD sets it). */
+export const MAX_USD = 30;
 
 export interface MakeTestsInput extends RunSuiteInput {
   /** How many of the look's goals get a test. */
   count?: number;
   /** How many tests are made at once. On a live chain it is always one: the account is shared. */
   together?: number;
+  /** The most the look and the makes may spend together, in dollars. No new work starts once it is reached. */
+  maxUsd?: number;
+}
+
+/** What a make spends in all: the look and every test made, the ones still going included. */
+export interface Spending {
+  add(usd: number): void;
+  /** Counts `cost` as it grows; the function returned stops following it and keeps what it came to. */
+  follow(cost: () => number): () => void;
+  spent(): number;
+  /** Why no more should be started, once the limit is reached. */
+  over(): string | undefined;
+}
+
+export function spending(maxUsd = Number(process.env.DAPPDRILL_MAKE_MAX_USD) || MAX_USD): Spending {
+  let settled = 0;
+  const going = new Set<() => number>();
+  const spent = () => settled + [...going].reduce((sum, cost) => sum + cost(), 0);
+  return {
+    add: (usd) => void (settled += usd),
+    follow(cost) {
+      going.add(cost);
+      return () => {
+        if (going.delete(cost)) settled += cost();
+      };
+    },
+    spent,
+    over: () => (spent() >= maxUsd ? `Stopped at the $${maxUsd} spending limit.` : undefined),
+  };
 }
 
 /** One goal handed to the maker and what came of it. */
@@ -44,6 +75,8 @@ export interface MadeTests {
   attempts: Attempt[];
   /** The setup didn't finish, so making stopped there: the goals after it were never tried. */
   stuck?: SetupStuck;
+  /** Why no more goals were started (the spending limit): the ones left were never tried. */
+  stopped?: string;
   costUsd: number;
   durationMs: number;
 }
@@ -51,7 +84,8 @@ export interface MadeTests {
 export interface MakeTestsProgress {
   /** What is being done now. `n` is the make saying it; the look has none. */
   say?(text: string, n?: number): void;
-  onLooked?(looked: Looked): void;
+  /** Waited for before any goal is started. */
+  onLooked?(looked: Looked): void | Promise<void>;
   /** Before a goal goes to the maker. The look's goals come first, then what looked wrong. */
   onGoal?(goal: string, n: number, suspicion?: Finding): void;
   onAttempt?(attempt: Attempt, n: number): void | Promise<void>;
@@ -71,9 +105,15 @@ type Asked = Pick<MakeInput, "suite" | "goal" | "startPath" | "suspicion">;
  * the app's fault (a market that doesn't fill), the goals that would meet it too aren't tried: they
  * say what stops them and ask what the goal that met it asked.
  */
-export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problems">, input: Pick<MakeTestsInput, "suite" | "count" | "together" | "signal"> & { stoppedBy?: StoppedBy }, make: (asked: Asked, n: number) => Promise<Made>, progress: MakeTestsProgress = {}): Promise<{ suite: Suite; attempts: Attempt[]; stuck?: SetupStuck }> {
+export async function makeEach(
+  looked: Pick<Looked, "goals" | "notes" | "problems">,
+  input: Pick<MakeTestsInput, "suite" | "count" | "together" | "signal"> & { overBudget?: () => string | undefined; stoppedBy?: StoppedBy },
+  make: (asked: Asked, n: number) => Promise<Made>,
+  progress: MakeTestsProgress = {},
+): Promise<{ suite: Suite; attempts: Attempt[]; stuck?: SetupStuck; stopped?: string }> {
   let suite = input.suite;
   let stuck: SetupStuck | undefined;
+  let stopped: string | undefined;
   const attempts: Attempt[] = [];
   if (!looked.goals.length) return { suite, attempts };
   suite = { ...suite, notes: [...suite.notes, ...looked.notes.map((text) => ({ text, from: "look" as const }))] };
@@ -132,7 +172,7 @@ export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problem
   };
 
   const together = Math.max(1, input.together ?? 1);
-  const go = () => !stuck;
+  const go = () => !stuck && !(stopped ??= input.overBudget?.());
   await pooled(looked.goals.slice(0, input.count ?? MAX_GOALS), together, go, (g) => attempt(g.goal, g.startPath));
 
   const into: { goal: string; startPath: string; finding: Finding }[] = [];
@@ -145,14 +185,20 @@ export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problem
     into.push({ goal, startPath, finding });
   }
   await pooled(into, together, go, (s) => attempt(s.goal, s.startPath, s.finding));
-  return { suite, attempts, stuck };
+  return { suite, attempts, stuck, stopped };
 }
 
-/** Does the job for every item, in order, so many at a time, for as long as `go` says to start another. */
+/**
+ * Does the job for every item, in order, so many at a time, for as long as `go` says to start another.
+ * When one throws (stopped), the others are waited for before it is passed on, so none is left
+ * holding a browser and chains, or spending, after the caller has moved on.
+ */
 async function pooled<T>(items: T[], together: number, go: () => boolean, job: (item: T) => Promise<void>): Promise<void> {
   const waiting = [...items];
   const worker = async () => {
     while (waiting.length && go()) await job(waiting.shift()!);
   };
-  await Promise.all(Array.from({ length: Math.min(together, waiting.length) }, worker));
+  const ended = await Promise.allSettled(Array.from({ length: Math.min(together, waiting.length) }, worker));
+  const threw = ended.find((e) => e.status === "rejected");
+  if (threw) throw threw.reason;
 }

@@ -11,7 +11,7 @@ export const DEFAULT_FAST_MODEL = "claude-sonnet-5-5";
 /** Does a test's model actions first; the fast model gets the ones it can't do. */
 export const DEFAULT_QUICK_MODEL = "claude-haiku-5-5";
 
-export type LlmErrorCode = "refusal" | "max_tokens" | "max_turns" | "aborted" | "invalid_output" | "api";
+export type LlmErrorCode = "refusal" | "max_tokens" | "max_turns" | "aborted" | "timeout" | "budget" | "invalid_output" | "api";
 
 export class LlmError extends Error {
   constructor(
@@ -49,6 +49,9 @@ export function shapeOf(tool: AgentTool): ZodObject["shape"] {
   return schema.shape;
 }
 
+/** The most text one tool result gives a model. A page snapshot is far less; more would fill a model's context in a few turns. */
+export const TOOL_TEXT_CHARS = 30_000;
+
 /** Validate the model's input and run the tool; errors become text the model can act on. */
 export async function runTool(tool: AgentTool, input: unknown): Promise<{ result: AgentToolResult; isError: boolean }> {
   const parsed = tool.schema.safeParse(input);
@@ -57,9 +60,16 @@ export async function runTool(tool: AgentTool, input: unknown): Promise<{ result
   }
   try {
     const out = await tool.handler(parsed.data);
-    return { result: typeof out === "string" ? { text: out } : out, isError: false };
+    return { result: capped(tool.name, typeof out === "string" ? { text: out } : out), isError: false };
   } catch (err) {
     return { result: { text: `${tool.name} failed: ${err instanceof Error ? err.message : String(err)}` }, isError: true };
   }
 }
 
+
+/** A tool result within TOOL_TEXT_CHARS. One over it is a fault of ours, so it is said where the worker logs it. */
+function capped(name: string, result: AgentToolResult): AgentToolResult {
+  if (result.text.length <= TOOL_TEXT_CHARS) return result;
+  console.warn(`[engine] the ${name} tool returned ${result.text.length} characters; cut to ${TOOL_TEXT_CHARS}. It began: ${result.text.slice(0, 300).replace(/\s+/g, " ")}`);
+  return { ...result, text: `${result.text.slice(0, TOOL_TEXT_CHARS)}\n… cut here: the rest was too long to show.` };
+}
