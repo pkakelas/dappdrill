@@ -110,7 +110,9 @@ const KEPT = `The account is on a live chain and keeps everything: what you do n
 - Do the goal with small amounts.
 - The test ends with the account as it found it: after its last check come the actions that take back what it made (cancel the order, close the position, withdraw the deposit). Do the same yourself before you write the test.
 - cleanup says how to take things back when the test stopped half way, in words that work whatever state it stopped in (“Cancel every open order for …”).
-- Earlier runs have left history behind (orders, transfers). A check must be about what this run made: name the value it used.`;
+- Earlier runs have left history behind (orders, transfers). A check must be about what this run made: name the value it used.
+- What the account already holds moves by what this run did. Check that it moved, by how much and which way, with a check by code of kind "changes" on the figure the page shows for it (the position's size, the cash). Not what it is: an earlier short may swallow this run's long, and a list may merge this run's order into one row with older ones.
+- A list of many alike rows: the row this run made is the one with this run's value. Don't count rows or expect the list to show only this run's.`;
 
 export interface DraftInput {
   goal: string;

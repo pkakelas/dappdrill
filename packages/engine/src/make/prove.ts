@@ -81,12 +81,41 @@ export async function prove(input: ProveInput): Promise<Proved> {
     worded = [];
     steady = 0;
   };
+  /** Lines by their sentence that passed in some run. One that also didn't is unsteady. */
+  const passedOnce = new Set<string>();
+  /** Why the test was about to be given up, when a check that went both ways was taken out for a last try instead. */
+  let lastTry: string | undefined;
+  /** Where the last try's runs end. */
+  let lastRun = MAX_RUNS;
+  /**
+   * Out of runs or repairs on a check that passed before: the test gets PROVEN_AFTER more runs
+   * without it. A goal is worth a test that checks a little less, more than no test at all.
+   */
+  const tryWithout = (test: Test, line: number, why: string): boolean => {
+    const l = test.steps[line];
+    if (lastTry || l?.type !== "check" || !passedOnce.has(sentence(l))) return false;
+    const without = applyRepair(test, { verdict: "test", why, edits: [{ line: line + 1, op: "remove" }] });
+    if ("wrong" in without) return false;
+    lastTry = why;
+    lastRun = out.runs.length + PROVEN_AFTER;
+    out.repairs.push(`${quoted(test, line)} was taken out: it passed in some runs and not in others.`);
+    say(`Taking out ${quoted(test, line)} for a last try: it passed in some runs and not in others`);
+    standing.delete(sentence(l));
+    reworded(without.test);
+    return true;
+  };
 
-  runs: while (out.runs.length < MAX_RUNS) {
+  runs: for (;;) {
+    if (out.runs.length >= lastRun) {
+      // Out of runs. When a run of the test as it is worded now went wrong at a check that passed in another, a last try without it.
+      const wrong = worded.map((r) => unexpected(out.test, r, standing)).findLast((i) => i >= 0);
+      if (lastTry || wrong === undefined || !tryWithout(out.test, wrong, `Still not steady after ${MAX_RUNS} runs.`)) break;
+    }
     const before = out.test;
     const result = await input.run(before);
     out.runs.push(result);
     worded.push(result);
+    for (const [i, s] of result.steps.entries()) if (s.status === "pass" && before.steps[i]) passedOnce.add(sentence(before.steps[i]!));
     say(`Run ${out.runs.length}: ${OUTCOME_LABEL[result.outcome]}, ${(result.durationMs / 1000).toFixed(0)} s, $${result.costUsd.toFixed(2)}${result.reason ? `. ${result.reason}` : ""}`);
 
     const test = (out.test = keepRecordings(before, result, recordings, out.repairs));
@@ -106,7 +135,12 @@ export async function prove(input: ProveInput): Promise<Proved> {
     let stoodNow = false;
     for (let line = unexpected(test, result, standing); line >= 0; line = unexpected(test, result, standing)) {
       const how = result.steps[line]!;
-      if (repairs >= MAX_REPAIRS) return done(`Still not steady after ${MAX_REPAIRS} repairs. ${quoted(test, line)}: ${how.note || how.status}`);
+      if (lastTry) return done(lastTry);
+      if (repairs >= MAX_REPAIRS) {
+        const why = `Still not steady after ${MAX_REPAIRS} repairs. ${quoted(test, line)}: ${how.note || how.status}`;
+        if (tryWithout(test, line, why)) continue runs;
+        return done(why);
+      }
       const flips = how.status === "pass" || worded.slice(0, -1).some((r) => r.steps[line]?.status === "pass");
       const fix = await input.repair({ test, runs: worded, line, flips, earlier: out.repairs, notes: input.notes, problems: out.findings });
       const key = sentence(test.steps[line]!);
@@ -200,7 +234,7 @@ export async function prove(input: ProveInput): Promise<Proved> {
     }
     return done(undefined, failed.length ? "failed" : "passed");
   }
-  return done(`Still not steady after ${MAX_RUNS} runs.`);
+  return done(lastTry ?? `Still not steady after ${MAX_RUNS} runs.`);
 }
 
 /**

@@ -19,6 +19,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { OUTCOME_LABEL, Suite } from "@dappdrill/core";
 import { makeTests, runSuite } from "../src/api.js";
+import { MAX_GOALS } from "../src/make/look.js";
 import { fromCwd, loadTarget, outDir, secs } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
@@ -30,7 +31,7 @@ if (!url || !suiteFile) {
   console.error("usage: pnpm tests <url> <suite.json> [--count n] [--together n] [--chain id[=rpc]]… [--target file] [--headed]");
   process.exit(2);
 }
-const count = Number(flags.count ?? 10);
+const count = Number(flags.count ?? MAX_GOALS);
 
 /** What a new suite starts with: a user whose wallet is connected. */
 const CONNECTED = {
