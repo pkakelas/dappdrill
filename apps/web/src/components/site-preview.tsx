@@ -162,6 +162,9 @@ export function LastFrame({ src, alt }: { src: string | null; alt: string }) {
  */
 export function SitePreview({ site, open, toolbar }: { site: SiteInfo; open: boolean; toolbar: ReactNode }) {
   const { host } = new URL(site.url);
+  // Framing depends on this page's own address, which the server doesn't have.
+  const [framed, setFramed] = useState(false);
+  useEffect(() => setFramed(canFrame(site)), [site]);
   return (
     <div
       aria-hidden
@@ -174,7 +177,7 @@ export function SitePreview({ site, open, toolbar }: { site: SiteInfo; open: boo
         <div key={site.url} className="relative aspect-[16/10] min-h-0 overflow-hidden bg-card lg:aspect-auto lg:flex-1">
           <Wireframe />
           {site.image && <SiteImage src={site.image} />}
-          {canFrame(site) && <LiveSite url={site.url} />}
+          {framed && <LiveSite url={site.url} />}
           <div className="site-wash absolute -inset-px" />
           <div className="site-beam absolute inset-0" />
           <div className="absolute inset-x-3 bottom-3 flex animate-in items-center gap-2.5 rounded-lg border bg-background/85 p-2 shadow-md backdrop-blur-md delay-500 duration-700 fill-mode-both fade-in-0 slide-in-from-bottom-3 motion-reduce:animate-none">

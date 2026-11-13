@@ -3,22 +3,21 @@ import { appTests, db, latestRuns, makes, runHistory, settledRuns } from "@dappd
 import { desc, eq } from "drizzle-orm";
 import { TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
-import { makeTestsAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { SubmitButton } from "@/components/submit-button";
-import { AddTestButton } from "@/components/tests/add-test";
 import { AppActions } from "@/components/tests/app-actions";
 import { AppHero, type LiveChain, type Rollup } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
 import { GoalActions } from "@/components/tests/goal-actions";
 import { GoalList, MakeBand } from "@/components/tests/make-band";
 import { SetupStuckNotice } from "@/components/tests/setup-stuck";
+import { StartBand } from "@/components/tests/start-band";
 import { readTest } from "@/components/tests/status";
 import { TestLine, TestList } from "@/components/tests/test-card";
 import { Tile } from "@/components/tests/tile";
-import { hostFromUrl, plainError, plural } from "@/lib/format";
+import { plainError, plural } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { readBalance } from "@/lib/rpc";
+import { readSite } from "@/lib/site";
 import { requireApp } from "@/lib/session";
 
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
@@ -106,20 +105,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
             ))}
           </TestList>
         ) : (
-          !make && (
-            <section className="flex flex-col items-start gap-6">
-              <div className="flex flex-col gap-2">
-                <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">Make tests for {hostFromUrl(app.url)}</h2>
-                <p className="max-w-prose text-base text-pretty text-muted-foreground">We look over the app, pick what a user would do there, and turn each into a test by doing it. A test is kept once it goes the same way twice in a row.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <form action={makeTestsAction.bind(null, appId)}>
-                  <SubmitButton busy="Starting…">Make tests</SubmitButton>
-                </form>
-                <AddTestButton appId={appId} label="Add a test" />
-              </div>
-            </section>
-          )
+          !make && <StartBand appId={appId} url={app.url} site={(await readSite(app.url)) ?? { url: app.url, framable: false }} wallet={app.settings.wallets[0]} chainId={(app.settings.chains[0] ?? app.chains[0])?.id} live={live?.name} />
         )}
 
         {notKept.length > 0 && (
