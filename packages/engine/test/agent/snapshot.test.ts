@@ -232,4 +232,18 @@ describe("locatorFor", () => {
     const there = await takeSnapshot(s.page);
     expect(there.nodes.filter((n) => n.name === "Cancel").length).toBeGreaterThan(8);
   });
+
+  it("keeps a dialog within the budget when it lists every order an account kept", async () => {
+    // pod's orders drawer after many runs on the same account: hundreds of rows, all in a dialog.
+    const rows = Array.from({ length: 600 }, (_, i) => `<li><span>NVDA Buy market order ${i} Expired</span><button>Details ${i}</button></li>`).join("");
+    await s.page.setContent(`
+      <h2>Trade</h2>
+      <button>Place order</button>
+      <div role="dialog" aria-label="Orders"><button>Close</button><ul>${rows}</ul></div>
+    `);
+    const snap = await takeSnapshot(s.page, { maxChars: 9_000 });
+    expect(formatSnapshot(snap).length).toBeLessThan(9_500);
+    expect(snap.nodes.map((n) => n.name)).toContain("Close");
+  });
+
 });

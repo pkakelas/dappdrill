@@ -159,12 +159,15 @@ export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = 
       ].join("\n");
 
       say("Looking around");
+      let ended: { text: string; stopReason?: string } | undefined;
       try {
-        await env.thinkLlm().runAgent({ system: SYSTEM, prompt, tools, maxTurns: MAX_TURNS, signal: input.signal });
+        ended = await env.thinkLlm().runAgent({ system: SYSTEM, prompt, tools, maxTurns: MAX_TURNS, signal: input.signal });
       } finally {
         site.stop();
       }
-      if (!seen) return done({ why: blocked ? `Blocked: ${blocked.reason}` : "The look ended without a list of goals." });
+      // Its last words say why it stopped without a list.
+      const last = ended?.stopReason === "max_turns" ? "it ran out of steps" : ended?.text.trim().slice(0, 400);
+      if (!seen) return done({ why: blocked ? `Blocked: ${blocked.reason}` : `The look ended without a list of goals${last ? `: ${last}` : "."}` });
       const known = new Set(suite.notes.map((n) => n.text));
       return done({ summary: seen.summary, goals: seen.goals.slice(0, MAX_GOALS), notes: seen.notes.filter((n) => !known.has(n)), problems: seen.problems });
     } finally {
