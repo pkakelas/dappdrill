@@ -5,11 +5,13 @@
  */
 import path from "node:path";
 import type { DrillEventSink } from "@dappdrill/core";
+import { createLlm } from "../agent/index.js";
+import { stoppedBy } from "./blocked.js";
 import { makeEach, TOGETHER, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
 import { lookForGoals } from "./look.js";
 import { makeTest } from "./maker.js";
 
-export { makeEach, MAX_SUSPICIONS, TOGETHER, type Attempt, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
+export { makeEach, MAX_SUSPICIONS, TOGETHER, type Attempt, type StoppedBy, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
 
 export async function makeTests(input: MakeTestsInput, sink: DrillEventSink = () => {}, progress: MakeTestsProgress = {}): Promise<MadeTests> {
   const t0 = Date.now();
@@ -18,6 +20,8 @@ export async function makeTests(input: MakeTestsInput, sink: DrillEventSink = ()
   const together = looked.live ? 1 : (input.together ?? TOGETHER);
   // Every test is made on the chains the look ended with, copied at the same blocks, and with the tokens it gave the wallet.
   const target = { ...input.target, chains: looked.chains, tokens: looked.tokens };
-  const made = await makeEach(looked, { ...input, together }, (asked, n) => makeTest({ ...input, ...asked, target, artifactsDir: path.join(input.artifactsDir, `make-${n}`) }, sink, (text) => progress.say?.(text, n)), progress);
-  return { ...made, stuck: made.stuck ?? looked.stuck, looked, costUsd: looked.costUsd + made.attempts.reduce((sum, a) => sum + (a.made?.costUsd ?? 0), 0), durationMs: Date.now() - t0 };
+  // The fast model tells whether what stopped one goal would stop the next.
+  const fast = createLlm({ role: "fast" });
+  const made = await makeEach(looked, { ...input, together, stoppedBy: stoppedBy(fast) }, (asked, n) => makeTest({ ...input, ...asked, target, artifactsDir: path.join(input.artifactsDir, `make-${n}`) }, sink, (text) => progress.say?.(text, n)), progress);
+  return { ...made, stuck: made.stuck ?? looked.stuck, looked, costUsd: looked.costUsd + fast.costUsd() + made.attempts.reduce((sum, a) => sum + (a.made?.costUsd ?? 0), 0), durationMs: Date.now() - t0 };
 }

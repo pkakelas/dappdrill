@@ -1,6 +1,6 @@
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { MakeState, newId, sentence, setupWithRecordings, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
+import { MakeState, newId, sentence, setupWithRecordings, withNotes, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
 import { addTest, apps, appTests, makes, suiteOf, testRuns, tryAppLock, type Db } from "@dappdrill/db";
 import type { Attempt, Looked } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
@@ -91,7 +91,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
     Object.assign(goal, {
       status: attempt.kept ? "kept" : "not-kept",
       whyNot: attempt.kept ? undefined : attempt.why,
-      tried: attempt.kept ? undefined : tried(made),
+      tried: attempt.kept ? undefined : tried(attempt),
       costUsd: made?.costUsd ?? 0,
       durationMs: made?.durationMs ?? 0,
     } satisfies Partial<MakeGoal>);
@@ -116,8 +116,9 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
       const one = await engine.makeTest({ target: await buildTarget(db, app, "tests"), suite, goal: row.goal, artifactsDir: path.join(dir, "make-1"), signal }, sink, (text) => say(text, 1));
       await keepSetup(db, app.id, one.setup);
       const kept = one.proven && !!one.test;
-      if (kept) await keepNotes(db, app.id, one.notes, "maker");
-      await made({ goal: row.goal, made: one, kept, why: one.why }, 1);
+      // What a goal that wasn't kept learned, and what was in its way, is kept as less sure.
+      await keepNotes(db, app.id, one.blocker ? [...one.notes, one.blocker] : one.notes, kept ? "maker" : "unkept");
+      await made({ goal: row.goal, made: one, kept, why: one.why, ask: one.ask }, 1);
     } else {
       await engine.makeTests({ target: await buildTarget(db, app, "look"), suite, count: row.count, artifactsDir: dir, signal }, sink, {
         say,
@@ -140,7 +141,9 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
           save();
         },
         onAttempt: made,
-        onSuite: (next) => keepNotes(db, app.id, notesFrom(next, "look"), "look").then(() => keepNotes(db, app.id, notesFrom(next, "maker"), "maker")),
+        onSuite: async (next) => {
+          for (const from of ["look", "maker", "unkept"] as const) await keepNotes(db, app.id, notesFrom(next, from), from);
+        },
       });
     }
   } catch (e) {
@@ -157,18 +160,21 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
   if (end !== "stopped") await notifyMake(db, app, row.id, end);
 }
 
-const notesFrom = (suite: Suite, from: "look" | "maker") => suite.notes.filter((n) => n.from === from).map((n) => n.text);
+type LearnedFrom = "look" | "maker" | "unkept";
+const notesFrom = (suite: Suite, from: LearnedFrom) => suite.notes.filter((n) => n.from === from).map((n) => n.text);
 
-/** Adds what was learned about the app to its notes. The owner may have edited them meanwhile, so only what isn't there is added. */
-async function keepNotes(db: Db, appId: string, notes: string[], from: "look" | "maker"): Promise<void> {
+/**
+ * Adds what was learned about the app to its notes. The owner may have edited them meanwhile, so
+ * only what isn't there is added, and one a test that wasn't kept learned becomes sure when a kept one learns it too.
+ */
+async function keepNotes(db: Db, appId: string, notes: string[], from: LearnedFrom): Promise<void> {
   if (!notes.length) return;
   const { suite } = await loadApp(db, appId);
-  const known = new Set(suite.notes.map((n) => n.text));
-  const added = notes.filter((text) => !known.has(text)).map((text) => ({ text, from }));
-  if (added.length)
+  const next = withNotes(suite.notes, notes, from);
+  if (JSON.stringify(next) !== JSON.stringify(suite.notes))
     await db
       .update(apps)
-      .set({ suite: { ...suite, notes: [...suite.notes, ...added] } })
+      .set({ suite: { ...suite, notes: next } })
       .where(eq(apps.id, appId));
 }
 
@@ -215,8 +221,9 @@ async function keepProof(db: Db, appId: string, testId: string, batchId: string,
 }
 
 /** What was tried for a goal that got no test, for its page: the test as it last stood and how its lines went in the runs of that wording. */
-function tried(made: Attempt["made"]): Tried | undefined {
-  if (!made) return undefined;
+function tried({ made, ask }: Attempt): Tried | undefined {
+  // Not tried: another goal met what would stop it, and its question is this one's too.
+  if (!made) return ask ? { lines: [], runs: 0, ask } : undefined;
   const runs = made.runs.slice(made.runs.length - (made.worded ?? 0));
   const last = runs.at(-1);
   return {

@@ -7,7 +7,7 @@ import path from "node:path";
 import { z } from "zod";
 import { RunValue, sentence, type Test, type TestResult } from "@dappdrill/core";
 import type { ImageInput, Llm } from "../types.js";
-import { asLine, DraftLine, Finding, wrongValues } from "./draft.js";
+import { asLine, BLOCKER, DraftLine, Finding, wrongValues } from "./draft.js";
 import { SAID } from "../agent/said.js";
 
 const Edit = z.object({
@@ -17,8 +17,10 @@ const Edit = z.object({
 });
 
 export const Repair = z.object({
-  verdict: z.enum(["test", "app", "cant-tell"]),
+  verdict: z.enum(["test", "app", "cant-tell", "in-the-way"]),
   why: z.string().describe(`What decides it. ${SAID}`),
+  blocker: z.string().optional().describe(`With verdict in-the-way: ${BLOCKER}`),
+  again: z.boolean().optional().describe("True when an earlier repair of this test was about this same thing and it still goes wrong the same way"),
   edits: z.array(Edit).default([]),
   values: z
     .array(z.object({ name: z.string().regex(/^\w+$/), ...RunValue.shape }))
@@ -37,6 +39,9 @@ How a test is run: each line is an action or a check. An action by code replays 
 verdict "test": the test is wrong or loose. The line names something the page writes differently; states a figure that differs from run to run; claims something no user is entitled to; can't be decided from what its reader sees; an action's sentence is too vague to do, or a step is missing before it. Put it right with edits.
 verdict "app": the app is at fault, and you can point at what shows it: the app's own words that it then goes against, figures on the page that don't add up, a transaction that reverted, a wallet request that differs from what the page said, something the user was told had happened and that isn't there. That the goal or a line of the test expected otherwise is not enough: when the only thing the app goes against is the test, the test is wrong. And rule out first what was set up by us and not by the app (you are told what): what the app does because of the test wallet's funds or because a chain is a local copy is not its fault, and a test may not depend on it. With the fault shown, the line stands as written and the test will fail on it: that is the test doing its job. Give the finding. Edit the test only when the goal of this test is something else and it can reach its goal another way a user would take; give a note when later tests of this app will meet the same fault. A check after a line that was left to fail may fail only because of that fault: then it is the same problem (known), and it stands too. Would it be wrong without the fault as well, it is the test's.
 verdict "cant-tell": what you have doesn't settle it. The test is run again.
+verdict "in-the-way": something that is neither the test nor a fault of the app stops it, and running again or rewording won't get past it: a market that never fills, a service that is down, the account left by an earlier run in a state the test can't start from (a cleanup that didn't finish shows it). Give the blocker. The test is given up.
+
+Set again when an earlier repair of this test was about this same thing and the line still goes wrong the same way. The test is then given up, whatever the verdict: repairs that change nothing only cost runs. Don't set it when the earlier repair changed what goes wrong.
 
 Edits:
 - A check may not be weakened into one that says less so that it passes. It may be reworded when what it said was wrong to claim, and removed when nothing its reader sees can decide it reliably. Say which in why.
@@ -44,7 +49,7 @@ Edits:
 - A line that passed in one run and not in another, with the test unchanged: find what differed between the runs. If it is a figure or a text that changes by itself, the line shouldn't state it. If it is the app being late sometimes and right in the end, a check by code that waits (shows, said, changes) is steadier than a model's single look.
 - A text that showed for a moment and was gone when the check looked (a toast, a button's label right after a click) is no reason to remove the check: make it a check by code with kind "said", which also reads what the page showed since the latest action began.
 - Leave lines that passed exactly as they are: their recordings are kept. Change only what has to change.
-- A check by code needs expect: {kind:"signed", holds} | {kind:"not-signed", holds?} | {kind:"mined", holds?} | {kind:"changes", figure, by, on?} | {kind:"said", text} | {kind:"shows", text} | {kind:"hides", text} | {kind:"button", name, is} | {kind:"url", contains}.
+- A check by code needs expect: {kind:"signed", holds} | {kind:"not-signed", holds?} | {kind:"mined", holds?} | {kind:"changes", figure, by, on?: the path of the page the figure is read on, like "/home"} | {kind:"said", text} | {kind:"shows", text} | {kind:"hides", text} | {kind:"button", name, is} | {kind:"url", contains}.
 - An action by "code" is recorded once and replayed; by "llm" a model reads the page every run. Make an action "llm" when its recording can't be the same on every run.`;
 
 export interface RepairInput {
@@ -103,6 +108,7 @@ export async function repair(llm: Llm, input: RepairInput): Promise<Repair> {
           : ""
       }: ${r.outcome}${r.reason ? `. ${r.reason}` : ""}`,
       ...r.steps.map((s, i) => `  ${i + 1}. ${s.status}${s.note ? `: ${s.note}` : ""}${s.redone ? ` (its recording failed: ${s.redone})` : ""}${s.by === "llm" && s.did.length ? ` (did: ${s.did.join("; ")})` : ""}`),
+      ...(r.cleanup.length ? [`  Cleanup: ${r.cleanup.map((c, i) => `${i + 1}. ${c.status}${c.note ? `: ${c.note}` : ""}`).join("; ")}`] : []),
       "",
     ]),
     input.problems.length ? `Problems with the app already written down:\n${input.problems.map((f, i) => `${i + 1}. ${f.what}: ${f.saw}`).join("\n")}\n` : "",

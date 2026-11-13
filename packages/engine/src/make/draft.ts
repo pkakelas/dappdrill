@@ -48,7 +48,11 @@ const Written = z.object({
   problems: z.array(Finding).default([]).describe("Things the app did that a user wouldn't accept"),
 });
 
-export type Draft = { test: Test; notes: string[]; problems: Finding[] } | { gaveUp: string };
+export type Draft = { test: Test; notes: string[]; problems: Finding[] } | { gaveUp: string; notes: string[]; blocker?: string };
+
+/** What a goal that couldn't be done may leave behind: for the next goals, and the one thing in the way of them too. */
+export const BLOCKER =
+  "Only when something outside this goal stops it and would stop other goals of this app too: a market that never fills, a service that is down, the account left in a state no test can use. That thing, in one sentence naming what it stops (“Market buys on NVDA and GOOGL expire unfilled: the markets are illiquid”). Not that this app lacks a feature, and not a fault of the app a user would report.";
 
 /** A draft line as a line of a test. A code action starts with nothing recorded. */
 export function asLine(line: DraftLine): Test["steps"][number] {
@@ -79,7 +83,7 @@ CHECKS
   {kind:"signed", holds}: the wallet was asked to sign something that holds this text: a function name ("deposit("), an address, an amount.
   {kind:"not-signed", holds?}: it wasn't asked at all, or for nothing that holds this.
   {kind:"mined", holds?}: the transaction was mined and didn't revert. Use it after every action that sends one.
-  {kind:"changes", figure, by, on?}: the number under or beside a label moved by this much since the test began (by: -100, or "-{{amount}}"). figure is the label exactly as the page writes it. It must be readable when the test starts: on the start page, or on the page whose path you give as on. A check with on opens that page and leaves the browser there, so such checks come last.
+  {kind:"changes", figure, by, on?}: the number under or beside a label moved by this much since the test began (by: -100, or "-{{amount}}"). figure is the label exactly as the page writes it. It must be readable when the test starts: on the start page, or on the page whose path you give as on ("/home", never a label). A check with on opens that page and leaves the browser there, so such checks come last.
   {kind:"said", text}: a notice that shows for a moment and goes (a toast). The text is a part of it that is the same on every run.
   {kind:"shows", text} / {kind:"hides", text}: text that is on the page now, the same on every run.
   {kind:"button", name, is}: a button is "enabled" or "disabled".
@@ -140,7 +144,7 @@ export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
   try {
     await session.page.goto(urlOnApp(input.startPath, env.target.url), { waitUntil: "domcontentloaded" });
     const block = await landingBotCheck(session);
-    if (block) return { gaveUp: `Blocked: ${block.reason}` };
+    if (block) return { gaveUp: `Blocked: ${block.reason}`, notes: [] };
     await settle(session);
 
     const recorder = new Recorder(session);
@@ -171,9 +175,13 @@ export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
       {
         name: "give_up",
         description: "The goal can't be done here: the app has no way to do it, refuses this user, or is blocked.",
-        schema: z.object({ why: z.string().describe(`With the app's own words when it said something. ${SAID}`) }),
-        handler: async ({ why }) => {
-          out = { gaveUp: why };
+        schema: z.object({
+          why: z.string().describe(`With the app's own words when it said something. ${SAID}`),
+          blocker: z.string().optional().describe(BLOCKER),
+          notes: Written.shape.notes,
+        }),
+        handler: async ({ why, blocker, notes }) => {
+          out = { gaveUp: why, notes, blocker };
           return "Recorded. Stop now.";
         },
       },
@@ -198,8 +206,8 @@ export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
 
     const res = await env.fastLlm().runAgent({ system: SYSTEM, prompt, tools, maxTurns: MAX_TURNS, signal: input.signal });
     if (out) return out;
-    if (blocked) return { gaveUp: `Blocked: ${(blocked as Blocked).reason}` };
-    return { gaveUp: res.stopReason === "max_turns" ? "Ran out of steps before the test was written." : `Stopped without writing a test: ${res.text.slice(0, 200)}` };
+    if (blocked) return { gaveUp: `Blocked: ${(blocked as Blocked).reason}`, notes: [] };
+    return { gaveUp: res.stopReason === "max_turns" ? "Ran out of steps before the test was written." : `Stopped without writing a test: ${res.text.slice(0, 200)}`, notes: [] };
   } finally {
     await session.close();
     await revert();

@@ -57,8 +57,8 @@ export const CodeAssert = z.discriminatedUnion("kind", [
     figure: z.string().min(1),
     /** Signed: -100 for a fall of 100. A value of the run's own is written with its sign: "-{{amount}}". */
     by: z.union([z.number(), z.string().regex(/^-?(\{\{\w+\}\}|\d+(\.\d+)?)$/)]),
-    /** The page the figure is on, when it isn't where the test is. The check opens it. */
-    on: z.string().optional(),
+    /** The path of the page the figure is on ("/home"), when it isn't where the test is. The check opens it. */
+    on: z.string().regex(/^\//, "on is the path of a page on the app, like /home, not a label").optional(),
   }),
 ]);
 export type CodeAssert = z.infer<typeof CodeAssert>;
@@ -132,6 +132,13 @@ export type Note = z.infer<typeof Note>;
 
 /** A note as the models read it. One from a test that wasn't kept says so: the attempt may have gone the wrong way. */
 export const noteText = (n: Note) => (n.from === "unkept" ? `${n.text} (learned while making a test that wasn't kept, so it may be wrong)` : n.text);
+
+/** The notes with new ones added. One already there is not added again, and a kept test learning one a test that wasn't kept learned makes it sure. */
+export function withNotes(notes: Note[], texts: string[], from: Note["from"]): Note[] {
+  const known = new Set(notes.map((n) => n.text));
+  const sure = from === "unkept" ? new Set<string>() : new Set(texts);
+  return [...notes.map((n) => (n.from === "unkept" && sure.has(n.text) ? { ...n, from } : n)), ...texts.filter((text, i) => !known.has(text) && texts.indexOf(text) === i).map((text) => ({ text, from }))];
+}
 
 /** The tests of one app, and what is done once before them so each starts as a user who is already in. */
 export const Suite = z.object({

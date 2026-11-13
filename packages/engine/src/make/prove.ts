@@ -26,6 +26,8 @@ export interface ProveInput {
   notes: string[];
   /** One run of the test from a clean start. */
   run(test: Test): Promise<TestResult>;
+  /** The account carries over from run to run (a live chain), so what a run leaves behind, the next one starts from. */
+  shared?: boolean;
   repair(asked: Omit<RepairInput, "artifactsDir" | "ours">): Promise<Repair>;
   /** A second opinion on a line the test is about to be kept failing on. Without it the repair's word is taken. */
   doubt?(asked: Omit<DoubtInput, "artifactsDir" | "ours">): Promise<Doubt>;
@@ -43,6 +45,8 @@ export interface Proved {
   stands?: "passed" | "failed";
   /** Why it isn't proven. */
   why?: string;
+  /** Not proven because of something outside this test that would stop other tests of the app too, in one sentence. */
+  blocker?: string;
   /** How many of the last runs are of the test as it stands. */
   worded?: number;
   /** What the repairs learned about the app. */
@@ -64,6 +68,7 @@ export async function prove(input: ProveInput): Promise<Proved> {
   const say = input.say ?? (() => {});
   const out: Proved = { test: input.test, proven: false, notes: [], findings: input.problems.map((p) => ({ ...p, proven: false })), repairs: [], dismissed: [], runs: [] };
   const done = (why?: string, stands?: Proved["stands"]): Proved => ({ ...out, proven: stands !== undefined, stands, why, worded: worded.length });
+  const blocked = (why: string, blocker: string): Proved => ({ ...done(why), blocker });
 
   /** Runs of the test as it is worded now. */
   let worded: TestResult[] = [];
@@ -122,6 +127,15 @@ export async function prove(input: ProveInput): Promise<Proved> {
     // A recording that had to be made again isn't steady, even when it came out the same.
     const changed = !same(test, before) || result.steps.some((s) => s.redone !== undefined);
 
+    // On a shared account the next run starts from what this one left: after a cleanup that didn't finish, no run can be counted on.
+    const untidy = input.shared ? result.cleanup.findIndex((c) => c.status !== "pass") : -1;
+    if (untidy >= 0) {
+      const how = result.cleanup[untidy]!;
+      const what = `the cleanup of “${test.name}” didn't finish (“${before.cleanup[untidy]?.do}”: ${how.note || how.status})`;
+      say(`Stopping: ${what}`);
+      return blocked(`Stopped because ${what}, and the next run would start from what this one left.`, `The account may still hold what an earlier test left: ${what}.`);
+    }
+
     // Every line passed and it still failed: the page threw an error, or the wallet was asked for something dangerous.
     if (result.outcome === "failed" && result.steps.every((s) => s.status === "pass")) {
       const again = worded.length > 1 && worded.at(-2)!.reason === result.reason;
@@ -144,6 +158,16 @@ export async function prove(input: ProveInput): Promise<Proved> {
       const flips = how.status === "pass" || worded.slice(0, -1).some((r) => r.steps[line]?.status === "pass");
       const fix = await input.repair({ test, runs: worded, line, flips, earlier: out.repairs, notes: input.notes, problems: out.findings });
       const key = sentence(test.steps[line]!);
+
+      if (fix.verdict === "in-the-way") {
+        say(`Something is in the way at ${quoted(test, line)}: ${fix.why}`);
+        return blocked(`${quoted(test, line)}: ${fix.why}`, fix.blocker ?? fix.why);
+      }
+      // A repair that didn't change what goes wrong: the next one won't either.
+      if (fix.again && out.repairs.length) {
+        say(`Giving up: repairs didn't change what goes wrong at ${quoted(test, line)}`);
+        return done(`Repairs didn't change what goes wrong at ${quoted(test, line)}: ${fix.why}`);
+      }
 
       if (fix.verdict === "cant-tell" || (fix.verdict === "test" && !fix.edits.length)) {
         const times = (undecided.get(key) ?? 0) + 1;

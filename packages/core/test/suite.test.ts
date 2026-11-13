@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { fillValues, LineResult, outcomeOf, Suite, Test, TestResult, withRecordings } from "../src/suite.js";
+import { CodeAssert, fillValues, LineResult, outcomeOf, Suite, Test, TestResult, withRecordings } from "../src/suite.js";
 
 const line = (status: LineResult["status"]) => LineResult.parse({ status, by: "code" });
 
@@ -114,5 +114,12 @@ describe("the suites written by hand", () => {
     expect(suite.setup?.steps.length).toBeGreaterThan(0);
     expect(new Set(suite.tests.map((t) => t.id)).size).toBe(suite.tests.length);
     for (const test of suite.tests) expect(JSON.stringify(fillValues(test).test), test.id).not.toMatch(/\{\{\w+\}\}/);
+  });
+});
+
+describe("CodeAssert", () => {
+  it("takes a page's path for where a figure is read, and not a label", () => {
+    expect(CodeAssert.safeParse({ kind: "changes", figure: "Cash", by: 20, on: "/home" }).success).toBe(true);
+    expect(CodeAssert.safeParse({ kind: "changes", figure: "Your position", by: 20, on: "Your position" }).success).toBe(false);
   });
 });

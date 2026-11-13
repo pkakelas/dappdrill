@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Test } from "@dappdrill/core";
+import { Test, TestResult } from "@dappdrill/core";
+import type { Llm } from "../../src/types.js";
 import { asTest, wrongValues } from "../../src/make/draft.js";
-import { applyRepair, Repair } from "../../src/make/repair.js";
+import { applyRepair, repair, Repair } from "../../src/make/repair.js";
 
 const click = { kind: "click" as const, target: { role: "button", name: "Deposit" } };
 const test = Test.parse({
@@ -95,5 +96,17 @@ describe("wrongValues", () => {
     expect(wrongValues({ ...test, values: { ...test.values, fee: { from: 1, to: 2, decimals: 2 } } })).toMatch(/fee is never used/);
     expect(wrongValues({ ...test, values: { amount: { from: 20, to: 10, decimals: 2 } } })).toMatch(/runs from 20 to 10/);
     expect(wrongValues(test)).toBeUndefined();
+  });
+});
+
+describe("repair", () => {
+  it("is shown how each run's cleanup went, so it can tell an account an earlier run left behind", async () => {
+    let prompt = "";
+    const llm = { structured: async (o: { prompt: string }) => ((prompt = o.prompt), Repair.parse({ verdict: "in-the-way", why: "w", blocker: "b" })) } as unknown as Llm;
+    const line = (status: "pass" | "fail", note = "") => ({ status, by: "llm", note, did: [], durationMs: 0, costUsd: 0 });
+    const run = TestResult.parse({ testId: "deposit", outcome: "failed", steps: [line("pass"), line("fail", "No funds.")], cleanup: [line("fail", "The withdraw expired.")], durationMs: 0, costUsd: 0 });
+    const fixed = await repair(llm, { test: { ...test, cleanup: [{ type: "action", by: "llm", do: "Withdraw it." }] }, runs: [run], line: 1, flips: false, earlier: [], notes: [], problems: [], artifactsDir: "/nowhere" });
+    expect(fixed.verdict).toBe("in-the-way");
+    expect(prompt).toContain("  Cleanup: 1. fail: The withdraw expired.");
   });
 });

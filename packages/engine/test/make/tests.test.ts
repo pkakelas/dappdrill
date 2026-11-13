@@ -96,4 +96,40 @@ describe("makeEach", () => {
     expect(out.suite.tests.map((t) => t.id)).toEqual(["deposit"]);
     expect(out.attempts.map((a) => a.kept)).toEqual([true, false]);
   });
+
+  it("doesn't try a goal that what stopped an earlier one would stop too, and keeps what stopped it as a note", async () => {
+    const blocker = "Market buys expire unfilled: the markets are illiquid.";
+    const asked: string[] = [];
+    const judged: { goal: string; blockers: string[] }[] = [];
+    const stoppedBy = async (goal: string, blockers: string[]) => {
+      judged.push({ goal, blockers });
+      return goal === "buy GOOGL" ? 0 : undefined;
+    };
+    const { suite, attempts } = await makeEach({ goals: goals("buy NVDA", "buy GOOGL", "read the history"), notes: [], problems: [] }, { suite: empty, stoppedBy }, async ({ goal }) => {
+      asked.push(goal);
+      if (goal === "buy NVDA") return made(goal, { proven: false, test: undefined, why: "The order expired.", blocker, ask: "Is there a liquid market on staging?", notes: ["Trading needs enabling."] });
+      return made(goal);
+    });
+    expect(asked).toEqual(["buy NVDA", "read the history"]);
+    expect(judged).toEqual([
+      { goal: "buy GOOGL", blockers: [blocker] },
+      { goal: "read the history", blockers: [blocker] },
+    ]);
+    expect(attempts[1]).toMatchObject({ goal: "buy GOOGL", kept: false, why: `Not tried: ${blocker}`, ask: "Is there a liquid market on staging?" });
+    expect(attempts[1]!.made).toBeUndefined();
+    expect(suite.notes).toEqual([
+      { text: "Trading needs enabling.", from: "unkept" },
+      { text: blocker, from: "unkept" },
+    ]);
+    expect(suite.tests.map((t) => t.id)).toEqual(["read the history"]);
+  });
+
+  it("tries the goal when it can't be told whether it is stopped", async () => {
+    const asked: string[] = [];
+    await makeEach({ goals: goals("a", "b"), notes: [], problems: [] }, { suite: empty, stoppedBy: async () => Promise.reject(new Error("overloaded")) }, async ({ goal }) => {
+      asked.push(goal);
+      return goal === "a" ? made(goal, { proven: false, test: undefined, blocker: "The service is down." }) : made(goal);
+    });
+    expect(asked).toEqual(["a", "b"]);
+  });
 });

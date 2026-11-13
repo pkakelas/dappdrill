@@ -6,7 +6,7 @@ import { NO_LIVE_KEY } from "../wallet/errors.js";
 import type { Env } from "./env.js";
 import { landingBotCheck, openSession } from "./session.js";
 import { doAction } from "./action.js";
-import { checkByCode, readBefore } from "./code-check.js";
+import { checkByCode, readBefore, unreadBefore } from "./code-check.js";
 import { checkByModel } from "./llm-check.js";
 import { pageText } from "./page.js";
 import type { Running } from "./running.js";
@@ -54,6 +54,12 @@ async function walk(env: Env, what: Walkable, opts: RunOptions, then?: (session:
     const run: Running = { env, session, name: what.name, goal: what.goal, steps: what.steps, since: session.wallet.requests().length, acted: Date.now(), reviews: out.reviews, before: new Map(), notes: opts.notes ?? [], refuseApprove: opts.refuseApprove, signal: opts.signal };
     await settle(session);
     await readBefore(run);
+    const unread = unreadBefore(run);
+    if (unread) {
+      out.steps[unread.line] = LineResult.parse({ status: "unsure", by: "code", note: unread.note, page: (await pageText(session.page).catch(() => "")).slice(0, PAGE_KEPT) || undefined, screenshot: await session.screenshot(`${what.id}-${unread.line + 1}`) });
+      opts.onLine?.(unread.line, out.steps[unread.line]!);
+      return out;
+    }
     /** One line, timed and priced, with a picture of the page after it. */
     const go = async (of: Running, i: number, shot: string): Promise<LineResult> => {
       if (opts.signal?.aborted) throw new Error("stopped");

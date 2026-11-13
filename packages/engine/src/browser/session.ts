@@ -112,7 +112,8 @@ export async function createSession(target: DrillTarget, chains: ChainController
     ignoreHTTPSErrors: true,
     storageState: opts.storageState,
   });
-  if (opts.trace !== false) await context.tracing.start({ screenshots: true, snapshots: true });
+  // No screenshots in the trace: the video has the pictures, and with them a trace held thousands of frames (over 200 MB, seconds to save).
+  if (opts.trace !== false) await context.tracing.start({ screenshots: opts.video === false, snapshots: true });
 
   const session = new Session(id, target, chains, wallet, browser, context, opts, dirs, log);
   await session.init(profile, opts.twoWallets ? otherWallet(profile) : undefined, startChainId);

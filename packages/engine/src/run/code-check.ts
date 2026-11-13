@@ -142,6 +142,20 @@ export async function readBefore(run: Running): Promise<void> {
   if (elsewhere.length) await open(run, start);
 }
 
+/**
+ * The first check whose figure couldn't be read before the test began, and why. That check can't be
+ * decided whatever is done, so nothing is: on an account that is kept, doing it would only move it.
+ */
+export function unreadBefore(run: Running): { line: number; note: string } | undefined {
+  for (const [line, s] of run.steps.entries()) {
+    if (s.type !== "check" || s.by !== "code" || s.expect.kind !== "changes") continue;
+    const before = run.before.get(readingKey(s.expect));
+    if (before && "missing" in before) return { line, note: beforeNote(s.expect, before.missing) };
+  }
+}
+
+const beforeNote = (c: Changes, missing: string) => `Before the test began${c.on ? `, on ${c.on}` : ""}: ${missing}`;
+
 /** Whether a figure moved by what was named, give or take one unit of the last digit shown and half a percent. */
 export function movedBy(before: Shown, now: Shown, by: number): boolean {
   const digits = now.text.split(".")[1]?.replace(/\D/g, "").length ?? 0;
@@ -151,7 +165,7 @@ export function movedBy(before: Shown, now: Shown, by: number): boolean {
 
 async function changes(run: Running, expect: Changes): Promise<Found> {
   const before = run.before.get(readingKey(expect));
-  if (!before || "missing" in before) return unsure(`Before the test began: ${before?.missing ?? `“${expect.figure}” wasn't read.`}`);
+  if (!before || "missing" in before) return unsure(beforeNote(expect, before?.missing ?? `“${expect.figure}” wasn't read.`));
   const by = Number(expect.by);
   if (!Number.isFinite(by)) return unsure(`“${expect.by}” isn't a number.`);
   if (expect.on) await open(run, expect.on);

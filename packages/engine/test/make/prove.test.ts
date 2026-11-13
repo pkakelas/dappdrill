@@ -35,7 +35,7 @@ function ran(test: Test, letters: Letters, more: { redo?: boolean; outcome?: Tes
 }
 
 /** Proves `drafted` against runs and repairs given in order. Says what was asked of the repairer. */
-async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs: object[] = [], problems: ProveInput["problems"] = [], doubts?: object[]) {
+async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs: object[] = [], problems: ProveInput["problems"] = [], doubts?: object[], more: Partial<ProveInput> = {}) {
   const asked: Parameters<ProveInput["repair"]>[0][] = [];
   const doubted: Parameters<NonNullable<ProveInput["doubt"]>>[0][] = [];
   const notes: string[] = [];
@@ -44,6 +44,7 @@ async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs
     test: drafted,
     problems,
     notes,
+    ...more,
     run: async (test) => {
       const next = runs[r++];
       if (next === undefined) throw new Error("more runs than expected");
@@ -241,5 +242,34 @@ describe("prove", () => {
   it("doesn't take a repair that breaks the test, and runs it again as it was", async () => {
     const { proved } = await proving(["ppf", "ppp", "ppp"], [{ verdict: "test", edits: [{ line: 8, op: "remove" }] }]);
     expect(proved).toMatchObject({ proven: true, stands: "passed", repairs: [expect.stringMatching(/wasn't taken/)] });
+  });
+
+  it("gives up with what was in the way when it is neither the test nor the app", async () => {
+    const blocker = "Market buys on NVDA expire unfilled: the markets are illiquid.";
+    const { proved, asked, runsLeft } = await proving(["pfs"], [{ verdict: "in-the-way", why: "The order expired: “Illiquid market”.", blocker }]);
+    expect(proved).toMatchObject({ proven: false, blocker });
+    expect(proved.why).toContain("Illiquid market");
+    expect(asked).toHaveLength(1);
+    expect(runsLeft).toBe(0);
+  });
+
+  it("gives up when a repair didn't change what goes wrong", async () => {
+    const reword = (n: number, again?: boolean) => ({ verdict: "test", again, edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: `The total is right, try ${n}.` } }] });
+    const { proved, asked, runsLeft } = await proving(["ppf", "ppf", "ppp"], [reword(1), reword(2, true)]);
+    expect(proved.proven).toBe(false);
+    expect(proved.why).toMatch(/^Repairs didn't change what goes wrong at “The total is right, try 1\.”/);
+    expect(asked).toHaveLength(2);
+    expect(runsLeft).toBe(1);
+  });
+
+  it("stops on a shared account when the cleanup didn't take back what a run left", async () => {
+    const tidy = { ...drafted, cleanup: [{ type: "action" as const, by: "llm" as const, do: "Close the position." }] };
+    const untidy = (test: Test) => ({ ...ran(test, "pfs"), cleanup: [{ status: "fail" as const, by: "llm" as const, note: "The close order expired.", did: [], durationMs: 0, costUsd: 0 }] });
+    const shared = await prove({ test: tidy, problems: [], notes: [], shared: true, run: async (t) => untidy(t), repair: async () => { throw new Error("no repair expected"); } });
+    expect(shared).toMatchObject({ proven: false, runs: [expect.anything()] });
+    expect(shared.blocker).toContain("“Close the position.”: The close order expired.");
+    // On a copy of the chain each run starts clean, so a cleanup that didn't finish is nothing to stop for.
+    const { asked } = await proving([untidy], [{ verdict: "in-the-way", why: "No.", blocker: "No." }], [], undefined, { test: tidy } as Partial<ProveInput>);
+    expect(asked).toHaveLength(1);
   });
 });

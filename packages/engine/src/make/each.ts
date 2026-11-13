@@ -2,7 +2,7 @@
  * A test for each goal, so many at a time, and what each make adds to the suite. No browser and no
  * model in here: the make itself is handed in.
  */
-import type { Note, SetupStuck, Suite } from "@dappdrill/core";
+import { withNotes, type SetupStuck, type Suite } from "@dappdrill/core";
 import type { RunSuiteInput } from "../run/suite.js";
 import type { Finding } from "./draft.js";
 import { MAX_GOALS, type Looked } from "./look.js";
@@ -30,7 +30,12 @@ export interface Attempt {
   kept: boolean;
   /** Why it didn't. */
   why?: string;
+  /** With no test: the one question for the owner whose answer would most likely let it be made. */
+  ask?: string;
 }
+
+/** Of the things found in the way so far, the one that would stop this goal too, by its index. */
+export type StoppedBy = (goal: string, blockers: string[]) => Promise<number | undefined>;
 
 export interface MadeTests {
   /** The suite with the new notes and tests. */
@@ -62,9 +67,11 @@ type Asked = Pick<MakeInput, "suite" | "goal" | "startPath" | "suspicion">;
  * reach the makes that start after they end.
  *
  * Every make begins with the setup. When one can't finish it, the next would stop at the same
- * place, so no goal is started after that.
+ * place, so no goal is started after that. And when a goal ends on something in its way that isn't
+ * the app's fault (a market that doesn't fill), the goals that would meet it too aren't tried: they
+ * say what stops them and ask what the goal that met it asked.
  */
-export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problems">, input: Pick<MakeTestsInput, "suite" | "count" | "together" | "signal">, make: (asked: Asked, n: number) => Promise<Made>, progress: MakeTestsProgress = {}): Promise<{ suite: Suite; attempts: Attempt[]; stuck?: SetupStuck }> {
+export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problems">, input: Pick<MakeTestsInput, "suite" | "count" | "together" | "signal"> & { stoppedBy?: StoppedBy }, make: (asked: Asked, n: number) => Promise<Made>, progress: MakeTestsProgress = {}): Promise<{ suite: Suite; attempts: Attempt[]; stuck?: SetupStuck }> {
   let suite = input.suite;
   let stuck: SetupStuck | undefined;
   const attempts: Attempt[] = [];
@@ -74,6 +81,14 @@ export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problem
 
   /** What looked wrong and has no test yet, with the page it was seen from. */
   const suspected = looked.problems.map((finding) => ({ finding, startPath: "/" }));
+  /** What goals ended on, outside the app's fault, with the question each left for the owner. */
+  const blockers: { text: string; ask?: string }[] = [];
+  const stops = async (goal: string) => {
+    if (!blockers.length || !input.stoppedBy) return undefined;
+    // When it can't be told, the goal is tried: that costs a make, not a test.
+    const i = await input.stoppedBy(goal, blockers.map((b) => b.text)).catch(() => undefined);
+    return i === undefined ? undefined : blockers[i];
+  };
 
   const attempt = async (goal: string, startPath: string, suspicion?: Finding) => {
     const n = attempts.length + 1;
@@ -81,8 +96,15 @@ export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problem
     const tried: Attempt = { goal, suspicion, kept: false };
     attempts.push(tried);
     try {
+      const by = await stops(goal);
+      if (by) {
+        Object.assign(tried, { why: `Not tried: ${by.text}`, ask: by.ask });
+        return await progress.onAttempt?.(tried, n);
+      }
       const made = (tried.made = await make({ suite, goal, startPath, suspicion }, n));
       stuck ??= made.stuck;
+      tried.ask = made.ask;
+      if (made.blocker) blockers.push({ text: made.blocker, ask: made.ask });
       // What it saw and didn't fail on is looked into later, by a test of its own. What a look into something saw is that same thing.
       if (!suspicion) for (const finding of made.findings) if (!finding.proven) suspected.push({ finding, startPath: made.test?.startPath ?? startPath });
       if (!made.proven || !made.test) tried.why = made.why;
@@ -96,8 +118,10 @@ export async function makeEach(looked: Pick<Looked, "goals" | "notes" | "problem
         suite = { ...suite, tests: [...suite.tests, test] };
       }
       // What a goal that wasn't kept learned is often what the next one needs most, so it is kept too, as less sure.
-      if (made.notes.length) {
-        suite = { ...suite, notes: withNotes(suite.notes, made.notes, tried.kept ? "maker" : "unkept") };
+      // What was in the way is one of them: the goals after it may meet it too.
+      const learned = made.blocker ? [...made.notes, made.blocker] : made.notes;
+      if (learned.length) {
+        suite = { ...suite, notes: withNotes(suite.notes, learned, tried.kept ? "maker" : "unkept") };
         await progress.onSuite?.(suite);
       } else if (tried.kept) await progress.onSuite?.(suite);
     } catch (e) {
@@ -131,11 +155,4 @@ async function pooled<T>(items: T[], together: number, go: () => boolean, job: (
     while (waiting.length && go()) await job(waiting.shift()!);
   };
   await Promise.all(Array.from({ length: Math.min(together, waiting.length) }, worker));
-}
-
-/** The notes with new ones added. One already there is not added again, and a kept test learning it again makes it sure. */
-export function withNotes(notes: Note[], texts: string[], from: "maker" | "unkept"): Note[] {
-  const known = new Set(notes.map((n) => n.text));
-  const sure = from === "maker" ? new Set(texts) : new Set<string>();
-  return [...notes.map((n) => (n.from === "unkept" && sure.has(n.text) ? { ...n, from } : n)), ...texts.filter((text, i) => !known.has(text) && texts.indexOf(text) === i).map((text) => ({ text, from }))];
 }

@@ -84,7 +84,8 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       signal: input.signal,
     });
     draftUsd = env.costUsd();
-    if ("gaveUp" in draft) return done(await asked({ why: draft.gaveUp, runs: [], repairs: [], dismissed: [], findings: [] }));
+    // What it learned on the way, and what stopped it, may be what the next goal needs most.
+    if ("gaveUp" in draft) return done({ notes: draft.notes, blocker: draft.blocker, ...(await asked({ why: draft.gaveUp, runs: [], repairs: [], dismissed: [], findings: [] })) });
     notes.push(...draft.notes);
     const taken = new Set(suite.tests.map((t) => t.id));
     let test = draft.test;
@@ -96,6 +97,7 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       problems: draft.problems,
       notes,
       run: (t) => open.run(t),
+      shared: env.chains.configs().some((c) => c.mode === "live"),
       repair: (asked) => repair(env.fastLlm(), { ...asked, ours: set, artifactsDir }),
       // The thinking model: it is asked once or twice a test, and only for a test about to be kept as failing.
       doubt: (asked) => doubt(env.thinkLlm(), { ...asked, ours: set, artifactsDir }),
