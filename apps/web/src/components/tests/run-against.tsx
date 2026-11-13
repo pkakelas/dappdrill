@@ -1,35 +1,27 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { runAgainstUrlAction } from "@/actions/tests";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-/** "Run against…": every test, against another deploy of the app. Opens from a quiet button by Run all. */
-export function RunAgainst({ appId, appUrl, disabled }: { appId: string; appUrl: string; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
+/** "Run against another URL": every test, against another deploy of the app. Opened from the app's menu. */
+export function RunAgainstDialog({ appId, appUrl, open, onOpenChange: setOpen }: { appId: string; appUrl: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [url, setUrl] = useState(appUrl);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
 
+  // Each time it opens, it starts from the app's own URL.
+  useEffect(() => {
+    if (!open) return;
+    setUrl(appUrl);
+    setError(undefined);
+  }, [open, appUrl]);
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) {
-          setUrl(appUrl);
-          setError(undefined);
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="ghost" disabled={disabled}>
-          Run against…
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-md">
         <form
           className="flex flex-col gap-4"

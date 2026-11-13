@@ -51,4 +51,20 @@ export function hostFromUrl(url: string): string {
   }
 }
 
+const OPEN_FAILED: [RegExp, string][] = [
+  [/ERR_NAME_NOT_RESOLVED/, "that address doesn't exist"],
+  [/ERR_CONNECTION_REFUSED|ERR_EMPTY_RESPONSE/, "nothing answered there"],
+  [/ERR_CONNECTION_TIMED_OUT|ERR_TIMED_OUT|Timeout \d+ms exceeded/, "it took too long to answer"],
+  [/ERR_CERT_/, "its certificate isn't valid"],
+  [/ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED/, "the network dropped"],
+];
+
+/** An error from our side as a sentence: the browser's network errors in words, and never a call log. */
+export function plainError(error: string, url?: string): string {
+  const [first = error] = error.split(/\n|\s+Call log:/);
+  if (/page\.goto|net::ERR_/.test(first))
+    for (const [pattern, why] of OPEN_FAILED) if (pattern.test(first)) return `We couldn't open ${url ? hostFromUrl(url) : "the app"}: ${why}.`;
+  return first.replace(/^[\w.]+: /, "").trim();
+}
+
 export const TRIGGER_LABEL = { manual: "Run by you", make: "When the tests were made", schedule: "Daily run" } as const;

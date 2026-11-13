@@ -1,22 +1,21 @@
 import { chainInfo, chainName, formatUnitsPlain, type ChainConfig } from "@dappdrill/core";
 import { appTests, db, latestRuns, makes, runHistory, settledRuns } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
-import { ListPlus, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { makeTestsAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { SubmitButton } from "@/components/submit-button";
 import { AddTestButton } from "@/components/tests/add-test";
+import { AppActions } from "@/components/tests/app-actions";
 import { AppHero, type LiveChain, type Rollup } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
 import { GoalList, MakeBand } from "@/components/tests/make-band";
-import { RunAgainst } from "@/components/tests/run-against";
-import { RunButton } from "@/components/tests/run-button";
 import { SetupStuckNotice } from "@/components/tests/setup-stuck";
 import { readTest } from "@/components/tests/status";
 import { TestLine, TestList } from "@/components/tests/test-card";
 import { Tile } from "@/components/tests/tile";
-import { hostFromUrl, plural } from "@/lib/format";
+import { hostFromUrl, plainError, plural } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { readBalance } from "@/lib/rpc";
 import { requireApp } from "@/lib/session";
@@ -40,16 +39,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const activeIds = tests.filter((t) => reads.get(t.id)!.active).map((t) => t.id);
 
   const by = (outcome: string) => tests.filter((t) => reads.get(t.id)!.settled === outcome).length;
-  const verdicts = [...settled.values()].flatMap((r) => r.result?.signingReviews.map((s) => s.verdict) ?? []);
-  const rollup: Rollup = {
-    total: tests.length,
-    passed: by("passed"),
-    failed: by("failed"),
-    unverified: by("unverified"),
-    notRun: by("never"),
-    dangerous: verdicts.filter((v) => v === "dangerous").length,
-    check: verdicts.filter((v) => v === "check").length,
-  };
+  const rollup: Rollup = { total: tests.length, passed: by("passed"), failed: by("failed"), unverified: by("unverified"), notRun: by("never") };
   const lastRun = [...settled.values()].reduce<Date | undefined>((at, r) => (r.finishedAt && (!at || r.finishedAt > at) ? r.finishedAt : at), undefined);
 
   // Tests on a chain we can't fork run on the real one, and the owner should know what that leaves behind, and what pays for it.
@@ -80,24 +70,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
           running={activeIds.length}
           runs={history}
           writing={first ? { email: making?.requestedBy === user.id ? user.email : undefined } : undefined}
-          action={
-            !first &&
-            (tests.length > 0 || make) && (
-              <div className="flex flex-wrap items-center gap-2">
-                <AddTestButton appId={appId} busy={Boolean(making)} />
-                {manage && !making && (
-                  <form action={makeTestsAction.bind(null, appId)}>
-                    <SubmitButton variant="outline" busy="Starting…">
-                      <ListPlus aria-hidden="true" />
-                      Make more tests
-                    </SubmitButton>
-                  </form>
-                )}
-                {tests.length > 0 && <RunAgainst appId={appId} appUrl={app.url} disabled={activeIds.length > 0} />}
-                {tests.length > 0 && <RunButton target={{ appId, all: true }} active={activeIds.length > 0} label="Run all" size="md" primary />}
-              </div>
-            )
-          }
+          action={!first && (tests.length > 0 || make) && <AppActions appId={appId} appUrl={app.url} tests={tests.length} running={activeIds.length > 0} making={Boolean(making)} canMake={manage} />}
         />
 
         {making && <MakeBand appId={appId} appUrl={app.url} make={making} />}
@@ -118,7 +91,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
             <Tile icon={TriangleAlert} tint="warn" />
             <div className="flex min-w-0 flex-col gap-1">
               <p className="font-medium">{make.status === "failed" ? "Making tests stopped early" : "We found nothing to test"}</p>
-              <p className="text-pretty text-muted-foreground">{make.status === "failed" ? (make.error ?? "Something went wrong on our side.") : (make.state.why ?? "The app showed nothing a user could do.")}</p>
+              <p className="text-pretty text-muted-foreground">{make.status === "failed" ? (make.error ? plainError(make.error, app.url) : "Something went wrong on our side.") : (make.state.why ?? "The app showed nothing a user could do.")}</p>
             </div>
           </div>
         )}

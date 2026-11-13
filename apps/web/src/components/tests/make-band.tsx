@@ -1,6 +1,6 @@
 import type { MakeGoal } from "@dappdrill/core";
 import type { makes } from "@dappdrill/db";
-import { TriangleAlert } from "lucide-react";
+import { CircleDashed, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { stopMakeAction } from "@/actions/tests";
 import { Elapsed } from "@/components/elapsed";
@@ -61,7 +61,13 @@ export function GoalList({ appId, goals, live }: { appId: string; goals: MakeGoa
           const under = g.status === "making" ? g.said : g.status === "not-kept" ? whyNot : undefined;
           return (
             <li key={i} className="relative flex items-start gap-3 px-2 py-2.5 text-sm hover:bg-foreground/5">
-              <StateMark state={mark.state} label={mark.label} className="mt-0.5" />
+              {g.status === "not-kept" ? (
+                <span role="img" aria-label={mark.label} className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground/60">
+                  <CircleDashed className="size-4" aria-hidden="true" />
+                </span>
+              ) : (
+                <StateMark state={mark.state} label={mark.label} className="mt-0.5" />
+              )}
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 {g.testId ? (
                   <Link href={`/apps/${appId}/tests/${g.testId}`} title={g.goal} className="line-clamp-2 text-pretty outline-none after:absolute after:inset-0 focus-visible:underline">
@@ -75,7 +81,8 @@ export function GoalList({ appId, goals, live }: { appId: string; goals: MakeGoa
                 {g.suspicion && <span className="line-clamp-2 text-xs text-pretty text-muted-foreground">Looked wrong: {g.suspicion}</span>}
                 {under && <span className={cx("text-xs text-pretty text-muted-foreground", live && "line-clamp-2", live && g.status === "making" && "text-live")}>{under}</span>}
               </div>
-              <span className="w-20 shrink-0 pt-0.5 text-right text-xs text-muted-foreground">{goalStatus(g)}</span>
+              {/* Outside the make, the list holds only goals without a test, which its heading says. */}
+              {live && <span className="w-20 shrink-0 pt-0.5 text-right text-xs text-muted-foreground">{goalStatus(g)}</span>}
             </li>
           );
         })}
@@ -129,7 +136,9 @@ export function MakeBand({ appId, appUrl, make }: { appId: string; appUrl: strin
   const current = n >= 0 ? state.goals[n] : undefined;
   const frame = artifactUrl("makes", make.id, current?.frame ?? (current ? undefined : state.frame));
   const said = current?.said ?? (current ? undefined : state.said);
-  const headline = queued ? "Waiting for a browser" : make.goal ? "Making your test" : state.stage === "looking" ? "Looking over the app" : current ? `Making test ${n + 1} of ${state.goals.length}` : "Finishing up";
+  // Several goals are made at once, so the headline counts what's done rather than naming one.
+  const done = state.goals.filter((g) => g.status === "kept" || g.status === "not-kept").length;
+  const headline = queued ? "Waiting for a browser" : make.goal ? "Making your test" : state.stage === "looking" ? "Looking over the app" : current ? `${done} of ${plural(state.goals.length, "test")} made` : "Finishing up";
   // The goal in hand is shown on its own, above the list, so it never scrolls out of sight.
   const others = state.goals.filter((g) => g !== current);
 
@@ -182,7 +191,7 @@ export function MakeBand({ appId, appUrl, make }: { appId: string; appUrl: strin
               {current.said && <p className="line-clamp-2 text-xs text-pretty text-live">{current.said}</p>}
             </div>
           ) : (
-            state.summary && <p className="line-clamp-3 text-sm text-pretty text-muted-foreground">{state.summary}</p>
+            <p className="line-clamp-3 text-sm text-pretty text-muted-foreground">{state.summary ?? (state.stage === "looking" ? "Finding what users come here to do. Each one becomes a test." : undefined)}</p>
           )}
         </div>
 

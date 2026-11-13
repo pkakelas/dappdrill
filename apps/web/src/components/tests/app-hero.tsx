@@ -1,6 +1,6 @@
 import { shortAddress, type WalletProfileId } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, Mail, PenLine, Play, Radio, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, Mail, Play, Radio, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
@@ -20,9 +20,6 @@ export interface Rollup {
   failed: number;
   unverified: number;
   notRun: number;
-  /** Signatures the review flagged in those results, each counted once. */
-  dangerous: number;
-  check: number;
 }
 
 /** How the tests are doing, worst first. A failed test is one the app got wrong. */
@@ -54,13 +51,11 @@ function Verdict({ rollup }: { rollup: Rollup }) {
 }
 
 /** The counts behind the headline, each with its own tile. */
-function stats({ passed, failed, unverified, notRun, total, dangerous, check }: Rollup, running: number) {
+function stats({ passed, failed, unverified, notRun, total }: Rollup, running: number) {
   const items: { icon: LucideIcon; tint: keyof typeof TINT; n: number; label: string }[] = [];
   if (running > 0) items.push({ icon: Play, tint: "live", n: running, label: "Running now" });
-  if (dangerous > 0) items.push({ icon: PenLine, tint: "bad", n: dangerous, label: dangerous === 1 ? "Dangerous signature" : "Dangerous signatures" });
   // The headline names the worst; what comes after it gets a tile.
   if (failed > 0 && unverified > 0) items.push({ icon: CircleQuestionMark, tint: "warn", n: unverified, label: "Couldn't verify" });
-  if (check > 0) items.push({ icon: PenLine, tint: "warn", n: check, label: check === 1 ? "Signature to check" : "Signatures to check" });
   if (passed > 0 && passed < total) items.push({ icon: Check, tint: "good", n: passed, label: "Passed" });
   // When nothing has run, the headline already says so.
   if (notRun > 0 && notRun < total) items.push({ icon: CircleDashed, tint: "quiet", n: notRun, label: "Not run yet" });
@@ -140,8 +135,8 @@ function Where({ url, wallet, chainId }: { url: string; wallet?: WalletProfileId
         {hostFromUrl(url)}
         <ArrowUpRight aria-hidden="true" className="size-3.5 opacity-60 transition-transform group-hover/site:translate-x-px group-hover/site:-translate-y-px" />
       </a>
-      {wallet && <WalletIcon wallet={wallet} />}
-      {chainId !== undefined && <ChainIcon chain={{ id: chainId }} />}
+      {wallet && <WalletIcon wallet={wallet} labelled />}
+      {chainId !== undefined && <ChainIcon chain={{ id: chainId }} labelled />}
     </>
   );
 }
@@ -236,17 +231,19 @@ export function AppHero({
   const charted = new Set(runs.map((r) => Math.floor(r.createdAt.getTime() / DAY))).size > 1;
   return (
     <header className="flex flex-col gap-8">
-      <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-          <h1 className="text-base font-semibold tracking-tight text-foreground">{name}</h1>
-          <Where url={url} wallet={wallet} chainId={chainId} />
-          {lastRun && (
-            <Link href={`/apps/${appId}/runs`} className="hover:text-foreground">
-              Last run {timeAgo(lastRun)}
-            </Link>
-          )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="truncate text-xl font-semibold tracking-tight">{name}</h1>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <Where url={url} wallet={wallet} chainId={chainId} />
+            {lastRun && (
+              <Link href={`/apps/${appId}/runs`} className="whitespace-nowrap hover:text-foreground">
+                Last run {timeAgo(lastRun)}
+              </Link>
+            )}
+          </div>
         </div>
-        {action}
+        <div className="shrink-0">{action}</div>
       </div>
       {live && <LiveNote appId={appId} live={live} />}
       {rollup && (

@@ -6,7 +6,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import { makeTestAction } from "@/actions/tests";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +41,19 @@ function Question({ icon, tint, title, detail, htmlFor, children }: { icon: Luci
  */
 export function AddTestButton({ appId, busy, label = "Add test" }: { appId: string; busy?: boolean; label?: string }) {
   const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button type="button" variant="outline" disabled={busy} title={busy ? "Tests are being made already" : undefined} onClick={() => setOpen(true)}>
+        <Plus aria-hidden="true" />
+        {label}
+      </Button>
+      <AddTestDialog appId={appId} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
+
+/** The Add a test form, opened by its button or from the app's menu. */
+export function AddTestDialog({ appId, open, onOpenChange: setOpen }: { appId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [answers, setAnswers] = useState(EMPTY);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
@@ -64,12 +77,6 @@ export function AddTestButton({ appId, busy, label = "Add test" }: { appId: stri
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" disabled={busy} title={busy ? "Tests are being made already" : undefined}>
-          <Plus aria-hidden="true" />
-          {label}
-        </Button>
-      </DialogTrigger>
       <DialogContent overlayClassName="bg-black/65 backdrop-blur-[3px]" className="flex max-h-[min(92vh,880px)] flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-2xl sm:max-w-3xl">
         <DialogHeader className="gap-1.5 border-b px-6 pt-7 pb-6 sm:px-8">
           <DialogTitle className="text-2xl tracking-tight">Add a test</DialogTitle>

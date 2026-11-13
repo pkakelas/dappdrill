@@ -1,4 +1,3 @@
-import type { SigningReview } from "@dappdrill/core";
 import type { TestRow, TestRunRow } from "@dappdrill/db";
 import { Bug } from "lucide-react";
 import Link from "next/link";
@@ -29,17 +28,6 @@ export function TestList({ children }: { children: ReactNode }) {
       <ul className="divide-y">{children}</ul>
     </div>
   );
-}
-
-/**
- * What the signing review flagged in a run, next to a status and never part of it: Dangerous in
- * bad, Check this in warn, nothing at all when every signature looked consistent.
- */
-export function SigningFlag({ reviews }: { reviews: SigningReview[] }) {
-  const dangerous = reviews.filter((r) => r.verdict === "dangerous").length;
-  const check = reviews.filter((r) => r.verdict === "check").length;
-  if (dangerous + check === 0) return null;
-  return <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", dangerous ? "bg-bad-bg text-bad-ink" : "bg-warn-bg text-warn-ink")}>{dangerous ? `${dangerous} dangerous` : `${check} to check`}</span>;
 }
 
 /** `run` is the result its status reads from; `live` the newest run, for progress. */
@@ -90,12 +78,9 @@ export function TestLine(props: TestLineProps) {
         mark={<StateMark state={read.mark} size="lg" />}
         name={
           <div className="flex min-w-0 flex-col gap-0.5">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:flex-nowrap">
-              <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
-                {test.name}
-              </Link>
-              <SigningFlag reviews={run?.result?.signingReviews ?? []} />
-            </div>
+            <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
+              {test.name}
+            </Link>
             <Under test={test} read={read} run={run} />
           </div>
         }

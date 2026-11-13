@@ -12,7 +12,6 @@ import { TestEditor } from "@/components/tests/lines-editor";
 import { RunButton } from "@/components/tests/run-button";
 import { Panel, SigningReviews } from "@/components/tests/run-details";
 import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, type TestState } from "@/components/tests/status";
-import { SigningFlag } from "@/components/tests/test-card";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
@@ -58,6 +57,11 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const url = (path?: string | null) => (run ? artifactUrl("runs", run.batchId, path) : null);
   // Lines edited since the run no longer line up with its results.
   const lined = result && result.steps.length === spec.steps.length ? result.steps : undefined;
+  // The run on screen failed and the test was kept for a bug: the bug is the explanation.
+  const onBug = run?.status === "failed" && test.faults.length > 0;
+  const rerun = result?.rerun && (
+    <p className="text-sm opacity-80">It was run a second time before it counted{result.firstReason && result.firstReason !== result.reason ? `. The first time: ${result.firstReason}` : ", and went the same way."}</p>
+  );
 
   return (
     <div className="page flex flex-col gap-8">
@@ -77,12 +81,11 @@ export default async function TestPage({ params, searchParams }: { params: Promi
               <span>{readLabel(state)}</span>
               {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
               {settled?.result && <span className="text-muted-foreground">· took {formatDuration(settled.result.durationMs)}</span>}
-              <SigningFlag reviews={settled?.result?.signingReviews ?? []} />
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary />
-            <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
+            <ConfirmButton className={buttonVariants({ variant: "outline" })} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
             </ConfirmButton>
           </div>
@@ -100,16 +103,17 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </div>
       )}
 
-      {result?.reason && run && (run.status === "failed" || run.status === "unverified") && (
+      {result?.reason && run && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
         <div role="status" className={cx("flex flex-col gap-1 rounded-xl border px-5 py-4 leading-relaxed", run.status === "failed" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}>
           <p>{result.reason}</p>
-          {result.rerun && <p className="text-sm opacity-80">It was run a second time before it counted{result.firstReason && result.firstReason !== result.reason ? `. The first time: ${result.firstReason}` : ", and went the same way."}</p>}
+          {rerun}
         </div>
       )}
 
+      {/* A failure on the bug the test was kept for is said once, as that bug. */}
       {test.faults.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm">
-          <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <section className={cx("flex flex-col gap-3 rounded-xl border p-5", onBug ? "border-bad-line bg-bad-soft" : "bg-card shadow-sm")}>
+          <h2 className={cx("flex items-center gap-2 text-sm font-medium", onBug ? "text-bad-ink" : "text-muted-foreground")}>
             <Bug className="size-4" aria-hidden="true" />
             {state.settled === "passed" ? "This test was kept because it failed on a bug. It passes now." : "This test fails on a bug in the app"}
           </h2>
@@ -132,6 +136,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
               </dl>
             </div>
           ))}
+          {onBug && rerun}
         </section>
       )}
 

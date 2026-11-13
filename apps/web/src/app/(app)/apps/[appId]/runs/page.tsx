@@ -8,7 +8,7 @@ import { BatchStatus } from "@/components/tests/batch-status";
 import { StateMark, type TestState } from "@/components/tests/status";
 import { TINT } from "@/components/tests/tile";
 import { cx, Empty, PageHeader } from "@/components/ui";
-import { dateTime, hostFromUrl, minutesBetween, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
+import { dateTime, hostFromUrl, minutesBetween, plainError, plural, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Runs" };
@@ -36,13 +36,14 @@ function foldProofs(batches: Batch[], made: MakeRow[]): Batch[] {
   });
 }
 
-function MakeStatus({ make: m }: { make: MakeRow }) {
+function MakeStatus({ make: m, appUrl }: { make: MakeRow; appUrl: string }) {
   if (m.status === "queued") return <span className="text-live">Queued</span>;
   const goals = m.state.goals;
-  const kept = goals.filter((g) => g.status === "kept");
-  const bugs = kept.filter((g) => g.stands === "failed").length;
+  // A test kept because it fails on a bug is counted as the bug, as the app page counts it.
+  const bugs = goals.filter((g) => g.status === "kept" && g.stands === "failed").length;
+  const kept = goals.filter((g) => g.status === "kept").length - bugs;
   const none = goals.filter((g) => g.status === "not-kept").length;
-  const found = [`${plural(kept.length, "test")} kept`, bugs > 0 && `${plural(bugs, "bug")} found`, none > 0 && `${none} without a test`].filter(Boolean).join(" · ");
+  const found = [`${plural(kept, "test")} kept`,bugs > 0 && `${plural(bugs, "bug")} found`, none > 0 && `${none} without a test`].filter(Boolean).join(" · ");
   if (m.status === "running")
     return (
       <>
@@ -53,7 +54,7 @@ function MakeStatus({ make: m }: { make: MakeRow }) {
     return (
       <>
         <span className="text-warn">Didn&apos;t finish</span>
-        {m.error && `: ${m.error}`}
+        {m.error && `: ${plainError(m.error, appUrl)}`}
       </>
     );
   return (
@@ -126,7 +127,7 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
                     {makeTitle(m)}
                   </Link>
                   <span className="text-sm text-pretty text-muted-foreground">
-                    <MakeStatus make={m} />
+                    <MakeStatus make={m} appUrl={app.url} />
                   </span>
                 </div>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={dateTime(m.at)}>
