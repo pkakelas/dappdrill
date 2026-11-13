@@ -95,15 +95,40 @@ export async function makeTestsAction(appId: string): Promise<void> {
 
 const Goal = z.string().trim().min(8, "Say what a user does and what they should see, in a sentence.").max(600);
 
-/** Makes one test from a goal in the user's words: it is done once, written as lines, then run until it goes the same way twice. */
-export async function makeTestAction(appId: string, goal: string): Promise<{ error?: string }> {
+/** A goal a finished make left without a test, by the make and its place in the make's list. */
+export interface GoalRef {
+  makeId: string;
+  index: number;
+}
+
+/** Takes a goal off the app's list of goals without a test. Only a finished make's goals: the worker writes a running make's state. */
+async function dismissGoal(appId: string, { makeId, index }: GoalRef) {
+  const [make] = await db().select().from(makes).where(and(eq(makes.id, makeId), eq(makes.appId, appId)));
+  const goal = make?.state.goals[index];
+  if (!make || !goal || goal.status !== "not-kept" || make.status === "queued" || make.status === "running") return;
+  goal.dismissed = true;
+  await db().update(makes).set({ state: make.state }).where(eq(makes.id, makeId));
+}
+
+/**
+ * Makes one test from a goal in the user's words: it is done once, written as lines, then run until it goes the same way twice.
+ * `retries` is the goal without a test this one tries again, which leaves the list once the new make has started.
+ */
+export async function makeTestAction(appId: string, goal: string, retries?: GoalRef): Promise<{ error?: string }> {
   const { user } = await requireApp(appId);
   const parsed = Goal.safeParse(goal);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   if (looksLikeKey(parsed.data)) return { error: "That looks like a private key. Take it out: this text isn't encrypted." };
   if (!(await startMake(appId, user.id, parsed.data))) return { error: BUSY };
+  if (retries) await dismissGoal(appId, retries);
   refresh(appId);
   return {};
+}
+
+export async function dismissGoalAction(appId: string, goal: GoalRef): Promise<void> {
+  await requireApp(appId);
+  await dismissGoal(appId, goal);
+  refresh(appId);
 }
 
 export async function stopMakeAction(makeId: string): Promise<void> {

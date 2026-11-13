@@ -10,6 +10,7 @@ import { AddTestButton } from "@/components/tests/add-test";
 import { AppActions } from "@/components/tests/app-actions";
 import { AppHero, type LiveChain, type Rollup } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
+import { GoalActions } from "@/components/tests/goal-actions";
 import { GoalList, MakeBand } from "@/components/tests/make-band";
 import { SetupStuckNotice } from "@/components/tests/setup-stuck";
 import { readTest } from "@/components/tests/status";
@@ -28,7 +29,8 @@ export async function generateMetadata({ params }: { params: Promise<{ appId: st
 export default async function AppPage({ params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
   const { app, user, role } = await requireApp(appId);
-  const [[make], tests] = await Promise.all([db().select().from(makes).where(eq(makes.appId, appId)).orderBy(desc(makes.createdAt)).limit(1), appTests(db(), appId)]);
+  const [recent, tests] = await Promise.all([db().select().from(makes).where(eq(makes.appId, appId)).orderBy(desc(makes.createdAt)).limit(20), appTests(db(), appId)]);
+  const [make] = recent;
   const ids = tests.map((t) => t.id);
   const [latest, settled, history] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000))]);
   const reads = new Map(tests.map((t) => [t.id, readTest(latest.get(t.id), settled.get(t.id))]));
@@ -47,8 +49,9 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const live = liveChain && { ...(await liveWallet(liveChain, app.liveKeyAddress)), funding: Boolean(app.settings.funding) };
 
   const manage = can(role, "apps.manage");
-  // What the last make left without a test, and why. Shown until tests are made again.
-  const notKept = !making && make ? make.state.goals.filter((g) => g.status === "not-kept") : [];
+  // What the makes since tests were last made for the whole app left without a test, and why, until each is tried again or dismissed.
+  const since = recent.slice(0, recent.findIndex((m) => !m.goal) + 1 || recent.length);
+  const notKept = making ? [] : since.flatMap((m) => m.state.goals.flatMap((goal, index) => (goal.status === "not-kept" && !goal.dismissed ? [{ goal, ref: { makeId: m.id, index } }] : [])));
   // The setup didn't finish: said once, in parts, in place of the plainer notices below.
   const stuck = !making && make?.status === "done" ? make.state.stuck : undefined;
   const stoppedEarly = !making && make && !stuck && (make.status === "failed" || (make.status === "done" && make.state.goals.length === 0 && !make.goal));
@@ -123,10 +126,10 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
           <section className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <h2 className="text-sm font-medium">{plural(notKept.length, "goal")} without a test</h2>
-              <p className="text-sm text-pretty text-muted-foreground">Tried the last time tests were made, and no test was kept. Each says why.</p>
+              <p className="text-sm text-pretty text-muted-foreground">Tried, and no test was kept. Each says why: try it again with what we should know, or dismiss it.</p>
             </div>
             <div className="rounded-xl border bg-card p-1.5 shadow-sm">
-              <GoalList appId={appId} goals={notKept} />
+              <GoalList appId={appId} goals={notKept.map((n) => n.goal)} aside={(g, i) => <GoalActions key={`${notKept[i]!.ref.makeId}:${notKept[i]!.ref.index}`} appId={appId} goal={g.goal} whyNot={g.whyNot} retries={notKept[i]!.ref} />} />
             </div>
           </section>
         )}

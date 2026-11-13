@@ -42,6 +42,8 @@ export const MakeGoal = z.object({
   stands: z.enum(["passed", "failed"]).optional(),
   /** Why no test was kept. */
   whyNot: z.string().optional(),
+  /** No test was kept, and the owner dismissed it or tried it again: it leaves the app's list of goals without a test. */
+  dismissed: z.boolean().optional(),
   costUsd: z.number().default(0),
   durationMs: z.number().default(0),
 });

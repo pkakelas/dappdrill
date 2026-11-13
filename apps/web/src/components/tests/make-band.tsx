@@ -2,6 +2,7 @@ import type { MakeGoal } from "@dappdrill/core";
 import type { makes } from "@dappdrill/db";
 import { CircleDashed, TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { stopMakeAction } from "@/actions/tests";
 import { Elapsed } from "@/components/elapsed";
 import { BrowserWindow, SiteLoading } from "@/components/site-preview";
@@ -41,7 +42,7 @@ function sharedReason(goals: MakeGoal[]): { why: string; count: number } | undef
 }
 
 /** The goals a make is working through, each with what came of it. A kept one links to its test. */
-export function GoalList({ appId, goals, live }: { appId: string; goals: MakeGoal[]; live?: boolean }) {
+export function GoalList({ appId, goals, live, aside }: { appId: string; goals: MakeGoal[]; live?: boolean; aside?: (goal: MakeGoal, i: number) => ReactNode }) {
   const shared = sharedReason(goals);
   return (
     <div className="flex flex-col gap-1">
@@ -83,6 +84,7 @@ export function GoalList({ appId, goals, live }: { appId: string; goals: MakeGoa
               </div>
               {/* Outside the make, the list holds only goals without a test, which its heading says. */}
               {live && <span className="w-20 shrink-0 pt-0.5 text-right text-xs text-muted-foreground">{goalStatus(g)}</span>}
+              {aside?.(g, i)}
             </li>
           );
         })}
