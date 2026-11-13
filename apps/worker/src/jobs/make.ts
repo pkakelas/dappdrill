@@ -1,6 +1,6 @@
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { MakeState, newId, setupWithRecordings, type DrillEventSink, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
+import { MakeState, newId, sentence, setupWithRecordings, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
 import { addTest, apps, appTests, makes, suiteOf, testRuns, tryAppLock, type Db } from "@dappdrill/db";
 import type { Attempt, Looked } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
@@ -9,7 +9,7 @@ import { artifactsDir, shareArtifacts } from "../artifacts.js";
 import { errorMessage, logger, type Logger } from "../log.js";
 import { notifyMake } from "../notify/make.js";
 import { LIVE_RETRY_SECONDS, QUEUES, type MakeJob } from "../queues.js";
-import { buildTarget, liveChains, loadApp, ownerNotes, type AppRow } from "../target.js";
+import { buildTarget, loadApp, ownerNotes, type AppRow } from "../target.js";
 import { pollStops, throttle } from "./stop.js";
 
 const SAVE_EVERY_MS = 1000;
@@ -25,17 +25,20 @@ export async function runMake(db: Db, engine: Engine, boss: PgBoss, makeId: stri
   if (!row || row.status !== "queued") return log.warn("not queued; skipping");
   const app = await loadApp(db, row.appId);
 
-  // A live account is one account: jobs on it go one at a time, and the rest wait their turn.
-  const lock = liveChains(app) ? await tryAppLock(db, app.id) : undefined;
-  if (liveChains(app) && !lock) {
-    log.info(`another job is on this app's live chain; looking again in ${LIVE_RETRY_SECONDS}s`);
+  // Makes on an app go one at a time, and so do all jobs on a live account: the rest wait their turn.
+  const lock = await tryAppLock(db, app.id);
+  if (!lock) {
+    log.info(`another job is on this app; looking again in ${LIVE_RETRY_SECONDS}s`);
     await boss.send(QUEUES.make, { makeId } satisfies MakeJob, { startAfter: LIVE_RETRY_SECONDS });
     return;
   }
   try {
+    // Stopped while it waited its turn.
+    const [now] = await db.select({ stop: makes.stopRequested }).from(makes).where(eq(makes.id, makeId));
+    if (now?.stop) return void (await db.update(makes).set({ status: "stopped", finishedAt: new Date() }).where(eq(makes.id, makeId)));
     await make(db, engine, app, row, signal, log);
   } finally {
-    await lock?.release();
+    await lock.release();
   }
 }
 
@@ -85,7 +88,13 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
       log.info(`stopped at the setup, before “${attempt.goal}”: ${attempt.why}`);
       return save();
     }
-    Object.assign(goal, { status: attempt.kept ? "kept" : "not-kept", whyNot: attempt.kept ? undefined : attempt.why, costUsd: made?.costUsd ?? 0, durationMs: made?.durationMs ?? 0 } satisfies Partial<MakeGoal>);
+    Object.assign(goal, {
+      status: attempt.kept ? "kept" : "not-kept",
+      whyNot: attempt.kept ? undefined : attempt.why,
+      tried: attempt.kept ? undefined : tried(made),
+      costUsd: made?.costUsd ?? 0,
+      durationMs: made?.durationMs ?? 0,
+    } satisfies Partial<MakeGoal>);
     if (attempt.kept && made?.test) {
       const faults: Fault[] = made.stands === "failed" ? made.findings.filter((f) => f.proven).map(({ what, expected, saw }) => ({ what, expected, saw })) : [];
       goal.testId = await addTest(db, app.id, made.test, faults);
@@ -114,7 +123,13 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
         say,
         onLooked: (looked) => {
           costUsd += looked.costUsd;
-          Object.assign(state, { stage: "making", summary: looked.summary, why: looked.goals.length ? undefined : looked.why, stuck: looked.stuck, goals: looked.goals.slice(0, row.count).map((g) => ({ ...g, status: "waiting", costUsd: 0, durationMs: 0 })) } satisfies Partial<MakeState>);
+          Object.assign(state, {
+            stage: "making",
+            summary: looked.summary,
+            why: looked.goals.length ? undefined : looked.why,
+            stuck: looked.stuck,
+            goals: looked.goals.slice(0, row.count).map((g) => ({ ...g, status: "waiting", costUsd: 0, durationMs: 0 })),
+          } satisfies Partial<MakeState>);
           save();
           void keepLooked(db, app.id, looked).catch((e) => log.warn(`could not keep what the look found: ${errorMessage(e)}`));
         },
@@ -150,7 +165,11 @@ async function keepNotes(db: Db, appId: string, notes: string[], from: "look" | 
   const { suite } = await loadApp(db, appId);
   const known = new Set(suite.notes.map((n) => n.text));
   const added = notes.filter((text) => !known.has(text)).map((text) => ({ text, from }));
-  if (added.length) await db.update(apps).set({ suite: { ...suite, notes: [...suite.notes, ...added] } }).where(eq(apps.id, appId));
+  if (added.length)
+    await db
+      .update(apps)
+      .set({ suite: { ...suite, notes: [...suite.notes, ...added] } })
+      .where(eq(apps.id, appId));
 }
 
 /** The setup's actions as a run recorded them, so the next run replays them without a model. */
@@ -158,7 +177,10 @@ async function keepSetup(db: Db, appId: string, lines: LineResult[] | undefined)
   if (!lines?.length) return;
   const { suite } = await loadApp(db, appId);
   if (!suite.setup || suite.setup.steps.length !== lines.length) return;
-  await db.update(apps).set({ suite: { ...suite, setup: setupWithRecordings(suite.setup, lines) } }).where(eq(apps.id, appId));
+  await db
+    .update(apps)
+    .set({ suite: { ...suite, setup: setupWithRecordings(suite.setup, lines) } })
+    .where(eq(apps.id, appId));
 }
 
 /** The chains the app turned out to use and the tokens the wallet was given: every run starts from these. */
@@ -166,7 +188,10 @@ async function keepLooked(db: Db, appId: string, looked: Looked): Promise<void> 
   await keepSetup(db, appId, looked.setup);
   if (!looked.goals.length) return;
   const app = await loadApp(db, appId);
-  await db.update(apps).set({ chains: looked.chains, settings: { ...app.settings, tokens: looked.tokens } }).where(eq(apps.id, appId));
+  await db
+    .update(apps)
+    .set({ chains: looked.chains, settings: { ...app.settings, tokens: looked.tokens } })
+    .where(eq(apps.id, appId));
 }
 
 /**
@@ -187,4 +212,20 @@ async function keepProof(db: Db, appId: string, testId: string, batchId: string,
   await shareArtifacts(result, makeDir, artifactsDir("runs", batchId));
   const now = new Date();
   await db.insert(testRuns).values({ id: newId("run"), appId, testId, batchId, trigger: "make", status: result.outcome, result, startedAt: new Date(now.getTime() - result.durationMs), finishedAt: now });
+}
+
+/** What was tried for a goal that got no test, for its page: the test as it last stood and how its lines went in the runs of that wording. */
+function tried(made: Attempt["made"]): Tried | undefined {
+  if (!made) return undefined;
+  const runs = made.runs.slice(made.runs.length - (made.worded ?? 0));
+  const last = runs.at(-1);
+  return {
+    name: made.test?.name,
+    lines: (made.test?.steps ?? []).map((line, i) => {
+      const at = last?.steps[i];
+      return { type: line.type, text: sentence(line), runs: runs.map((r) => r.steps[i]?.status ?? "skipped"), note: at && at.status !== "pass" && at.status !== "skipped" ? at.note || undefined : undefined };
+    }),
+    runs: made.runs.length,
+    ask: made.ask,
+  };
 }

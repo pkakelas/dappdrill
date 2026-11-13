@@ -43,6 +43,8 @@ export interface Proved {
   stands?: "passed" | "failed";
   /** Why it isn't proven. */
   why?: string;
+  /** How many of the last runs are of the test as it stands. */
+  worded?: number;
   /** What the repairs learned about the app. */
   notes: string[];
   /** What the app did that a user wouldn't accept. `proven` when the test fails on it every time. */
@@ -61,7 +63,7 @@ const quoted = (test: Test, i: number) => `“${sentence(test.steps[i]!)}”`;
 export async function prove(input: ProveInput): Promise<Proved> {
   const say = input.say ?? (() => {});
   const out: Proved = { test: input.test, proven: false, notes: [], findings: input.problems.map((p) => ({ ...p, proven: false })), repairs: [], dismissed: [], runs: [] };
-  const done = (why?: string, stands?: Proved["stands"]): Proved => ({ ...out, proven: stands !== undefined, stands, why });
+  const done = (why?: string, stands?: Proved["stands"]): Proved => ({ ...out, proven: stands !== undefined, stands, why, worded: worded.length });
 
   /** Runs of the test as it is worded now. */
   let worded: TestResult[] = [];

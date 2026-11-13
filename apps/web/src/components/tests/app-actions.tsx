@@ -11,13 +11,13 @@ import { RunButton } from "./run-button";
 
 /**
  * What can be done with an app, as one button and a menu: Run all once there are tests (Add test before),
- * and the rest behind "…". `making` is when tests are being made already, one browser's work at a time.
+ * and the rest behind "…". `making` is when tests are being made already: a test added meanwhile waits its turn.
  */
 export function AppActions({ appId, appUrl, tests, running, making, canMake }: { appId: string; appUrl: string; tests: number; running: boolean; making: boolean; canMake: boolean }) {
   const [dialog, setDialog] = useState<"add" | "against">();
   const [starting, start] = useTransition();
 
-  if (tests === 0) return <AddTestButton appId={appId} busy={making} />;
+  if (tests === 0) return <AddTestButton appId={appId} />;
   return (
     <div className="flex items-center gap-2">
       <RunButton target={{ appId, all: true }} active={running} label="Run all" size="md" primary />
@@ -28,7 +28,7 @@ export function AppActions({ appId, appUrl, tests, running, making, canMake }: {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
-          <DropdownMenuItem disabled={making} onSelect={() => setDialog("add")}>
+          <DropdownMenuItem onSelect={() => setDialog("add")}>
             <Plus aria-hidden="true" />
             Add a test
           </DropdownMenuItem>

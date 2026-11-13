@@ -1,9 +1,9 @@
 "use client";
 
-import { BadgeCheck, Lightbulb, Plus, Route, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Plus, Route, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
-import { makeTestAction, type GoalRef } from "@/actions/tests";
+import { makeTestAction } from "@/actions/tests";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +14,7 @@ import { looksLikeKey } from "@/lib/secrets";
 import { Tile, type TINT } from "./tile";
 
 const FIELD = "bg-background px-3.5 transition-colors placeholder:text-muted-foreground/80 hover:border-foreground/25";
-const EMPTY = { does: "", sees: "", hint: "" };
+const EMPTY = { does: "", sees: "" };
 
 /** Label on the left, input on the right, the way the New app page asks. */
 function Question({ icon, tint, title, detail, htmlFor, children }: { icon: LucideIcon; tint: keyof typeof TINT; title: string; detail: ReactNode; htmlFor: string; children: ReactNode }) {
@@ -36,14 +36,13 @@ function Question({ icon, tint, title, detail, htmlFor, children }: { icon: Luci
 
 /**
  * Add a test: say what a user does and what they should see. The worker does it once in the app,
- * writes it as lines, and runs it until it goes the same way twice. `busy` is when tests are
- * already being made for the app, which is one browser's work at a time.
+ * writes it as lines, and runs it until it goes the same way twice.
  */
-export function AddTestButton({ appId, busy, label = "Add test" }: { appId: string; busy?: boolean; label?: string }) {
+export function AddTestButton({ appId, label = "Add test" }: { appId: string; label?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" variant="outline" disabled={busy} title={busy ? "Tests are being made already" : undefined} onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
         <Plus aria-hidden="true" />
         {label}
       </Button>
@@ -52,35 +51,21 @@ export function AddTestButton({ appId, busy, label = "Add test" }: { appId: stri
   );
 }
 
-/**
- * The Add a test form, opened by its button or from the app's menu. With `retry` it tries again a goal that got
- * no test: the goal comes filled in, with why it failed and a field for what we should know this time.
- */
-export function AddTestDialog({
-  appId,
-  open,
-  onOpenChange: setOpen,
-  retry,
-}: {
-  appId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  retry?: GoalRef & { goal: string; whyNot?: string };
-}) {
-  const [answers, setAnswers] = useState(() => (retry ? { ...EMPTY, does: retry.goal } : EMPTY));
+/** The Add a test form, opened by its button or from the app's menu. */
+export function AddTestDialog({ appId, open, onOpenChange: setOpen }: { appId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [answers, setAnswers] = useState(EMPTY);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const router = useRouter();
-  const { does, sees, hint } = answers;
+  const { does, sees } = answers;
   const ready = does.trim().length >= 8;
-  const hasKey = looksLikeKey(does) || looksLikeKey(sees) || looksLikeKey(hint);
+  const hasKey = looksLikeKey(does) || looksLikeKey(sees);
 
   const submit = () => {
     if (!ready || hasKey || pending) return;
     start(async () => {
-      const parts = [does.trim().replace(/[.\s]+$/, ""), sees.trim() && `They should see: ${sees.trim()}`, hint.trim() && `Good to know: ${hint.trim()}`].filter(Boolean);
-      const goal = parts.length > 1 ? parts.join(". ") : does.trim();
-      const r = await makeTestAction(appId, goal, retry && { makeId: retry.makeId, index: retry.index });
+      const goal = sees.trim() ? `${does.trim().replace(/[.\s]+$/, "")}. They should see: ${sees.trim()}` : does.trim();
+      const r = await makeTestAction(appId, goal);
       if (r.error) return setError(r.error);
       setAnswers(EMPTY);
       setError(undefined);
@@ -93,10 +78,8 @@ export function AddTestDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent overlayClassName="bg-black/65 backdrop-blur-[3px]" className="flex max-h-[min(92vh,880px)] flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-2xl sm:max-w-3xl">
         <DialogHeader className="gap-1.5 border-b px-6 pt-7 pb-6 sm:px-8">
-          <DialogTitle className="text-2xl tracking-tight">{retry ? "Try again" : "Add a test"}</DialogTitle>
-          <DialogDescription className="text-pretty">
-            {retry ? (retry.whyNot ? `No test was kept last time: ${retry.whyNot}` : "No test was kept last time.") : "We do it once in your app, write it down as a test, and run it until it goes the same way twice."}
-          </DialogDescription>
+          <DialogTitle className="text-2xl tracking-tight">Add a test</DialogTitle>
+          <DialogDescription className="text-pretty">We do it once in your app, write it down as a test, and run it until it goes the same way twice.</DialogDescription>
         </DialogHeader>
 
         <form
@@ -113,7 +96,7 @@ export function AddTestDialog({
             <Question icon={Route} tint="live" title="What does the user do?" detail="One thing, start to finish, with the amounts to use." htmlFor="add-goal">
               <Textarea
                 id="add-goal"
-                autoFocus={!retry}
+                autoFocus
                 rows={3}
                 maxLength={300}
                 disabled={pending}
@@ -126,21 +109,6 @@ export function AddTestDialog({
             <Question icon={BadgeCheck} tint="good" title="How do you know it worked?" detail="What the page shows at the end. Leave it out and we work it out from the app." htmlFor="add-sees">
               <Input id="add-sees" maxLength={250} disabled={pending} value={sees} onChange={(e) => setAnswers({ ...answers, sees: e.target.value })} placeholder="e.g. Deposited falls by 2.50 USDC" className={cx("h-11", FIELD)} />
             </Question>
-            {retry && (
-              <Question icon={Lightbulb} tint="warn" title="What should we know?" detail="What the last try missed: a wait, an amount, what a figure includes." htmlFor="add-hint">
-                <Textarea
-                  id="add-hint"
-                  autoFocus
-                  rows={2}
-                  maxLength={250}
-                  disabled={pending}
-                  value={hint}
-                  onChange={(e) => setAnswers({ ...answers, hint: e.target.value })}
-                  placeholder="e.g. The total includes rewards not yet claimed"
-                  className={cx("min-h-16 resize-none py-3", FIELD)}
-                />
-              </Question>
-            )}
           </div>
 
           <DialogFooter className="items-center gap-3 border-t bg-muted/40 px-6 py-4 sm:justify-between sm:px-8">
@@ -158,7 +126,7 @@ export function AddTestDialog({
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={!ready || hasKey || pending}>
-                {pending ? "Starting…" : retry ? "Try again" : "Make the test"}
+                {pending ? "Starting…" : "Make the test"}
               </Button>
             </div>
           </DialogFooter>

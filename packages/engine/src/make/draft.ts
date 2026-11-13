@@ -38,7 +38,10 @@ export type DraftLine = z.infer<typeof DraftLine>;
 const Written = z.object({
   name: z.string().min(1).describe("What the user does, in a few words: “Deposit 100 hUSDC”"),
   startPath: z.string().describe("The path of the page the test starts on"),
-  values: z.array(z.object({ name: z.string().regex(/^\w+$/), ...RunValue.shape })).default([]).describe("Numbers picked afresh on every run, written {{name}} in the lines"),
+  values: z
+    .array(z.object({ name: z.string().regex(/^\w+$/), ...RunValue.shape }))
+    .default([])
+    .describe("Numbers picked afresh on every run, written {{name}} in the lines"),
   lines: z.array(DraftLine).min(2),
   cleanup: z.array(z.string()).default([]).describe("Only on an account that is kept between runs: actions that take back what the test may have left when it stopped half way"),
   notes: z.array(z.string()).max(2).default([]).describe("What you had to find out about this app that the next person writing a test for it should be told. One sentence each. Not what this test does"),
@@ -187,7 +190,9 @@ export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
       "",
       `You are on ${input.startPath}. The page now:`,
       formatSnapshot(await takeSnapshot(session.page, { maxChars: 9_000 })),
-    ].filter((l) => l !== undefined).join("\n");
+    ]
+      .filter((l) => l !== undefined)
+      .join("\n");
 
     const res = await env.fastLlm().runAgent({ system: SYSTEM, prompt, tools, maxTurns: MAX_TURNS, signal: input.signal });
     if (out) return out;
@@ -207,7 +212,11 @@ export function asTest(written: z.infer<typeof Written>, goal: string): { test: 
   if (!lines.some((l) => l.type === "action")) return { wrong: "There is no action." };
   if (!lines.some((l) => l.type === "check")) return { wrong: "There is no check." };
   const parsed = Test.safeParse({
-    id: written.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "test",
+    id:
+      written.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "test",
     name: written.name,
     goal,
     startPath: written.startPath,

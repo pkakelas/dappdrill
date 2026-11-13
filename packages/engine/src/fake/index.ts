@@ -210,7 +210,7 @@ const makeTest: Engine["makeTest"] = async (input, sink = () => {}, say = () => 
     runs.push(went);
     say(`Run ${n}: ${went.outcome === "passed" ? "Passed" : "Failed"}, 1 s, $0.01.${went.reason ? ` ${went.reason}` : ""}`);
   }
-  if (ends === "unsteady") return done({ test, runs, why: "Still not steady after 7 runs." });
+  if (ends === "unsteady") return done({ test, runs, worded: runs.length, why: "“Deposit cancelled” showed in one run and was gone before the check looked in the next.", ask: "After a rejected deposit, how long should “Deposit cancelled” stay on screen?" });
   if (input.suspicion) return done({ test, runs, proven: true, stands: "passed", dismissed: ["The total includes rewards not yet claimed, which the page says under the figure."] });
   const fault = FAULTS[ends];
   if (!fault) return done({ test, runs, proven: true, stands: "passed", notes: ends === "passes" && /deposit 100/i.test(test.name) ? ["The first deposit asks for an approval before the deposit itself."] : [] });
