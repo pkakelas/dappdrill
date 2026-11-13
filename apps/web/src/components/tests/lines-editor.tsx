@@ -117,52 +117,27 @@ export interface TestDraft {
 }
 
 /**
- * A test, read or edited. `view` is how it reads with its last result; Edit swaps it for the
- * same test as fields. A line left as it was keeps what it recorded; a new or reworded one is
- * done by a model on the next run.
+ * A test as fields, opened from its page's menu. A line left as it was keeps what it recorded; a new or
+ * reworded one is done by a model on the next run. Saving or cancelling goes back to `back`.
  */
-export function TestEditor({ testId, test, view, canEdit }: { testId: string; test: TestDraft; view: ReactNode; canEdit: boolean }) {
-  const [editing, setEditing] = useState(false);
+export function TestEditor({ testId, test, back }: { testId: string; test: TestDraft; back: string }) {
   const [draft, setDraft] = useState(test);
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<Row[]>(() => test.lines.map((l) => row(l.type, l.text)));
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const router = useRouter();
-
-  if (!editing)
-    return (
-      <div className="flex flex-col gap-4">
-        {view}
-        {canEdit && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-fit"
-            onClick={() => {
-              setDraft(test);
-              setRows(test.lines.map((l) => row(l.type, l.text)));
-              setError(undefined);
-              setEditing(true);
-            }}
-          >
-            Edit the test
-          </Button>
-        )}
-      </div>
-    );
 
   const save = () =>
     start(async () => {
       const r = await saveTestAction(testId, { ...draft, lines: rows.filter((l) => l.text.trim()).map(({ type, text }) => ({ type, text: text.trim() })) });
       if (r.error) return setError(r.error);
-      setEditing(false);
+      router.push(back);
       router.refresh();
     });
 
   return (
     <form
-      className="flex flex-col gap-5"
+      className="flex max-w-3xl flex-col gap-5"
       onSubmit={(e) => {
         e.preventDefault();
         save();
@@ -181,7 +156,7 @@ export function TestEditor({ testId, test, view, canEdit }: { testId: string; te
         <span className="text-sm font-medium">Lines</span>
         <Rows rows={rows} onChange={setRows} kinds disabled={pending} />
       </div>
-      <Footer error={error} pending={pending} note="A line you change is worked out again on the next run, then replayed." onCancel={() => setEditing(false)} />
+      <Footer error={error} pending={pending} note="A line you change is worked out again on the next run, then replayed." onCancel={() => router.push(back)} />
     </form>
   );
 }

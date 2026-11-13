@@ -1,19 +1,17 @@
-import { formatDuration, sentence, type LineResult, type TestResult } from "@dappdrill/core";
+import { formatDuration, sentence, type LineResult } from "@dappdrill/core";
 import { db, testOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, desc, eq } from "drizzle-orm";
-import { Bug } from "lucide-react";
+import { Bug, ChevronLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { ConfirmButton } from "@/components/confirm-button";
 import { TestEditor } from "@/components/tests/lines-editor";
-import { RunButton } from "@/components/tests/run-button";
-import { Panel, SigningReviews } from "@/components/tests/run-details";
-import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, type TestState } from "@/components/tests/status";
+import { SigningReviews } from "@/components/tests/run-details";
+import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
+import { TestActions } from "@/components/tests/test-actions";
+import { TestRunView, type ViewLine } from "@/components/tests/test-run-view";
 import { cx } from "@/components/ui";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
@@ -22,13 +20,13 @@ type Params = { appId: string; testId: string };
 type Line = ReturnType<typeof testOf>["steps"][number];
 
 async function load(appId: string, testId: string) {
-  const { role } = await requireApp(appId);
+  const { app } = await requireApp(appId);
   const [test] = await db()
     .select()
     .from(tests)
     .where(and(eq(tests.id, testId), eq(tests.appId, appId)));
   if (!test) notFound();
-  return { test, role };
+  return { test, app };
 }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
@@ -38,10 +36,37 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
 const SETTLED = new Set<TestRunRow["status"]>(["passed", "failed", "unverified"]);
 
-export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string }> }) {
+/** A line's words with this run's values in place of their names, so the page reads as what was done. */
+function filled(text: string, values?: Record<string, string>) {
+  if (!values) return text;
+  return text.replace(/\{\{(\w+)\}\}/g, (whole, name: string) => values[name] ?? whole);
+}
+
+/** The lines with how each went in the run on screen. While a run is on, the first line with no result yet is the one being done. */
+function viewLines(prefix: string, lines: Line[], results: LineResult[] | undefined, url: (p?: string | null) => string | null, values?: Record<string, string>, running?: boolean): ViewLine[] {
+  const at = running && results ? results.findIndex((r) => r.status === "skipped") : -1;
+  return lines.map((line, i) => {
+    const r = results?.[i];
+    const bad = r?.status === "fail" || r?.status === "unsure";
+    return {
+      key: `${prefix}${i}`,
+      kind: line.type === "check" ? "check" : "action",
+      text: filled(sentence(line), values),
+      state: i === at ? "running" : r ? LINE_STATE[r.status] : "never",
+      label: i === at ? "Running" : r ? LINE_LABEL[r.status] : "No result",
+      note: r?.note && (bad || line.type === "check") ? r.note : undefined,
+      tone: r?.status === "fail" ? "bad" : r?.status === "unsure" ? "warn" : "quiet",
+      redone: r?.redone,
+      did: bad ? r?.did : undefined,
+      shot: url(r?.screenshot),
+    };
+  });
+}
+
+export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string; edit?: string }> }) {
   const { appId, testId } = await params;
-  const { run: runParam } = await searchParams;
-  const { test } = await load(appId, testId);
+  const { run: runParam, edit } = await searchParams;
+  const { test, app } = await load(appId, testId);
   const history = await db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15);
 
   const spec = testOf(test);
@@ -62,231 +87,144 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const rerun = result?.rerun && (
     <p className="text-sm opacity-80">It was run a second time before it counted{result.firstReason && result.firstReason !== result.reason ? `. The first time: ${result.firstReason}` : ", and went the same way."}</p>
   );
+  const editing = edit !== undefined && !state.active;
+  const here = `/apps/${appId}/tests/${test.id}`;
+
+  const running = run?.status === "running";
+  const lines = viewLines("l", spec.steps, lined, url, result?.values, running);
+  const ranCleanup = result?.cleanup && result.cleanup.length === spec.cleanup.length ? result.cleanup : undefined;
+  const cleanupFailed = ranCleanup?.some((s) => s.status !== "pass");
+  const wrong = lines.find((l) => l.state === "failed" || l.state === "unverified");
 
   return (
-    <div className="page flex flex-col gap-8">
+    <div className="page flex flex-col gap-10">
       {state.active && <AutoRefresh every={2000} />}
 
-      <header className="flex flex-col gap-4">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-          <Link href={`/apps/${appId}`} className="hover:text-foreground">
-            Tests
-          </Link>
-        </nav>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-2">
+      <header className="flex flex-col gap-6">
+        <Link href={`/apps/${appId}`} className="-ml-1 inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="size-4" aria-hidden="true" />
+          Tests
+        </Link>
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
             <h1 className="text-2xl font-semibold tracking-tight text-pretty">{test.name}</h1>
-            <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state.mark])}>
-              <StateMark state={state.mark} />
-              <span>{readLabel(state)}</span>
-              {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
-              {settled?.result && <span className="text-muted-foreground">· took {formatDuration(settled.result.durationMs)}</span>}
-            </p>
+            <p className="max-w-3xl leading-relaxed text-pretty text-muted-foreground">{test.goal}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary />
-            <ConfirmButton className={buttonVariants({ variant: "outline" })} onConfirm={deleteTestAction.bind(null, test.id)}>
-              Delete
-            </ConfirmButton>
-          </div>
+          <TestActions appId={appId} testId={test.id} active={Boolean(state.active)} />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y py-3 text-sm">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <StateMark state={state.mark} />
+            <span className={cx("font-medium", STATE_TEXT[state.mark])}>{readLabel(state)}</span>
+            {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
+            {settled?.result && <span className="text-muted-foreground">· took {formatDuration(settled.result.durationMs)}</span>}
+          </p>
+          {history.length > 1 && <Results here={here} runs={history} selected={run?.id} />}
         </div>
       </header>
 
-      {viewingOld && run && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-5 py-3 text-muted-foreground">
-          <span>
-            Showing the result from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
-          </span>
-          <Button asChild variant="link" size="sm" className="h-auto p-0">
-            <Link href={`/apps/${appId}/tests/${test.id}`}>Back to the latest</Link>
-          </Button>
-        </div>
-      )}
-
-      {result?.reason && run && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
-        <div role="status" className={cx("flex flex-col gap-1 rounded-xl border px-5 py-4 leading-relaxed", run.status === "failed" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}>
-          <p>{result.reason}</p>
-          {rerun}
-        </div>
-      )}
-
-      {/* A failure on the bug the test was kept for is said once, as that bug. */}
-      {test.faults.length > 0 && (
-        <section className={cx("flex flex-col gap-3 rounded-xl border p-5", onBug ? "border-bad-line bg-bad-soft" : "bg-card shadow-sm")}>
-          <h2 className={cx("flex items-center gap-2 text-sm font-medium", onBug ? "text-bad-ink" : "text-muted-foreground")}>
-            <Bug className="size-4" aria-hidden="true" />
-            {state.settled === "passed" ? "This test was kept because it failed on a bug. It passes now." : "This test fails on a bug in the app"}
-          </h2>
-          {test.faults.map((f, i) => (
-            <div key={i} className="flex flex-col gap-2">
-              <p className="font-medium text-pretty">{f.what}</p>
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-                {f.expected && (
-                  <>
-                    <dt className="text-muted-foreground">Expected</dt>
-                    <dd className="text-pretty">{f.expected}</dd>
-                  </>
-                )}
-                {f.saw && (
-                  <>
-                    <dt className="text-muted-foreground">The app</dt>
-                    <dd className="text-pretty">{f.saw}</dd>
-                  </>
-                )}
-              </dl>
-            </div>
-          ))}
-          {onBug && rerun}
-        </section>
-      )}
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <TestEditor
-            testId={test.id}
-            canEdit={!state.active}
-            test={{ name: test.name, goal: test.goal, startPath: test.startPath, lines: spec.steps.map((l) => ({ type: l.type, text: sentence(l) })) }}
-            view={
-              <div className="flex flex-col gap-6">
-                <Block label="Goal">{test.goal}</Block>
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Lines <span className="font-normal">· starts on {test.startPath}</span>
-                  </span>
-                  <Lines lines={spec.steps} results={lined} values={result?.values} running={run?.status === "running"} url={url} />
-                  {result && !lined && <p className="text-sm text-muted-foreground">The test was edited after this result, so the lines don&apos;t show how each went. Run it again.</p>}
-                </div>
-                {spec.cleanup.length > 0 && <Cleanup lines={spec.cleanup} results={result?.cleanup} url={url} />}
-              </div>
-            }
-          />
-        </div>
-
-        <aside className="flex min-w-0 flex-col gap-5">
-          <Media run={run} result={result} url={url} />
-          {result && <SigningReviews reviews={result.signingReviews} />}
-          {history.length > 1 && <History appId={appId} testId={test.id} runs={history} selected={run?.id} />}
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-function Block({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <p className="leading-relaxed text-pretty">{children}</p>
-    </div>
-  );
-}
-
-/** A line's words with this run's values in place of their names, so the page reads as what was done. */
-function filled(text: string, values?: Record<string, string>) {
-  if (!values) return text;
-  return text.replace(/\{\{(\w+)\}\}/g, (whole, name: string) => values[name] ?? whole);
-}
-
-/** The lines of a test in order, each with how it went in the run on screen. */
-function Lines({ lines, results, values, running, url }: { lines: Line[]; results?: LineResult[]; values?: Record<string, string>; running?: boolean; url: (p?: string | null) => string | null }) {
-  // While a run is on, the first line with no result yet is the one being done.
-  const at = running && results ? results.findIndex((r) => r.status === "skipped") : -1;
-  return (
-    <ol className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
-      {lines.map((line, i) => {
-        const r = results?.[i];
-        const state: TestState = i === at ? "running" : r ? LINE_STATE[r.status] : "never";
-        const shot = url(r?.screenshot);
-        const bad = r?.status === "fail" || r?.status === "unsure";
-        return (
-          <li key={i} className="flex gap-3 px-4 py-3">
-            <StateMark state={state} label={i === at ? "Running" : r ? LINE_LABEL[r.status] : "No result"} className="mt-0.5" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <p className="text-pretty">
-                <span className="mr-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{line.type === "check" ? "Check" : "Do"}</span>
-                {filled(sentence(line), values)}
-              </p>
-              {r?.note && (bad || line.type === "check") && <p className={cx("text-sm text-pretty", r.status === "fail" ? "text-bad" : r.status === "unsure" ? "text-warn" : "text-muted-foreground")}>{r.note}</p>}
-              {r?.redone && <p className="text-sm text-pretty text-muted-foreground">The recorded actions stopped working, so it was worked out again: {r.redone}</p>}
-              {r && r.did.length > 0 && bad && <p className="text-xs text-pretty text-muted-foreground">{r.did.join(" · ")}</p>}
-            </div>
-            {shot && (
-              <a href={shot} target="_blank" rel="noreferrer" className="shrink-0 self-start overflow-hidden rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={shot} alt={`The page at line ${i + 1}`} loading="lazy" className="block h-12 w-20 object-cover object-top" />
-              </a>
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-/** What the test puts back afterwards. It never changes the result, so it's folded away unless it didn't finish. */
-function Cleanup({ lines, results, url }: { lines: Line[]; results?: LineResult[]; url: (p?: string | null) => string | null }) {
-  const ran = results && results.length === lines.length ? results : undefined;
-  const failed = ran?.some((s) => s.status !== "pass");
-  return (
-    <details open={failed} className="flex flex-col gap-2">
-      <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-        <span>Cleanup</span>
-        <span className="font-normal">· puts the account back after the result{ran ? (failed ? <> · <span className="text-warn">didn&apos;t finish</span></> : " · done") : ""}</span>
-      </summary>
-      <div className="mt-2">
-        <Lines lines={lines} results={ran} url={url} />
-      </div>
-    </details>
-  );
-}
-
-function Media({ run, result, url }: { run?: TestRunRow; result?: TestResult; url: (p?: string | null) => string | null }) {
-  if (!run) return null;
-  const running = run.status === "running";
-  const last = result?.steps.findLast((s) => s.screenshot)?.screenshot;
-  const frame = running ? url(run.liveFrame) : url(last);
-  const video = !running ? url(result?.video) : null;
-  if (!frame && !video)
-    return running || run.status === "queued" ? (
-      <div className="flex aspect-[16/10] items-center justify-center rounded-xl border bg-card text-muted-foreground shadow-xs">{running ? "Opening the app…" : "Waiting for a browser…"}</div>
-    ) : null;
-  return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
-      {video ? (
-        <video src={video} poster={frame ?? undefined} controls muted playsInline className="block aspect-[16/10] w-full bg-muted object-contain" />
+      {editing ? (
+        <TestEditor testId={test.id} back={here} test={{ name: test.name, goal: test.goal, startPath: test.startPath, lines: spec.steps.map((l) => ({ type: l.type, text: sentence(l) })) }} />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={frame!} alt={running ? "The test running now" : "The page when the test finished"} className="block aspect-[16/10] w-full bg-muted object-cover object-top" />
-      )}
-      {running && (
-        <div className="flex items-center gap-2 border-t px-4 py-2 text-xs text-live">
-          <span className="size-1.5 animate-pulse rounded-full bg-live" /> Live
-        </div>
+        <>
+          {viewingOld && run && (
+            <div className="-mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+              <span>
+                Showing the result from {timeAgo(run.createdAt)}: {STATE_LABEL[run.status].toLowerCase()}.
+              </span>
+              <Link href={here} className="font-medium text-foreground hover:underline">
+                Back to the latest
+              </Link>
+            </div>
+          )}
+
+          {result?.reason && run && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
+            <div role="status" className={cx("-mt-4 flex flex-col gap-1 rounded-xl px-5 py-4 leading-relaxed", run.status === "failed" ? "bg-bad-soft text-bad-ink" : "bg-warn-soft text-warn-ink")}>
+              <p className="text-pretty [overflow-wrap:anywhere]">{result.reason}</p>
+              {rerun}
+            </div>
+          )}
+
+          {/* A failure on the bug the test was kept for is said once, as that bug. */}
+          {test.faults.length > 0 && (
+            <section className={cx("-mt-4 flex flex-col gap-4 rounded-xl p-5", onBug ? "bg-bad-soft" : "border")}>
+              <h2 className={cx("flex items-center gap-2 text-sm font-medium", onBug ? "text-bad-ink" : "text-muted-foreground")}>
+                <Bug className="size-4" aria-hidden="true" />
+                {state.settled === "passed" ? "Kept because it failed on a bug in the app. It passes now." : "This test fails on a bug in the app"}
+              </h2>
+              {test.faults.map((f, i) => (
+                <div key={i} className="flex flex-col gap-2">
+                  <p className="font-medium text-pretty">{f.what}</p>
+                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+                    {f.expected && (
+                      <>
+                        <dt className="text-muted-foreground">Expected</dt>
+                        <dd className="text-pretty">{f.expected}</dd>
+                      </>
+                    )}
+                    {f.saw && (
+                      <>
+                        <dt className="text-muted-foreground">The app</dt>
+                        <dd className="text-pretty">{f.saw}</dd>
+                      </>
+                    )}
+                  </dl>
+                </div>
+              ))}
+              {onBug && rerun}
+            </section>
+          )}
+
+          <TestRunView
+            key={run?.id}
+            appUrl={app.url}
+            startPath={test.startPath}
+            lines={lines}
+            cleanup={spec.cleanup.length > 0 ? { lines: viewLines("c", spec.cleanup, ranCleanup, url), open: Boolean(cleanupFailed), status: ranCleanup ? (cleanupFailed ? " · didn't finish" : " · done") : "" } : undefined}
+            video={running ? null : url(result?.video)}
+            poster={url(result?.steps.findLast((s) => s.screenshot)?.screenshot)}
+            live={state.active && run?.id === latest?.id ? { frame: url(run?.liveFrame), queued: run?.status === "queued" } : undefined}
+            stale={Boolean(result && !lined)}
+            pick={wrong?.shot ? wrong.key : undefined}
+          >
+            {result && <SigningReviews reviews={result.signingReviews} />}
+          </TestRunView>
+        </>
       )}
     </div>
   );
 }
 
-/** Every result of this test, newest first. Each belongs to a run (a batch), which the Runs page lists. */
-function History({ appId, testId, runs, selected }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string }) {
+const DOT: Record<TestRunRow["status"], string> = {
+  passed: "bg-good-bar",
+  failed: "bg-bad-mid",
+  unverified: "bg-warn-bar",
+  running: "bg-live animate-pulse motion-reduce:animate-none",
+  queued: "border-2 border-live",
+  stopped: "bg-foreground/15",
+};
+
+/** This test's results as a row of marks, oldest first. Each opens that result here. */
+function Results({ here, runs, selected }: { here: string; runs: TestRunRow[]; selected?: string }) {
   return (
-    <Panel title="Results" count={runs.length}>
-      <ul className="divide-y">
-        {runs.map((r, i) => (
-          <li key={r.id}>
+    <nav aria-label="Results" className="flex items-center gap-3">
+      <span className="text-xs text-muted-foreground">Last {runs.length} results</span>
+      <ol className="flex items-center gap-1">
+        {[...runs].reverse().map((r) => (
+          <li key={r.id} className="flex">
             <Link
-              href={i === 0 ? `/apps/${appId}/tests/${testId}` : `/apps/${appId}/tests/${testId}?run=${r.id}`}
+              href={r.id === runs[0]!.id ? here : `${here}?run=${r.id}`}
               aria-current={r.id === selected ? "true" : undefined}
-              className={cx("flex items-center gap-3 px-4 py-2 hover:bg-accent/50", r.id === selected && "bg-accent")}
+              aria-label={`${STATE_LABEL[r.status]}, ${timeAgo(r.createdAt)}`}
+              title={`${STATE_LABEL[r.status]} · ${TRIGGER_LABEL[r.trigger]} · ${timeAgo(r.createdAt)}`}
+              className={cx("flex size-4 items-center justify-center rounded-[5px] outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring", r.id === selected && "ring-1 ring-foreground/40")}
             >
-              <StateMark state={r.status} />
-              <span className={cx("flex-1", STATE_TEXT[r.status])}>{STATE_LABEL[r.status]}</span>
-              <span className="text-xs text-muted-foreground">{TRIGGER_LABEL[r.trigger]}</span>
-              <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
+              <span className={cx("size-2.5 rounded-[3px]", DOT[r.status])} />
             </Link>
           </li>
         ))}
-      </ul>
-    </Panel>
+      </ol>
+    </nav>
   );
 }

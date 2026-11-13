@@ -1,6 +1,6 @@
-import type { SigningReview } from "@dappdrill/core";
-import { ChevronDown } from "lucide-react";
-import { Addr, cx, VerdictTag } from "@/components/ui";
+import { VERDICT_LABEL, type SigningReview, type Verdict } from "@dappdrill/core";
+import { ChevronRight } from "lucide-react";
+import { Addr, cx } from "@/components/ui";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -11,38 +11,49 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** What the wallet was asked to sign during a run, each with its review. */
+const VERDICT_TEXT: Record<Verdict, string> = { dangerous: "text-bad", check: "text-warn", consistent: "text-muted-foreground" };
+const VERDICT_DOT: Record<Verdict, string> = { dangerous: "bg-bad-mid", check: "bg-warn-bar", consistent: "bg-foreground/30" };
+
+/** What the wallet was asked to sign during a run, each with its review folded under it. */
 export function SigningReviews({ reviews }: { reviews: SigningReview[] }) {
   if (reviews.length === 0) return null;
   return (
-    <Panel title="Signatures" count={reviews.length}>
-      <ul className="divide-y">
+    <section aria-label="Signed in the wallet" className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3 px-2">
+        <h2 className="text-sm font-medium">Signed in the wallet</h2>
+        <span className="text-xs text-muted-foreground">{reviews.length === 1 ? "1 request" : `${reviews.length} requests`}, each reviewed</span>
+      </div>
+      <ul className="divide-y rounded-xl border bg-card shadow-xs">
         {reviews.map((review) => (
           <li key={review.id}>
             <Review review={review} />
           </li>
         ))}
       </ul>
-    </Panel>
+    </section>
   );
 }
 
-/** A signature: the verdict at a glance, the evidence folded away. */
-function Review({ review, outcome }: { review: SigningReview; outcome?: React.ReactNode }) {
+/** A signature: what it does and the verdict, the evidence folded away. */
+function Review({ review }: { review: SigningReview }) {
   const d = review.decoded;
   const flagged = review.checks.filter((c) => c.status === "fail" || c.status === "warn");
   return (
     <details className="group">
-      <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-4 py-3 outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 [&::-webkit-details-marker]:hidden">
-        <span className="leading-snug font-medium">{review.title}</span>
-        <span className="flex items-center gap-2">
-          {outcome}
-          <VerdictTag verdict={review.verdict} />
+      <summary className="flex cursor-pointer list-none items-start gap-3 rounded-xl px-4 py-3 outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.03] [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="mt-1 size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span className="leading-snug font-medium">{review.title}</span>
+            <span className={cx("flex items-center gap-1.5 text-xs font-medium", VERDICT_TEXT[review.verdict])}>
+              <span aria-hidden="true" className={cx("size-1.5 rounded-full", VERDICT_DOT[review.verdict])} />
+              {VERDICT_LABEL[review.verdict]}
+            </span>
+          </span>
+          <span className="text-sm leading-snug text-pretty text-muted-foreground [overflow-wrap:anywhere]">{review.summary}</span>
         </span>
-        <span className="text-sm leading-snug text-muted-foreground">{review.summary}</span>
-        <ChevronDown className="size-4 self-end justify-self-end text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>
-      <div className="px-4 pb-4">
+      <div className="pr-4 pb-4 pl-10">
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 rounded-lg bg-muted/50 p-3 text-sm">
           {d.to && (
             <Row label="Contract">
@@ -83,20 +94,5 @@ function Review({ review, outcome }: { review: SigningReview; outcome?: React.Re
         </dl>
       </div>
     </details>
-  );
-}
-
-export function Panel({ title, count, children, aside }: { title: string; count?: number; children: React.ReactNode; aside?: React.ReactNode }) {
-  return (
-    <section aria-label={title} className="overflow-hidden rounded-xl border bg-card shadow-xs">
-      <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          {title}
-          {count !== undefined && <span className="ml-1.5 font-normal tabular-nums">{count}</span>}
-        </h2>
-        {aside}
-      </header>
-      {children}
-    </section>
   );
 }
