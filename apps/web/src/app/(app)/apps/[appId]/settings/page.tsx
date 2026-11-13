@@ -1,20 +1,21 @@
 import { formatFixedResponse, KNOWN_CHAINS } from "@dappdrill/core";
-import { db, explorations, latestRuns, tests } from "@dappdrill/db";
+import { db, makes } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
+import { X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { deleteAppAction } from "@/actions/apps";
-import { exploreAction } from "@/actions/explore";
+import { deleteAppAction, removeNoteAction } from "@/actions/apps";
+import { makeTestsAction } from "@/actions/tests";
 import { ConfirmButton } from "@/components/confirm-button";
 import { SettingsForm } from "@/components/settings-form";
 import { SubmitButton } from "@/components/submit-button";
-import { lastSetup } from "@/components/tests/last-setup";
-import { SetupCard } from "@/components/tests/setup-card";
+import { SetupEditor } from "@/components/tests/lines-editor";
 import { PageHeader, SettingsSection } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
 import { isHostVerified } from "@/lib/domains";
 import { timeAgo } from "@/lib/format";
+import { ownerHints } from "@/lib/hints";
 import { can } from "@/lib/permissions";
 import { requireApp } from "@/lib/session";
 
@@ -27,19 +28,17 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
   const { appId } = await params;
   const { app, role } = await requireApp(appId);
   const manage = can(role, "apps.manage");
-  const [verified, [seen], testIds] = await Promise.all([
+  const [verified, [seen]] = await Promise.all([
     isHostVerified(app.organizationId, app.host),
-    db().select({ id: explorations.id, status: explorations.status, state: explorations.state, finishedAt: explorations.finishedAt, createdAt: explorations.createdAt }).from(explorations).where(eq(explorations.appId, app.id)).orderBy(desc(explorations.createdAt)).limit(1),
-    db().select({ id: tests.id }).from(tests).where(eq(tests.appId, app.id)),
+    db().select({ id: makes.id, status: makes.status, state: makes.state, finishedAt: makes.finishedAt, createdAt: makes.createdAt }).from(makes).where(eq(makes.appId, app.id)).orderBy(desc(makes.createdAt)).limit(1),
   ]);
-  // What the first browser of the last pass saw: the app as it opens.
-  const exploring = seen?.status === "queued" || seen?.status === "running";
-  const frame = seen ? artifactUrl("explorations", seen.id, seen.state?.explorers.find((e) => e.frame)?.frame) : null;
-  const setup = app.setup && { startPath: app.setup.startPath, steps: app.setup.steps.map((s) => s.text), when: app.setup.when, why: app.setup.why, reset: app.setup.reset?.map((s) => s.text) };
-  const setupRun = setup ? lastSetup(setup.steps, [...(await latestRuns(db(), testIds.map((t) => t.id))).values()], setup.reset) : undefined;
+  // What our browser last saw there: the look's last picture, or a goal's.
+  const making = seen?.status === "queued" || seen?.status === "running";
+  const frame = seen ? artifactUrl("makes", seen.id, seen.state.frame ?? seen.state.goals.findLast((g) => g.frame)?.frame) : null;
+  const setup = app.suite.setup && { startPath: app.suite.setup.startPath, steps: app.suite.setup.steps.map((s) => s.do) };
+  // What the look and the maker wrote down about the app. The owner's own answers are in the form above.
+  const learned = app.suite.notes.filter((n) => n.from !== "owner");
   const others = app.settings.chains.filter((c) => !CHAINS.some((k) => k.id === c.id && k.rpcUrl === c.rpcUrl));
-  // Tests on a chain we can't fork run on the real one, where the account keeps what earlier runs left.
-  const live = [...app.settings.chains, ...app.chains].some((c) => c.mode === "live");
 
   return (
     <div className="page flex flex-col">
@@ -51,8 +50,9 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
         defaults={{
           name: app.name,
           url: app.url,
-          hints: app.settings.hints ?? "",
+          hints: ownerHints(app.suite.notes),
           funding: app.settings.funding ?? "",
+          signing: app.suite.signing,
           chains: app.settings.chains.filter((c) => !others.includes(c)).map((c) => c.id),
           otherChains: others.map((c) => ({ rpcUrl: c.rpcUrl, chainId: c.id, testnet: c.mode === "live" })),
           wallets: app.settings.wallets,
@@ -66,26 +66,45 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
           verified,
         }}
         frame={frame}
-        seen={!seen ? "Not explored yet" : exploring ? "Exploring now" : `Last explored ${timeAgo(seen.finishedAt ?? seen.createdAt)}`}
+        seen={!seen ? "Not opened yet" : making ? "Making tests now" : `Last opened ${timeAgo(seen.finishedAt ?? seen.createdAt)}`}
       />
 
       {/* The app page links here as #setup. */}
-      <SettingsSection id="setup" title="Setup" hint="Steps every test needs first, like signing in or getting test funds. They run before your tests, so the tests don't repeat them.">
-        <SetupCard appId={app.id} setup={setup ?? null} last={setupRun} live={live} />
+      <SettingsSection id="setup" title="Setup" hint="What every test needs first, like connecting the wallet or signing in. It is done once before the tests, so they don't repeat it.">
+        <SetupEditor appId={app.id} setup={setup} canEdit={manage} />
       </SettingsSection>
 
-      <SettingsSection id="explore" title="Explore again" hint="Looks around the app again and adds what it hasn't seen. Your tests stay as they are.">
-        {exploring ? (
+      {learned.length > 0 && (
+        <SettingsSection id="learned" title="What DappDrill learned" hint="Written down while looking over the app and making tests, and read each time a test is made or run. Take out any that are wrong.">
+          <ul className="divide-y rounded-xl border bg-card shadow-xs">
+            {learned.map((n, i) => (
+              <li key={i} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                <span className="min-w-0 flex-1 text-pretty whitespace-pre-line">{n.text}</span>
+                {manage && (
+                  <form action={removeNoteAction.bind(null, app.id, n.text)}>
+                    <SubmitButton variant="ghost" size="icon-sm" busy="" aria-label="Remove this note" className="text-muted-foreground">
+                      <X aria-hidden="true" />
+                    </SubmitButton>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </SettingsSection>
+      )}
+
+      <SettingsSection id="make" title="Make more tests" hint="Looks over the app again and makes a test for what it hasn't got one for. Your tests stay as they are.">
+        {making ? (
           <p className="text-sm text-muted-foreground">
-            Exploring now.{" "}
+            Making tests now.{" "}
             <Link href={`/apps/${app.id}`} className="text-foreground underline underline-offset-4">
               Watch it
             </Link>
           </p>
         ) : (
-          <form action={exploreAction.bind(null, app.id)}>
+          <form action={makeTestsAction.bind(null, app.id)}>
             <SubmitButton variant="outline" size="sm" className="w-fit" busy="Starting…">
-              Explore again
+              Make more tests
             </SubmitButton>
           </form>
         )}

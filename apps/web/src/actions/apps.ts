@@ -5,15 +5,15 @@ import {
   MAINNET_CHAIN_IDS,
   newId,
   parseFixedResponse,
-  keepActions,
   parseStorageEntry,
-  SetupWhen,
+  CONNECTED,
   WalletProfileId,
   chainInfo,
+  type Action,
   type ChainConfig,
   type FixedResponse,
 } from "@dappdrill/core";
-import { apps, db, encrypt, explorations, testRuns, tests, type AppSettings } from "@dappdrill/db";
+import { apps, db, encrypt, makes, testRuns, tests, type AppSettings } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -21,7 +21,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { hostOf } from "@/lib/domains";
-import { startPass } from "@/lib/pass";
+import { withOwnerHints } from "@/lib/hints";
+import { startMake } from "@/lib/make";
 import { readChainId } from "@/lib/rpc";
 import { looksLikeKey } from "@/lib/secrets";
 import { can, denied } from "@/lib/permissions";
@@ -69,7 +70,7 @@ const NO_CHAIN = "No chain answered at that URL.";
 
 /** /new: tells the form which chain an RPC belongs to while the user is still typing. */
 /** A chain that can't be forked runs for real, so an app on it starts with a way to get test funds. */
-const noFunds = (chain: string) => `${chain} can't be forked, so tests run on it for real. Say how to get test funds there, or paste a private key that has them.`;
+const noFunds = (chain: string) => `${chain} can't be forked, so the tests run on the real network. Paste a private key that holds test funds there, or tell us how to get them.`;
 
 export async function checkRpcAction(input: string): Promise<{ chainId?: number; error?: string }> {
   await requireUser();
@@ -80,7 +81,7 @@ export async function checkRpcAction(input: string): Promise<{ chainId?: number;
 }
 
 /**
- * /new: find or create the app for this URL. A new app (or one with no tests yet) gets analyzed.
+ * /new: find or create the app for this URL. A new app (or one with no tests yet) gets its tests made.
  * Anyone in the organization can add an app; changing one that exists is for admins and owners.
  */
 export async function createAppAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
@@ -128,8 +129,8 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
     liveKey = { liveKeyEnc: encrypt(key.data), liveKeyAddress: privateKeyToAccount(key.data as `0x${string}`).address };
   }
 
-  const notes = { ...(hints ? { hints } : {}), ...(funding ? { funding } : {}) };
-  const settingsBase: AppSettings = { wallets, chains, ...notes };
+  const funds = funding ? { funding } : {};
+  const settingsBase: AppSettings = { wallets, chains, ...funds };
 
   let appId = existing?.id;
   if (!existing) {
@@ -137,21 +138,34 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
     const host = hostOf(url.data);
     await db()
       .insert(apps)
-      .values({ id: appId, organizationId: a.org.id, name: nameFromHost(host), url: url.data, host, settings: settingsBase, ...liveKey });
+      .values({
+        id: appId,
+        organizationId: a.org.id,
+        name: nameFromHost(host),
+        url: url.data,
+        host,
+        settings: settingsBase,
+        // Every test starts as a user whose wallet is connected; what the owner answered is the app's first notes.
+        suite: { setup: CONNECTED, notes: withOwnerHints([], hints), signing: "allowed" },
+        ...liveKey,
+      });
   } else if (can(a.role, "apps.manage") && (customized || hints || funding || liveKey)) {
-    const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...notes };
+    const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...funds };
+    const suite = hints ? { ...existing.suite, notes: withOwnerHints(existing.suite.notes, hints) } : existing.suite;
     await db()
       .update(apps)
-      .set({ settings, ...liveKey })
+      .set({ settings, suite, ...liveKey })
       .where(eq(apps.id, existing.id));
   }
   const hasTests = existing ? (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, existing.id)).limit(1)).length > 0 : false;
-  if (!hasTests) await startPass(appId!, a.user.id);
+  if (!hasTests) await startMake(appId!, a.user.id);
   revalidatePath("/", "layout"); // the app switcher lists it
   redirect(`/apps/${appId}`);
 }
 
 // ---------------------------------------------------------------- settings
+
+const Signing = z.enum(["allowed", "setup", "refused"]);
 
 export async function saveSettingsAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
   const { app, role } = await requireApp(String(form.get("appId")));
@@ -234,11 +248,13 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
   const schedule = String(form.get("schedule") ?? "");
   if (schedule && !/^([01]\d|2[0-3]):[0-5]\d$/.test(schedule)) return { error: "Pick a time for the daily run." };
 
+  const signing = Signing.safeParse(form.get("signing") ?? app.suite.signing);
+  if (!signing.success) return { error: "Choose what the test wallet may sign." };
+
   const settings: AppSettings = {
     ...app.settings,
     wallets,
     chains,
-    hints: hints || undefined,
     funding: funding || undefined,
     allowMainnetLive: false,
     storage,
@@ -251,6 +267,7 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
       url: url.data,
       host: hostOf(url.data),
       settings,
+      suite: { ...app.suite, notes: withOwnerHints(app.suite.notes, hints), signing: signing.data },
       scheduleTime: schedule || null,
       ...(liveKey ? { liveKeyEnc: liveKey.enc, liveKeyAddress: liveKey.address } : {}),
       ...(headers ? { accessHeadersEnc: headers.enc, accessHeaderNames: headers.names } : {}),
@@ -265,84 +282,59 @@ export async function deleteAppAction(appId: string): Promise<void> {
   if (!can(role, "apps.manage")) return;
   // Stop anything in flight first; the rows go with the app.
   await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.appId, app.id), eq(testRuns.status, "running")));
-  await db().update(explorations).set({ stopRequested: true }).where(and(eq(explorations.appId, app.id), inArray(explorations.status, ["queued", "running"])));
+  await db().update(makes).set({ stopRequested: true }).where(and(eq(makes.appId, app.id), inArray(makes.status, ["queued", "running"])));
   await db().delete(apps).where(eq(apps.id, app.id));
   revalidatePath("/", "layout");
   redirect("/");
 }
 
-// ---------------------------------------------------------------- setup
+// ---------------------------------------------------------------- setup and notes
 
 const SetupEdit = z.object({
   startPath: z
     .string()
     .trim()
+    .max(500)
     .transform((p) => (p ? (p.startsWith("/") ? p : `/${p}`) : "/")),
   steps: z
-    .array(z.string().trim().max(200))
+    .array(z.string().trim().max(600))
     .transform((s) => s.filter(Boolean))
-    .pipe(z.array(z.string()).min(1, "Add at least one step.").max(12, "Keep it under 12 steps.")),
-  when: SetupWhen,
-  // On a live chain: the steps that put the account back after earlier runs. An empty list removes them.
-  reset: z
-    .array(z.string().trim().max(200))
-    .transform((s) => s.filter(Boolean))
-    .pipe(z.array(z.string().min(1)).max(5, "Keep it under 5 reset steps."))
-    .optional(),
+    .pipe(z.array(z.string()).max(12, "Keep it under 12 lines.")),
 });
 
-/** The steps every test needs first, and when they run. Unchanged steps keep their recorded clicks. */
-export async function updateSetupAction(appId: string, input: z.input<typeof SetupEdit>): Promise<{ error?: string }> {
-  const { app } = await requireApp(appId);
+/**
+ * What is done once before the tests, so each starts as a user who is already in. A line whose
+ * words didn't change keeps what it recorded; a new one is done by a model, which records it.
+ * With no lines the app has no setup, and every test starts from a fresh visit.
+ */
+export async function saveSetupAction(appId: string, input: z.input<typeof SetupEdit>): Promise<{ error?: string }> {
+  const { app, role } = await requireApp(appId);
+  if (!can(role, "apps.manage")) return { error: denied("apps.manage") };
   const e = SetupEdit.safeParse(input);
   if (!e.success) return { error: e.error.issues[0]?.message };
-  const old = app.setup;
+  if (e.data.steps.some(looksLikeKey)) return { error: "A line looks like a private key. Take it out: this text isn't encrypted." };
+  const old = app.suite.setup;
+  const kept = old?.startPath === e.data.startPath ? [...old.steps] : [];
+  const steps = e.data.steps.map((text): Action => {
+    const same = kept.findIndex((line) => line.do === text);
+    return same >= 0 ? kept.splice(same, 1)[0]! : { type: "action", by: "code", do: text, run: [] };
+  });
+  const { setup: _gone, ...rest } = app.suite;
   await db()
     .update(apps)
-    .set({
-      setup: {
-        startPath: e.data.startPath,
-        steps: keepActions(e.data.steps, old?.startPath === e.data.startPath ? (old?.steps ?? []) : []),
-        when: e.data.when,
-        // The analysis's reason was for its own pick.
-        why: old && old.when === e.data.when ? old.why : undefined,
-        reset: e.data.reset && e.data.reset.length > 0 ? keepActions(e.data.reset, old?.reset ?? []) : undefined,
-      },
-    })
+    .set({ suite: steps.length ? { ...rest, setup: { startPath: e.data.startPath, steps } } : rest })
     .where(eq(apps.id, appId));
   revalidatePath(`/apps/${appId}`, "layout");
   return {};
 }
 
-export async function removeSetupAction(appId: string): Promise<void> {
-  await requireApp(appId);
-  await db().update(apps).set({ setup: null }).where(eq(apps.id, appId));
-  revalidatePath(`/apps/${appId}`, "layout");
-}
-
-/**
- * What a pass stopped for on a chain that can't be forked: a key with test tokens, or how to get test
- * funds. Saves whichever came and explores again.
- */
-export async function liveFundsAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const { app, role, user } = await requireApp(String(form.get("appId")));
-  if (!can(role, "apps.manage")) return { error: denied("apps.manage") };
-  const keyIn = String(form.get("liveKey") ?? "").trim();
-  const funding = String(form.get("funding") ?? "").trim().slice(0, 1000);
-  if (!keyIn && !funding) return { error: "Paste a key, or say how to get test funds." };
-  if (looksLikeKey(funding)) return { error: "That looks like a private key: it goes in the key field, which is encrypted." };
-  let liveKey: { liveKeyEnc: string; liveKeyAddress: string } | undefined;
-  if (keyIn) {
-    const k = KeyHex.safeParse(keyIn);
-    if (!k.success) return { error: k.error.issues[0]?.message };
-    liveKey = { liveKeyEnc: encrypt(k.data), liveKeyAddress: privateKeyToAccount(k.data as `0x${string}`).address };
-  }
-  const settings: AppSettings = { ...app.settings, ...(funding ? { funding } : {}) };
+/** Takes back something a look or a maker noted about the app, when it is wrong or no longer true. */
+export async function removeNoteAction(appId: string, text: string): Promise<void> {
+  const { app, role } = await requireApp(appId);
+  if (!can(role, "apps.manage")) return;
   await db()
     .update(apps)
-    .set({ settings, ...(liveKey ?? {}) })
-    .where(eq(apps.id, app.id));
-  await startPass(app.id, user.id);
-  revalidatePath(`/apps/${app.id}`, "layout");
-  return { ok: "Exploring again." };
+    .set({ suite: { ...app.suite, notes: app.suite.notes.filter((n) => n.from === "owner" || n.text !== text) } })
+    .where(eq(apps.id, appId));
+  revalidatePath(`/apps/${appId}`, "layout");
 }

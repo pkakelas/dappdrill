@@ -4,11 +4,9 @@ import type { AgentTool, AgentToolResult } from "../types.js";
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
-/** Analyzes apps. */
+/** Looks around an app, and takes the second look at a test that fails. */
 export const DEFAULT_MODEL = "claude-opus-5-5";
-/** Steps the fast model couldn't do. */
-export const DEFAULT_ACT_MODEL = "claude-opus-5-5";
-/** Runs test steps, judges results, writes tests and answers in the agent panel. */
+/** Writes and repairs tests, judges checks, and takes over an action the quick model couldn't do. */
 export const DEFAULT_FAST_MODEL = "claude-sonnet-5-5";
 /** Does a test's model actions first; the fast model gets the ones it can't do. */
 export const DEFAULT_QUICK_MODEL = "claude-haiku-5-5";

@@ -1,4 +1,3 @@
-import type { TestRunStatus } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { duration, plural, shortDate } from "@/lib/format";
@@ -14,17 +13,15 @@ function byDay(runs: RunSummary[], now = Date.now()) {
   const days = Array.from({ length: HISTORY_DAYS }, (_, i) => ({ date: new Date((today - HISTORY_DAYS + 1 + i) * DAY), passed: 0, failed: 0 }));
   for (const r of runs) {
     const day = days[Math.floor(r.createdAt.getTime() / DAY) - today + HISTORY_DAYS - 1];
-    if (day && r.status === "pass") day.passed++;
-    if (day && r.status === "fail") day.failed++;
+    if (day && r.status === "passed") day.passed++;
+    if (day && r.status === "failed") day.failed++;
   }
   return days;
 }
 
-const FINISHED: TestRunStatus[] = ["pass", "fail"];
-
 function typicalRun(runs: RunSummary[]) {
   const times = runs
-    .filter((r) => FINISHED.includes(r.status) && r.startedAt && r.finishedAt)
+    .filter((r) => (r.status === "passed" || r.status === "failed") && r.startedAt && r.finishedAt)
     .map((r) => r.finishedAt!.getTime() - r.startedAt!.getTime())
     .sort((a, b) => a - b);
   return times[Math.floor(times.length / 2)];

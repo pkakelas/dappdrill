@@ -9,14 +9,8 @@ inputs:
     description: URL to test (a preview deployment, or a local server started earlier in the job). Default the URL in the tests file.
     required: false
   file:
-    description: Tests file, made with `dappdrill analyze <url>`.
+    description: Tests file, made with `dappdrill make <url>`.
     default: .dappdrill/tests.json
-  unhappy:
-    description: Also run the usual unhappy paths (rejected in wallet, slow RPC, wrong network, low gas) for tests that ask the wallet to sign ("true"/"false").
-    default: "false"
-  conditions:
-    description: More unhappy paths to run, as condition ids separated by spaces, e.g. "failing-rpc reload-mid-flow".
-    required: false
   comment:
     description: Post (and keep updating) a summary comment on the pull request ("true"/"false").
     default: "true"
@@ -26,7 +20,7 @@ inputs:
 
 outputs:
   exit-code:
-    description: The CLI's exit code (0 all passed, 1 a test failed or a signature was Dangerous, 2 the only problem is that a test or DappDrill couldn't run, the run was stopped, or nothing ran).
+    description: The CLI's exit code (0 all passed, 1 a test failed or a signature was Dangerous, 2 the only problem is a test that couldn't be verified, that DappDrill couldn't run, that the run was stopped, or that nothing ran).
     value: ${{ steps.run.outputs.exit-code }}
 
 runs:
@@ -57,13 +51,9 @@ runs:
       env:
         IN_URL: ${{ inputs.url }}
         IN_FILE: ${{ inputs.file }}
-        IN_UNHAPPY: ${{ inputs.unhappy }}
-        IN_CONDITIONS: ${{ inputs.conditions }}
       run: |
         args=(run "$IN_FILE" --out dappdrill-out --junit dappdrill-out/junit.xml)
         [ -n "$IN_URL" ] && args+=(--url "$IN_URL")
-        [ "$IN_UNHAPPY" = "true" ] && args+=(--unhappy)
-        for c in $IN_CONDITIONS; do args+=(--condition "$c"); done
         set +e
         node "$DAPPDRILL_BIN" "${args[@]}"
         code=$?

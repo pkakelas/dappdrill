@@ -1,6 +1,6 @@
 "use client";
 
-import { formatHints, HINT_LABELS, parseHints } from "@dappdrill/core";
+import { formatHints, HINT_LABELS, parseHints } from "@/lib/hints";
 import { BadgeCheck, Ban, Bug, CircleDollarSign, Coins, History, KeyRound, ListPlus, LogIn, MapPin, NotebookPen, Plus, Route, X, type LucideIcon } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ const TINT = {
 /** `label` is the wording in the saved hints, and in the picker for the questions you unlock. */
 const CORE_TIPS = [
   { id: "access", label: HINT_LABELS.access, question: "How do we get in?", detail: "Sign-in or invite steps.", placeholder: "e.g. Sign in with the wallet", icon: LogIn, tint: TINT.violet },
-  { id: "notes", label: HINT_LABELS.notes, question: "Additional notes", detail: "Anything that gets in the way of exploring.", placeholder: "e.g. A popup covers every page. Prices take a minute to load.", icon: NotebookPen, tint: TINT.amber },
+  { id: "notes", label: HINT_LABELS.notes, question: "Additional notes", detail: "Anything that gets in the way of using the app.", placeholder: "e.g. A popup covers every page. Prices take a minute to load.", icon: NotebookPen, tint: TINT.amber },
 ] as const;
 const MORE_TIPS = [
   { id: "success", label: HINT_LABELS.success, question: "How do you know it worked?", detail: "What users see when it went right.", placeholder: "e.g. The swap shows up in History", icon: BadgeCheck, tint: TINT.emerald },
@@ -203,7 +203,7 @@ export function HintRows({ hints, keyField, hasKey, fundsRow = true, shown = tru
   return (
     <div className={cn("flex flex-col gap-7", className)}>
       <input type="hidden" name="hints" value={hints.text} readOnly />
-      <HintRow icon={Route} tint={TINT.sky} title="What should we test?" detail="What users do in your app. We'll start with these." htmlFor="test-0" index={0} {...row}>
+      <HintRow icon={Route} tint={TINT.sky} title="What should we focus on?" detail="What users do in your app that matters most." htmlFor="test-0" index={0} {...row}>
         <TestList tests={tests} onChange={setTests} />
       </HintRow>
       {fundsRow && (
@@ -216,7 +216,7 @@ export function HintRows({ hints, keyField, hasKey, fundsRow = true, shown = tru
           placeholder="e.g. Needs test USDC. The Faucet page mints 1,000 at a time."
           value={funding}
           onChange={(event) => setFunding(event.target.value)}
-          className={cn("min-h-20 resize-none px-3.5 py-3", HINT_FIELD)}
+          className={cn("min-h-20 scroll-mt-28 resize-none px-3.5 py-3", HINT_FIELD)}
         />
         {looksLikeKey(funding) && <KeyWarning />}
         {keyField}

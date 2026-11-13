@@ -1,52 +1,6 @@
-import type { SigningReview, TestRunResult, WalletRequest } from "@dappdrill/core";
+import type { SigningReview } from "@dappdrill/core";
 import { ChevronDown } from "lucide-react";
-import { Addr, cx, SeverityTag, VerdictTag } from "@/components/ui";
-
-const METHOD_LABEL: Record<string, string> = {
-  eth_requestAccounts: "Connect",
-  eth_accounts: "Read accounts",
-  wallet_switchEthereumChain: "Switch network",
-  wallet_addEthereumChain: "Add network",
-  eth_sendTransaction: "Send transaction",
-  personal_sign: "Sign message",
-  eth_signTypedData_v4: "Sign typed data",
-  wallet_sendCalls: "Send calls",
-};
-
-const OUTCOME_LABEL: Record<WalletRequest["outcome"], string> = { approved: "Approved", rejected: "Rejected", errored: "Errored", pending: "Pending" };
-
-/** What the app asked the wallet for, with the signing review of each signature. */
-export function WalletActivity({ result }: { result: TestRunResult }) {
-  const asked = result.walletRequests.filter((r) => r.kind !== "other");
-  // On a live chain the app's own embedded wallet may have signed instead of ours, so the review has nothing to say.
-  const embedded = result.embeddedSigner && result.signingReviews.length === 0 && <p className="px-4 py-3 text-sm text-pretty text-muted-foreground">The app&apos;s own wallet signed for this run, so there was nothing for our wallet to review.</p>;
-  if (asked.length === 0) return embedded ? <Panel title="Wallet">{embedded}</Panel> : null;
-  const reviews = new Map(result.signingReviews.map((s) => [s.requestId, s]));
-  return (
-    <Panel title="Wallet" count={asked.length}>
-      {embedded && <div className="border-b">{embedded}</div>}
-      <ul className="divide-y">
-        {asked.map((r) => {
-          const review = reviews.get(r.id);
-          const refused = r.outcome === "rejected" || r.outcome === "errored";
-          const outcome = <span className={cx("text-xs", refused ? "text-warn" : "text-muted-foreground")}>{OUTCOME_LABEL[r.outcome]}</span>;
-          return (
-            <li key={r.id}>
-              {review ? (
-                <Review review={review} outcome={r.outcome === "approved" ? null : outcome} />
-              ) : (
-                <div className="flex items-center justify-between gap-3 px-4 py-3">
-                  <span>{METHOD_LABEL[r.method] ?? r.method}</span>
-                  {outcome}
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </Panel>
-  );
-}
+import { Addr, cx, VerdictTag } from "@/components/ui";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -57,8 +11,24 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** A signature: the verdict at a glance, the evidence folded away. Approved is the norm, so only another outcome shows. */
-function Review({ review, outcome }: { review: SigningReview; outcome: React.ReactNode }) {
+/** What the wallet was asked to sign during a run, each with its review. */
+export function SigningReviews({ reviews }: { reviews: SigningReview[] }) {
+  if (reviews.length === 0) return null;
+  return (
+    <Panel title="Signatures" count={reviews.length}>
+      <ul className="divide-y">
+        {reviews.map((review) => (
+          <li key={review.id}>
+            <Review review={review} />
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+/** A signature: the verdict at a glance, the evidence folded away. */
+function Review({ review, outcome }: { review: SigningReview; outcome?: React.ReactNode }) {
   const d = review.decoded;
   const flagged = review.checks.filter((c) => c.status === "fail" || c.status === "warn");
   return (
@@ -113,40 +83,6 @@ function Review({ review, outcome }: { review: SigningReview; outcome: React.Rea
         </dl>
       </div>
     </details>
-  );
-}
-
-export function IssueList({ result }: { result: TestRunResult }) {
-  if (result.issues.length === 0) return null;
-  return (
-    <Panel title="Problems found" count={result.issues.length}>
-      <ul className="divide-y">
-        {result.issues.map((i) => (
-          <li key={i.id} className="flex flex-col gap-1.5 px-4 py-3">
-            <div className="flex items-start gap-2">
-              <SeverityTag severity={i.severity} />
-              <span className="leading-snug font-medium">{i.title}</span>
-            </div>
-            <p className="leading-snug text-muted-foreground">{i.summary}</p>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-}
-
-export function ConsoleErrors({ result }: { result: TestRunResult }) {
-  const errors = result.console.filter((c) => c.level === "error" || c.level === "pageerror");
-  if (errors.length === 0) return null;
-  return (
-    <Panel title="Console errors" count={errors.length}>
-      <pre className="max-h-56 overflow-auto px-4 py-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
-        {errors
-          .slice(-30)
-          .map((e) => e.text)
-          .join("\n")}
-      </pre>
-    </Panel>
   );
 }
 

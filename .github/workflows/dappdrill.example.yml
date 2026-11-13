@@ -2,7 +2,7 @@
 #
 # Runs the tests in .dappdrill/tests.json against the PR's build on local forks, comments the
 # results on the PR, and fails when a test fails. Make the tests file once with
-# `dappdrill analyze <url>` and commit it.
+# `dappdrill make <url>` and commit it.
 name: DappDrill
 
 on:
@@ -31,9 +31,8 @@ jobs:
       - uses: dappdrill/dappdrill/.github/actions/dappdrill@main
         with:
           url: http://localhost:4173
-          unhappy: "true"
         env:
-          # The tests run Claude when a cached step stops working.
+          # A model does the lines written for one, and works a recorded line out again when its recording stops working.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   # The same tests against a preview deployment instead of a local build: pass the deploy's URL
@@ -57,6 +56,5 @@ jobs:
       - uses: dappdrill/dappdrill/.github/actions/dappdrill@main
         with:
           url: ${{ steps.deploy.outputs.preview-url }}
-          unhappy: "true"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

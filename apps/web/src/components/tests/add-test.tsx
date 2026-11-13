@@ -1,36 +1,20 @@
 "use client";
 
-import { BadgeCheck, CircleDollarSign, GitFork, ListOrdered, MapPin, Plus, Route, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Plus, Route, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
-import { addTestAction } from "@/actions/tests";
+import { makeTestAction } from "@/actions/tests";
 import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { looksLikeKey } from "@/lib/secrets";
 import { Tile, type TINT } from "./tile";
 
 const FIELD = "bg-background px-3.5 transition-colors placeholder:text-muted-foreground/80 hover:border-foreground/25";
-const SELECT = cx("h-11 w-full data-[size=default]:h-11", FIELD);
-const FRESH = "fresh";
-/** No start page picked: the writer chooses one. */
-const ANY = "any";
-const EMPTY = { goal: "", expected: "", startPath: "", amounts: "", steps: "", like: FRESH };
-
-export type AddTestProps = {
-  appId: string;
-  /** Pages the app map knows, offered as places to start. Without any, the start page is typed. */
-  pages?: { path: string; purpose: string }[];
-  /** Tests a new one can be written from. */
-  tests?: { id: string; name: string }[];
-  /** What the app's setup does before every test. */
-  setup?: string[];
-  label?: string;
-};
+const EMPTY = { does: "", sees: "" };
 
 /** Label on the left, input on the right, the way the New app page asks. */
 function Question({ icon, tint, title, detail, htmlFor, children }: { icon: LucideIcon; tint: keyof typeof TINT; title: string; detail: ReactNode; htmlFor: string; children: ReactNode }) {
@@ -51,29 +35,25 @@ function Question({ icon, tint, title, detail, htmlFor, children }: { icon: Luci
 }
 
 /**
- * Add test: a few questions, then the worker writes the steps and runs them. The first two are
- * needed (the writer starts from the goal, the judge checks the expected result on every run);
- * the rest save the writer a guess. A new test lands on the Tests tab, so that's where this ends up.
+ * Add a test: say what a user does and what they should see. The worker does it once in the app,
+ * writes it as lines, and runs it until it goes the same way twice. `busy` is when tests are
+ * already being made for the app, which is one browser's work at a time.
  */
-export function AddTestButton({ appId, pages = [], tests = [], setup = [], label = "Add test" }: AddTestProps) {
+export function AddTestButton({ appId, busy, label = "Add test" }: { appId: string; busy?: boolean; label?: string }) {
   const [open, setOpen] = useState(false);
   const [answers, setAnswers] = useState(EMPTY);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const router = useRouter();
-  const set = (key: keyof typeof EMPTY) => (value: string) => setAnswers((current) => ({ ...current, [key]: value }));
-  const { goal, expected, startPath, amounts, steps, like } = answers;
-  const ready = goal.trim().length >= 3 && expected.trim().length >= 3;
-  // The map keeps the query a page was seen with (?fromChainId=…); a test starts on the page itself.
-  const starts = [...new Set(pages.map((page) => page.path.split(/[?#]/)[0] || "/"))];
-  const hasKey = [goal, expected, startPath, amounts, steps].some(looksLikeKey);
+  const { does, sees } = answers;
+  const ready = does.trim().length >= 8;
+  const hasKey = looksLikeKey(does) || looksLikeKey(sees);
 
   const submit = () => {
     if (!ready || hasKey || pending) return;
     start(async () => {
-      // "1. Open the vault" and "- Open the vault" are the same step.
-      const lines = steps.split("\n").map((line) => line.replace(/^\s*(?:\d+[.)]|[-•*])\s*/, ""));
-      const r = await addTestAction(appId, { goal, expected, startPath, amounts, steps: lines }, like === FRESH ? undefined : like);
+      const goal = sees.trim() ? `${does.trim().replace(/[.\s]+$/, "")}. They should see: ${sees.trim()}` : does.trim();
+      const r = await makeTestAction(appId, goal);
       if (r.error) return setError(r.error);
       setAnswers(EMPTY);
       setError(undefined);
@@ -85,15 +65,15 @@ export function AddTestButton({ appId, pages = [], tests = [], setup = [], label
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline">
+        <Button type="button" variant="outline" disabled={busy} title={busy ? "Tests are being made already" : undefined}>
           <Plus aria-hidden="true" />
           {label}
         </Button>
       </DialogTrigger>
-      <DialogContent overlayClassName="bg-black/65 backdrop-blur-[3px]" className="flex max-h-[min(92vh,880px)] flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-2xl sm:max-w-5xl">
+      <DialogContent overlayClassName="bg-black/65 backdrop-blur-[3px]" className="flex max-h-[min(92vh,880px)] flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-2xl sm:max-w-3xl">
         <DialogHeader className="gap-1.5 border-b px-6 pt-7 pb-6 sm:px-8">
           <DialogTitle className="text-2xl tracking-tight">Add a test</DialogTitle>
-          <DialogDescription className="text-pretty">We write the steps from your answers and run the test right away.</DialogDescription>
+          <DialogDescription className="text-pretty">We do it once in your app, write it down as a test, and run it until it goes the same way twice.</DialogDescription>
         </DialogHeader>
 
         <form
@@ -107,80 +87,22 @@ export function AddTestButton({ appId, pages = [], tests = [], setup = [], label
           }}
         >
           <div className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto px-6 pt-7 pb-8 sm:px-8">
-            <Question icon={Route} tint="live" title="What does the user do?" detail="One thing, start to finish." htmlFor="add-goal">
-              <Textarea id="add-goal" autoFocus rows={2} maxLength={300} disabled={pending} value={goal} onChange={(e) => set("goal")(e.target.value)} placeholder="e.g. Withdraw half of the deposit from the vault" className={cx("min-h-20 resize-none py-3", FIELD)} />
-            </Question>
-            <Question icon={BadgeCheck} tint="good" title="How do you know it worked?" detail="What the page shows at the end. We check it on every run." htmlFor="add-expected">
-              <Input id="add-expected" maxLength={300} disabled={pending} value={expected} onChange={(e) => set("expected")(e.target.value)} placeholder="e.g. Deposited shows 2.50 USDC" className={cx("h-11", FIELD)} />
-            </Question>
-
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t pt-6">
-              <h3 className="text-sm font-medium">Optional</h3>
-              <p className="text-sm text-muted-foreground">What you leave out, we work out from the app.</p>
-            </div>
-
-            <Question icon={MapPin} tint="fork" title="Where does it start?" detail="The page the test opens first." htmlFor="add-start">
-              {starts.length > 0 ? (
-                <Select value={startPath || ANY} onValueChange={(value) => set("startPath")(value === ANY ? "" : value)} disabled={pending}>
-                  <SelectTrigger id="add-start" className={SELECT}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ANY}>Let us pick</SelectItem>
-                    {starts.map((path) => (
-                      <SelectItem key={path} value={path}>
-                        {path}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input id="add-start" maxLength={200} disabled={pending} value={startPath} onChange={(e) => set("startPath")(e.target.value)} placeholder="e.g. /vault" className={cx("h-11", FIELD)} />
-              )}
-            </Question>
-            <Question
-              icon={CircleDollarSign}
-              tint="warn"
-              title="Which tokens and amounts?"
-              detail={setup.length > 0 ? "What the test types. The wallet has the native coin and what setup gives it." : "What the test types. The wallet starts with the native coin."}
-              htmlFor="add-amounts"
-            >
-              <Input id="add-amounts" maxLength={300} disabled={pending} value={amounts} onChange={(e) => set("amounts")(e.target.value)} placeholder="e.g. 2.5 USDC" className={cx("h-11", FIELD)} />
-            </Question>
-            <Question icon={ListOrdered} tint="pink" title="Any steps we should follow?" detail="One per line, the way a user would say them." htmlFor="add-steps">
+            <Question icon={Route} tint="live" title="What does the user do?" detail="One thing, start to finish, with the amounts to use." htmlFor="add-goal">
               <Textarea
-                id="add-steps"
+                id="add-goal"
+                autoFocus
                 rows={3}
+                maxLength={300}
                 disabled={pending}
-                value={steps}
-                onChange={(e) => set("steps")(e.target.value)}
-                placeholder={"Open the vault\nEnter 2.5 as the amount\nClick Withdraw"}
-                className={cx("min-h-24 resize-none py-3", FIELD)}
+                value={does}
+                onChange={(e) => setAnswers({ ...answers, does: e.target.value })}
+                placeholder="e.g. Withdraw 2.5 USDC from the vault"
+                className={cx("min-h-20 resize-none py-3", FIELD)}
               />
-              {setup.length > 0 && (
-                <p className="text-sm text-pretty text-muted-foreground">
-                  Setup runs first, so leave it out: {setup.slice(0, 4).join(", ")}
-                  {setup.length > 4 ? "…" : "."}
-                </p>
-              )}
             </Question>
-            {tests.length > 0 && (
-              <Question icon={GitFork} tint="live" title="Is it like a test you have?" detail="The steps they share keep what was recorded, so it runs sooner." htmlFor="add-like">
-                <Select value={like} onValueChange={set("like")} disabled={pending}>
-                  <SelectTrigger id="add-like" className={SELECT}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={FRESH}>No, start fresh</SelectItem>
-                    {tests.map((test) => (
-                      <SelectItem key={test.id} value={test.id}>
-                        {test.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Question>
-            )}
+            <Question icon={BadgeCheck} tint="good" title="How do you know it worked?" detail="What the page shows at the end. Leave it out and we work it out from the app." htmlFor="add-sees">
+              <Input id="add-sees" maxLength={250} disabled={pending} value={sees} onChange={(e) => setAnswers({ ...answers, sees: e.target.value })} placeholder="e.g. Deposited falls by 2.50 USDC" className={cx("h-11", FIELD)} />
+            </Question>
           </div>
 
           <DialogFooter className="items-center gap-3 border-t bg-muted/40 px-6 py-4 sm:justify-between sm:px-8">
@@ -189,7 +111,7 @@ export function AddTestButton({ appId, pages = [], tests = [], setup = [], label
                 {hasKey ? "That looks like a private key. This text isn't encrypted, so take it out." : error}
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground">{ready ? "It runs as soon as the steps are written." : "The first two answers are needed."}</p>
+              <p className="text-sm text-muted-foreground">This takes a few minutes. You can watch it on the app&apos;s page.</p>
             )}
             <div className="flex shrink-0 items-center gap-2">
               <DialogClose asChild>
@@ -198,7 +120,7 @@ export function AddTestButton({ appId, pages = [], tests = [], setup = [], label
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={!ready || hasKey || pending}>
-                {pending ? "Adding…" : "Write and run"}
+                {pending ? "Starting…" : "Make the test"}
               </Button>
             </div>
           </DialogFooter>

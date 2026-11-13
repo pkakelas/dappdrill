@@ -84,7 +84,6 @@ export const Step = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("email-code"), target: Locator }),
 ]);
 export type Step = z.infer<typeof Step>;
-export type StepKind = Step["kind"];
 
 export const ParamDef = z.object({
   name: z.string(),
@@ -121,17 +120,6 @@ export type ReplayScript = z.infer<typeof ReplayScript>;
 
 export const WalletProfileId = z.enum(["metamask", "rabby", "coinbase"]);
 export type WalletProfileId = z.infer<typeof WalletProfileId>;
-
-/** One row of the "Variations" table: run the same test with other inputs. */
-export const Variation = z.object({
-  id: z.string(),
-  name: z.string(),
-  inputs: z.record(z.string(), z.string()).default({}),
-  wallet: WalletProfileId.optional(),
-  chainId: z.number().int().optional(),
-  account: z.enum(["A", "B"]).optional(),
-});
-export type Variation = z.infer<typeof Variation>;
 
 /**
  * Whether a call is the function an expectation names. Recorded expectations

@@ -35,8 +35,8 @@
       "from": "maker"
     },
     {
-      "text": "Max on ETH fills the entire balance (100), which makes the quote fail, so this test fails at the check that Max leaves gas.",
-      "from": "maker"
+      "text": "Max fills in the whole ETH balance, and the app has no quote for the 100 ETH the test wallet holds (\"Quote unavailable\"), so a test can't go on from Max.",
+      "from": "owner"
     }
   ],
   "signing": "allowed",
@@ -723,39 +723,54 @@
       "cleanup": []
     },
     {
-      "id": "bridge-max-eth-from-ethereum-to-eth-on-arbitrum",
-      "name": "Bridge max ETH from Ethereum to ETH on Arbitrum",
-      "goal": "A user with ETH on Ethereum presses Max and bridges to ETH on Arbitrum. The amount filled in leaves enough ETH for gas, so the transaction can go through.",
-      "startPath": "/",
+      "id": "bridge-0-01-eth-to-a-recipient-pasted-with-spaces-around-it",
+      "name": "Bridge 0.01 ETH to a recipient pasted with spaces around it",
+      "goal": "A user with ETH on Ethereum pastes a valid recipient address with two spaces before and after it into the To dialog, confirms it, and enters 0.01 ETH. The app either gives a quote for that recipient or tells them the address is invalid.",
+      "startPath": "/bridge/arbitrum?fromChainId=ethereum&fromCurrency=eth&toCurrency=arbitrumETH",
       "values": {},
       "steps": [
         {
           "type": "action",
           "by": "code",
-          "do": "Click the destination token selector showing \"USDC Base\", choose the chain \"Arbitrum\", then choose the token \"ETH\"",
+          "do": "Click the address button above the To amount (the one showing 0xc5F3a3...5Bd6F) to open the Wallet \"To\" dialog",
           "run": [
             {
-              "note": "Open the destination token selector showing USDC Base",
+              "note": "Open the Wallet \"To\" dialog via the address button above the To amount",
               "kind": "click",
               "target": {
-                "css": "section:nth-of-type(2) > div > div > div:nth-of-type(3) > div > div > div:nth-of-type(2) > button"
+                "css": "main > div > section:nth-of-type(2) > div > div > div:nth-of-type(1) > div:nth-of-type(1) > button"
               }
-            },
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Type \"  0x70997970C51812dc3A010C7d01b50e0d17dc79C8  \" (the address with two spaces before and two after) into \"Enter an Arbitrum address\"",
+          "run": [
             {
-              "note": "Choose chain Arbitrum",
-              "kind": "click",
+              "kind": "fill",
               "target": {
-                "role": "button",
-                "name": "Arbitrum",
+                "role": "textbox",
+                "name": "Enter an Arbitrum address",
+                "near": "Paste",
                 "withinDialog": true
-              }
-            },
+              },
+              "value": "  0x70997970C51812dc3A010C7d01b50e0d17dc79C8  "
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click \"Confirm\"",
+          "run": [
             {
-              "note": "Choose token ETH on Arbitrum",
+              "note": "Confirm the recipient address in the Wallet \"To\" dialog",
               "kind": "click",
               "target": {
                 "role": "button",
-                "name": "ETH",
+                "name": "Confirm",
                 "withinDialog": true
               }
             }
@@ -764,46 +779,31 @@
         {
           "type": "action",
           "by": "code",
-          "do": "Click \"Max\" above the source amount",
+          "do": "Type 0.01 into \"Source amount\"",
           "run": [
             {
-              "note": "Press Max above the source amount",
-              "kind": "click",
+              "kind": "fill",
               "target": {
-                "role": "button",
-                "name": "Max"
-              }
+                "role": "textbox",
+                "name": "Source amount"
+              },
+              "value": "0.01"
             }
           ]
         },
         {
           "type": "check",
           "by": "llm",
-          "claim": "The \"Source amount\" is filled with a number smaller than the ETH balance shown next to \"Max\", so some ETH is left for gas"
-        },
-        {
-          "type": "check",
-          "by": "llm",
-          "claim": "A quote is shown: the \"Destination amount\" is greater than 0 and the page does not say \"Quote unavailable\""
-        },
-        {
-          "type": "action",
-          "by": "code",
-          "do": "Click the \"Bridge\" button and approve the request in the wallet",
-          "run": []
+          "claim": "The To address button shows 0x709979...c79C8, and the page either shows a quote for 0.01 ETH (the Destination amount is filled in and the main button reads \"Bridge\") or tells the user the address is invalid. It does not stay on \"Fetching quote\" or read \"Quote unavailable\"."
         },
         {
           "type": "check",
           "by": "code",
-          "claim": "The transaction was mined and did not revert",
+          "claim": "The main button does not read Quote unavailable",
           "expect": {
-            "kind": "mined"
+            "kind": "hides",
+            "text": "Quote unavailable"
           }
-        },
-        {
-          "type": "check",
-          "by": "llm",
-          "claim": "The page shows the bridge went through or in progress, and the button is no longer waiting on the wallet"
         }
       ],
       "cleanup": []

@@ -2,28 +2,23 @@
  * Job contract between the web app (producer) and apps/worker (consumer); see apps/worker/src/queues.ts.
  *
  * The web app always writes the row first, then enqueues its id:
- *   "tests.run"      { batchId }     test_runs rows sharing the batch id (queueRuns in @dappdrill/db).
- *   "test-draft.run" { testId }      tests row with `drafting` = the developer's request; forkedFrom for a fork.
- *   "agent.reply"    { messageId }   a pending agent_messages row after the user's message.
- *   "exploration.run" { explorationId } explorations row, status "queued".
+ *   "tests.run" { batchId }   test_runs rows sharing the batch id (queueRuns in @dappdrill/db).
+ *   "make.run"  { makeId }    a makes row, status "queued": with a goal, one test; without, a look and a test per goal.
  * Stopping is not a job: the web sets stop_requested and the worker polls it.
  *
- * Artifacts: a job writes into ARTIFACTS_DIR/<kind>/<id>/ ("runs"/<batchId>, "agent"/<messageId>,
- * "explorations"/<explorationId>) and every stored path is relative to that directory. The web serves them at
- * /api/artifacts/<kind>/<id>/<path>.
+ * Artifacts: a job writes into ARTIFACTS_DIR/<kind>/<id>/ ("runs"/<batchId>, "makes"/<makeId>) and every
+ * stored path is relative to that directory. The web serves them at /api/artifacts/<kind>/<id>/<path>.
  */
 import "server-only";
 import { PgBoss } from "pg-boss";
 
 export interface JobPayloads {
   "tests.run": { batchId: string };
-  "test-draft.run": { testId: string };
-  "agent.reply": { messageId: string };
-  "exploration.run": { explorationId: string };
+  "make.run": { makeId: string };
 }
 export type QueueName = keyof JobPayloads;
 
-export type ArtifactKind = "runs" | "agent" | "explorations";
+export type ArtifactKind = "runs" | "makes";
 
 // One send-only pg-boss instance per server process (kept across dev reloads).
 const g = globalThis as unknown as { __ddBoss?: Promise<PgBoss>; __ddQueues?: Set<string> };

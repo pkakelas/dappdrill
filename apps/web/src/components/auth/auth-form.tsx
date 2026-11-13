@@ -70,7 +70,7 @@ export function AuthForm({ mode, google, next, notice }: { mode: "login" | "sign
                 </Link>
               )}
             </div>
-            <Input id="password" name="password" type="password" required minLength={8} autoComplete={signup ? "new-password" : "current-password"} />
+            <Input id="password" name="password" type="password" required minLength={signup ? 8 : undefined} autoComplete={signup ? "new-password" : "current-password"} />
           </div>
           {error && (
             <p role="alert" className="text-sm text-bad">

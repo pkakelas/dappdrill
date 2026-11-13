@@ -6,7 +6,9 @@
  * shows the page half way.
  */
 import type { Page } from "playwright";
-import { BUSY_TEXT } from "./issues.js";
+
+/** A disabled button reading like this is still working on something. */
+const BUSY_TEXT = /confirm|pending|processing|loading|submitting|waiting|sending|signing|approving|depositing|withdrawing|swapping|in progress|\.{3}|…/i;
 
 /** The label of a visible button that is disabled and reads busy ("Placing…", "Confirming"), if any. */
 export async function busyButton(page: Page): Promise<string | undefined> {

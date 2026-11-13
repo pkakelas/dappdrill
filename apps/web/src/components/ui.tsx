@@ -1,4 +1,4 @@
-import { VERDICT_LABEL, shortAddress, type Severity, type Verdict } from "@dappdrill/core";
+import { VERDICT_LABEL, shortAddress, type Verdict } from "@dappdrill/core";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -38,18 +38,6 @@ export function Tag({ tone, children, className }: { tone: keyof typeof TONE; ch
       {children}
     </Badge>
   );
-}
-
-const SEVERITY: Record<Severity, { label: string; tone: keyof typeof TONE }> = {
-  critical: { label: "Critical", tone: "bad" },
-  high: { label: "High", tone: "high" },
-  medium: { label: "Medium", tone: "warn" },
-  low: { label: "Low", tone: "quiet" },
-};
-
-export function SeverityTag({ severity }: { severity: Severity }) {
-  const s = SEVERITY[severity];
-  return <Tag tone={s.tone}>{s.label}</Tag>;
 }
 
 const VERDICT_TONE: Record<Verdict, keyof typeof TONE> = { dangerous: "bad", check: "warn", consistent: "quiet" };

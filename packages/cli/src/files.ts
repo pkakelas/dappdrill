@@ -1,32 +1,27 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
-import { AppMap, AppSetup, CONDITIONS, ChainConfig, TestSpec, chainInfo, parseFixedResponse, parseStorageEntry, type DrillTarget, type EdgeCaseId } from "@dappdrill/core";
+import { ChainConfig, DrillTarget, Suite, chainInfo, parseFixedResponse, parseStorageEntry } from "@dappdrill/core";
 
 export class UsageError extends Error {}
 
-/** The tests file `analyze` writes and `run` reads: commit it, run it in CI. */
-export const SavedTest = TestSpec.extend({
-  /** For an unhappy path: the test it runs under its condition. */
-  baseId: z.string().optional(),
-});
-export type SavedTest = z.infer<typeof SavedTest>;
-
-export const TestsFile = z.object({
+/**
+ * The tests file `make` writes and `run` reads: commit it, run it in CI. It is the app's suite (the
+ * setup, the notes, what may be signed, the tests) with where the app is and what a run starts from.
+ */
+export const TestsFile = Suite.extend({
   url: z.string().url(),
-  map: AppMap.optional(),
-  /** Chains the app used when it was analyzed; `run` forks these unless --chain says otherwise. */
+  /** The chains the app used when its tests were made, each with the block its local copy was taken at. `run` uses these unless --chain says otherwise. */
   chains: z.array(ChainConfig).default([]),
-  /** Steps every test needs first (sign in, get test funds), and when they run. */
-  setup: AppSetup.optional(),
-  tests: z.array(SavedTest),
+  /** What the test wallet was given when the tests were made, on top of any --token. */
+  tokens: DrillTarget.shape.tokens,
 });
 export type TestsFile = z.infer<typeof TestsFile>;
 
-/** "Test", or "Test · Condition": a condition's name alone can't tell two tests apart. */
-export function testLabels(file: TestsFile): Map<string, string> {
-  const byId = new Map(file.tests.map((t) => [t.id, t]));
-  return new Map(file.tests.map((t) => [t.id, [t.baseId ? byId.get(t.baseId)?.name : undefined, t.name].filter(Boolean).join(" · ")]));
+/** The suite in a tests file, as the engine takes it. */
+export function suiteOf(file: TestsFile): Suite {
+  const { url: _url, chains: _chains, tokens: _tokens, ...suite } = file;
+  return suite;
 }
 
 export async function loadTests(path: string): Promise<TestsFile> {
@@ -34,7 +29,7 @@ export async function loadTests(path: string): Promise<TestsFile> {
   try {
     raw = JSON.parse(await readFile(path, "utf8"));
   } catch (e) {
-    throw new UsageError(`Can't read ${path}: ${(e as Error).message}. Make one with: dappdrill analyze <url>`);
+    throw new UsageError(`Can't read ${path}: ${(e as Error).message}. Make one with: dappdrill make <url>`);
   }
   const parsed = TestsFile.safeParse(raw);
   if (!parsed.success) {
@@ -125,18 +120,6 @@ function readOrExplain(path: string): Promise<string> {
   return readFile(path, "utf8").catch((e: Error) => {
     throw new UsageError(`Can't read ${path}: ${e.message}`);
   });
-}
-
-/** --unhappy is the usual unhappy paths; each --condition adds one by id. */
-export function pickConditions(flags: { unhappy?: boolean; condition: string[] }): EdgeCaseId[] {
-  // The happy path is the test itself, not something to add to it.
-  const choices = CONDITIONS.filter((c) => c.id !== "happy");
-  const picked = flags.condition.map((id) => {
-    const known = choices.find((c) => c.id === id);
-    if (!known) throw new UsageError(`Unknown --condition "${id}". Pick from: ${choices.map((c) => c.id).join(", ")}`);
-    return known.id;
-  });
-  return [...new Set([...(flags.unhappy ? choices.filter((c) => c.default).map((c) => c.id) : []), ...picked])];
 }
 
 export function collect(value: string, previous: string[] = []): string[] {

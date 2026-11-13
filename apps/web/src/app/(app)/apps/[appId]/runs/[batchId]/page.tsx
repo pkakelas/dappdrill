@@ -1,20 +1,16 @@
-import { conditionInfo } from "@dappdrill/core";
-import { appTests, db, listBatches, specOf, testRuns, tests } from "@dappdrill/db";
+import { appTests, db, listBatches, testRuns, tests } from "@dappdrill/db";
 import { and, eq } from "drizzle-orm";
 import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { alias } from "drizzle-orm/pg-core";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { BatchStatus } from "@/components/tests/batch-status";
 import { STATE_LABEL, STATE_TEXT, StateMark } from "@/components/tests/status";
 import { cx, PageHeader } from "@/components/ui";
 import { dateTime, minutesBetween, timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
-
-const base = alias(tests, "base");
 
 type Params = { appId: string; batchId: string };
 
@@ -32,16 +28,15 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   return { title: `${TRIGGER_LABEL[batch.trigger]}, ${dateTime(batch.startedAt)}` };
 }
 
-/** One run: its results, one per test or condition, named Test · Condition, in page order. */
+/** One run: its results, one per test, in page order. */
 export default async function RunPage({ params }: { params: Promise<Params> }) {
   const { appId, batchId } = await params;
   const batch = await load(appId, batchId);
   const [results, ordered] = await Promise.all([
     db()
-      .select({ run: testRuns, test: tests, baseName: base.name })
+      .select({ run: testRuns, test: tests })
       .from(testRuns)
       .innerJoin(tests, eq(tests.id, testRuns.testId))
-      .leftJoin(base, eq(base.id, tests.baseId))
       .where(and(eq(testRuns.appId, appId), eq(testRuns.batchId, batchId))),
     appTests(db(), appId),
   ]);
@@ -72,25 +67,19 @@ export default async function RunPage({ params }: { params: Promise<Params> }) {
         }
       />
       <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
-        {results.map(({ run, test, baseName }) => {
-          const failure = run.result?.failure;
+        {results.map(({ run, test }) => {
+          const reason = run.result?.reason;
           return (
             <li key={run.id} className="relative flex items-center gap-3 px-5 py-3 hover:bg-accent/40">
               <StateMark state={run.status} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <Link href={`/apps/${appId}/tests/${test.id}?run=${run.id}`} className="truncate outline-none after:absolute after:inset-0 focus-visible:underline">
-                  <span className="font-medium">{baseName ?? test.name}</span>
-                  {test.condition && <span className="text-muted-foreground"> · {conditionInfo(test.condition).name}</span>}
+                <Link href={`/apps/${appId}/tests/${test.id}?run=${run.id}`} className="truncate font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
+                  {test.name}
                 </Link>
-                {failure && (run.status === "fail" || run.status === "error" || run.status === "skipped") && (
-                  <span className={cx("truncate text-sm", run.status === "fail" ? "text-bad" : run.status === "error" ? "text-warn" : "text-muted-foreground")}>
-                    {run.status === "skipped" ? `Doesn't apply: ${failure}` : failure}
-                  </span>
-                )}
+                {reason && (run.status === "failed" || run.status === "unverified") && <span className={cx("truncate text-sm", run.status === "failed" ? "text-bad" : "text-warn")}>{reason}</span>}
               </div>
               <span className={cx("shrink-0 text-xs", STATE_TEXT[run.status])}>{STATE_LABEL[run.status]}</span>
               <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums sm:inline">{run.finishedAt ? timeAgo(run.finishedAt) : ""}</span>
-              <span className="sr-only">{specOf(test).name}</span>
             </li>
           );
         })}

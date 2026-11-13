@@ -15,28 +15,20 @@ export function liveChains(app: AppRow): boolean {
   return [...(app.settings.chains ?? []), ...app.chains].some((c) => c.mode === "live");
 }
 
-/** Builds the hints string the explorer receives: general context, then how to get funds. */
-export function targetHints(settings: AppRow["settings"]): string | undefined {
-  const parts: string[] = [];
-  if (settings.hints) parts.push(settings.hints);
-  if (settings.funding) parts.push(`How to get test funds: ${settings.funding}`);
-  return parts.length ? parts.join("\n\n") : undefined;
-}
-
 /**
  * Everything the engine needs for this app: URL, chains, the organization's test wallets, live key, inbox.
  *
- * - "analysis": the configured chains (empty = detect), plus chains the app asked the wallet for last time.
- * - "tests": the configured chains pinned at the analysis's fork blocks, or the analysis's chains
- *   when none are configured, so every run starts from the same state.
+ * - "look": the configured chains (empty = detect), plus chains the app asked the wallet for last time.
+ * - "tests": the configured chains pinned at the blocks the last look copied them at, or that look's
+ *   chains when none are configured, so every run starts from the same state.
  */
-export async function buildTarget(db: Db, app: AppRow, use: "analysis" | "tests"): Promise<DrillTarget> {
+export async function buildTarget(db: Db, app: AppRow, use: "look" | "tests"): Promise<DrillTarget> {
   const [wallets] = await db.select().from(testWallets).where(eq(testWallets.organizationId, app.organizationId));
   const { settings } = app;
   return DrillTarget.parse({
     url: app.url,
     chains: use === "tests" ? runChains(settings.chains ?? [], app.chains) : (settings.chains ?? []),
-    learnedChains: use === "analysis" ? app.chains.filter((c) => c.fromApp).map(({ forkBlock: _, ...c }) => c) : [],
+    learnedChains: use === "look" ? app.chains.filter((c) => c.fromApp).map(({ forkBlock: _, ...c }) => c) : [],
     wallets: settings.wallets?.length ? settings.wallets : undefined,
     accounts: wallets ? { A: decrypt(wallets.accountAKeyEnc), B: decrypt(wallets.accountBKeyEnc) } : undefined,
     liveKey: app.liveKeyEnc ? decrypt(app.liveKeyEnc) : undefined,
@@ -55,7 +47,7 @@ export async function buildTarget(db: Db, app: AppRow, use: "analysis" | "tests"
 
 function runChains(configured: ChainConfig[], seen: ChainConfig[]): ChainConfig[] {
   if (configured.length === 0) return seen;
-  // Chains the app asked the wallet for during the analysis run in tests too.
+  // Chains the app asked the wallet for during the look run in tests too.
   const added = seen.filter((s) => s.fromApp && !configured.some((c) => c.id === s.id));
   return [
     ...configured.map((c) => {
@@ -64,4 +56,13 @@ function runChains(configured: ChainConfig[], seen: ChainConfig[]): ChainConfig[
     }),
     ...added,
   ];
+}
+
+/**
+ * What the owner said about getting test funds, as a note for whoever does the actions. It is kept
+ * with the app's chains, not with its notes, so it is added to the suite here.
+ */
+export function ownerNotes(app: AppRow): Pick<AppRow["suite"], "notes"> {
+  const { funding } = app.settings;
+  return { notes: funding ? [...app.suite.notes, { text: `How to get test funds: ${funding}`, from: "owner" as const }] : app.suite.notes };
 }

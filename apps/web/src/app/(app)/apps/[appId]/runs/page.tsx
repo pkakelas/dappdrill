@@ -1,6 +1,6 @@
-import { db, explorations, listBatches, type Batch, type JobStatus } from "@dappdrill/db";
-import { desc, eq, sql } from "drizzle-orm";
-import { Compass } from "lucide-react";
+import { db, listBatches, makes, type Batch } from "@dappdrill/db";
+import { desc, eq } from "drizzle-orm";
+import { ListPlus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -13,88 +13,62 @@ import { requireApp } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Runs" };
 
+type MakeRow = typeof makes.$inferSelect & { at: Date; proof?: Batch };
+
 /** The worst thing in a run, or what it's doing now. */
 function batchMark(b: Batch): TestState {
   if (b.active > 0) return "running";
-  if (b.failed > 0) return "fail";
-  if (b.couldntRun > 0) return "error";
-  return b.passed > 0 ? "pass" : "skipped";
-}
-
-interface PassRow {
-  id: string;
-  status: JobStatus;
-  error: string | null;
-  startedAt: Date;
-  finishedAt: Date | null;
-  tests: number;
-  bugs: number;
-  tried: number;
-  /** The first runs of the tests it saved, added up. */
-  runs?: Batch;
+  if (b.failed > 0) return "failed";
+  if (b.unverified > 0) return "unverified";
+  return b.passed > 0 ? "passed" : "stopped";
 }
 
 /**
- * Each test an exploration saves runs straight away, in a batch of its own. On this page they are
- * one line with the exploration that started them, which leaves the list to the runs people asked for.
+ * The run that proved each test a make kept is that test's first result, in a batch of its own.
+ * On this page it is one line with the make it came from, which leaves the list to the runs people asked for.
  */
-function foldFirstRuns(batches: Batch[], passes: PassRow[]): Batch[] {
+function foldProofs(batches: Batch[], made: MakeRow[]): Batch[] {
   return batches.filter((b) => {
-    const pass = b.trigger === "explore" ? passes.find((p) => p.startedAt <= b.startedAt) : undefined;
-    if (!pass) return true;
-    const sum = (pass.runs ??= { ...b, total: 0, passed: 0, failed: 0, couldntRun: 0, skipped: 0, active: 0 });
-    for (const k of ["total", "passed", "failed", "couldntRun", "skipped", "active"] as const) sum[k] += b[k];
+    const make = b.trigger === "make" ? made.find((m) => m.at <= b.startedAt) : undefined;
+    if (!make || make.proof) return true;
+    make.proof = b;
     return false;
   });
 }
 
-/** Every time the app was explored. What came of it is counted in the database: a whole state is heavy. */
-async function listPasses(appId: string): Promise<PassRow[]> {
-  const n = (path: string) => sql<number>`coalesce(jsonb_array_length(jsonb_path_query_array(${explorations.state}, ${path}::jsonpath)), 0)`.mapWith(Number);
-  const rows = await db()
-    .select({
-      id: explorations.id,
-      status: explorations.status,
-      error: explorations.error,
-      startedAt: explorations.startedAt,
-      createdAt: explorations.createdAt,
-      finishedAt: explorations.finishedAt,
-      tests: n('$.suggested[*] ? (@.status == "proved")'),
-      bugs: n('$.bugs[*] ? (@.status == "confirmed")'),
-      tried: n("$.checks[*]"),
-    })
-    .from(explorations)
-    .where(eq(explorations.appId, appId))
-    .orderBy(desc(explorations.createdAt))
-    .limit(50);
-  return rows.map((r) => ({ ...r, startedAt: r.startedAt ?? r.createdAt }));
-}
-
-function PassStatus({ pass: p }: { pass: PassRow }) {
-  if (p.status === "queued") return <span className="text-live">Queued</span>;
-  const found = [`${plural(p.tests, "test")} saved`, plural(p.bugs, "bug"), `${p.tried} tried`].join(" · ");
-  if (p.status === "running")
+function MakeStatus({ make: m }: { make: MakeRow }) {
+  if (m.status === "queued") return <span className="text-live">Queued</span>;
+  const goals = m.state.goals;
+  const kept = goals.filter((g) => g.status === "kept");
+  const bugs = kept.filter((g) => g.stands === "failed").length;
+  const none = goals.filter((g) => g.status === "not-kept").length;
+  const found = [`${plural(kept.length, "test")} kept`, bugs > 0 && `${plural(bugs, "bug")} found`, none > 0 && `${none} without a test`].filter(Boolean).join(" · ");
+  if (m.status === "running")
     return (
       <>
         <span className="text-live">Running</span> · {found}
       </>
     );
-  if (p.status === "failed")
+  if (m.status === "failed")
     return (
       <>
         <span className="text-warn">Didn&apos;t finish</span>
-        {p.error && `: ${p.error}`}
+        {m.error && `: ${m.error}`}
       </>
     );
   return (
     <>
-      {p.status === "stopped" && "Stopped · "}
+      {m.status === "stopped" && "Stopped · "}
       {found}
     </>
   );
 }
 
-const passTitle = (p: PassRow) => (p.status === "queued" || p.status === "running" ? "Exploring the app" : "Explored the app");
+function makeTitle(m: MakeRow) {
+  const going = m.status === "queued" || m.status === "running";
+  if (m.goal) return going ? "Making a test" : "Made a test";
+  return going ? "Making tests" : "Made tests";
+}
 
 const ROW = "relative flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-accent/40";
 
@@ -102,20 +76,21 @@ const ROW = "relative flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hove
 export default async function RunsPage({ params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
   const { app } = await requireApp(appId);
-  const [all, passes] = await Promise.all([listBatches(db(), appId, 200), listPasses(appId)]);
-  const batches = foldFirstRuns(all, passes);
-  const anyActive = all.some((b) => b.active > 0) || passes.some((p) => p.status === "queued" || p.status === "running");
-  const rows = [...batches.map((batch) => ({ at: batch.startedAt, batch, pass: undefined })), ...passes.map((pass) => ({ at: pass.startedAt, batch: undefined, pass }))].sort((a, b) => b.at.getTime() - a.at.getTime());
+  const [all, madeRows] = await Promise.all([listBatches(db(), appId, 200), db().select().from(makes).where(eq(makes.appId, appId)).orderBy(desc(makes.createdAt)).limit(50)]);
+  const made: MakeRow[] = madeRows.map((m) => ({ ...m, at: m.startedAt ?? m.createdAt }));
+  const batches = foldProofs(all, made);
+  const anyActive = all.some((b) => b.active > 0) || made.some((m) => m.status === "queued" || m.status === "running");
+  const rows = [...batches.map((batch) => ({ at: batch.startedAt, batch, make: undefined })), ...made.map((make) => ({ at: make.at, batch: undefined, make }))].sort((a, b) => b.at.getTime() - a.at.getTime());
 
   return (
     <div className="page">
       {anyActive && <AutoRefresh every={2000} />}
-      <PageHeader title="Runs" description={`Every time ${app.name} was explored or its tests ran: by you, by the assistant, after exploring, or on the daily schedule.`} />
+      <PageHeader title="Runs" description={`Every time ${app.name}'s tests were made or ran: by you, or on the daily schedule.`} />
       {rows.length === 0 ? (
         <Empty title="No runs yet">Run a test and it shows up here.</Empty>
       ) : (
         <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
-          {rows.map(({ batch: b, pass: p }) =>
+          {rows.map(({ batch: b, make: m }) =>
             b ? (
               <li key={b.batchId} className={ROW}>
                 <StateMark state={batchMark(b)} size="lg" />
@@ -141,31 +116,22 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
                 </span>
               </li>
             ) : (
-              <li key={p.id} className={ROW}>
+              <li key={m.id} className={ROW}>
                 <span className={cx("inline-flex size-7 shrink-0 items-center justify-center rounded-lg", TINT.live)}>
-                  <Compass className="size-4" aria-hidden="true" />
+                  <ListPlus className="size-4" aria-hidden="true" />
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  {/* Only the latest exploration's log is on the app page. */}
-                  {p.id === passes[0]?.id ? (
-                    <Link href={`/apps/${appId}?tab=checks`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
-                      {passTitle(p)}
-                    </Link>
-                  ) : (
-                    <span className="font-medium">{passTitle(p)}</span>
-                  )}
+                  {/* The results of the tests it kept, when it kept any; the app page has the rest. */}
+                  <Link href={m.proof ? `/apps/${appId}/runs/${m.proof.batchId}` : `/apps/${appId}`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
+                    {makeTitle(m)}
+                  </Link>
                   <span className="text-sm text-pretty text-muted-foreground">
-                    <PassStatus pass={p} />
+                    <MakeStatus make={m} />
                   </span>
-                  {p.runs && (
-                    <span className="text-sm text-muted-foreground">
-                      First runs: <BatchStatus batch={p.runs} />
-                    </span>
-                  )}
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={dateTime(p.startedAt)}>
-                  {timeAgo(p.startedAt)}
-                  {p.finishedAt && ` · ${minutesBetween(p.startedAt, p.finishedAt)}`}
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={dateTime(m.at)}>
+                  {timeAgo(m.at)}
+                  {m.finishedAt && ` · ${minutesBetween(m.at, m.finishedAt)}`}
                 </span>
               </li>
             ),

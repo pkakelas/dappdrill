@@ -2,13 +2,11 @@ import { createDb } from "@dappdrill/db";
 import { loadEngine } from "@dappdrill/engine/fake";
 import type { Job } from "pg-boss";
 import { config } from "./config.js";
-import { runAgentReply } from "./jobs/agent.js";
-import { runDraft } from "./jobs/draft.js";
-import { runExploration } from "./jobs/explore.js";
+import { runMake } from "./jobs/make.js";
 import { scheduleTick } from "./jobs/schedule.js";
 import { runTestBatch } from "./jobs/tests.js";
 import { errorMessage, logger } from "./log.js";
-import { createBoss, QUEUES, type AgentJob, type DraftJob, type ExplorationJob, type ScheduleTickJob, type TestsJob } from "./queues.js";
+import { createBoss, QUEUES, type MakeJob, type ScheduleTickJob, type TestsJob } from "./queues.js";
 
 const log = logger("worker");
 const SHUTDOWN_GRACE_MS = 30_000;
@@ -28,15 +26,13 @@ async function main() {
     };
 
   await boss.work<TestsJob>(QUEUES.tests, { localConcurrency: config.testsConcurrency }, each((d, s) => runTestBatch(db, engine, boss, d.batchId, s)));
-  await boss.work<DraftJob>(QUEUES.draft, { localConcurrency: config.chatConcurrency }, each((d) => runDraft(db, engine, boss, d.testId)));
-  await boss.work<AgentJob>(QUEUES.agent, { localConcurrency: config.chatConcurrency }, each((d, s) => runAgentReply(db, engine, boss, d.messageId, s)));
-  await boss.work<ExplorationJob>(QUEUES.exploration, { localConcurrency: config.explorationConcurrency }, each((d, s) => runExploration(db, engine, boss, d.explorationId, s)));
+  await boss.work<MakeJob>(QUEUES.make, { localConcurrency: config.makeConcurrency }, each((d, s) => runMake(db, engine, boss, d.makeId, s)));
   await boss.work<ScheduleTickJob>(QUEUES.scheduleTick, each((d) => scheduleTick(db, boss, d?.at)));
   await boss.schedule(QUEUES.scheduleTick, "* * * * *");
 
   log.info(
     `ready: ${process.env.DAPPDRILL_FAKE_ENGINE === "1" ? "fake" : "real"} engine, ` +
-      `concurrency explorations ${config.explorationConcurrency} / test batches ${config.testsConcurrency} / chat ${config.chatConcurrency}, ` +
+      `concurrency makes ${config.makeConcurrency} / test batches ${config.testsConcurrency}, ` +
       `artifacts in ${config.artifactsRoot}`,
   );
 

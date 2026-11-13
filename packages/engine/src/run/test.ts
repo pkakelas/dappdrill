@@ -1,9 +1,10 @@
 /** Running one test, or a suite's setup, in a browser of its own: line by line, then the outcome. */
-import { fillValues, LineResult, outcomeOf, sentence, urlOnApp, type Action, type Check, type SigningReview, type Suite, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
+import { fillValues, LineResult, outcomeOf, sentence, urlOnApp, type Action, type Check, type SigningReview, type Suite, type SetupStuck, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
 import { settle } from "../agent/tools.js";
 import { saveState, type EngineSession } from "../browser/session.js";
-import type { Env } from "../pipeline/env.js";
-import { landingBotCheck, openSession } from "../pipeline/session.js";
+import { NO_LIVE_KEY } from "../wallet/errors.js";
+import type { Env } from "./env.js";
+import { landingBotCheck, openSession } from "./session.js";
 import { doAction } from "./action.js";
 import { checkByCode, readBefore } from "./code-check.js";
 import { checkByModel } from "./llm-check.js";
@@ -44,7 +45,7 @@ const usd = (n: number) => Math.round(n * 10_000) / 10_000;
 
 /** Opens the start page and goes through the lines. `then` runs with the browser still open, when every line passed. */
 async function walk(env: Env, what: Walkable, opts: RunOptions, then?: (session: EngineSession) => Promise<void>): Promise<Walked> {
-  const session = await openSession(env, opts.artifactsDir, undefined, { storageState: opts.storageState });
+  const session = await openSession(env, opts.artifactsDir, { storageState: opts.storageState });
   const out: Walked = { steps: what.steps.map(skipped), cleanup: [], reviews: [], pageErrors: [] };
   try {
     await session.page.goto(urlOnApp(what.startPath, env.target.url), { waitUntil: "domcontentloaded" });
@@ -116,7 +117,7 @@ export async function runTest(env: Env, written: Test, opts: RunOptions): Promis
 function decide(test: Test, walked: Walked): Pick<TestResult, "outcome" | "reason"> {
   if (walked.blocked) return { outcome: "unverified", reason: `Blocked: ${walked.blocked}` };
   const line = (i: number) => {
-    return `Line ${i + 1}, “${sentence(test.steps[i]!)}”: ${walked.steps[i]!.note || (walked.steps[i]!.status === "skipped" ? "not reached" : "didn't work")}`;
+    return `“${sentence(test.steps[i]!)}”: ${walked.steps[i]!.note || (walked.steps[i]!.status === "skipped" ? "not reached" : "didn't work")}`;
   };
   const failed = walked.steps.findIndex((s) => s.status === "fail");
   if (failed >= 0) return { outcome: "failed", reason: line(failed) };
@@ -128,7 +129,7 @@ function decide(test: Test, walked: Walked): Pick<TestResult, "outcome" | "reaso
 }
 
 /** Does the setup once and saves where it left the browser. `storageState` is set when every line was done. */
-export async function runSetup(env: Env, setup: NonNullable<Suite["setup"]>, opts: RunOptions & { saveTo: string }): Promise<{ steps: LineResult[]; storageState?: string; why?: string }> {
+export async function runSetup(env: Env, setup: NonNullable<Suite["setup"]>, opts: RunOptions & { saveTo: string }): Promise<{ steps: LineResult[]; storageState?: string; why?: string; stuck?: SetupStuck }> {
   const what: Walkable = { id: "setup", name: "Setup", goal: "Start every test as a user who is already in.", ...setup };
   let saved = false;
   const walked = await walk(env, what, opts, async (session) => {
@@ -137,6 +138,8 @@ export async function runSetup(env: Env, setup: NonNullable<Suite["setup"]>, opt
   });
   if (saved) return { steps: walked.steps, storageState: opts.saveTo };
   const at = walked.steps.findIndex((s) => s.status !== "pass");
-  const why = walked.blocked ? `Blocked: ${walked.blocked}` : `Line ${at + 1}, “${setup.steps[at]!.do}”: ${walked.steps[at]!.note || "didn't work"}`;
-  return { steps: walked.steps, why };
+  if (walked.blocked) return { steps: walked.steps, why: `Blocked: ${walked.blocked}`, stuck: { reason: `The app shut us out: ${walked.blocked}` } };
+  const note = walked.steps[at]!.note;
+  const stuck: SetupStuck = { line: at + 1, sentence: setup.steps[at]!.do, reason: note || "It didn't work.", fix: note?.includes(NO_LIVE_KEY) ? "funds" : undefined };
+  return { steps: walked.steps, why: `At the step “${setup.steps[at]!.do}”: ${note || "didn't work"}`, stuck };
 }

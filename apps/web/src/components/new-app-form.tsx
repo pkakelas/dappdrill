@@ -5,7 +5,7 @@ import { ArrowRight, Check, Clock, Globe, Network, ScanSearch } from "lucide-rea
 import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createAppAction } from "@/actions/apps";
 import { HintRows, LiveKeyField, useHints } from "@/components/app-hints";
-import { FundsField, UnforkableNote, type FundsWay } from "@/components/funds-field";
+import { FundsField, type FundsWay } from "@/components/funds-field";
 import { chainNote, RpcField, TestnetTick, useRpcCheck } from "@/components/rpc-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,7 +53,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   const [rpcUrl, setRpcUrl] = useState("");
   const [ticked, setTicked] = useState(false);
   const [liveKey, setLiveKey] = useState("");
-  const [way, setWay] = useState<FundsWay>("funding");
+  const [way, setWay] = useState<FundsWay>("key");
   const answers = useHints();
   const rpcInput = useRef<HTMLInputElement>(null);
   const { site, open, looking, missed } = useSite(url);
@@ -73,12 +73,14 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   const testnet = Boolean(known?.testnet || (askTestnet && ticked));
   // A chain that can't be forked runs for real, so it needs a way to get test funds before anything else.
   const unforkable = known?.forkable === false;
-  const live = testnet && Boolean(liveKey.trim());
+  // A key typed and then left for "tell us how" isn't sent, so it doesn't count.
+  const hasKey = Boolean(liveKey.trim()) && !(unforkable && way === "funding");
+  const live = testnet && hasKey;
   const name = resolvedId === undefined ? undefined : chainName(resolvedId);
   const rpcError = rpc.status === "bad" ? rpc.error : other && rpc.status === "idle" && state?.inline ? "Add the chain's RPC URL." : undefined;
   const customized = wallet !== DEFAULT_WALLET || chainId !== DETECT;
   // Hints already typed stay in view if the URL then changes, since they still get submitted.
-  const hints = open || answers.started || Boolean(liveKey.trim());
+  const hints = open || answers.started || hasKey;
 
   // Not action={act}: React resets a form after its action runs, and on an error that puts the chain back on Detect.
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -230,19 +232,16 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
               )}
 
               {unforkable && (
-                <div className="flex animate-in flex-col gap-4 duration-200 fade-in-0 slide-in-from-top-1">
-                  <UnforkableNote chain={name ?? "This chain"} />
-                  <FundsField
-                    way={way}
-                    onWay={setWay}
-                    funding={answers.funding}
-                    onFunding={answers.setFunding}
-                    liveKey={liveKey}
-                    onKey={setLiveKey}
-                    required
-                    className="gap-2"
-                  />
-                </div>
+                <FundsField
+                  chain={name ?? "This chain"}
+                  way={way}
+                  onWay={setWay}
+                  funding={answers.funding}
+                  onFunding={answers.setFunding}
+                  liveKey={liveKey}
+                  onKey={setLiveKey}
+                  className="animate-in duration-200 fade-in-0 slide-in-from-top-1"
+                />
               )}
 
               {rpcError ? (
@@ -268,7 +267,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
           <div className="-mx-1 min-h-0 overflow-hidden px-1 pb-1">
             <HintRows
               hints={answers}
-              hasKey={Boolean(liveKey.trim())}
+              hasKey={hasKey}
               keyField={testnet && !unforkable && <LiveKeyField value={liveKey} onChange={setLiveKey} />}
               fundsRow={!unforkable}
               shown={hints}

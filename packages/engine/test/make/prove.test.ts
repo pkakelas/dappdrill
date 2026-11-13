@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { outcomeOf, sentence, Test, TestResult, type LineResult } from "@dappdrill/core";
+import { Doubt } from "../../src/make/doubt.js";
 import { prove, type ProveInput } from "../../src/make/prove.js";
 import { Repair } from "../../src/make/repair.js";
 
@@ -34,8 +35,9 @@ function ran(test: Test, letters: Letters, more: { redo?: boolean; outcome?: Tes
 }
 
 /** Proves `drafted` against runs and repairs given in order. Says what was asked of the repairer. */
-async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs: object[] = [], problems: ProveInput["problems"] = []) {
+async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs: object[] = [], problems: ProveInput["problems"] = [], doubts?: object[]) {
   const asked: Parameters<ProveInput["repair"]>[0][] = [];
+  const doubted: Parameters<NonNullable<ProveInput["doubt"]>>[0][] = [];
   const notes: string[] = [];
   let r = 0;
   const proved = await prove({
@@ -53,8 +55,14 @@ async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs
       if (!fix) throw new Error("more repairs than expected");
       return Repair.parse({ why: "because", ...fix });
     },
+    doubt: doubts && (async (input) => {
+      doubted.push(input);
+      const second = doubts[doubted.length - 1];
+      if (!second) throw new Error("more second looks than expected");
+      return Doubt.parse(second);
+    }),
   });
-  return { proved, asked, notes, runsLeft: runs.length - r };
+  return { proved, asked, doubted, notes, runsLeft: runs.length - r };
 }
 
 const lines = (test: Test) => test.steps.map(sentence);
@@ -179,7 +187,7 @@ describe("prove", () => {
     const reword = (n: number) => ({ verdict: "test", edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: `The total is right, try ${n}.` } }] });
     const { proved, asked } = await proving(["ppf", "ppf", "ppf", "ppf", "ppf"], [1, 2, 3, 4].map(reword));
     expect(asked).toHaveLength(4);
-    expect(proved).toMatchObject({ proven: false, why: expect.stringMatching(/^Still not steady after 4 repairs\. Line 3/) });
+    expect(proved).toMatchObject({ proven: false, why: expect.stringMatching(/^Still not steady after 4 repairs\. “/) });
   });
 
   it("stops after seven runs", async () => {
@@ -187,6 +195,30 @@ describe("prove", () => {
     const { proved } = await proving(["ppp", "ppf", "ppp", "ppf", "ppp", "ppf", "ppp"], [refused, refused, refused]);
     expect(proved).toMatchObject({ proven: false, why: "Still not steady after 7 runs." });
     expect(proved.runs).toHaveLength(7);
+  });
+
+  it("keeps a failing test when a second look agrees, and asks once about a fault two lines stand on", async () => {
+    const { proved, doubted } = await proving(["pff", "pff", "pff"], [{ verdict: "app", finding: fault }, { verdict: "app", known: 1 }], [], [{ verdict: "app", why: "The page says 3 rows and a total of 0." }]);
+    expect(proved).toMatchObject({ proven: true, stands: "failed", findings: [{ ...fault, proven: true }] });
+    expect(doubted).toHaveLength(1);
+    expect(doubted[0]).toMatchObject({ line: 1, finding: fault });
+  });
+
+  it("puts a line another way when a second look doesn't put its failing on the app", async () => {
+    const reword = { verdict: "test", edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: "A total is shown." } }] };
+    const { proved, asked, doubted, runsLeft } = await proving(["ppf", "ppf", "ppf", "ppp", "ppp"], [{ verdict: "app", finding: fault }, reword], [], [{ verdict: "other", why: "The rows are the test wallet's own." }]);
+    expect(proved).toMatchObject({ proven: true, stands: "passed", findings: [], dismissed: ["The rows are the test wallet's own."] });
+    expect(lines(proved.test)[2]).toBe("A total is shown.");
+    expect(proved.repairs.join("\n")).toMatch(/a second look didn't put it on the app: The rows are the test wallet's own\./);
+    expect(asked[1]).toMatchObject({ line: 2, objection: "The rows are the test wallet's own." });
+    expect(doubted).toHaveLength(1);
+    expect(runsLeft).toBe(0);
+  });
+
+  it("doesn't keep a failing test a second look can't put on the app, when it can't be put another way", async () => {
+    const { proved } = await proving(["ppf", "ppf", "ppf"], [{ verdict: "app", finding: fault }, { verdict: "cant-tell" }], [], [{ verdict: "other", why: "Nothing on the page says what the total should be." }]);
+    expect(proved).toMatchObject({ proven: false, findings: [] });
+    expect(proved.why).toMatch(/fails every time, and a second look didn't put it on the app: Nothing on the page/);
   });
 
   it("doesn't take a repair that breaks the test, and runs it again as it was", async () => {

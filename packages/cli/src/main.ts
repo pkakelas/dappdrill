@@ -1,19 +1,16 @@
 import { Command, CommanderError } from "commander";
-import { CONDITIONS } from "@dappdrill/core";
-import { UsageError, collect } from "./files.js";
-import { analyzeCommand } from "./commands/analyze.js";
+import { UsageError } from "./files.js";
+import { makeCommand } from "./commands/make.js";
 import { runCommand } from "./commands/run.js";
 import { targetOptions } from "./commands/target.js";
 
 const TESTS_FILE = ".dappdrill/tests.json";
-const UNHAPPY = "add the usual conditions (rejected in wallet, slow RPC, …) to tests that ask the wallet to sign";
-const CONDITION = `add this condition too (repeatable): ${CONDITIONS.filter((c) => c.id !== "happy").map((c) => c.id).join(", ")}`;
 
 const EXIT_CODES = `
 Exit codes:
   0  everything passed
   1  a test failed, or a signature was Dangerous (even on a test that passed)
-  2  the only problem is a test that couldn't run, a run that was stopped, nothing ran, or DappDrill itself (bad flags, blocked, no tests found)`;
+  2  the only problem is a test that couldn't be verified, a run that was stopped, nothing ran, or DappDrill itself (bad flags, blocked, no tests)`;
 
 function action<A extends unknown[]>(fn: (...args: A) => Promise<number>) {
   return async (...args: A) => {
@@ -31,20 +28,16 @@ const program = new Command("dappdrill").description("Tests for web3 apps, run o
 
 targetOptions(
   program
-    .command("analyze")
-    .description("Use the app for about two minutes, write tests for the main things users do, then run them.")
+    .command("make")
+    .description("Look at the app and make a test for each thing users do there. A test is kept once it goes the same way twice in a row.")
     .argument("<url>", "the app's URL")
-    .option("--file <path>", "where to write the tests", TESTS_FILE)
-    .option("--hints <text>", "where things are, what to use")
-    .option("--max-minutes <n>", "time to spend looking around")
-    .option("--conditions, --unhappy", UNHAPPY)
-    .option("--condition <id>", CONDITION, collect, [])
-    .option("--no-run", "only write the tests")
-    .option("--junit <file>", "write JUnit XML")
-    .option("--force", "replace an existing tests file"),
+    .option("--file <path>", "the tests file to write, or to add to", TESTS_FILE)
+    .option("--count <n>", "how many goals to make a test for (10 unless said)")
+    .option("--goal <text>", "make one test, for this goal, instead of looking")
+    .option("--start <path>", "with --goal: the page the test starts on"),
 )
-  .addHelpText("after", EXIT_CODES)
-  .action(action((url: string, flags) => analyzeCommand(url, flags)));
+  .addHelpText("after", "\nExits 0 when a test was added to the file, 2 when none was.")
+  .action(action((url: string, flags) => makeCommand(url, flags)));
 
 targetOptions(
   program
@@ -53,8 +46,6 @@ targetOptions(
     .argument("[file]", "tests file", TESTS_FILE)
     .option("--url <url>", "run against this URL instead, e.g. a preview deploy")
     .option("--only <text>", "only tests whose name contains this")
-    .option("--conditions, --unhappy", UNHAPPY)
-    .option("--condition <id>", CONDITION, collect, [])
     .option("--junit <file>", "write JUnit XML"),
 )
   .addHelpText("after", EXIT_CODES)

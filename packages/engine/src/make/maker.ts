@@ -1,13 +1,15 @@
 /**
  * Making a test: a goal goes in, a proven test comes out. A model does the goal once and writes the
  * test as sentences (draft.ts); the test is then run and put right until it goes the same way twice
- * in a row (prove.ts).
+ * in a row (prove.ts). A test that fails every time is only kept when a second look agrees the app is
+ * at fault (doubt.ts).
  */
 import path from "node:path";
-import type { DrillEventSink, LineResult, Test } from "@dappdrill/core";
+import type { DrillEventSink, LineResult, SetupStuck, Test } from "@dappdrill/core";
 import { refuseOnLiveMainnet } from "../chain/controller.js";
 import { openSuite, type RunSuiteInput } from "../run/suite.js";
-import { draftTest } from "./draft.js";
+import { doubt, ours } from "./doubt.js";
+import { draftTest, type Finding } from "./draft.js";
 import { prove, type Proved } from "./prove.js";
 import { repair } from "./repair.js";
 
@@ -15,12 +17,16 @@ export interface MakeInput extends RunSuiteInput {
   goal: string;
   /** Where to begin looking. The test may start elsewhere. */
   startPath?: string;
+  /** What looked wrong earlier, when the goal is to find out whether it is. */
+  suspicion?: Finding;
 }
 
 export interface Made extends Omit<Proved, "test"> {
   /** The test as it stands at the end, when one was written. `why` says why there is none. */
   test?: Test;
   setup?: LineResult[];
+  /** The setup didn't finish, so the goal was never tried. The next goal would end the same way. */
+  stuck?: SetupStuck;
   draftUsd: number;
   costUsd: number;
   durationMs: number;
@@ -33,10 +39,11 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
   const open = await openSuite(input, sink, { refuseApprove: (r, env) => refuseOnLiveMainnet(env.chains, r) });
   const { env } = open;
   let draftUsd = 0;
-  const done = (more: Partial<Proved>): Made => ({ proven: false, notes: [], findings: [], repairs: [], runs: [], ...more, setup: open.setup, draftUsd, costUsd: env.costUsd(), durationMs: Date.now() - t0 });
+  const done = (more: Partial<Proved> & Pick<Made, "stuck">): Made => ({ proven: false, notes: [], findings: [], repairs: [], dismissed: [], runs: [], ...more, setup: open.setup, draftUsd, costUsd: env.costUsd(), durationMs: Date.now() - t0 });
   try {
-    if (open.stuck) return done({ why: open.stuck });
+    if (open.stuck) return done({ why: open.stuck, stuck: open.stuckAt ?? { reason: open.stuck } });
     const notes = open.opts.notes!;
+    const set = ours(env);
 
     say(`Drafting: ${input.goal}`);
     const draft = await draftTest(env, {
@@ -45,6 +52,8 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       storageState: open.opts.storageState,
       notes,
       existing: suite.tests.map((t) => t.name),
+      suspicion: input.suspicion,
+      ours: set,
       artifactsDir: path.join(artifactsDir, "draft"),
       refuseApprove: open.opts.refuseApprove,
       signal: input.signal,
@@ -62,7 +71,9 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       problems: draft.problems,
       notes,
       run: (t) => open.run(t),
-      repair: (asked) => repair(env.fastLlm(), { ...asked, artifactsDir }),
+      repair: (asked) => repair(env.fastLlm(), { ...asked, ours: set, artifactsDir }),
+      // The thinking model: it is asked once or twice a test, and only for a test about to be kept as failing.
+      doubt: (asked) => doubt(env.thinkLlm(), { ...asked, ours: set, artifactsDir }),
       say,
     });
     return done({ ...proved, notes: [...draft.notes, ...proved.notes] });

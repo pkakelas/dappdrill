@@ -3,7 +3,7 @@
  *
  *   pnpm suite <url> <suite.json> [--runs n] [--only text] [--chain id[=rpc]]… [--target file] [--headed]
  *
- * --target is a target.json that `pnpm drill` kept for the app (see dev/target.ts).
+ * --target is a target.json kept for the app (see dev/target.ts).
  *
  * Results and artifacts go under .drill/suites/<host>/<time>/, one result-<n>.json per run.
  */

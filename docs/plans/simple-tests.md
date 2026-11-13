@@ -2,7 +2,9 @@
 
 Status: a plan, its decisions and its open questions, written 2026-11-12 from a read of the code at `a92c44f`.
 Stages 1 to 3 of the build order are built and measured on Harbor Vault (below). The test maker and the look
-(stage 5) are built too and were tried on Harbor Vault and on pod's staging app. The rest is still a plan.
+(stage 5) are built too and were tried on Harbor Vault and on pod's staging app. Stage 6 is done as well:
+the database, the worker, the web app and the CLI run on the new maker and runner, and the old pass is
+deleted. Conditions (stage 4, the unhappy paths) are not built.
 
 ## What is built (2026-11-12)
 
@@ -13,11 +15,14 @@ Stages 1 to 3 of the build order are built and measured on Harbor Vault (below).
   `fixtures/pod/tests.json` (ten tests, 69 lines, on pod's own chain with the one kept account).
 - A test can name `values` picked afresh on every run and a `cleanup` done when it stopped half way.
 - `pnpm suite <url> <suite.json> [--runs n] [--only text] [--target file]` prints every line's result, time
-  and cost. `--target` is a `target.json` that `pnpm drill` kept: its accounts, chains and inbox.
+  and cost. `--target` is a `target.json` kept for the app: its accounts, chains and inbox.
 - The test maker: `packages/engine/src/make/` (`draft.ts`, `prove.ts`, `repair.ts`, `maker.ts`), exported as
   `makeTest`. `pnpm make <url> <suite.json> "<goal>"` adds the test to the suite file once it is proven.
 - The look: `make/look.ts`, exported as `lookForGoals`. `pnpm look <url> <suite.json>` prints the goals and
   adds its notes to the suite file.
+- From an app to its tests: `make/tests.ts`, exported as `makeTests`, behind `pnpm tests`. A test that fails
+  every time is kept only after a second look (`make/doubt.ts`), and what looked wrong on the way gets a
+  test of its own. Both are under "Draft, prove, repair" and "What looked wrong becomes a test".
 - `Suite.notes`, what the page said (`browser/said.ts`) and, on a line that didn't pass, the page's text
   (`LineResult.page`), all described under "The test maker" below.
 - Two suites the maker wrote: `fixtures/harbor-vault/made.json` (six tests) and `fixtures/pod/made.json`
@@ -44,8 +49,29 @@ and $0.24. With every seeded bug off it passed 7 of 7 in each of four runs. With
 network, a second account, low gas, a slow RPC, two wallets), which the new runner doesn't have yet.
 
 Not built: conditions, `needs`, the heavier code checks (an amount by the token's decimals, a balance against
-the chain, prices), a maker for the setup, and moving the worker, the web app and the CLI over. Until those
-move, the old pipeline stays.
+the chain, prices) and a maker for the setup.
+
+The product on it (2026-11-12):
+
+- Database: an app row holds its settings and its suite (setup, notes, what may be signed); `tests`,
+  `test_runs` and `makes` are tables (migrations `0020_drop_old_pass`, `0021_simple_tests`). The old
+  tests, runs, explorations and assistant messages are dropped, not converted.
+- Worker: `make.run` (the look, a make per goal, progress and a live frame kept on the `makes` row, each
+  kept test and its proof runs written as they come) and `tests.run` (a batch through `runSuite`, a
+  line's result saved as it is done, recordings a model worked out kept for the next run).
+- Web: adding an app starts a make; the app page shows it going, then the tests and the goals that got
+  no test with why; a test page has its lines, the last run's result for each, the fault it fails on,
+  the signatures and an editor; Run all, Run against another URL, Add test, Make more tests; the runs
+  list and a page per run; settings hold the setup, what may be signed and what was learned.
+- CLI: `dappdrill make <url>` writes `.dappdrill/tests.json`, `dappdrill run` runs it and writes
+  `results.json`, `summary.md` and JUnit. Exit 0 passed, 1 failed or a Dangerous signature, 2 the rest.
+- The canned engine (`DAPPDRILL_FAKE_ENGINE=1`) speaks the new shape, and the web app was walked through
+  on it end to end. The real engine has been run through `pnpm tests` and the CLI's code path, not yet
+  from the web app.
+
+Gone with the old pass and not rebuilt: conditions on a test (reject, slow RPC, wrong network, low gas),
+kept checks, the Bugs and Checks tabs, the assistant, duplicating and re-recording a test, the repeat
+benchmark and `pnpm drill`. `bench/` keeps its data only.
 
 ## The shape
 
@@ -90,6 +116,10 @@ account that isn't reset gets back what the test left on it).
   action, and in a fresh browser the wallet isn't connected, so the figure isn't on the page yet. The
   setup runs once, its browser storage and wallet connection are saved, and every test starts from them.
   Forks are put back to that point after every test.
+- When the setup doesn't finish while tests are being made, making stops there: the next goal would end the
+  same way. The make says once where it stopped (`MakeState.stuck`: the step's sentence, the reason, and
+  `fix: "funds"` when the owner can put it right with test funds), and the goals not reached stay waiting.
+  The page and the email name the step by its sentence, never by a line number.
 
 Outcome: Passed when every line passed. Failed when a check failed or the app would not let an
 action be done. Couldn't verify when a check answered "can't tell", an action couldn't be done for a
@@ -317,8 +347,29 @@ The aim is a **stable** test, not a green one. A test that fails the same way tw
 doesn't do what the goal asks is kept as it is: that is a bug found. What the maker may never do is make
 a check pass by weakening it without saying so.
 
+**Caution, at the one place a fault is claimed.** A wrong bug report costs the owner's trust in every
+other, so three things stand between a failing line and a test kept as failing. None of them is a rule
+about an app.
+
+- *Evidence.* "The app is wrong" needs something that shows it: the app's own words that it then goes
+  against, figures that don't add up, a transaction that reverted, a wallet request that differs from
+  what the page said, something the user was told had happened that isn't there. That the goal or a
+  line expected otherwise is not enough: then the line is wrong.
+- *Ours ruled out.* The drafter, the repairer and the second look are told what we set up (`ours` in
+  `doubt.ts`): the wallet and the funds we put in it, which chains are local copies, that the app's own
+  servers still read the real chain. What the app does because of those is not its fault and a test may
+  not depend on it.
+- *A second look* (`doubt.ts`). When a test has failed the same way twice and is about to be kept, the
+  thinking model, which wrote none of it, is asked once for each fault whether the app is at fault or
+  another explanation is at least as likely. When it doesn't agree, the finding is dropped, the
+  repairer is told why and has to put the line another way, and the proving goes on. When it can't be
+  put another way the test is not kept, and the reason is the second look's sentence.
+
+So nothing new reaches the user: a test is kept passing, kept failing on a fault a second look agreed
+with, or not kept with one sentence saying why.
+
 Limits: seven runs and four changes to the test. Running again to find out, and leaving a line to fail,
-are not changes; the seven runs limit those. A recording that had to be made three times is given up and
+are not changes; the seven runs limit those. A rewording after a second look is a change. A recording that had to be made three times is given up and
 the action stays a model's. A recording that lost one of the run's values is not kept. Cleanup lines are
 always a model's. Out of budget, the test comes back unproven with the reason and isn't added to the
 suite.
@@ -332,8 +383,29 @@ wallet request is refused, so it fills a form to see what it asks and stops ther
 for the maker that says who the user is, what they do and how it ends, most important first: what the app
 is for, the way back out of each, what the app must refuse, what a user is told when they say no in the
 wallet. It starts as the set-up user, is told which pages the app links to, and is sent back once when it
-hands in with a linked page unopened. It is the one place the thinking model is used. At most twelve goals,
-leaving out what the suite's tests already cover.
+hands in with a linked page unopened. It uses the thinking model, as the second look does. At most twelve
+goals, leaving out what the suite's tests already cover.
+
+### What looked wrong becomes a test
+
+There is one noun. A fault is never shown by itself: it is the reason a test fails. So whatever looked
+wrong and has no failing test yet is handed back to the maker as a goal (`makeTests` in `make/tests.ts`):
+
+- The look may hand in up to three things that looked wrong, each with what it saw and a goal.
+- A drafter or a repairer that sees a fault the test doesn't fail on (seen in passing, or gone round)
+  writes it down with a goal a test of its own could be made from (`Finding.goal`).
+- After the look's goals, each of these gets a make of its own, at most three a pass, the same thing
+  once. The drafter is told what was seen and to find out for itself.
+- Its test is kept only when it fails the same way twice and the second look agrees. When the app does
+  it right the test passes, and nothing is kept: a thing seen once that can't be made to fail again is
+  let go.
+
+This is what the Bugs and Checks tabs and the confirm stage were for in the old pipeline.
+
+Three makes go at a time when every chain is a local copy (each has its own copies and its own
+browser), and one at a time on a live chain, where the tests share an account (`TOGETHER`, or
+`pnpm tests --together n`). Side by side, a make doesn't have what the ones beside it learn: their
+notes and tests reach the makes that start after they end. Unit-tested; not yet tried on a real app.
 
 ### Pieces
 
@@ -341,9 +413,10 @@ leaving out what the suite's tests already cover.
   `LineResult.recorded`, `withRecordings`.
 - engine `browser/said.ts`; `run/` gives notes to doers and takes a wallet refusal; `openSuite` shares the
   setup and the fresh-state run between `runSuite` and the maker.
-- engine `make/`: `draft.ts` (the walker and what it writes), `prove.ts` (the loop, with the runner and the
-  repairer passed in, so it is tested with scripted runs), `repair.ts`, `maker.ts` (ties them to a suite),
-  `look.ts`.
+- engine `make/`: `draft.ts` (the walker and what it writes), `prove.ts` (the loop, with the runner, the
+  repairer and the second look passed in, so it is tested with scripted runs), `repair.ts`, `doubt.ts`,
+  `maker.ts` (ties them to a suite), `look.ts`, `tests.ts` (the look, a make for each goal, a make for
+  each thing that looked wrong).
 - `pnpm make <url> <suite.json> "<goal>"` writes the test and the new notes into the suite file and prints
   the report. `pnpm look <url> <suite.json>` prints goals.
 
@@ -448,11 +521,84 @@ Failed, 240 s, $0.33. All of it: 32 minutes, $5.71. What it showed:
 
 - Max puts the whole ETH balance in the amount, so the test fails on "leaves ETH for gas". The page then says
   "Quote unavailable", but the fork wallet holds 100 ETH and the quote may be refused for its size, so what
-  follows the full balance is not shown.
+  follows the full balance is not shown. This was kept as a failing test, and it shouldn't have been: see
+  the three trials below.
 - Seen, with no test failing on it: Swap history rounds the received amount down (0.009 against a quote of 0.009962).
 - No goal used the wallet's 100 USDC, the one route with an approval first.
 - A fresh browser shows "No swaps yet" after the same wallet bridged on the fork, so the history is kept in the browser.
 - The setup stays a sentence a model does on every run (14 s, $0.02). Every action in the tests replays by code; of the $0.33 a run costs, $0.31 is checks by a model.
+
+**The second look and a test for what looked wrong, tried on the same app** (three makes with `pnpm make`,
+two of them with `--seen`):
+
+| Goal | The repairer | The second look | What is kept | Time, cost |
+| --- | --- | --- | --- | --- |
+| Max leaves ETH for gas | the app is wrong | no: the app never says Max leaves gas, nothing was sent, and no quote for 100 ETH is our wallet | nothing, with that sentence | 157 s, $0.63 |
+| Swap history shows the quoted amount (seen: 0.009 against 0.009962) | the app is wrong | no: the detail page of the same order says 0.009962, so the list cuts to three decimals | nothing: reworded, it passed, and a suspicion that passes isn't kept | 264 s, $0.88 |
+| A recipient pasted with spaces gets a quote or is refused (the one bug the old pipeline confirmed) | the app is wrong | yes | a test that fails on it, 6 lines | 314 s, $0.63 |
+
+- The repairer called all three the app's fault, with the evidence rule in its prompt. Telling the author
+  to be careful is not enough: the second look is what decided.
+- The second look costs one call of the thinking model, about ten seconds, and one run when it disagrees.
+- The history one is the cost of caution. A list that shows 0.009 for 0.009962 can fairly be called
+  sloppy; it was let go as a choice the app made. What is let go is a sentence in the make's report
+  (`dismissed`), so it can be shown, but nothing shows it yet.
+- The Max test was taken out of `fixtures/axelar/tests.json` and the padded-recipient test put in: seven
+  tests, 61 lines. One run: six Passed, one Failed (run twice, as every failure is), 301 s, $0.41.
+
+Then the whole way with `pnpm tests --count 2` into an empty suite: 18 minutes, $4.13. The look (216 s,
+$1.31) gave its goals and one thing that looked wrong; five makes followed, two for the goals and three
+for what looked wrong.
+
+- Bridge 0.01 ETH to USDC on Base: proven passing, no repair.
+- Bridge 5 USDC to USDC on Base: given up by the drafter. After the approval the button stays on "Awaiting
+  confirmation…", and it put that on the app's server reading the real chain, where the allowance is
+  still 0. Told what is ours, it didn't call it a fault.
+- "A fee of $0.04 is shown and 5 axlUSDC arrive for 5 USDC" (from the look): the repairer said the app was
+  wrong, the second look said the page never says where the fee is taken, the line was taken out. The
+  test that was left then failed twice for another reason, the signing review calling the Permit2 request
+  dangerous (an unverified proxy as spender), and was kept on that. That path, a run where every line
+  passes and the wallet was asked for something dangerous, does not go through the second look. Whether
+  "no verified source" was true or we had no explorer key to find out was not checked.
+- "The order page still says Awaiting deposit" came back from two makes in different words and got two
+  makes, both passing and not kept: $1.02 for nothing. Fixed: what a look into something sees is not
+  queued again, and a goal already tried isn't tried twice.
+- A reworded test keeps its name ("…and check the fee adds up" no longer checks that).
+
+**Pod staging again, the whole way from the URL** (`pnpm tests --count 5 --target` on the kept account, into
+an empty suite, after the changes above): 70 minutes, $14.23, exit 0. The look took 109 s and $1.09 and
+gave five goals; three things that looked wrong on the way got a make each. Two tests were kept.
+
+| Goal | Came out | Runs, repairs | Time | Cost |
+| --- | --- | --- | --- | --- |
+| A $20 limit Long on Apple below market, then cancelled | Kept, passes | 3, 0 | 302 s | $1.30 |
+| An open Apple limit order far below market is cancelled | Kept, passes | 4, 1 | 462 s | $1.65 |
+| A $20 market Long on Apple | Not steady after 7 runs (5 failed, 2 passed) | 7, 6 | 996 s | $2.45 |
+| A $20 market Short on Apple | Not steady after 7 runs (all failed) | 7, 7 | 601 s | $1.92 |
+| Close a long from Home | Not steady after 7 runs (all failed) | 7, 9 | 675 s | $2.00 |
+| Looked wrong: the margin preview for $20 at 5× | Not steady after 7 runs; the last run passed | 7 | 332 s | $1.41 |
+| Looked wrong: daily change differs between Explore and the trade page | Let go: the app did it right when tried again | 3 unverified first | 199 s | $1.05 |
+| Looked wrong: Home keeps showing a closed Apple position | Failed the same way 4 times; the second look didn't put it on the app | 4 | 411 s | $1.12 |
+
+The two kept tests run as a suite in 110 s for $0.25, both Passed (45 s and 47 s).
+
+- **Market orders are where it loses.** Three makes and 33 minutes for nothing. The cause is the same in
+  all three: Home's Holdings shows a new or closed position only after a full reload, "Order submitted"
+  is on the button for a moment, and a run that failed half way left an Apple position that changed the
+  next run. The repairer kept rewording lines (`shows` to `said`, a reload before a check) and each
+  rewording was a new test to prove. The first pod trial got the market Long kept, on the leverage
+  figure; this one never got that far.
+- **The second look held on a real question.** "Home keeps showing a closed position" failed four times
+  in the same way, and the second look said Home reads positions from a cache that a full reload
+  refreshes, and the app never promised otherwise. Nothing was kept. A stale list after an order is the
+  same thing the first trial reported; pod may well call it a bug. It is in the make's `dismissed`.
+- **Nothing but DelegationAuth was signed**: 56 `eth_signTypedData_v4` requests, each "Check this". No
+  deposit permit, no mint, no withdrawal.
+- The last runs of the Short and the close-from-Home makes stopped at "The Apple row is gone from
+  Holdings" and their cleanup did not run, so the kept account may still hold an Apple position of about
+  $20. Not checked afterwards.
+- Seven runs is the limit that ended four of eight makes. A make that is still changing lines at run
+  five is not converging, and stopping it there would have saved about a third of the time.
 
 What the trials changed in the maker, none of it about pod:
 
@@ -469,8 +615,6 @@ What the trials changed in the maker, none of it about pod:
 
 What is still weak:
 
-- A finding the test goes round, or one seen in passing, has no failing test. It could be handed back to
-  the maker as a goal of its own.
 - The maker's notes on Harbor Vault said little a page doesn't say. The rule was tightened ("most tests
   add none"); nothing prunes notes yet.
 - The drafter sometimes checks a notice with `shows` when it is gone a moment later. The repairer is now
@@ -488,14 +632,14 @@ What is still weak:
    tests, and the suites above as files. Done when the suites parse.
 2. **The runner.** Walk the list: replay or model for actions, code or model for checks, the
    read before for `changes`, values, the verdict. Reuses `runStep`, `replayScript`,
-   `evaluateCheck` and the judge. `pnpm drill run` takes a suite file.
+   `evaluateCheck` and the judge. `pnpm suite` takes a suite file.
 3. **Measure.** Harbor Vault: every test passes on `?bugs=none`, and with each bug on, the right
-   test fails. Pod: ten runs through `bench/src/repeat.ts`, no wrong Failed.
+   test fails. Pod: ten runs with `pnpm suite --runs 10`, no wrong Failed.
 4. **Conditions on the new runner.** Reject and wrong network first.
 5. **The maker and the look.** Built (see "The test maker"). Their target was the hand-written
    suites: on Harbor Vault and on pod they come back with tests that do the same job.
-6. **Worker, database, web, CLI.** Switch them over, then delete the old pass, the Bugs and
-   Checks tabs, the second look and the assistant.
+6. **Worker, database, web, CLI.** Built: all four are switched over, and the old pass, the Bugs and
+   Checks tabs, the old second look and the assistant are deleted. Stage 4 was skipped on the way.
 
 Stages 1 to 3 touch the engine and core only. Nothing a user sees changes until stage 6.
 
@@ -680,10 +824,11 @@ without an answer. A line starting "Lean:" is what I would do, not something dec
 ### Moving over
 
 38. **Stored tests.** The `tests` table, app setups, `.drill/`, and tests files committed in
-    users' repos by the CLI. A converter covers them; does the CLI file need a version?
-39. **Old explorations and runs.** Six explorations. Drop them, or keep them readable?
-40. **The fake engine** (771 lines, for UI work) has to speak the new shape.
-41. **The repeat benchmark** reads today's result type and has to follow.
+    users' repos by the CLI. Settled by dropping: no converter was written, migration `0020` empties the
+    old tests and runs, and an old CLI tests file doesn't parse. Does the CLI file need a version?
+39. **Old explorations and runs.** Dropped with the old pass.
+40. **The fake engine** speaks the new shape.
+41. **The repeat benchmark** is deleted; `pnpm suite --runs n` does its job.
 42. **This branch is two commits behind main.**
 43. **Engine edits restart the dev worker** and end a running pass.
 

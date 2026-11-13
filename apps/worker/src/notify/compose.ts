@@ -1,10 +1,8 @@
 import { fingerprint, type SigningReview } from "@dappdrill/core";
 
-/** Where something happened: reads "Test · Condition". */
+/** Where something happened. */
 export interface Place {
   testName: string;
-  /** Set for a condition row: the condition's name. */
-  condition?: string;
 }
 
 export interface Regression extends Place {
@@ -31,8 +29,8 @@ const MAX_LINES = 6;
 
 /**
  * What makes two signatures the same one, across runs and tests. The review's `fingerprint`
- * can't: it differs between the agent and saved actions, and between a test and its
- * conditions, and it ignores the spender. Amounts stay out because quotes move between runs.
+ * can't: it differs between a model's actions and recorded ones, and it ignores the spender.
+ * Amounts stay out because quotes move between runs.
  */
 export function signatureKey(r: SigningReview): string {
   const { decoded: d } = r;
@@ -50,11 +48,11 @@ export function signatureKey(r: SigningReview): string {
 
 /**
  * The Dangerous signatures in a batch the organization hasn't been told about, one per signature
- * however many tests asked for it. Named after a test rather than a condition when it can be.
+ * however many tests asked for it.
  */
 export function newDangerous(results: (Place & { reviews: SigningReview[] })[], told: Set<string>): DangerousSignature[] {
   const found = new Map<string, DangerousSignature>();
-  for (const { reviews, ...place } of [...results].sort((a, b) => Number(!!a.condition) - Number(!!b.condition))) {
+  for (const { reviews, ...place } of results) {
     const keys = new Set<string>();
     for (const r of reviews) {
       const key = signatureKey(r);
@@ -68,11 +66,9 @@ export function newDangerous(results: (Place & { reviews: SigningReview[] })[], 
   return [...found.values()];
 }
 
-const placeText = (p: Place) => `${p.testName}${p.condition ? ` · ${p.condition}` : ""}`;
-
 function dangerousLine(d: DangerousSignature): string {
   const others = d.others ? ` (and ${d.others} other ${d.others === 1 ? "test" : "tests"})` : "";
-  return `Dangerous signature in ${placeText(d)}${others}: ${d.title}`;
+  return `Dangerous signature in ${d.testName}${others}: ${d.title}`;
 }
 
 /**
@@ -89,7 +85,7 @@ export function composeAlert(input: { appName: string; regressions: Regression[]
     regressions.length && (against ? `${tests} failed on ${against}` : `${tests} stopped passing`),
   ];
   const title = `${input.appName}: ${parts.filter(Boolean).join(", ")}`;
-  const lines = [...dangerous.map(dangerousLine), ...regressions.map((r) => `${placeText(r)}${r.failure ? `: ${r.failure}` : ""}`)];
+  const lines = [...dangerous.map(dangerousLine), ...regressions.map((r) => `${r.testName}${r.failure ? `: ${r.failure}` : ""}`)];
   const shown = lines.slice(0, MAX_LINES);
   if (lines.length > MAX_LINES) shown.push(`and ${lines.length - MAX_LINES} more`);
   return { title, lines: shown, link: input.link };

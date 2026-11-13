@@ -1,6 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, lt, notInArray } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
-import { conditionInfo } from "@dappdrill/core";
+import { and, desc, eq, inArray, lt, notInArray } from "drizzle-orm";
 import { decrypt, integrations, member, signingAlerts, testRuns, tests, user, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
 import { errorMessage, logger } from "../log.js";
@@ -9,7 +7,6 @@ import { sendEmail, sendSlack, sendTelegram } from "./channels.js";
 import { composeAlert, newDangerous, type Alert, type Regression } from "./compose.js";
 
 const log = logger("notify");
-const base = alias(tests, "base");
 
 /**
  * After a batch: tell the organization about tests that failed now and passed the time before,
@@ -20,34 +17,30 @@ const base = alias(tests, "base");
 export async function notifyBatch(db: Db, app: AppRow, runIds: string[], url?: string): Promise<Alert | null> {
   if (runIds.length === 0) return null;
   const results = await db
-    .select({ testId: testRuns.testId, status: testRuns.status, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name, baseName: base.name, condition: tests.condition })
+    .select({ testId: testRuns.testId, status: testRuns.status, createdAt: testRuns.createdAt, result: testRuns.result, testName: tests.name })
     .from(testRuns)
     .innerJoin(tests, eq(tests.id, testRuns.testId))
-    .leftJoin(base, eq(base.id, tests.baseId))
     .where(inArray(testRuns.id, runIds));
-
-  // A condition row is named "Test · Condition", like everywhere else.
-  const placeOf = (run: (typeof results)[number]) => ({ testName: run.baseName ?? run.testName, condition: run.condition ? conditionInfo(run.condition).name : undefined });
 
   const against = url ? hostOf(url) : undefined;
   const regressions: Regression[] = [];
-  for (const run of results.filter((r) => r.status === "fail")) {
+  for (const run of results.filter((r) => r.status === "failed")) {
     if (against) {
-      regressions.push({ ...placeOf(run), failure: run.result?.failure });
+      regressions.push({ testName: run.testName, failure: run.result?.reason });
       continue;
     }
     const [previous] = await db
       .select({ status: testRuns.status })
       .from(testRuns)
-      .where(and(eq(testRuns.testId, run.testId), notInArray(testRuns.id, runIds), lt(testRuns.createdAt, run.createdAt), isNotNull(testRuns.finishedAt), inArray(testRuns.status, ["pass", "fail"])))
+      .where(and(eq(testRuns.testId, run.testId), notInArray(testRuns.id, runIds), lt(testRuns.createdAt, run.createdAt), inArray(testRuns.status, ["passed", "failed"])))
       .orderBy(desc(testRuns.createdAt))
       .limit(1);
-    if (previous?.status === "pass") regressions.push({ ...placeOf(run), failure: run.result?.failure });
+    if (previous?.status === "passed") regressions.push({ testName: run.testName, failure: run.result?.reason });
   }
 
   const told = await db.select({ key: signingAlerts.key }).from(signingAlerts).where(eq(signingAlerts.appId, app.id));
   const dangerous = newDangerous(
-    results.map((r) => ({ ...placeOf(r), reviews: r.result?.signingReviews ?? [] })),
+    results.map((r) => ({ testName: r.testName, reviews: r.result?.signingReviews ?? [] })),
     new Set(told.map((t) => t.key)),
   );
 

@@ -1,130 +1,87 @@
-import { briefGoal, conditionInfo, formatDuration, oursBroke, setAside, settle, SETUP_WHEN_LABEL, signingOf, stepSigns, walletUse, type AppSetup, type SecondLook, type SetupRunResult, type TestRunResult, type TestStep } from "@dappdrill/core";
-import { db, latestRuns, notWritten, settledRuns, specOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
-import { and, asc, desc, eq } from "drizzle-orm";
-import { Check, Wallet, X } from "lucide-react";
+import { formatDuration, sentence, type LineResult, type TestResult } from "@dappdrill/core";
+import { db, testOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
+import { and, desc, eq } from "drizzle-orm";
+import { Bug } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteTestAction } from "@/actions/tests";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ConfirmButton } from "@/components/confirm-button";
-import { LookReport } from "@/components/explore/bugs";
-import { ConditionFork } from "@/components/tests/condition-branches";
-import { AddConditions } from "@/components/tests/conditions";
-import { Duplicate } from "@/components/tests/duplicate";
+import { TestEditor } from "@/components/tests/lines-editor";
 import { RunButton } from "@/components/tests/run-button";
-import { RemoveCheck } from "@/components/tests/remove-check";
-import { ConsoleErrors, IssueList, Panel, WalletActivity } from "@/components/tests/run-details";
-import { StepList } from "@/components/tests/setup-steps";
-import { SigningFlag } from "@/components/tests/signing-flag";
-import { SpecEditor } from "@/components/tests/spec-editor";
-import { isActive, OUR_ERROR, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, type TestState } from "@/components/tests/status";
-import { WriteTest } from "@/components/tests/write-test";
+import { Panel, SigningReviews } from "@/components/tests/run-details";
+import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, type TestState } from "@/components/tests/status";
+import { SigningFlag } from "@/components/tests/test-card";
 import { cx } from "@/components/ui";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo, TRIGGER_LABEL } from "@/lib/format";
 import { requireApp } from "@/lib/session";
 
 type Params = { appId: string; testId: string };
+type Line = ReturnType<typeof testOf>["steps"][number];
 
 async function load(appId: string, testId: string) {
-  await requireApp(appId);
+  const { role } = await requireApp(appId);
   const [test] = await db()
     .select()
     .from(tests)
     .where(and(eq(tests.id, testId), eq(tests.appId, appId)));
   if (!test) notFound();
-  return test;
+  return { test, role };
 }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { appId, testId } = await params;
-  return { title: specOf(await load(appId, testId)).name };
+  return { title: (await load(appId, testId)).test.name };
 }
 
-export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string; add?: string }> }) {
-  const { appId, testId } = await params;
-  const { run: runParam, add } = await searchParams;
-  const test = await load(appId, testId);
-  const { app } = await requireApp(appId);
-  const [[base], children, history, [forkedFrom]] = await Promise.all([
-    test.baseId ? db().select().from(tests).where(eq(tests.id, test.baseId)) : Promise.resolve([]),
-    test.baseId ? Promise.resolve([]) : db().select().from(tests).where(eq(tests.baseId, test.id)).orderBy(asc(tests.position)),
-    db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15),
-    test.forkedFrom ? db().select({ id: tests.id, name: tests.name }).from(tests).where(eq(tests.id, test.forkedFrom)) : Promise.resolve([]),
-  ]);
-  const childIds = children.map((c) => c.id);
-  const [childLatest, childSettled] = await Promise.all([latestRuns(db(), childIds), settledRuns(db(), childIds)]);
-  const childReads = new Map(children.map((c) => [c.id, readTest(c, childLatest.get(c.id), childSettled.get(c.id))]));
+const SETTLED = new Set<TestRunRow["status"]>(["passed", "failed", "unverified"]);
 
-  const spec = specOf(test);
+export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string }> }) {
+  const { appId, testId } = await params;
+  const { run: runParam } = await searchParams;
+  const { test } = await load(appId, testId);
+  const history = await db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15);
+
+  const spec = testOf(test);
   const latest = history[0];
   // The status reads from the latest finished result; a queued, running or stopped run shows beside it.
-  const settled = history.find((r) => (r.status === "pass" || r.status === "fail" || r.status === "error" || r.status === "skipped") && !oursBroke(r));
-  const run = (runParam && history.find((r) => r.id === runParam)) || settled || latest;
-  const viewingOld = run && settled && run.id !== settled.id && run.id !== latest?.id;
-  const state = readTest(test, latest, settled);
-  const runState = run ? run.status : "never";
+  const settled = history.find((r) => SETTLED.has(r.status));
+  const state = readTest(latest, settled);
+  const picked = runParam ? history.find((r) => r.id === runParam) : undefined;
+  // While a run is on, the page follows it; otherwise it shows the last result.
+  const run = picked ?? (state.active ? latest : (settled ?? latest));
+  const viewingOld = picked && picked.id !== latest?.id && picked.id !== settled?.id;
   const result = run?.result ?? undefined;
-  // Whose failure the run on screen is: the test's when a second look said so, and nobody's when the app doesn't offer the goal at all.
-  const look = runState === "fail" ? result?.secondLook : undefined;
-  const aside = setAside(run, !test.draftNote);
-  const failed = aside ? "skipped" : look?.verdict === "test" ? "input" : "fail";
-  const steps: TestStep[] = base ? base.steps : test.steps;
-  const childActive = children.some((c) => isActive(childReads.get(c.id)!));
-  const condition = test.condition ? conditionInfo(test.condition) : undefined;
-  const signing = signingOf(result?.signingReviews.map((r) => r.verdict) ?? []);
-  const wallet = walletUse(test.steps);
-  const forks = !test.baseId && (
-    <ConditionFork appId={appId} tests={children} reads={childReads} runs={childSettled}>
-      {wallet === "signs" && <AddConditions testId={test.id} existing={children.flatMap((c) => (c.condition ? [c.condition] : []))} startOpen={add === "conditions"} />}
-    </ConditionFork>
-  );
   const url = (path?: string | null) => (run ? artifactUrl("runs", run.batchId, path) : null);
+  // Lines edited since the run no longer line up with its results.
+  const lined = result && result.steps.length === spec.steps.length ? result.steps : undefined;
 
   return (
     <div className="page flex flex-col gap-8">
-      {(isActive(state) || childActive) && <AutoRefresh every={2000} />}
+      {state.active && <AutoRefresh every={2000} />}
 
       <header className="flex flex-col gap-4">
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
           <Link href={`/apps/${appId}`} className="hover:text-foreground">
             Tests
           </Link>
-          {base && (
-            <>
-              <span aria-hidden="true">/</span>
-              <Link href={`/apps/${appId}/tests/${base.id}`} className="hover:text-foreground">
-                {base.name}
-              </Link>
-            </>
-          )}
         </nav>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{spec.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-pretty">{test.name}</h1>
             <p className={cx("flex flex-wrap items-center gap-x-2 gap-y-1", STATE_TEXT[state.mark])}>
               <StateMark state={state.mark} />
-              <span>{notWritten(test) ? "Not tested yet" : readLabel(state)}</span>
+              <span>{readLabel(state)}</span>
               {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
-              {settled?.startedAt && settled.finishedAt && <span className="text-muted-foreground">· took {formatDuration(settled.finishedAt.getTime() - settled.startedAt.getTime())}</span>}
-              <SigningFlag signing={signing} className="before:mr-2 before:content-['·'] before:text-muted-foreground" />
-              {forkedFrom && (
-                <span className="text-muted-foreground">
-                  · duplicated from{" "}
-                  <Link href={`/apps/${appId}/tests/${forkedFrom.id}`} className="underline underline-offset-4 hover:text-foreground">
-                    {forkedFrom.name}
-                  </Link>
-                </span>
-              )}
+              {settled?.result && <span className="text-muted-foreground">· took {formatDuration(settled.result.durationMs)}</span>}
+              <SigningFlag reviews={settled?.result?.signingReviews ?? []} />
             </p>
-            {state.draft && state.settled !== "skipped" && <p className="text-sm text-muted-foreground">{test.draftNote !== settled?.result?.failure && test.draftNote} It doesn&apos;t run on a schedule until it passes.</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {notWritten(test) ? <WriteTest testId={test.id} primary /> : <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary={state.settled !== "skipped"} disabled={state.drafting} />}
-            {!test.baseId && !state.drafting && <Duplicate testId={test.id} />}
+            <RunButton target={{ appId, testIds: [test.id] }} active={Boolean(state.active)} stopIds={[test.id]} label="Run" size="md" primary />
             <ConfirmButton className={buttonVariants({ variant: "outline", size: "sm" })} onConfirm={deleteTestAction.bind(null, test.id)}>
               Delete
             </ConfirmButton>
@@ -132,14 +89,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </div>
       </header>
 
-      {test.drafting && (
-        <div className="flex items-center gap-3 rounded-xl border border-dashed bg-card px-5 py-4">
-          <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-muted-foreground/50" />
-          <p className="text-muted-foreground">Writing this test from “{briefGoal(test.drafting).replace(/\.$/, "")}”. It runs as soon as the steps are ready.</p>
-        </div>
-      )}
-
-      {viewingOld && (
+      {viewingOld && run && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-5 py-3 text-muted-foreground">
           <span>
             Showing the result from {timeAgo(run.createdAt)} ({STATE_LABEL[run.status].toLowerCase()}).
@@ -150,143 +100,70 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </div>
       )}
 
-      {result?.blame === "ours" ? (
-        <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
-          <strong className="font-medium text-foreground">{OUR_ERROR}</strong> {result.failure}
+      {result?.reason && run && (run.status === "failed" || run.status === "unverified") && (
+        <div role="status" className={cx("flex flex-col gap-1 rounded-xl border px-5 py-4 leading-relaxed", run.status === "failed" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}>
+          <p>{result.reason}</p>
+          {result.rerun && <p className="text-sm opacity-80">It was run a second time before it counted{result.firstReason && result.firstReason !== result.reason ? `. The first time: ${result.firstReason}` : ", and went the same way."}</p>}
         </div>
-      ) : (
-        result?.failure &&
-        // A failure the second look put on the test is said once, by the look; the step keeps the detail.
-        failed === "fail" &&
-        (runState === "fail" || runState === "error") && (
-          <div
-            role="status"
-            className={cx("rounded-xl border px-5 py-4 leading-relaxed", runState === "fail" ? "border-bad-line bg-bad-soft text-bad-ink" : "border-warn-line bg-warn-soft text-warn-ink")}
-          >
-            {result.failure}
-          </div>
-        )
       )}
-      {look && <Checked look={look} aside={aside && app.name} checking={state.checking && run?.id === settled?.id} expected={spec.expected} failure={result?.failure} />}
-      {runState === "skipped" && (
-        <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
-          <strong className="font-medium text-foreground">Doesn&apos;t apply here.</strong> {result?.failure ?? "This condition can't be set up for this test."} It is left out of the counts.
-        </div>
+
+      {test.faults.length > 0 && (
+        <section className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm">
+          <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Bug className="size-4" aria-hidden="true" />
+            {state.settled === "passed" ? "This test was kept because it failed on a bug. It passes now." : "This test fails on a bug in the app"}
+          </h2>
+          {test.faults.map((f, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <p className="font-medium text-pretty">{f.what}</p>
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+                {f.expected && (
+                  <>
+                    <dt className="text-muted-foreground">Expected</dt>
+                    <dd className="text-pretty">{f.expected}</dd>
+                  </>
+                )}
+                {f.saw && (
+                  <>
+                    <dt className="text-muted-foreground">The app</dt>
+                    <dd className="text-pretty">{f.saw}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          ))}
+        </section>
       )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-6">
-          {condition && base ? (
-            // A condition row has nothing of its own to edit: steps and goal are the test's, name and expected the condition's.
-            <div className="flex flex-col gap-6">
-              <p className="rounded-xl bg-fork-bg/50 px-4 py-3 text-muted-foreground">
-                Runs the steps of{" "}
-                <Link href={`/apps/${appId}/tests/${base.id}`} className="underline underline-offset-4 hover:text-foreground">
-                  {base.name}
-                </Link>{" "}
-                under the condition <strong className="font-semibold text-foreground">{condition.name}</strong>. Edit the test to change what runs.
-              </p>
-              <Block label="Goal">{base.goal}</Block>
-              <Block label="Expected result">
-                {condition.expected}
-                <Verdict result={result} />
-              </Block>
-              {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-              <Steps steps={steps} result={result} url={url} />
-            </div>
-          ) : (
-          <SpecEditor
+          <TestEditor
             testId={test.id}
-            spec={{ name: test.name, goal: test.goal, expected: test.expected, steps: test.steps.map((s) => s.text) }}
-            stepsFixed={false}
-            disabled={Boolean(test.drafting)}
+            canEdit={!state.active}
+            test={{ name: test.name, goal: test.goal, startPath: test.startPath, lines: spec.steps.map((l) => ({ type: l.type, text: sentence(l) })) }}
             view={
               <div className="flex flex-col gap-6">
-                <Block label="Goal">{test.goal || <span className="text-muted-foreground">Not written yet</span>}</Block>
-                <Block label="Expected result">
-                  {test.expected || <span className="text-muted-foreground">Not written yet</span>}
-                  <Verdict result={result} />
-                </Block>
-                {result?.setup && <SetupRun appId={appId} run={result.setup} setup={app.setup} url={url} />}
-                <Steps
-                  steps={steps}
-                  result={result}
-                  url={url}
-                  failed={failed}
-                  forks={forks}
-                  wallet={test.baseId ? undefined : wallet}
-                  hasConditions={children.length > 0}
-                  removeCheck={test.drafting ? undefined : (i, j) => <RemoveCheck testId={test.id} step={i} check={j} />}
-                />
-                {test.after && test.after.length > 0 && <Cleanup after={test.after} run={result?.after} url={url} />}
+                <Block label="Goal">{test.goal}</Block>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Lines <span className="font-normal">· starts on {test.startPath}</span>
+                  </span>
+                  <Lines lines={spec.steps} results={lined} values={result?.values} running={run?.status === "running"} url={url} />
+                  {result && !lined && <p className="text-sm text-muted-foreground">The test was edited after this result, so the lines don&apos;t show how each went. Run it again.</p>}
+                </div>
+                {spec.cleanup.length > 0 && <Cleanup lines={spec.cleanup} results={result?.cleanup} url={url} />}
               </div>
             }
           />
-          )}
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5">
           <Media run={run} result={result} url={url} />
-          {result && <IssueList result={result} />}
-          {result && <WalletActivity result={result} />}
-          {result && <ConsoleErrors result={result} />}
-
-          {history.length > 1 && <History appId={appId} testId={test.id} runs={history} selected={run?.id} checked={!test.baseId} passedBefore={!test.draftNote} />}
+          {result && <SigningReviews reviews={result.signingReviews} />}
+          {history.length > 1 && <History appId={appId} testId={test.id} runs={history} selected={run?.id} />}
         </aside>
       </div>
     </div>
-  );
-}
-
-/** What the judge or the proof check said about the expected result, under it. */
-/** What the second look at a failure said: still on it, the app's bug, the test's fault, or not sure. */
-function Checked({ look, aside, checking, expected, failure }: { look: SecondLook; aside: string | false; checking: boolean; expected: string; failure?: string }) {
-  // Set aside: quiet, because it asks for nothing.
-  if (aside)
-    return (
-      <div role="status" className="rounded-xl bg-muted px-5 py-4 leading-relaxed text-muted-foreground">
-        <strong className="font-medium text-foreground">{aside} doesn&apos;t offer this, so it shouldn&apos;t be a test.</strong> {look.reason} It doesn&apos;t run with the others and is left out of the counts. There is nothing for you to do.
-      </div>
-    );
-  if (look.verdict === "app")
-    return (
-      <section className="flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-medium text-pretty">{look.bug?.name ?? "The app did the wrong thing"}</h2>
-        <LookReport look={look} expected={expected} failure={failure} />
-      </section>
-    );
-  if (look.verdict === "test")
-    return (
-      <div role="status" className="rounded-xl border border-warn-line bg-warn-soft px-5 py-4 leading-relaxed text-warn-ink">
-        <strong className="font-medium">The app is fine, the test was wrong.</strong> {look.reason}
-      </div>
-    );
-  return (
-    <div role="status" className={cx("rounded-xl px-5 py-4 leading-relaxed", checking ? "bg-live-soft text-live-ink" : "bg-muted text-muted-foreground")}>
-      {checking ? (
-        "Checking again in a fresh browser. Nothing for you to do yet."
-      ) : (
-        <>
-          <strong className="font-medium text-foreground">Not confirmed when checked again in a fresh browser.</strong> {look.verdict === "unsure" ? look.reason : "The check didn't report back."}
-        </>
-      )}
-    </div>
-  );
-}
-
-function Verdict({ result }: { result?: TestRunResult }) {
-  if (!result?.verdict && !result?.before) return null;
-  return (
-    <>
-      {/* On a live chain the figures the expected result is about, as the page showed them before the first step: what a change was judged against. */}
-      {result.before && <span className="mt-2 text-sm text-muted-foreground">Before the test: {result.before}</span>}
-      {result.verdict && (
-        <span className={cx("mt-2 flex gap-2", result.verdict.ok ? "text-muted-foreground" : "text-bad")}>
-          {result.verdict.ok ? <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <X className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
-          <span>{result.verdict.reason}</span>
-        </span>
-      )}
-    </>
   );
 }
 
@@ -294,137 +171,75 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <p className="flex flex-col leading-relaxed">{children}</p>
+      <p className="leading-relaxed text-pretty">{children}</p>
     </div>
   );
 }
 
-function Steps({
-  steps,
-  result,
-  url,
-  failed,
-  forks,
-  wallet,
-  hasConditions,
-  removeCheck,
-}: {
-  failed?: "fail" | "input" | "skipped";
-  steps: TestStep[];
-  result?: TestRunResult;
-  url: (p?: string | null) => string | null;
-  forks?: React.ReactNode;
-  wallet?: ReturnType<typeof walletUse>;
-  hasConditions?: boolean;
-  /** A way to take the check at `check` off step `step`; none where the steps aren't this test's to edit. */
-  removeCheck?: (step: number, check: number) => React.ReactNode;
-}) {
-  if (steps.length === 0)
-    return (
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-muted-foreground">Steps</span>
-        <p className="text-muted-foreground">Not written yet.</p>
-      </div>
-    );
-  // Conditions bite on the main transaction, the last thing signed (the deposit, not the approval before it).
-  const branchAt = steps.findLastIndex(stepSigns);
+/** A line's words with this run's values in place of their names, so the page reads as what was done. */
+function filled(text: string, values?: Record<string, string>) {
+  if (!values) return text;
+  return text.replace(/\{\{(\w+)\}\}/g, (whole, name: string) => values[name] ?? whole);
+}
+
+/** The lines of a test in order, each with how it went in the run on screen. */
+function Lines({ lines, results, values, running, url }: { lines: Line[]; results?: LineResult[]; values?: Record<string, string>; running?: boolean; url: (p?: string | null) => string | null }) {
+  // While a run is on, the first line with no result yet is the one being done.
+  const at = running && results ? results.findIndex((r) => r.status === "skipped") : -1;
   return (
-    <TooltipProvider>
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-muted-foreground">Steps</span>
-        <StepList
-          className="overflow-hidden rounded-xl border bg-card shadow-xs"
-          failed={failed}
-          steps={steps.map((s, i) => ({
-            text: s.text,
-            result: result?.steps[i],
-            shot: url(result?.steps[i]?.screenshot),
-            signs: stepSigns(s),
-            // A check kept since the run has no result yet; the names say which result is whose.
-            checks: s.checks?.map((c, j) => ({ name: c.name, result: result?.steps[i]?.checks?.find((r) => r.name === c.name), remove: removeCheck?.(i, j) })),
-            after: wallet === "signs" && i === branchAt ? <div id="conditions" className="scroll-mt-24">{forks}</div> : undefined,
-          }))}
-        />
-        {/* A test that is set aside is never going to reach the wallet, so there is nothing to wait for. */}
-        {wallet && wallet !== "signs" && failed !== "skipped" && (
-          <div className="flex flex-col gap-2 px-1 pt-1">
-            {hasConditions && forks}
-            <p className="flex gap-2 text-sm text-muted-foreground">
-              <Wallet className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-              {wallet === "none" ? "This test never asks the wallet to sign, so conditions have nothing to change." : "Conditions unlock once a run of this test reaches the wallet."}
-            </p>
-          </div>
-        )}
-      </div>
-    </TooltipProvider>
+    <ol className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
+      {lines.map((line, i) => {
+        const r = results?.[i];
+        const state: TestState = i === at ? "running" : r ? LINE_STATE[r.status] : "never";
+        const shot = url(r?.screenshot);
+        const bad = r?.status === "fail" || r?.status === "unsure";
+        return (
+          <li key={i} className="flex gap-3 px-4 py-3">
+            <StateMark state={state} label={i === at ? "Running" : r ? LINE_LABEL[r.status] : "No result"} className="mt-0.5" />
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <p className="text-pretty">
+                <span className="mr-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{line.type === "check" ? "Check" : "Do"}</span>
+                {filled(sentence(line), values)}
+              </p>
+              {r?.note && (bad || line.type === "check") && <p className={cx("text-sm text-pretty", r.status === "fail" ? "text-bad" : r.status === "unsure" ? "text-warn" : "text-muted-foreground")}>{r.note}</p>}
+              {r?.redone && <p className="text-sm text-pretty text-muted-foreground">The recorded actions stopped working, so it was worked out again: {r.redone}</p>}
+              {r && r.did.length > 0 && bad && <p className="text-xs text-pretty text-muted-foreground">{r.did.join(" · ")}</p>}
+            </div>
+            {shot && (
+              <a href={shot} target="_blank" rel="noreferrer" className="shrink-0 self-start overflow-hidden rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={shot} alt={`The page at line ${i + 1}`} loading="lazy" className="block h-12 w-20 object-cover object-top" />
+              </a>
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-/** On a live chain, what the test puts back after the result is judged. It never changes the result, so it's folded away unless it didn't finish. */
-function Cleanup({ after, run, url }: { after: TestStep[]; run?: TestRunResult["after"]; url: (p?: string | null) => string | null }) {
-  const ran = run && run.length === after.length ? run : undefined;
-  const failed = ran?.some((s) => s.status === "fail" || s.status === "skipped");
+/** What the test puts back afterwards. It never changes the result, so it's folded away unless it didn't finish. */
+function Cleanup({ lines, results, url }: { lines: Line[]; results?: LineResult[]; url: (p?: string | null) => string | null }) {
+  const ran = results && results.length === lines.length ? results : undefined;
+  const failed = ran?.some((s) => s.status !== "pass");
   return (
     <details open={failed} className="flex flex-col gap-2">
       <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-        {ran && <StateMark state={failed ? "error" : ran.some((s) => s.status === "running") ? "running" : "pass"} />}
         <span>Cleanup</span>
-        <span className="font-normal">· after the result, on the live chain{ran ? (failed ? <> · <span className="text-warn">didn&apos;t finish</span></> : " · done") : " · runs on the live chain only"}</span>
+        <span className="font-normal">· puts the account back after the result{ran ? (failed ? <> · <span className="text-warn">didn&apos;t finish</span></> : " · done") : ""}</span>
       </summary>
-      <div className="mt-2 flex flex-col gap-2">
-        <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={after.map((s, i) => ({ text: s.text, result: ran?.[i], shot: url(ran?.[i]?.screenshot) }))} />
+      <div className="mt-2">
+        <Lines lines={lines} results={ran} url={url} />
       </div>
     </details>
   );
 }
 
-/** What the app's setup did before this run: folded away unless it's why the test couldn't run. */
-function SetupRun({ appId, run, setup, url }: { appId: string; run: SetupRunResult; setup: AppSetup | null; url: (p?: string | null) => string | null }) {
-  // Steps edited since the run no longer line up with its results.
-  const texts = setup && setup.steps.length === run.steps.length ? setup.steps.map((s) => s.text) : run.steps.map((_, i) => `Step ${i + 1}`);
-  const notes = [
-    run.reused && "ran before an earlier test of this run; this test started from where it left off",
-    run.shared && "on a live chain this test also started from what earlier tests left",
-  ].filter(Boolean);
-  // The reset steps, when the setup has them or this run did them. Results line up only while the steps are as they were.
-  const resetTexts = setup?.reset?.map((s) => s.text) ?? [];
-  const reset = resetTexts.length > 0 ? resetTexts : (run.reset ?? []).map((_, i) => `Reset step ${i + 1}`);
-  const resetRan = run.reset && run.reset.length === reset.length ? run.reset : undefined;
-  const resetFailed = resetRan?.some((s) => s.status === "fail" || s.status === "skipped");
-  return (
-    <details open={!run.ok} className="group/setup flex flex-col gap-2">
-      <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-        <StateMark state={run.ok ? "pass" : run.steps.some((s) => s.status === "running") ? "running" : "error"} />
-        <span>Setup</span>
-        <span className="font-normal">
-          · {SETUP_WHEN_LABEL[run.when].toLowerCase()} · {run.ok ? "passed" : run.steps.some((s) => s.status === "running") ? "running" : <span className="text-warn">didn't finish</span>}
-        </span>
-      </summary>
-      <div className="mt-2 flex flex-col gap-2">
-        {notes.length > 0 && <p className="text-sm text-muted-foreground">It {notes.join("; ")}.</p>}
-        <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={texts.map((text, i) => ({ text, result: run.steps[i], shot: url(run.steps[i]?.screenshot) }))} />
-        {reset.length > 0 && (
-          <div className="mt-2 flex flex-col gap-2">
-            <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-muted-foreground">
-              {resetRan && <StateMark state={resetFailed ? "error" : resetRan.some((s) => s.status === "running") ? "running" : "pass"} />}
-              <span>Reset</span>
-              <span className="font-normal">· puts the account back after earlier runs{resetRan ? (resetFailed ? <> · <span className="text-warn">didn&apos;t finish</span></> : " · done") : " · didn't run this time"}</span>
-            </p>
-            <StepList className="overflow-hidden rounded-xl border bg-card shadow-xs" steps={reset.map((text, i) => ({ text, result: resetRan?.[i], shot: url(resetRan?.[i]?.screenshot) }))} />
-          </div>
-        )}
-        <Link href={`/apps/${appId}/settings#setup`} className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
-          Edit the setup
-        </Link>
-      </div>
-    </details>
-  );
-}
-
-function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult; url: (p?: string | null) => string | null }) {
+function Media({ run, result, url }: { run?: TestRunRow; result?: TestResult; url: (p?: string | null) => string | null }) {
   if (!run) return null;
   const running = run.status === "running";
-  const frame = running ? url(run.liveFrame) : url(result?.finalScreenshot);
+  const last = result?.steps.findLast((s) => s.screenshot)?.screenshot;
+  const frame = running ? url(run.liveFrame) : url(last);
   const video = !running ? url(result?.video) : null;
   if (!frame && !video)
     return running || run.status === "queued" ? (
@@ -448,12 +263,7 @@ function Media({ run, result, url }: { run?: TestRunRow; result?: TestRunResult;
 }
 
 /** Every result of this test, newest first. Each belongs to a run (a batch), which the Runs page lists. */
-function History({ appId, testId, runs, selected, checked, passedBefore }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string; checked: boolean; passedBefore: boolean }) {
-  // The same words as the test's own status: a failure reads as what the second look made of it.
-  const said = (r: TestRunRow): TestState => {
-    const s = settle(r, checked, passedBefore);
-    return s === "never" ? r.status : s;
-  };
+function History({ appId, testId, runs, selected }: { appId: string; testId: string; runs: TestRunRow[]; selected?: string }) {
   return (
     <Panel title="Results" count={runs.length}>
       <ul className="divide-y">
@@ -464,8 +274,8 @@ function History({ appId, testId, runs, selected, checked, passedBefore }: { app
               aria-current={r.id === selected ? "true" : undefined}
               className={cx("flex items-center gap-3 px-4 py-2 hover:bg-accent/50", r.id === selected && "bg-accent")}
             >
-              <StateMark state={said(r)} />
-              <span className={cx("flex-1", STATE_TEXT[said(r)])}>{STATE_LABEL[said(r)]}</span>
+              <StateMark state={r.status} />
+              <span className={cx("flex-1", STATE_TEXT[r.status])}>{STATE_LABEL[r.status]}</span>
               <span className="text-xs text-muted-foreground">{TRIGGER_LABEL[r.trigger]}</span>
               <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
             </Link>

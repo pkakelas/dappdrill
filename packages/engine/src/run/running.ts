@@ -1,8 +1,8 @@
 /** One test in progress: the open session and what has been gathered so far. */
 import { sentence, type Action, type Check, type LineResult, type SigningReview, type WalletRequest } from "@dappdrill/core";
 import type { EngineSession } from "../browser/session.js";
-import type { Env } from "../pipeline/env.js";
-import { debug } from "../pipeline/session.js";
+import type { Env } from "./env.js";
+import { debug } from "./session.js";
 import type { Hex } from "../types.js";
 import type { Reading } from "./code-check.js";
 

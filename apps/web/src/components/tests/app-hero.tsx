@@ -1,6 +1,6 @@
-import { shortAddress, type AppRollup, type WalletProfileId } from "@dappdrill/core";
+import { shortAddress, type WalletProfileId } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, GitFork, Mail, PenLine, Play, Radio, ScanSearch, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Check, CircleDashed, CircleQuestionMark, Mail, PenLine, Play, Radio, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
@@ -13,9 +13,21 @@ import { Tile, type TINT } from "./tile";
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/** How the app's tests stand: each by its latest finished result. */
+export interface Rollup {
+  total: number;
+  passed: number;
+  failed: number;
+  unverified: number;
+  notRun: number;
+  /** Signatures the review flagged in those results, each counted once. */
+  dangerous: number;
+  check: number;
+}
+
 /** How the tests are doing, worst first. A failed test is one the app got wrong. */
-function Verdict({ rollup }: { rollup: AppRollup }) {
-  const { failed, probable, needsInput, passed, total } = rollup.tests;
+function Verdict({ rollup }: { rollup: Rollup }) {
+  const { failed, unverified, passed, total } = rollup;
   const of = <span className="text-muted-foreground/70"> of {plural(total, "test")}</span>;
   if (failed > 0)
     return (
@@ -24,23 +36,13 @@ function Verdict({ rollup }: { rollup: AppRollup }) {
         {of}
       </>
     );
-  if (probable > 0)
+  if (unverified > 0)
     return (
       <>
-        <span className="text-bad">{probable} probably failed</span>
+        <span className="text-warn">{unverified} couldn&apos;t be verified</span>
         {of}
       </>
     );
-  if (needsInput > 0)
-    return (
-      <>
-        <span className="text-warn">
-          {needsInput} {needsInput === 1 ? "needs" : "need"} your input
-        </span>
-        {of}
-      </>
-    );
-  if (rollup.conditionsFailed > 0) return <span className="text-bad">{plural(rollup.conditionsFailed, "condition")} failed</span>;
   if (passed === 0) return <span className="text-muted-foreground">Not run yet</span>;
   if (passed === total) return <span className="text-good">{total === 1 ? "1 test passed" : `All ${total} tests passed`}</span>;
   return (
@@ -51,45 +53,21 @@ function Verdict({ rollup }: { rollup: AppRollup }) {
   );
 }
 
-/** What the checks came to: how many were made, and how many of them found a bug. */
-function Checked({ appId, checks, bugs }: { appId: string; checks: number; bugs: number }) {
-  const from = <span className="text-muted-foreground/70"> from {plural(checks, "check")}</span>;
-  if (bugs === 0)
-    return (
-      <>
-        <span className="text-good">No bugs</span>
-        {from}
-      </>
-    );
-  return (
-    <>
-      <Link href={`/apps/${appId}?tab=bugs`} scroll={false} className="rounded-sm text-bad outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
-        {plural(bugs, "bug")}
-      </Link>
-      {checks > 0 && from}
-    </>
-  );
-}
-
 /** The counts behind the headline, each with its own tile. */
-function stats({ tests, conditionsFailed, signing, untested }: AppRollup, running: number) {
-  const { passed, failed, probable, needsInput, notRun, total } = tests;
-  // When nothing has run, the headline already says so.
-  const waiting = notRun < total ? notRun + untested : 0;
+function stats({ passed, failed, unverified, notRun, total, dangerous, check }: Rollup, running: number) {
   const items: { icon: LucideIcon; tint: keyof typeof TINT; n: number; label: string }[] = [];
   if (running > 0) items.push({ icon: Play, tint: "live", n: running, label: "Running now" });
-  if (signing.dangerous > 0) items.push({ icon: PenLine, tint: "bad", n: signing.dangerous, label: signing.dangerous === 1 ? "Dangerous signature" : "Dangerous signatures" });
+  if (dangerous > 0) items.push({ icon: PenLine, tint: "bad", n: dangerous, label: dangerous === 1 ? "Dangerous signature" : "Dangerous signatures" });
   // The headline names the worst; what comes after it gets a tile.
-  if (failed > 0 && probable > 0) items.push({ icon: ScanSearch, tint: "bad", n: probable, label: "Probably failed" });
-  if (failed + probable > 0 && needsInput > 0) items.push({ icon: CircleQuestionMark, tint: "warn", n: needsInput, label: needsInput === 1 ? "Needs your input" : "Need your input" });
-  if (failed + probable + needsInput > 0 && conditionsFailed > 0) items.push({ icon: GitFork, tint: "fork", n: conditionsFailed, label: conditionsFailed === 1 ? "Condition failed" : "Conditions failed" });
-  if (signing.check > 0) items.push({ icon: PenLine, tint: "warn", n: signing.check, label: signing.check === 1 ? "Signature to check" : "Signatures to check" });
+  if (failed > 0 && unverified > 0) items.push({ icon: CircleQuestionMark, tint: "warn", n: unverified, label: "Couldn't verify" });
+  if (check > 0) items.push({ icon: PenLine, tint: "warn", n: check, label: check === 1 ? "Signature to check" : "Signatures to check" });
   if (passed > 0 && passed < total) items.push({ icon: Check, tint: "good", n: passed, label: "Passed" });
-  if (waiting > 0) items.push({ icon: CircleDashed, tint: "quiet", n: waiting, label: "Not run yet" });
+  // When nothing has run, the headline already says so.
+  if (notRun > 0 && notRun < total) items.push({ icon: CircleDashed, tint: "quiet", n: notRun, label: "Not run yet" });
   return items;
 }
 
-function Stats({ rollup, running }: { rollup: AppRollup; running: number }) {
+function Stats({ rollup, running }: { rollup: Rollup; running: number }) {
   const items = stats(rollup, running);
   if (items.length === 0) return null;
   return (
@@ -107,17 +85,11 @@ function Stats({ rollup, running }: { rollup: AppRollup; running: number }) {
   );
 }
 
-/**
- * The top of an app: what it is, how it's doing, and what you can do next. The headline is the two
- * things exploring gives: how the tests did, and what the checks found (`checked`).
- */
 /** The chain tests run on for real, when they don't run on a fork, and the account that pays there. */
 export interface LiveChain {
   name: string;
   /** The funded wallet, when the app has one, with what it holds ("0.42 ETH") when the chain answered. */
   wallet?: { address: string; balance?: string };
-  /** The latest runs signed with the app's own embedded wallet, not ours, so the funded wallet's balance isn't what they spend. */
-  embeddedSigner?: boolean;
   /** The owner said how a new account gets test funds, which is what runs do without a funded wallet. */
   funding?: boolean;
 }
@@ -145,7 +117,6 @@ function LiveNote({ appId, live }: { appId: string; live: LiveChain }) {
         {live.wallet ? (
           <>
             Every run leaves real orders, positions and transactions on this account.
-            {live.embeddedSigner && <> Tests sign with the app&apos;s own wallet, so this balance isn&apos;t what they spend.</>}
           </>
         ) : (
           <>
@@ -176,10 +147,10 @@ function Where({ url, wallet, chainId }: { url: string; wallet?: WalletProfileId
 }
 
 /**
- * The top of the page while a pass writes the tests: what is happening, how long it takes and who
+ * The top of the page while the app's first tests are made: what is happening, how long it takes and who
  * hears when it's done, and, on a chain that can't be forked, the account that pays.
  */
-function PassIntro({ appId, name, url, wallet, chainId, live, email }: { appId: string; name: string; url: string; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; email?: string }) {
+function MakingIntro({ appId, name, url, wallet, chainId, live, email }: { appId: string; name: string; url: string; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; email?: string }) {
   return (
     <header className="flex flex-col items-center gap-8 pt-4 text-center sm:pt-8">
       <div className="flex flex-col items-center gap-2.5">
@@ -197,7 +168,7 @@ function PassIntro({ appId, name, url, wallet, chainId, live, email }: { appId: 
               We&apos;ll email <span className="font-medium whitespace-nowrap">{email}</span> when the tests are ready.
             </>
           ) : (
-            "The tests show here as each one passes."
+            "Each test shows here as soon as it is proven."
           )}
         </IntroNote>
         {live && (
@@ -212,7 +183,7 @@ function PassIntro({ appId, name, url, wallet, chainId, live, email }: { appId: 
                 )}
                 .
                 <br />
-                {live.embeddedSigner ? "Tests sign with the app's own wallet, so this balance isn't what they spend." : "Every run leaves real orders, positions and transactions on it."}
+                Every run leaves real orders, positions and transactions on it.
               </>
             ) : (
               <>
@@ -230,9 +201,37 @@ function PassIntro({ appId, name, url, wallet, chainId, live, email }: { appId: 
   );
 }
 
-export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, rollup, checked, running, runs, action, writing }: { appId: string; name: string; url: string; lastRun?: Date; wallet?: WalletProfileId; chainId?: number; live?: LiveChain; rollup?: AppRollup; checked?: { checks: number; bugs: number }; running: number; runs: RunSummary[]; action?: ReactNode; writing?: { email?: string } }) {
-  if (writing) return <PassIntro appId={appId} name={name} url={url} wallet={wallet} chainId={chainId} live={live} email={writing.email} />;
-  const both = Boolean(rollup && rollup.tests.total > 0 && checked);
+/** The top of an app: what it is, how its tests stand, and what you can do next. */
+export function AppHero({
+  appId,
+  name,
+  url,
+  lastRun,
+  wallet,
+  chainId,
+  live,
+  rollup,
+  running,
+  runs,
+  action,
+  writing,
+}: {
+  appId: string;
+  name: string;
+  url: string;
+  lastRun?: Date;
+  wallet?: WalletProfileId;
+  chainId?: number;
+  live?: LiveChain;
+  /** Unset while there are no tests to count. */
+  rollup?: Rollup;
+  running: number;
+  runs: RunSummary[];
+  action?: ReactNode;
+  /** The app's first tests are being made: the page is a waiting room, not a report. */
+  writing?: { email?: string };
+}) {
+  if (writing) return <MakingIntro appId={appId} name={name} url={url} wallet={wallet} chainId={chainId} live={live} email={writing.email} />;
   // A chart of the last two weeks says nothing about an app that has only run today.
   const charted = new Set(runs.map((r) => Math.floor(r.createdAt.getTime() / DAY))).size > 1;
   return (
@@ -253,17 +252,8 @@ export function AppHero({ appId, name, url, lastRun, wallet, chainId, live, roll
       {rollup && (
         <div className={cx("grid items-center gap-x-10 gap-y-8", charted && "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]")}>
           <div className="flex min-w-0 flex-col gap-6">
-            <p className={cx("flex flex-col gap-1 font-semibold tracking-tight text-balance", both ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl")}>
-              {rollup.tests.total > 0 && (
-                <span>
-                  <Verdict rollup={rollup} />
-                </span>
-              )}
-              {checked && (
-                <span>
-                  <Checked appId={appId} {...checked} />
-                </span>
-              )}
+            <p className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+              <Verdict rollup={rollup} />
             </p>
             <Stats rollup={rollup} running={running} />
           </div>

@@ -7,7 +7,7 @@ import { DrillTarget, type ChainConfig } from "@dappdrill/core";
 export const fromCwd = (name: string) => path.resolve(process.env.INIT_CWD ?? ".", name);
 
 /**
- * `target` is a target.json that `pnpm drill` kept for the app: its test accounts, the chains it
+ * `target` is a target.json kept for the app: its test accounts, the chains it
  * learned and its inbox. Account A is then the key on chains that can't be forked, so an app that
  * makes a user of every new wallet sees the one it already knows. The file is only read.
  */

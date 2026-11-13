@@ -1,6 +1,6 @@
 import { DrillTarget, type ChainConfig, type DrillEventSink } from "@dappdrill/core";
 import type { Command } from "commander";
-import { UsageError, collect, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, readInitScripts } from "../files.js";
+import { UsageError, collect, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, readInitScripts, type TestsFile } from "../files.js";
 
 export interface TargetFlags {
   chain: string[];
@@ -14,7 +14,7 @@ export interface TargetFlags {
   out: string;
 }
 
-/** How to open the app: the same flags for `analyze` and `run`. */
+/** How to open the app: the same flags for `make` and `run`. */
 export function targetOptions(cmd: Command): Command {
   return cmd
     .option("--chain <id[=rpc]>", "chain to fork (repeatable); known chains need no RPC", collect, [])
@@ -28,15 +28,24 @@ export function targetOptions(cmd: Command): Command {
     .option("--headed", "show the browser");
 }
 
-export async function buildTarget(url: string, flags: TargetFlags, learnedChains: ChainConfig[] = []): Promise<DrillTarget> {
+/**
+ * `use` says what the chains in the tests file are for. Making tests looks again, so they are only
+ * chains to have ready. A run starts from them as they were when the tests were made, block and all,
+ * unless --chain names others.
+ */
+export async function buildTarget(url: string, flags: TargetFlags, use: "make" | "run", file?: Pick<TestsFile, "chains" | "tokens">): Promise<DrillTarget> {
   const liveKey = flags.liveKeyEnv ? process.env[flags.liveKeyEnv] : undefined;
   if (flags.liveKeyEnv && !liveKey) throw new UsageError(`${flags.liveKeyEnv} is not set.`);
+  const asked = flags.chain.map(parseChain);
+  const seen = file?.chains ?? [];
+  const given = flags.token.map(parseToken);
   const parsed = DrillTarget.safeParse({
     url,
-    chains: flags.chain.map(parseChain),
-    learnedChains,
+    chains: use === "run" && asked.length === 0 ? seen : asked,
+    learnedChains: use === "make" ? seen.filter((c) => c.fromApp).map(({ forkBlock: _, ...c }): ChainConfig => c) : [],
     liveKey,
-    tokens: flags.token.map(parseToken),
+    // A --token wins over what the wallet was given when the tests were made.
+    tokens: [...given, ...(file?.tokens ?? []).filter((t) => !given.some((g) => g.chainId === t.chainId && g.address.toLowerCase() === t.address.toLowerCase()))],
     initScripts: await readInitScripts(flags.initScript),
     headers: parseHeaders(flags.header),
     storage: parseStorage(flags.storage),
@@ -52,7 +61,7 @@ export const red = (s: string) => (useColour ? `\x1b[31m${s}\x1b[0m` : s);
 export const yellow = (s: string) => (useColour ? `\x1b[33m${s}\x1b[0m` : s);
 export const dim = (s: string) => (useColour ? `\x1b[2m${s}\x1b[0m` : s);
 
-/** The engine's log lines; frames and wallet chatter are left out. */
-export const logSink: DrillEventSink = (event) => {
-  if (event.type === "log") console.log(event.level === "info" ? dim(`  ${event.message}`) : red(`  ${event.message}`));
+/** The engine's warnings; frames, wallet chatter and its own progress notes are left out. */
+export const warnSink: DrillEventSink = (event) => {
+  if (event.type === "log" && event.level !== "info") console.log((event.level === "error" ? red : yellow)(`  ${event.message}`));
 };

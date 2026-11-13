@@ -1,4 +1,4 @@
-import { and, eq, gt, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, gt, isNotNull } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { apps, domains, queueRuns, testRuns, tests, type Db } from "@dappdrill/db";
 import { config } from "../config.js";
@@ -33,8 +33,7 @@ export async function scheduleTick(db: Db, boss: PgBoss, at = utcMinute()): Prom
       .limit(1);
     if (recent.length) continue;
 
-    // Drafts haven't passed yet, so they would only raise false alarms.
-    const ids = (await db.select({ id: tests.id }).from(tests).where(and(eq(tests.appId, app.id), isNull(tests.draftNote)))).map((t) => t.id);
+    const ids = (await db.select({ id: tests.id }).from(tests).where(eq(tests.appId, app.id))).map((t) => t.id);
     const batchId = await queueRuns(db, app.id, ids, "schedule");
     if (!batchId) {
       log.info(`${app.name}: no tests to run`);

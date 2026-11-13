@@ -2,37 +2,28 @@
  * Job contract shared with the web app (apps/web/src/lib/jobs.ts). The web writes the row first,
  * then sends its id:
  *
- *   "tests.run"      { batchId }     test_runs rows sharing the batch id, status "queued" (queueRuns in @dappdrill/db).
- *   "test-draft.run" { testId }      tests row with `drafting` = the developer's request; forkedFrom set for a fork.
- *   "agent.reply"    { messageId }   agent_messages row, role "agent", status "pending", after the user's message.
- *   "exploration.run" { explorationId } explorations row, status "queued".
+ *   "tests.run"  { batchId }  test_runs rows sharing the batch id, status "queued" (queueRuns in @dappdrill/db).
+ *   "make.run"   { makeId }   makes row, status "queued". With a goal it makes that one test; without, it
+ *                             looks over the app and makes a test for each goal it finds.
  *
- * Stopping is not a job: the web sets stop_requested on the exploration or run and the worker polls it.
+ * Stopping is not a job: the web sets stop_requested on the make or the runs and the worker polls it.
  */
 import { PgBoss, type Queue } from "pg-boss";
 
 export const QUEUES = {
   tests: "tests.run",
-  draft: "test-draft.run",
-  agent: "agent.reply",
+  make: "make.run",
   scheduleTick: "schedule.tick",
-  exploration: "exploration.run",
 } as const;
 
 /** How long a job waits before it looks again when another is on the app's live chain. */
 export const LIVE_RETRY_SECONDS = 30;
 
-export interface ExplorationJob {
-  explorationId: string;
-}
 export interface TestsJob {
   batchId: string;
 }
-export interface DraftJob {
-  testId: string;
-}
-export interface AgentJob {
-  messageId: string;
+export interface MakeJob {
+  makeId: string;
 }
 /** `at` ("HH:MM" UTC) overrides the current minute; handy for testing. */
 export interface ScheduleTickJob {
@@ -47,10 +38,8 @@ const HOUR = 3600;
  */
 const QUEUE_OPTIONS: Record<(typeof QUEUES)[keyof typeof QUEUES], Omit<Queue, "name">> = {
   "tests.run": { retryLimit: 0, expireInSeconds: 4 * HOUR },
-  "test-draft.run": { retryLimit: 0, expireInSeconds: 600 },
-  "agent.reply": { retryLimit: 0, expireInSeconds: HOUR / 4 },
+  "make.run": { retryLimit: 0, expireInSeconds: 6 * HOUR },
   "schedule.tick": { retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: HOUR },
-  "exploration.run": { retryLimit: 0, expireInSeconds: 3 * HOUR },
 };
 
 /**

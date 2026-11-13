@@ -26,7 +26,7 @@ const review = (patch: Record<string, unknown> = {}) =>
     ...patch,
   });
 
-const inClaim = (reviews: SigningReview[], condition?: string) => ({ testName: "Claim rewards", condition, reviews });
+const inClaim = (reviews: SigningReview[], testName = "Claim rewards") => ({ testName, reviews });
 
 describe("composeAlert", () => {
   it("stays quiet when nothing broke", () => {
@@ -38,14 +38,14 @@ describe("composeAlert", () => {
       appName: "Harbor",
       regressions: [
         { testName: "Withdraw everything", failure: "The Withdraw button stays disabled." },
-        { testName: "Deposit USDC", condition: "Slow RPC", failure: "The spinner never stops." },
+        { testName: "Deposit USDC", failure: "The spinner never stops." },
       ],
       link,
     })!;
     expect(alert.title).toBe("Harbor: 2 tests stopped passing");
     expect(alert.lines).toEqual([
       "Withdraw everything: The Withdraw button stays disabled.",
-      "Deposit USDC · Slow RPC: The spinner never stops.",
+      "Deposit USDC: The spinner never stops.",
     ]);
     expect(alertText(alert)).toContain(link);
   });
@@ -96,19 +96,11 @@ describe("newDangerous", () => {
     expect(newDangerous([inClaim([review()])], new Set([signatureKey(review())]))).toEqual([]);
   });
 
-  it("lists a signature once across a test and its conditions, under the test", () => {
-    const [found, ...rest] = newDangerous(
-      [inClaim([review()], "Slow RPC"), inClaim([review()]), inClaim([review(), review()], "Low gas")],
-      new Set(),
-    );
+  it("lists a signature once however many tests asked for it, under the first", () => {
+    const [found, ...rest] = newDangerous([inClaim([review()]), inClaim([review()], "Deposit USDC"), inClaim([review(), review()], "Withdraw")], new Set());
     expect(rest).toEqual([]);
-    expect(found).toMatchObject({ condition: undefined, others: 2 });
+    expect(found).toMatchObject({ testName: "Claim rewards", others: 2 });
     expect(composeAlert({ appName: "Harbor", regressions: [], dangerous: [found!], link })!.lines[0]).toContain("Claim rewards (and 2 other tests):");
-  });
-
-  it("names a condition when only a condition saw it", () => {
-    const dangerous = newDangerous([inClaim([review()], "Slow RPC")], new Set());
-    expect(composeAlert({ appName: "Harbor", regressions: [], dangerous, link })!.lines[0]).toContain("Claim rewards · Slow RPC:");
   });
 });
 

@@ -1,12 +1,14 @@
 "use server";
 
-import { EdgeCaseId, OFFERED_CONDITIONS, TestBrief, formatBrief, keepActions, newId, setAside, walletUse, type TestStep } from "@dappdrill/core";
-import { addConditions, db, nextPosition, notWritten, queueRuns, sentenceName, settledRuns, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { sentence, Test, type Action, type Check } from "@dappdrill/core";
+import { db, makes, queueRuns, testOf, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { enqueue } from "@/lib/jobs";
+import { startMake } from "@/lib/make";
+import { looksLikeKey } from "@/lib/secrets";
 import { requireApp } from "@/lib/session";
 
 async function ownTest(testId: string) {
@@ -30,18 +32,7 @@ async function run(appId: string, testIds: string[], trigger: Trigger = "manual"
   if (batchId) await enqueue("tests.run", { batchId });
 }
 
-/** Every test of the app worth running: one that was set aside asks for something the app doesn't offer, and running it again only costs. */
-async function runnableIds(appId: string): Promise<string[]> {
-  const all = await db().select({ id: tests.id, draftNote: tests.draftNote }).from(tests).where(eq(tests.appId, appId));
-  const last = await settledRuns(db(), all.map((t) => t.id));
-  return all.filter((t) => !setAside(last.get(t.id), !t.draftNote)).map((t) => t.id);
-}
-
-/** Drafts are written by the worker, then run. */
-async function draft(row: typeof tests.$inferInsert & { drafting: string }) {
-  await db().insert(tests).values(row);
-  await enqueue("test-draft.run", { testId: row.id });
-}
+const allIds = async (appId: string) => (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, appId))).map((t) => t.id);
 
 const refresh = (appId: string) => revalidatePath(`/apps/${appId}`, "layout");
 
@@ -56,7 +47,7 @@ export async function runTestsAction(appId: string, testIds: string[]): Promise<
 
 export async function runAllAction(appId: string): Promise<void> {
   await requireApp(appId);
-  await run(appId, await runnableIds(appId));
+  await run(appId, await allIds(appId));
   refresh(appId);
 }
 
@@ -66,38 +57,17 @@ const DeployUrl = z
   .max(2000)
   .pipe(z.url({ protocol: /^https?$/, error: "Give the deploy's address, starting with http:// or https://." }));
 
-/** Runs every test against another deploy of the app (a preview, staging) with the app's own tests and saved steps. */
+/** Runs every test against another deploy of the app (a preview, staging) with the app's own tests and what they recorded. */
 export async function runAgainstUrlAction(appId: string, url: string): Promise<{ error?: string }> {
   await requireApp(appId);
   const parsed = DeployUrl.safeParse(url);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
-  await run(appId, await runnableIds(appId), "manual", parsed.data);
+  await run(appId, await allIds(appId), "manual", parsed.data);
   refresh(appId);
   return {};
 }
 
-/**
- * Forgets the saved actions of the tests, keeping their steps' words, and runs them: the agent does
- * every step again and records it afresh. For an app whose pages changed under working tests.
- */
-export async function reRecordAction(appId: string, testIds: string[]): Promise<void> {
-  await requireApp(appId);
-  const own = await db()
-    .select({ id: tests.id, steps: tests.steps, after: tests.after })
-    .from(tests)
-    .where(and(eq(tests.appId, appId), inArray(tests.id, testIds), isNull(tests.baseId)));
-  const words = (steps: TestStep[]) => steps.map(({ text, checks }) => ({ text, ...(checks?.length ? { checks } : {}) }));
-  for (const t of own) {
-    await db()
-      .update(tests)
-      .set({ steps: words(t.steps), after: t.after ? words(t.after) : t.after, ...touched() })
-      .where(eq(tests.id, t.id));
-  }
-  await run(appId, own.map((t) => t.id));
-  refresh(appId);
-}
-
-/** Stops queued and running runs of the given tests (all of the app's when none are given). */
+/** Stops the app's runs, or those of the given tests. A batch shares one browser setup, so the worker stops the whole batch a running test is in. */
 export async function stopRunsAction(appId: string, testIds?: string[]): Promise<void> {
   await requireApp(appId);
   const scope = and(eq(testRuns.appId, appId), testIds ? inArray(testRuns.testId, testIds) : undefined);
@@ -112,120 +82,77 @@ export async function stopRunsAction(appId: string, testIds?: string[]): Promise
   refresh(appId);
 }
 
-// ---------------------------------------------------------------- writing
+// ---------------------------------------------------------------- making
 
-const Sentence = z.string().trim().min(3, "Say what the test should do.").max(1000);
+const BUSY = "Tests are being made for this app already. Add this one when that's done.";
 
-/**
- * A test from the answers in Add test. `likeId` is a test of the app it resembles: the new one is
- * written from that test, so the steps they share keep what they recorded. Returns the new test's id.
- */
-export async function addTestAction(appId: string, answers: z.input<typeof TestBrief>, likeId?: string): Promise<{ error?: string; testId?: string }> {
-  await requireApp(appId);
-  const brief = TestBrief.safeParse(answers);
-  if (!brief.success) return { error: brief.error.issues[0]?.message };
-  const [like] = likeId ? await db().select({ id: tests.id, startPath: tests.startPath }).from(tests).where(and(eq(tests.id, likeId), eq(tests.appId, appId))) : [];
-  const id = newId("test");
-  await draft({
-    id,
-    appId,
-    name: sentenceName(brief.data.goal),
-    goal: brief.data.goal,
-    // Kept on the row from the start, so the answers survive a writer that fails.
-    expected: brief.data.expected,
-    startPath: brief.data.startPath ?? like?.startPath,
-    steps: [],
-    forkedFrom: like?.id,
-    drafting: formatBrief(brief.data),
-    position: await nextPosition(db(), appId),
-  });
+/** Looks over the app and makes a test for each goal it finds. */
+export async function makeTestsAction(appId: string): Promise<void> {
+  const { user } = await requireApp(appId);
+  await startMake(appId, user.id);
   refresh(appId);
-  return { testId: id };
 }
 
-/** Writes the steps of a test that only has a name and a goal; it runs when written. */
-export async function writeTestAction(testId: string): Promise<void> {
-  const t = await ownTest(testId);
-  if (!notWritten(t)) return;
-  await db().update(tests).set({ drafting: t.goal || t.name, ...touched() }).where(eq(tests.id, testId));
-  await enqueue("test-draft.run", { testId });
-  refresh(t.appId);
-}
+const Goal = z.string().trim().min(8, "Say what a user does and what they should see, in a sentence.").max(600);
 
-/** A copy of a test with one change, written by the worker. Opens the copy. */
-export async function duplicateTestAction(testId: string, change: string): Promise<{ error?: string }> {
-  const base = await ownTest(testId);
-  if (base.baseId) return { error: "Duplicate the test itself; a condition row follows its test." };
-  const text = Sentence.safeParse(change);
-  if (!text.success) return { error: "Say what the copy should do differently." };
-  const id = newId("test");
-  await draft({
-    id,
-    appId: base.appId,
-    name: base.name,
-    goal: base.goal,
-    expected: base.expected,
-    startPath: base.startPath,
-    steps: base.steps,
-    forkedFrom: base.id,
-    drafting: text.data,
-    position: base.position,
-  });
-  refresh(base.appId);
-  redirect(`/apps/${base.appId}/tests/${id}`);
-}
-
-const Edit = z.object({
-  name: z.string().trim().min(1, "Name the test.").max(80),
-  goal: z.string().trim().min(1, "Say what the test does.").max(1000),
-  expected: z.string().trim().min(1, "Say what should be on the page when it works.").max(1000),
-  steps: z.array(z.string().trim().max(200)).transform((s) => s.filter(Boolean)).pipe(z.array(z.string()).max(20, "Keep it under 20 steps.")),
-});
-
-export async function updateTestAction(testId: string, input: z.input<typeof Edit>): Promise<{ error?: string }> {
-  const t = await ownTest(testId);
-  // A condition row has nothing of its own: name and expected come from the condition, goal and steps from its test.
-  if (t.baseId || t.condition) return { error: "A condition can't be edited. Edit the test it runs on." };
-  const e = Edit.safeParse(input);
-  if (!e.success) return { error: e.error.issues[0]?.message };
-  await db()
-    .update(tests)
-    .set({
-      name: e.data.name,
-      goal: e.data.goal,
-      expected: e.data.expected,
-      steps: keepActions(e.data.steps, t.steps),
-      ...(e.data.expected !== t.expected ? { proof: null } : {}),
-      ...touched(),
-    })
-    .where(eq(tests.id, testId));
-  refresh(t.appId);
+/** Makes one test from a goal in the user's words: it is done once, written as lines, then run until it goes the same way twice. */
+export async function makeTestAction(appId: string, goal: string): Promise<{ error?: string }> {
+  const { user } = await requireApp(appId);
+  const parsed = Goal.safeParse(goal);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (looksLikeKey(parsed.data)) return { error: "That looks like a private key. Take it out: this text isn't encrypted." };
+  if (!(await startMake(appId, user.id, parsed.data))) return { error: BUSY };
+  refresh(appId);
   return {};
 }
 
-/** Takes a kept check off a step of the test; runs stop making it. */
-export async function removeCheckAction(testId: string, stepIndex: number, checkIndex: number): Promise<void> {
-  const t = await ownTest(testId);
-  const steps = t.steps.map((s, i) => {
-    if (i !== stepIndex || !s.checks) return s;
-    const { checks, ...rest } = s;
-    const left = checks.filter((_, j) => j !== checkIndex);
-    return left.length ? { ...rest, checks: left } : rest;
-  });
-  await db().update(tests).set({ steps, ...touched() }).where(eq(tests.id, testId));
-  refresh(t.appId);
+export async function stopMakeAction(makeId: string): Promise<void> {
+  const [make] = await db().select({ appId: makes.appId }).from(makes).where(eq(makes.id, makeId));
+  if (!make) return;
+  await requireApp(make.appId);
+  await db().update(makes).set({ stopRequested: true }).where(eq(makes.id, makeId));
+  refresh(make.appId);
 }
 
-/** Conditions on a test (its steps with something going wrong); they run right away. */
-export async function addConditionsAction(testId: string, conditions: string[]): Promise<{ error?: string }> {
-  const t = await ownTest(testId);
-  if (t.baseId) return { error: "Add conditions on the test, not on a condition." };
-  if (walletUse(t.steps) !== "signs") return { error: "Conditions need a test that asks the wallet to sign." };
-  const picked = conditions.map((c) => EdgeCaseId.safeParse(c)).flatMap((r) => (r.success && OFFERED_CONDITIONS.some((c) => c.id === r.data) ? [r.data] : []));
-  if (picked.length === 0) return { error: "Pick at least one." };
-  const ids = await addConditions(db(), testId, picked);
-  await run(t.appId, ids);
-  refresh(t.appId);
+// ---------------------------------------------------------------- editing
+
+const Edit = z.object({
+  name: z.string().trim().min(1, "Give the test a name.").max(120),
+  goal: z.string().trim().min(1, "Say what the user is after.").max(600),
+  startPath: z.string().trim().max(500).regex(/^\//, "The start page is a path on the app, like /vault."),
+  lines: z
+    .array(z.object({ type: z.enum(["action", "check"]), text: z.string().trim().min(1, "A line can't be empty.").max(600) }))
+    .min(1, "A test needs at least one line.")
+    .max(60),
+});
+export type TestEdit = z.input<typeof Edit>;
+
+/**
+ * Saves a test edited by hand. A line whose words didn't change stays as it was, with what it
+ * recorded. A new or reworded action is done by a model on the next run, which records it; a new
+ * or reworded check is answered by a model from then on. Nothing proves the edit: the next run does.
+ */
+export async function saveTestAction(testId: string, input: TestEdit): Promise<{ error?: string }> {
+  const row = await ownTest(testId);
+  const parsed = Edit.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  const edit = parsed.data;
+  if (edit.lines.some((l) => looksLikeKey(l.text))) return { error: "A line looks like a private key. Take it out: this text isn't encrypted." };
+
+  const before = testOf(row);
+  const left = [...before.steps];
+  const steps = edit.lines.map((line): Action | Check => {
+    const same = left.findIndex((old) => old.type === line.type && sentence(old) === line.text);
+    if (same >= 0) return left.splice(same, 1)[0]!;
+    return line.type === "action" ? { type: "action", by: "code", do: line.text, run: [] } : { type: "check", by: "llm", claim: line.text };
+  });
+  const next = Test.safeParse({ ...before, name: edit.name, goal: edit.goal, startPath: edit.startPath, steps });
+  if (!next.success) return { error: next.error.issues[0]?.message };
+  await db()
+    .update(tests)
+    .set({ name: next.data.name, goal: next.data.goal, startPath: next.data.startPath, steps: next.data.steps, ...touched() })
+    .where(eq(tests.id, testId));
+  refresh(row.appId);
   return {};
 }
 

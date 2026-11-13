@@ -4,10 +4,10 @@
  * our side is tried once more quietly before the test is called Couldn't verify.
  */
 import path from "node:path";
-import type { DrillEventSink, DrillTarget, LineResult, Suite, SuiteResult, Test, TestResult, WalletRequest } from "@dappdrill/core";
-import { openEnv, type Env } from "../pipeline/env.js";
-import { pin } from "../pipeline/pin.js";
-import { debug, plain } from "../pipeline/session.js";
+import { chainName, copyBehindLine, type DrillEventSink, type DrillTarget, type LineResult, type SetupStuck, type Suite, type SuiteResult, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
+import { openEnv, withoutFallback, type Env } from "./env.js";
+import { pin } from "./pin.js";
+import { debug, plain } from "./session.js";
 import { runSetup, runTest, type RunOptions } from "./test.js";
 
 export interface RunSuiteInput {
@@ -19,6 +19,8 @@ export interface RunSuiteInput {
 }
 
 export interface SuiteProgress {
+  /** A test is about to run. A test that failed starts a second time. */
+  onStart?: (testId: string) => void;
   /** A line of the setup (`testId` undefined) or of a test finished. */
   onLine?: (testId: string | undefined, index: number, result: LineResult) => void;
   onTest?: (result: TestResult) => void;
@@ -31,6 +33,8 @@ export interface OpenSuite {
   setup?: LineResult[];
   /** Why the setup didn't finish. Nothing can be run then. */
   stuck?: string;
+  /** The same, in parts: the line it stopped at and what went wrong there. */
+  stuckAt?: SetupStuck;
   /** What every run starts from: where the setup left the browser, and what is known about the app. */
   opts: RunOptions;
   /** One run of a test, with forks put back afterwards to how they were. */
@@ -57,7 +61,10 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
     const done = await runSetup(env, suite.setup, { ...opts, refuseApprove: suite.signing === "refused" ? refused : asked, saveTo: path.join(artifactsDir, "setup-state.json"), onLine: more.onLine });
     open.setup = done.steps;
     opts.storageState = done.storageState;
-    if (!done.storageState) open.stuck = `The setup didn't finish. ${done.why}`;
+    if (!done.storageState) {
+      open.stuck = `The setup didn't finish. ${done.why}`;
+      open.stuckAt = done.stuck;
+    }
     return open;
   } catch (e) {
     await env.close();
@@ -69,6 +76,8 @@ export async function runSuite(input: RunSuiteInput, sink: DrillEventSink = () =
   const t0 = Date.now();
   const open = await openSuite(input, sink, { onLine: (i, r) => progress.onLine?.(undefined, i, r) });
   const { env, setup } = open;
+  const behind = () => env.chains.configs().filter((c) => c.relays).map((c) => c.id);
+  const behindBefore = behind();
   try {
     const tests: TestResult[] = [];
     for (const test of input.suite.tests) {
@@ -76,16 +85,28 @@ export async function runSuite(input: RunSuiteInput, sink: DrillEventSink = () =
         tests.push(notRun(test, open.stuck));
         continue;
       }
-      const run = () => open.run(test, (i, r) => progress.onLine?.(test.id, i, r));
+      const run = () => {
+        progress.onStart?.(test.id);
+        return open.run(test, (i, r) => progress.onLine?.(test.id, i, r));
+      };
       let result = await run();
       if (result.outcome === "failed") {
         const again = await run();
         const reason = again.outcome === "passed" ? "Failed the first time and passed when run again." : again.reason;
         result = { ...again, reason, rerun: true, firstReason: result.reason, durationMs: result.durationMs + again.durationMs, costUsd: result.costUsd + again.costUsd };
       }
+      // A failure on a copy the real chain has left behind says nothing about the app.
+      if (result.outcome === "failed") {
+        await env.chains.lookForRelays?.();
+        const fell = behind().filter((id) => !behindBefore.includes(id));
+        if (fell.length) result = { ...result, outcome: "unverified", reason: `${copyBehindLine(fell.map(chainName))}${result.reason ? ` It stopped with: ${result.reason}` : ""}` };
+      }
       tests.push(result);
       progress.onTest?.(result);
     }
+    // A chain the app's server used for the wallet has moved on from its copy: whoever keeps the chains is told.
+    await env.chains.lookForRelays?.();
+    await env.sink({ type: "chains", chains: withoutFallback(env.chains.configs()) });
     return { setup, tests, durationMs: Date.now() - t0, costUsd: env.costUsd() };
   } finally {
     await open.close();

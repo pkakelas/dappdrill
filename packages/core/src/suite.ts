@@ -237,3 +237,11 @@ export function withRecordings(test: Test, result: TestResult): Test {
   });
   return { ...test, steps };
 }
+
+/** Where a path on the app opens. The app URL's query (`?chain=…`, a fork flag) stays unless the path has its own. */
+export function urlOnApp(path: string, appUrl: string): string {
+  const app = new URL(appUrl);
+  const url = new URL(path, app);
+  if (!url.search && url.origin === app.origin) url.search = app.search;
+  return url.href;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChainConfig } from "@dappdrill/core";
-import { freshAccounts, liveChainLine, withoutFallback } from "../../src/pipeline/env.js";
+import { freshAccounts, liveChainLine, withoutFallback } from "../../src/run/env.js";
 
 const eth: ChainConfig = { id: 1, name: "Ethereum", rpcUrl: "https://eth.example", mode: "fork", fallback: true };
 const pod: ChainConfig = { id: 129302, rpcUrl: "https://rpc.pod.example", mode: "live", fromApp: true };

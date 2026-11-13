@@ -1,16 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { addsUp, asRead, brokenValues, evaluate, labelled, loosely, numberOnPage, shownNumber } from "../../src/run/figures.js";
-import { withToken } from "../../src/explore/funding.js";
+import { asRead, loosely } from "../../src/run/figures.js";
+import { withToken } from "../../src/make/funding.js";
 import { SitePages } from "../../src/browser/site-pages.js";
-
-describe("shownNumber", () => {
-  it("reads numbers as pages write them", () => {
-    expect(shownNumber("$6,575.32")).toBe(6575.32);
-    expect(shownNumber("1.2M")).toBe(1_200_000);
-    expect(shownNumber("-0.57%")).toBe(-0.57);
-    expect(shownNumber("n/a")).toBeUndefined();
-  });
-});
 
 describe("asRead", () => {
   it("puts a number back together when the page gives it a character per line", () => {
@@ -25,98 +16,6 @@ describe("loosely", () => {
     expect(loosely("Balance: 1,000 USDC")).toContain(loosely("1000"));
     expect(loosely("1,234,567.89")).toBe("1234567.89");
     expect(loosely("0x1,2 and 3,4")).toBe("0x1,2 and 3,4");
-  });
-});
-
-describe("numberOnPage", () => {
-  const page = "Gold\n$4,653.90\n+0.4%\nAAPL\n$255.26\nVolume 4,700";
-  it("takes the claim as written when the page still shows it", () => {
-    expect(numberOnPage(page, "$255.26")).toEqual({ text: "$255.26", value: 255.26 });
-  });
-  it("follows a price that ticked since it was read", () => {
-    expect(numberOnPage(page, "$4,651.10")).toEqual({ text: "4,653.90", value: 4653.9 });
-  });
-  it("finds nothing when the page has no number near the claim", () => {
-    expect(numberOnPage(page, "$300.00")).toBeUndefined();
-    expect(numberOnPage(page, "soon")).toBeUndefined();
-  });
-});
-
-describe("brokenValues", () => {
-  it("finds values the code failed to produce", () => {
-    const page = "Price\n$NaN\nAPY: undefined%\nTVL 1.5e+21\nBalance: null\nOwner [object Object]";
-    expect(brokenValues(page).map((b) => b.what)).toEqual(["NaN", "undefined", "a number in scientific notation", "null", "[object Object]"]);
-  });
-
-  it("leaves ordinary text and addresses alone", () => {
-    expect(brokenValues("This agreement is null and void.\n0x5e21abcdef0123456789\nGold $4,653.90\nNaNoTech Fund")).toEqual([]);
-  });
-
-  it("takes undefined and Infinity for words unless they stand where a value goes", () => {
-    expect(brokenValues("Axie Infinity\nInfinity Pools: 12\nRewards are undefined until the epoch ends\nBehaviour: undefined behaviour is not covered")).toEqual([]);
-    expect(brokenValues("APR\nInfinity%\nHealth factor: -Infinity\nYou receive\nundefined USDC").map((b) => b.what)).toEqual(["Infinity", "Infinity", "undefined"]);
-  });
-});
-
-describe("addsUp", () => {
-  const page = "You pay 0.5 ETH\n1 ETH = 3,365.12 USDC\nYou receive 1,682.56 USDC\nFee 0.3%";
-
-  it("passes a quote that follows from the rate", () => {
-    expect(addsUp("0.5 * 3,365.12 = 1,682.56", page).ok).toBe(true);
-  });
-
-  it("reads a number with or without its thousands separators", () => {
-    expect(addsUp("0.5 * 3365.12 = 1682.56", page).ok).toBe(true);
-    expect(addsUp("0.5 * 3,365.12 = 1,682.56", page.replace(/,/g, "")).ok).toBe(true);
-  });
-
-  it("fails one that doesn't", () => {
-    const r = addsUp("0.5 * 3,365.12 = 1,682.56", page.replace("1,682.56", "1,582.56").replace("= 1,682.56", "= 1,582.56"));
-    expect(r.error).toBeDefined(); // the claim's own number is no longer on the page
-    expect(addsUp("0.5 * 3,365.12 = 1,582.56", page.replace("1,682.56", "1,582.56"))).toMatchObject({ ok: false, right: 1582.56 });
-  });
-
-  it("refuses numbers that aren't on the page, apart from small constants", () => {
-    expect(addsUp("0.5 * 3,400.00 = 1,682.56", page).error).toContain("3,400.00");
-    expect(addsUp("0.5 * 3,365.12 * (1 - 0.3%) = 1,677.51", page.replace("1,682.56", "1,677.51")).ok).toBe(true);
-  });
-
-  it("wants one equals sign and a sum it can read", () => {
-    expect(addsUp("0.5 * 3,365.12", page).error).toBeDefined();
-    expect(addsUp("0.5 ** 3,365.12 = 1,682.56", page).error).toBeDefined();
-  });
-
-  describe("with labels", () => {
-    const perp = "AAPL/USD\nSize\n0.5\nMark price\n$3,365.12\nPosition value\n$1,682.56\nFunding\n-0.01%";
-
-    it("reads each label's figure off the page when it runs", () => {
-      expect(addsUp("Size × Mark price = Position value", perp)).toMatchObject({ ok: true, read: "0.5 * 3365.12 = 1682.56" });
-      expect(addsUp("Size x Mark price = Position value", "Size 0.5 ETH\nMark price $3,365.12\nPosition value $1,682.56").ok).toBe(true);
-      expect(addsUp("size * MARK PRICE = position value", perp).ok).toBe(true);
-    });
-
-    it("mixes labels with the page's own numbers and constants", () => {
-      expect(addsUp("Size * Mark price * (1 - 0.01%) = 1,682.39", perp.replace("1,682.56", "1,682.39")).ok).toBe(true);
-    });
-
-    it("fails when the figures don't follow", () => {
-      expect(addsUp("Size * Mark price = Position value", perp.replace("1,682.56", "1,582.56"))).toMatchObject({ ok: false, right: 1582.56 });
-    });
-
-    it("says which label has no figure on the page", () => {
-      expect(addsUp("Size * Index price = Position value", perp).error).toBe("No figure labelled “Index price” on the page. The figures on it are labelled “Size”, “Mark price”, “Position value”, “Funding”.");
-      expect(labelled(perp, "Funding")).toMatchObject({ text: "-0.01%", value: -0.0001 });
-      expect(labelled(perp, "Volume")).toBeUndefined();
-    });
-  });
-});
-
-describe("evaluate", () => {
-  it("does the four operations, brackets and percents", () => {
-    expect(evaluate("2 + 3 * 4")).toBe(14);
-    expect(evaluate("(2 + 3) × 4")).toBe(20);
-    expect(evaluate("1,000 * 5%")).toBe(50);
-    expect(evaluate("-2 - -3")).toBe(1);
   });
 });
 

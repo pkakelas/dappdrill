@@ -124,7 +124,7 @@ function SiteIcon({ src }: { src?: string }) {
   return <img src={src} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="size-full object-contain" />;
 }
 
-/** The window a site is shown in, here and on the app page while it's explored. */
+/** The window a site is shown in, here and on the app page while its tests are made. */
 export function BrowserWindow({ url, toolbar, children }: { url: string; toolbar?: ReactNode; children: ReactNode }) {
   const { host, protocol } = new URL(url);
   return (
@@ -146,7 +146,7 @@ export function BrowserWindow({ url, toolbar, children }: { url: string; toolbar
   );
 }
 
-/** What the browser last saw in the app, in the explorer's window; its stand-in until it has looked. */
+/** What the browser last saw in the app, in our browser's window; its stand-in until it has looked. */
 export function LastFrame({ src, alt }: { src: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
   return (

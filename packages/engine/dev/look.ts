@@ -39,6 +39,7 @@ await writeFile(path.join(out, "looked.json"), JSON.stringify(looked, null, 2));
 if (looked.summary) console.log(`\n${looked.summary}`);
 if (looked.goals.length) console.log(`\nGoals:\n${looked.goals.map((g, i) => `${String(i + 1).padStart(2)}  ${g.goal}\n      ${g.startPath}  (${g.why})`).join("\n")}`);
 if (looked.notes.length) console.log(`\nNotes:\n${looked.notes.map((n) => `- ${n}`).join("\n")}`);
+if (looked.problems.length) console.log(`\nLooked wrong, and gets a test to find out:\n${looked.problems.map((f) => `- ${f.what}: ${f.saw}\n    ${f.goal ?? ""}`).join("\n")}`);
 if (looked.why) console.log(`\nNo goals: ${looked.why}`);
 console.log(`\n${secs(looked.durationMs).trim()}, $${looked.costUsd.toFixed(2)}`);
 

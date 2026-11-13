@@ -1,27 +1,29 @@
-import { TestRunResult, VERDICT_LABEL, applicable, count, countsText, readOf, signingOf, signingText, type SigningReview } from "@dappdrill/core";
-import type { TestOutcome } from "@dappdrill/engine";
+import { VERDICT_LABEL, type SigningReview, type TestResult } from "@dappdrill/core";
 
-export function dangerous(o: TestOutcome): SigningReview[] {
-  return o.result.signingReviews.filter((r) => r.verdict === "dangerous");
+export function dangerous(r: TestResult): SigningReview[] {
+  return r.signingReviews.filter((s) => s.verdict === "dangerous");
 }
 
-/** An interrupted run never reaches the tests after it: they count as stopped, so a partial run can't read as finished. */
-export function withStopped(testIds: string[], outcomes: TestOutcome[]): TestOutcome[] {
-  const ran = new Set(outcomes.map((o) => o.testId));
-  return [...outcomes, ...testIds.filter((id) => !ran.has(id)).map((testId): TestOutcome => ({ testId, status: "stopped", result: TestRunResult.parse({}) }))];
+/**
+ * 1 for Failed or a Dangerous signature, even on a test that passed; 2 when the only problem is a
+ * test that couldn't be verified, a test an interrupted run never reached, or that nothing ran.
+ * `asked` is how many tests the run was for.
+ */
+export function exitCode(results: TestResult[], asked: number): 0 | 1 | 2 {
+  if (results.some((r) => r.outcome === "failed" || dangerous(r).length > 0)) return 1;
+  return results.length < asked || results.length === 0 || results.some((r) => r.outcome === "unverified") ? 2 : 0;
 }
 
-/** 1 for Failed or a Dangerous signature, even on a test that passed; 2 when the only problem is Couldn't run, a stopped run, or that nothing ran. */
-export function exitCode(outcomes: TestOutcome[]): 0 | 1 | 2 {
-  if (outcomes.some((o) => o.status === "fail" || dangerous(o).length > 0)) return 1;
-  return outcomes.some((o) => o.status === "error" || o.status === "stopped") || !outcomes.some((o) => o.status === "pass") ? 2 : 0;
-}
-
-/** "4 of 6 passed, 1 failed, 1 couldn't run · 1 dangerous signature" */
-export function summaryText(outcomes: TestOutcome[]): string {
-  const counts = countsText(count(applicable(outcomes.map((o) => readOf(o, o)))));
-  const signing = signingText(signingOf(outcomes.flatMap((o) => o.result.signingReviews.map((r) => r.verdict))));
-  return signing ? `${counts} · ${signing}` : counts;
+/** "4 of 6 passed, 1 failed, 1 not run · 1 dangerous signature · 2 signatures to check" */
+export function summaryText(results: TestResult[], asked: number): string {
+  const n = (outcome: TestResult["outcome"]) => results.filter((r) => r.outcome === outcome).length;
+  const notRun = asked - results.length;
+  const counts = [`${n("passed")} of ${asked} passed`, n("failed") && `${n("failed")} failed`, n("unverified") && `${n("unverified")} couldn't be verified`, notRun > 0 && `${notRun} not run`].filter(Boolean).join(", ");
+  const verdicts = results.flatMap((r) => r.signingReviews.map((s) => s.verdict));
+  const having = (v: SigningReview["verdict"]) => verdicts.filter((x) => x === v).length;
+  const plural = (n: number) => (n === 1 ? "signature" : "signatures");
+  const signing = [having("dangerous") && `${having("dangerous")} dangerous ${plural(having("dangerous"))}`, having("check") && `${having("check")} ${plural(having("check"))} to check`].filter(Boolean);
+  return [counts, ...signing].join(" · ");
 }
 
 export function reviewLine(r: SigningReview): string {

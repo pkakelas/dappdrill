@@ -8,7 +8,7 @@ import { z } from "zod";
 import { describeStep, forkBlindLine, type Action, type Blocked, type BrowserAction, type WalletRequest } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { browserTools, inboxTool, Recorder, settle, walletLine } from "../agent/tools.js";
-import { debug } from "../pipeline/session.js";
+import { debug } from "./session.js";
 import { replayScript } from "../replay/replay.js";
 import type { AgentTool, Llm } from "../types.js";
 import { unpaid } from "../wallet/errors.js";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { urlOnApp } from "../src/test.js";
+import { urlOnApp } from "../src/suite.js";
 
 describe("urlOnApp", () => {
   it("keeps the app URL's query on a path without one", () => {

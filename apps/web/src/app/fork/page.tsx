@@ -20,7 +20,7 @@ export default function ForkPage() {
       </Section>
 
       <Section title="When the data doesn't load">
-        <p className="m-0">If DappDrill can&apos;t explore or run a test because the app never finished loading, it says what the app was waiting on. There are two usual causes.</p>
+        <p className="m-0">If DappDrill can&apos;t make or run a test because the app never finished loading, it says what the app was waiting on. There are two usual causes.</p>
         <ul className="m-0 flex flex-col gap-2.5 pl-5">
           <li>
             <strong>The fork&apos;s upstream gave up.</strong> The fork pulls state from an RPC the first time each contract is read. Public endpoints rate-limit or time out on a real dApp&apos;s

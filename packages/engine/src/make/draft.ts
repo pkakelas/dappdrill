@@ -7,9 +7,9 @@ import { z } from "zod";
 import { CodeAssert, RunValue, Test, urlOnApp, type Blocked, type WalletRequest } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { browserTools, inboxTool, Recorder, settle, walletLine } from "../agent/tools.js";
-import type { Env } from "../pipeline/env.js";
-import { pin } from "../pipeline/pin.js";
-import { landingBotCheck, openSession } from "../pipeline/session.js";
+import type { Env } from "../run/env.js";
+import { pin } from "../run/pin.js";
+import { landingBotCheck, openSession } from "../run/session.js";
 import type { AgentTool } from "../types.js";
 
 const MAX_TURNS = 60;
@@ -19,8 +19,9 @@ const WRITE_UP_AFTER = 40;
 /** Something the app did that a user wouldn't accept. */
 export const Finding = z.object({
   what: z.string().describe("What is wrong, like a heading: “Withdraw stays disabled after a deposit”"),
-  expected: z.string().describe("What a user is entitled to expect, and why: the app's own words, or the goal"),
+  expected: z.string().describe("What a user is entitled to expect, and what says so: the app's own words, quoted, or what the user asked for and was told had happened"),
   saw: z.string().describe("What the app did instead, with the exact text or figures"),
+  goal: z.string().optional().describe("A goal for a test of its own that fails for as long as this is wrong: who the user is, what they do and what they should get. “A user who bridged 0.01 ETH sees 0.01 ETH for it in the history.”"),
 });
 export type Finding = z.infer<typeof Finding>;
 
@@ -85,7 +86,7 @@ VALUES
 
 NOTES AND PROBLEMS
 - notes: only what the next test for this app will need and couldn't see for itself on the page: something that tripped you, an order things have to be done in, a fault that is in the way. Not what the page plainly shows, not how the app behaves when all goes well, not what this test does, not a note you were given. Most tests add none.
-- problems: faults of the app, with the exact text or figures.
+- problems: faults of the app, with the exact text or figures and what shows it is a fault: the app's own words that it goes against, figures that don't add up, something it said had happened that isn't there. Not what you only expected to be otherwise, and not what comes from the test wallet's own funds or from the chain being a local copy. Each with a goal a test of its own could be made from.
 
 IN THE BROWSER
 - Use the page as a user would: look, click, type, select. Prefer what is visible over guessing URLs.
@@ -96,6 +97,11 @@ IN THE BROWSER
 - Don't wander. Do the goal once, look at what shows it worked, write the test.`;
 
 const FORKED = `The chains are local copies: what you do now is undone before the test runs, and before every run of it.`;
+const SUSPECTED = (f: Finding) => `The goal comes from something that looked wrong in this app earlier. Nobody has checked it yet:
+- what: ${f.what}
+- a user should get: ${f.expected}
+- the app did: ${f.saw}
+Do it and see for yourself. The test says what the user should get. When the app gets it right now, the test passes, and that is the answer. When it doesn't, put what you saw under problems, with what shows it is the app's fault.`;
 const KEPT = `The account is on a live chain and keeps everything: what you do now stays, and so does what every run of the test does. So:
 - Do the goal with small amounts.
 - The test ends with the account as it found it: after its last check come the actions that take back what it made (cancel the order, close the position, withdraw the deposit). Do the same yourself before you write the test.
@@ -112,6 +118,10 @@ export interface DraftInput {
   notes: string[];
   /** Names of the tests the app already has. */
   existing: string[];
+  /** What looked wrong earlier, when the goal is to find out whether it is. */
+  suspicion?: Finding;
+  /** What we set up, see `ours` in doubt.ts. */
+  ours?: string;
   artifactsDir: string;
   /** Why a wallet request must not be approved, when it mustn't. */
   refuseApprove?: (request: WalletRequest) => string | undefined;
@@ -120,7 +130,7 @@ export interface DraftInput {
 
 export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
   const revert = await pin(env);
-  const session = await openSession(env, input.artifactsDir, undefined, { storageState: input.storageState });
+  const session = await openSession(env, input.artifactsDir, { storageState: input.storageState });
   try {
     await session.page.goto(urlOnApp(input.startPath, env.target.url), { waitUntil: "domcontentloaded" });
     const block = await landingBotCheck(session);
@@ -167,8 +177,10 @@ export async function draftTest(env: Env, input: DraftInput): Promise<Draft> {
     const prompt = [
       `Goal: ${input.goal}`,
       "",
+      input.suspicion ? `${SUSPECTED(input.suspicion)}\n` : undefined,
       live ? KEPT : FORKED,
       await walletLine(session),
+      input.ours,
       input.notes.length ? `\nWhat is known about this app:\n${input.notes.map((n) => `- ${n}`).join("\n")}` : "",
       input.existing.length ? `\nTests it already has (write a different one):\n${input.existing.map((n) => `- ${n}`).join("\n")}` : "",
       "",

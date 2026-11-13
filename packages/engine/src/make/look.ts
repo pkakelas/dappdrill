@@ -4,14 +4,18 @@
  */
 import path from "node:path";
 import { z } from "zod";
-import { urlOnApp, type Blocked, type DrillEventSink, type LineResult } from "@dappdrill/core";
+import { urlOnApp, type Blocked, type ChainConfig, type DrillEventSink, type LineResult, type SetupStuck } from "@dappdrill/core";
 import { formatSnapshot, takeSnapshot } from "../agent/snapshot.js";
 import { browserTools, Recorder, settle, walletLine } from "../agent/tools.js";
 import { followPages } from "../browser/site-pages.js";
-import { pin } from "../pipeline/pin.js";
-import { landingBotCheck, openSession } from "../pipeline/session.js";
+import { withoutFallback } from "../run/env.js";
+import { pin } from "../run/pin.js";
+import { landingBotCheck, openSession } from "../run/session.js";
 import { openSuite, type RunSuiteInput } from "../run/suite.js";
 import type { AgentTool } from "../types.js";
+import { ours } from "./doubt.js";
+import { Finding } from "./draft.js";
+import { fundTool, withToken, type WalletToken } from "./funding.js";
 
 const MAX_TURNS = 50;
 /** Browser steps after which the look is told to write up. */
@@ -29,14 +33,25 @@ const Seen = z.object({
   summary: z.string().describe("Two sentences: what the app is for and where the work happens"),
   goals: z.array(Goal).min(1).describe("Most important first"),
   notes: z.array(z.string()).max(5).default([]).describe("What whoever writes the tests should be told about this app. One sentence each"),
+  problems: z.array(Finding).max(3).default([]).describe("What looked wrong while you looked. A test is made for each to find out"),
 });
 
 export interface Looked {
   summary?: string;
   goals: Goal[];
   notes: string[];
+  /** What looked wrong on the way. Nothing is known about it until a test fails on it. */
+  problems: Finding[];
+  /** A chain of the app is live: its one account keeps everything, so its tests are made one at a time. */
+  live: boolean;
+  /** The chains the app turned out to use, with the block each local copy was taken at. Tests are made and run on these. */
+  chains: ChainConfig[];
+  /** What the wallet starts every test with: what it was given before, and what the look gave it. */
+  tokens: WalletToken[];
   /** Why there are no goals. */
   why?: string;
+  /** The setup didn't finish, so the app was never looked at. */
+  stuck?: SetupStuck;
   setup?: LineResult[];
   costUsd: number;
   durationMs: number;
@@ -48,6 +63,7 @@ LOOKING
 - Look like a user: the page you start on, the navigation, the pages where the work is done, the tabs and menus inside them. You are told which pages the app links to. Open each one that could hold something a user does: an app's second-biggest feature is often one link away.
 - You sign nothing. Every wallet request is refused. Open a form and fill it in to see what it asks for and what it says, and stop there: what lies past a signature is for the tests.
 - A first-visit prompt in the way (terms, cookies, a tour): accept or close it.
+- On a local copy of a chain the wallet starts with the chain's coin and the tokens it was given before. When what the app is for needs a token a user brings (USDC to deposit, a token to swap) and the wallet has none, give it some with fund_wallet: every test then starts with it. On a live chain it can't be done, and the goals are for what the wallet holds.
 - Never solve a CAPTCHA or bot check: call report_blocked. If the rest of the app still works, leave that page out and carry on.
 - Don't wander. A few steps on each page, then submit.
 
@@ -62,19 +78,26 @@ GOALS
 - About ten when the app has that much to do, and never more than ${MAX_GOALS}. Fewer when it doesn't: a short list of flows that matter is better than one filled up with small things. Only when the app offers this user nothing of that kind, give the one or two things most users do on it. Leave out what the app's tests already cover.
 
 NOTES
-- Only what a test writer will need and couldn't see for themselves on the page: an order things have to be done in, something that is in the way, where a thing is hidden. Not a note you were given, and nothing about your own tools. Usually one or two, often none.`;
+- Only what a test writer will need and couldn't see for themselves on the page: an order things have to be done in, something that is in the way, where a thing is hidden. Not a note you were given, and nothing about your own tools. Usually one or two, often none.
+
+PROBLEMS
+- Something that looked wrong while you looked, and that you can quote: figures that don't agree with each other, a message the page contradicts, a control that says one thing and does another. Give each a goal a test can be made from: the test decides whether it is a fault. Not a guess at what might break, and nothing that comes from the test wallet's own funds or from the chain being a local copy. Usually none.`;
 
 export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = () => {}, say: (text: string) => void = () => {}): Promise<Looked> {
   const t0 = Date.now();
   const { suite } = input;
   const open = await openSuite(input, sink);
   const { env } = open;
-  const done = (more: Partial<Looked>): Looked => ({ goals: [], notes: [], setup: open.setup, ...more, costUsd: env.costUsd(), durationMs: Date.now() - t0 });
+  let tokens = env.target.tokens;
+  const done = (more: Partial<Looked>): Looked => {
+    const chains = withoutFallback(env.chains.configs());
+    return { goals: [], notes: [], problems: [], live: chains.some((c) => c.mode === "live"), chains, tokens, setup: open.setup, ...more, costUsd: env.costUsd(), durationMs: Date.now() - t0 };
+  };
   try {
-    if (open.stuck) return done({ why: open.stuck });
+    if (open.stuck) return done({ why: open.stuck, stuck: open.stuckAt ?? { reason: open.stuck } });
     // Nothing is signed, but an app can change a fork without the wallet (a faucet its server pays).
     const revert = await pin(env);
-    const session = await openSession(env, path.join(input.artifactsDir, "look"), undefined, { storageState: open.opts.storageState });
+    const session = await openSession(env, path.join(input.artifactsDir, "look"), { storageState: open.opts.storageState });
     try {
       await session.page.goto(urlOnApp("/", env.target.url), { waitUntil: "domcontentloaded" });
       const block = await landingBotCheck(session);
@@ -93,6 +116,10 @@ export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = 
           onBlocked: (b) => (blocked = b),
           refuseApprove: () => "Refused: nothing is signed while looking around. Reject it and carry on.",
           budgetNote: () => (++steps >= WRITE_UP_AFTER ? "You have taken many steps. Call submit now with what you have." : undefined),
+        }),
+        fundTool(session, (token, line) => {
+          tokens = withToken(tokens, token);
+          say(line);
         }),
         {
           name: "submit",
@@ -115,7 +142,7 @@ export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = 
       const prompt = [
         `App: ${env.target.url}`,
         await walletLine(session),
-        env.chains.configs().some((c) => c.mode === "live") ? "The account is on a live chain and keeps what earlier runs left: what you see may hold their orders and transfers." : "",
+        ours(env),
         suite.notes.length ? `\nWhat is known about this app:\n${suite.notes.map((n) => `- ${n.text}`).join("\n")}` : "",
         suite.tests.length ? `\nTests it already has:\n${suite.tests.map((t) => `- ${t.name}: ${t.goal}`).join("\n")}` : "",
         linked.length ? `\nPages this page links to:\n${linked.map((p) => `- ${p}`).join("\n")}` : "",
@@ -132,7 +159,7 @@ export async function lookForGoals(input: RunSuiteInput, sink: DrillEventSink = 
       }
       if (!seen) return done({ why: blocked ? `Blocked: ${blocked.reason}` : "The look ended without a list of goals." });
       const known = new Set(suite.notes.map((n) => n.text));
-      return done({ summary: seen.summary, goals: seen.goals.slice(0, MAX_GOALS), notes: seen.notes.filter((n) => !known.has(n)) });
+      return done({ summary: seen.summary, goals: seen.goals.slice(0, MAX_GOALS), notes: seen.notes.filter((n) => !known.has(n)), problems: seen.problems });
     } finally {
       await session.close();
       await revert();

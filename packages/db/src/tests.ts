@@ -1,65 +1,47 @@
 /**
- * Test operations shared by the web app and the worker's assistant tools.
+ * Test operations shared by the web app and the worker.
  * Anything that needs a job returns ids; the caller sends the job.
  */
 import { and, asc, count, desc, eq, gte, inArray, max, min, sql, type SQL } from "drizzle-orm";
-import { conditionInfo, newId, type EdgeCaseId, type TestRunStatus, type TestSpec, type Verdict } from "@dappdrill/core";
+import { newId, Suite, Test, type Fault, type Verdict } from "@dappdrill/core";
 import type { Db } from "./client.js";
-import { testRuns, tests, type Trigger } from "./schema/app.js";
+import { apps, testRuns, tests, type RunStatus, type Trigger } from "./schema/app.js";
 
 export type TestRow = typeof tests.$inferSelect;
 export type TestRunRow = typeof testRuns.$inferSelect;
 
-/** A condition row reads its name and expected result from the shared list, not from what was stored. */
-export function specOf(t: TestRow): TestSpec {
-  const info = t.condition ? conditionInfo(t.condition) : undefined;
-  return {
-    id: t.id,
-    name: info?.name ?? t.name,
-    goal: t.goal,
-    expected: info?.expected ?? t.expected,
-    startPath: t.startPath,
-    steps: t.steps,
-    after: t.after ?? undefined,
-    proof: t.proof ?? undefined,
-    condition: t.condition ?? undefined,
-  };
+/** The row as the engine's test. Its id is the row's. */
+export function testOf(t: TestRow): Test {
+  return Test.parse({ id: t.id, name: t.name, goal: t.goal, startPath: t.startPath, values: t.values, steps: t.steps, cleanup: t.cleanup });
 }
 
-/** Something users do that nobody wrote yet: a name and a goal, under Not tested yet. It can't run. */
-export function notWritten(t: Pick<TestRow, "baseId" | "drafting" | "steps">): boolean {
-  return !t.baseId && !t.drafting && t.steps.length === 0;
+/** The app's suite: what it keeps with the app, and these tests. */
+export function suiteOf(app: Pick<typeof apps.$inferSelect, "suite">, rows: TestRow[]): Suite {
+  return Suite.parse({ ...app.suite, tests: rows.map(testOf) });
 }
 
-/** A condition row runs its base's steps; anything else needs steps of its own. */
-export function runnable(t: Pick<TestRow, "baseId" | "drafting" | "steps">): boolean {
-  return Boolean(t.baseId) || (!t.drafting && t.steps.length > 0);
-}
-
-/** What a test from a sentence is called until the writer names it. */
-export function sentenceName(text: string): string {
-  return text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text;
-}
-
-/** The app's tests in order, each followed by its condition rows. */
+/** The app's tests in order. */
 export async function appTests(db: Db, appId: string): Promise<TestRow[]> {
-  const list = await db.select().from(tests).where(eq(tests.appId, appId)).orderBy(asc(tests.position), asc(tests.createdAt));
-  return list.filter((t) => !t.baseId).flatMap((t) => [t, ...list.filter((u) => u.baseId === t.id)]);
+  return db.select().from(tests).where(eq(tests.appId, appId)).orderBy(asc(tests.position), asc(tests.createdAt));
 }
+
+/** Saves a test at the end of the app's list, under a new id. `faults` are what it was kept for failing on. */
+export async function addTest(db: Db, appId: string, test: Test, faults: Fault[] = []): Promise<string> {
+  const id = newId("test");
+  await db.insert(tests).values({ id, appId, name: test.name, goal: test.goal, startPath: test.startPath, values: test.values, steps: test.steps, cleanup: test.cleanup, faults, position: await nextPosition(db, appId) });
+  return id;
+}
+
+const FINISHED: RunStatus[] = ["passed", "failed", "unverified"];
 
 /** The latest result of each test, whatever its status. */
 export async function latestRuns(db: Db, testIds: string[]): Promise<Map<string, TestRunRow>> {
   return newestRuns(db, testIds);
 }
 
-const FINISHED: TestRunStatus[] = ["pass", "fail", "error", "skipped"];
-
-/** A run our side broke says nothing about the test, so it never becomes the test's result. */
-export const SAYS_SOMETHING = sql`${testRuns.result}->>'blame' is distinct from 'ours'`;
-
-/** The latest finished result of each test: what its status reads from. A queued or stopped run doesn't replace it, nor does one we broke. */
+/** The latest finished result of each test: what its status reads from. A queued or stopped run doesn't replace it. */
 export async function settledRuns(db: Db, testIds: string[]): Promise<Map<string, TestRunRow>> {
-  return newestRuns(db, testIds, and(inArray(testRuns.status, FINISHED), SAYS_SOMETHING));
+  return newestRuns(db, testIds, inArray(testRuns.status, FINISHED));
 }
 
 async function newestRuns(db: Db, testIds: string[], extra?: SQL): Promise<Map<string, TestRunRow>> {
@@ -78,8 +60,7 @@ export interface Batch {
   total: number;
   passed: number;
   failed: number;
-  couldntRun: number;
-  skipped: number;
+  unverified: number;
   active: number;
   startedAt: Date;
   finishedAt: Date | null;
@@ -89,16 +70,15 @@ export interface Batch {
 
 /** The app's runs (batches of results), newest first. Nothing is stored for a batch beyond its results. */
 export async function listBatches(db: Db, appId: string, limit = 50): Promise<Batch[]> {
-  const n = (status: TestRunStatus[]) => sql<number>`count(*) filter (where ${inArray(testRuns.status, status)})`.mapWith(Number);
+  const n = (status: RunStatus[]) => sql<number>`count(*) filter (where ${inArray(testRuns.status, status)})`.mapWith(Number);
   const rows = await db
     .select({
       batchId: testRuns.batchId,
       trigger: min(testRuns.trigger),
       total: count(),
-      passed: n(["pass"]),
-      failed: n(["fail"]),
-      couldntRun: n(["error"]),
-      skipped: n(["skipped"]),
+      passed: n(["passed"]),
+      failed: n(["failed"]),
+      unverified: n(["unverified"]),
       active: n(["queued", "running"]),
       startedAt: min(testRuns.createdAt),
       finishedAt: max(testRuns.finishedAt),
@@ -129,52 +109,25 @@ export async function runHistory(db: Db, appId: string, since: Date) {
       createdAt: testRuns.createdAt,
       startedAt: testRuns.startedAt,
       finishedAt: testRuns.finishedAt,
+      costUsd: sql<number | null>`(${testRuns.result}->>'costUsd')::real`,
       verdicts: sql<Verdict[]>`coalesce((select jsonb_agg(r->>'verdict') from jsonb_array_elements(${testRuns.result}->'signingReviews') r), '[]'::jsonb)`,
     })
     .from(testRuns)
-    .where(and(eq(testRuns.appId, appId), gte(testRuns.createdAt, since), inArray(testRuns.status, ["pass", "fail", "error"])))
+    .where(and(eq(testRuns.appId, appId), gte(testRuns.createdAt, since), inArray(testRuns.status, FINISHED)))
     .orderBy(desc(testRuns.createdAt));
 }
 
 /**
- * Queued results for the tests that can run, as one batch (a run). Condition rows go after
- * their base, so a base that learns its actions in this batch hands them on. `url` runs the
- * batch against another deploy of the app (a preview, staging) instead of its own URL.
+ * Queued results for these tests of the app, as one batch (a run). `url` runs the batch against
+ * another deploy of the app (a preview, staging) instead of its own URL.
  */
 export async function queueRuns(db: Db, appId: string, testIds: string[], trigger: Trigger, url?: string): Promise<string | undefined> {
   if (testIds.length === 0) return undefined;
-  const rows = (await db.select({ id: tests.id, baseId: tests.baseId, drafting: tests.drafting, steps: tests.steps }).from(tests).where(and(eq(tests.appId, appId), inArray(tests.id, testIds)))).filter(runnable);
-  const sorted = [...rows.filter((r) => !r.baseId), ...rows.filter((r) => r.baseId)];
-  if (sorted.length === 0) return undefined;
+  const rows = await db.select({ id: tests.id }).from(tests).where(and(eq(tests.appId, appId), inArray(tests.id, testIds)));
+  if (rows.length === 0) return undefined;
   const batchId = newId("batch");
-  await db.insert(testRuns).values(sorted.map((r) => ({ id: newId("run"), appId, testId: r.id, batchId, trigger, url: url ?? null })));
+  await db.insert(testRuns).values(rows.map((r) => ({ id: newId("run"), appId, testId: r.id, batchId, trigger, url: url ?? null })));
   return batchId;
-}
-
-/**
- * Condition rows of a test, one per condition it doesn't have yet. Name and expected are copied
- * from CONDITIONS, though `specOf` always reads them from the list. Returns the new ids.
- */
-export async function addConditions(db: Db, baseId: string, conditions: EdgeCaseId[]): Promise<string[]> {
-  const [base] = await db.select().from(tests).where(eq(tests.id, baseId));
-  if (!base || base.baseId) return [];
-  const existing = await db.select({ condition: tests.condition }).from(tests).where(eq(tests.baseId, baseId));
-  const fresh = conditions.filter((c) => !existing.some((e) => e.condition === c));
-  if (fresh.length === 0) return [];
-  const rows = fresh.map((c, i) => ({
-    id: newId("test"),
-    appId: base.appId,
-    name: conditionInfo(c).name,
-    goal: base.goal,
-    expected: conditionInfo(c).expected,
-    startPath: base.startPath,
-    steps: [],
-    condition: c,
-    baseId,
-    position: base.position + 1 + existing.length + i,
-  }));
-  await db.insert(tests).values(rows);
-  return rows.map((r) => r.id);
 }
 
 /** The position after the app's last test. */
@@ -182,12 +135,6 @@ export async function nextPosition(db: Db, appId: string): Promise<number> {
   const [row] = await db.select({ n: max(tests.position) }).from(tests).where(eq(tests.appId, appId));
   return (row?.n ?? -1) + 1;
 }
-
-/** On a new test until its first pass. */
-export const NEW_TEST_NOTE = "Hasn't passed yet.";
-
-/** On a test that checks a bug, until the bug is fixed and it passes. */
-export const BUG_TEST_NOTE = "It checks a bug. It passes once the bug is fixed.";
 
 /** Bumps updated_at; used with every edit of a test. */
 export const touched = () => ({ updatedAt: sql`now()` });

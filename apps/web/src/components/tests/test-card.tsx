@@ -1,153 +1,88 @@
-import { ACTIVE_LABEL, signingText, type SigningFlag as Signing } from "@dappdrill/core";
-import { specOf, type Stability, type TestRow, type TestRunRow } from "@dappdrill/db";
-import { Bug, Wallet } from "lucide-react";
+import type { SigningReview } from "@dappdrill/core";
+import type { TestRow, TestRunRow } from "@dappdrill/db";
+import { Bug } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { timeAgo } from "@/lib/format";
-import { failureParts, Line } from "./condition-branches";
-import { ReRecord } from "./re-record";
 import { RunButton } from "./run-button";
-import { SigningFlag } from "./signing-flag";
-import { stabilityText } from "./stability";
-import { OUR_ERROR, readLabel, REVEAL, STATE_LABEL, STATE_TEXT, StateMark, type TestRead } from "./status";
-import { WriteTest } from "./write-test";
+import { readLabel, REVEAL, STATE_TEXT, StateMark, type TestRead } from "./status";
 
-/** `run` is the result its status reads from; `live` the newest run, for progress. `signing` covers its conditions too. */
-export interface TestCardProps {
-  appId: string;
-  test: TestRow;
-  read: TestRead;
-  run?: TestRunRow;
-  live?: TestRunRow;
-  signs: boolean;
-  signing: Signing;
-  hasConditions: boolean;
-  /** The bug it found, and where that is listed. */
-  found?: { name: string; href: string };
-  /** How its last runs went: saved steps or the agent, and the cost. Unset with no finished run. */
-  stability?: Stability;
-  /** What nests under the line: its conditions. */
-  children?: ReactNode;
-}
-
-/** The quiet line under a test: how its saved steps are holding up, with the way to record them again. */
-function Steady({ appId, test, read, stability }: Pick<TestCardProps, "appId" | "test" | "read" | "stability">) {
-  const text = stabilityText(stability);
-  if (!text) return null;
+/** One line of a list: its name and one status on the right. Pointing at the line swaps the status for its action. */
+export function Line({ mark, name, status, action, className }: { mark: ReactNode; name: ReactNode; status: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-      <span className="truncate">{text}</span>
-      <ReRecord appId={appId} testId={test.id} disabled={Boolean(read.active) || read.drafting} className={cx(REVEAL, "group-hover/line:opacity-100")} />
-    </p>
-  );
-}
-
-/** What's happening right now, while a run is on. */
-function progress({ read, live }: TestCardProps): ReactNode {
-  const steps = live?.result?.steps ?? [];
-  const setup = live?.result?.setup?.steps ?? [];
-  const current = steps.findIndex((s) => s.status === "running");
-  const inSetup = setup.findIndex((s) => s.status === "running");
-  if (read.drafting) return <span className="text-muted-foreground">Writing the steps…</span>;
-  if (read.active === "running" && current >= 0) return <span className="text-live">Step {current + 1} of {steps.length}</span>;
-  if (read.active === "running" && inSetup >= 0) return <span className="text-live">Setup, step {inSetup + 1} of {setup.length}</span>;
-  if (read.active) return <span className="text-live">{STATE_LABEL[read.active]}</span>;
-  return null;
-}
-
-/** Says the test signs. With no conditions yet it's also the way to add them, in words on hover. */
-function WalletMark({ href }: { href?: string }) {
-  const icon = <Wallet className="size-3.5 shrink-0" aria-hidden="true" />;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {href ? (
-          <Link href={href} className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-            {icon}
-            <span className={cx("max-sm:sr-only", REVEAL, "group-hover/line:opacity-100")}>Add conditions</span>
-          </Link>
-        ) : (
-          <span role="img" aria-label="Asks the wallet to sign" className="relative z-10 shrink-0 text-muted-foreground">
-            {icon}
-          </span>
-        )}
-      </TooltipTrigger>
-      <TooltipContent>Asks the wallet to sign</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function Title({ appId, test, signs, signing, hasConditions }: TestCardProps) {
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:flex-nowrap">
-      <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
-        {specOf(test).name}
-      </Link>
-      {signingText(signing) && <SigningFlag signing={signing} short />}
-      {signs && <WalletMark href={hasConditions ? undefined : `/apps/${appId}/tests/${test.id}?add=conditions#conditions`} />}
+    <div className={cx("group/line relative flex items-center gap-3 rounded-lg px-2 transition-colors hover:bg-foreground/5", className)}>
+      {mark}
+      <div className="flex min-w-0 flex-1 flex-col gap-x-4 sm:flex-row sm:items-center sm:justify-between">
+        {name}
+        <span className={cx("shrink-0 text-xs text-muted-foreground", Boolean(action) && "sm:group-hover/line:invisible sm:group-has-[button:focus-visible]/line:invisible")}>{status}</span>
+      </div>
+      {Boolean(action) && <span className={cx("relative z-10 flex items-center [@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-2", REVEAL, "group-hover/line:opacity-100")}>{action}</span>}
     </div>
   );
 }
 
-/** The list the lines sit in, under its filter. */
-export function TestList({ filter, children }: { filter: ReactNode; children: ReactNode }) {
+/** The list the lines sit in. */
+export function TestList({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-xl border bg-card shadow-sm">
-      {filter}
-      <ul className={cx("divide-y", filter && "border-t")}>{children}</ul>
+      <ul className="divide-y">{children}</ul>
     </div>
   );
 }
 
 /**
- * The line under the name: where it stopped, and whose move it is. A failure that isn't confirmed
- * says so; one whose test is at fault says what to change.
+ * What the signing review flagged in a run, next to a status and never part of it: Dangerous in
+ * bad, Check this in warn, nothing at all when every signature looked consistent.
  */
-function Under({ read, run, found }: Pick<TestCardProps, "read" | "run" | "found">) {
-  if (read.ours) return <p className="truncate text-xs text-muted-foreground">{OUR_ERROR}</p>;
-  const failure = run?.result?.failure;
-  const look = run?.result?.secondLook;
-  const at = failure ? failureParts(failure) : undefined;
-  const where = at && (at.where ?? at.why);
-  if (read.checking)
-    return (
-      <p className="flex items-center gap-2 text-xs text-live">
-        <span className="relative flex size-1.5 shrink-0">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-50 motion-reduce:animate-none" />
-          <span className="relative inline-flex size-1.5 rounded-full bg-live" />
-        </span>
-        <span className="truncate">Checking again in a fresh browser</span>
-      </p>
-    );
-  if (read.settled === "fail" && found)
+export function SigningFlag({ reviews }: { reviews: SigningReview[] }) {
+  const dangerous = reviews.filter((r) => r.verdict === "dangerous").length;
+  const check = reviews.filter((r) => r.verdict === "check").length;
+  if (dangerous + check === 0) return null;
+  return <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", dangerous ? "bg-bad-bg text-bad-ink" : "bg-warn-bg text-warn-ink")}>{dangerous ? `${dangerous} dangerous` : `${check} to check`}</span>;
+}
+
+/** `run` is the result its status reads from; `live` the newest run, for progress. */
+export interface TestLineProps {
+  appId: string;
+  test: TestRow;
+  read: TestRead;
+  run?: TestRunRow;
+  live?: TestRunRow;
+}
+
+/** What's happening right now, while a run is on. */
+function progress({ read, live }: TestLineProps): ReactNode {
+  if (!read.active) return null;
+  const steps = live?.result?.steps ?? [];
+  const done = steps.filter((s) => s.status !== "skipped").length;
+  if (read.active === "running" && steps.length > 0) return <span className="text-live">Line {Math.min(done + 1, steps.length)} of {steps.length}</span>;
+  return <span className="text-live">{read.active === "running" ? "Starting" : "Queued"}</span>;
+}
+
+/** The line under the name: the bug a failing test found, or why its last run isn't Passed. */
+function Under({ test, read, run }: Pick<TestLineProps, "test" | "read" | "run">) {
+  const fault = test.faults[0];
+  if (read.settled === "failed" && fault)
     return (
       <p className="flex min-w-0 items-center gap-1.5 text-xs text-bad">
         <Bug className="size-3.5 shrink-0" aria-hidden="true" />
-        <Link href={found.href} className="relative z-10 min-w-0 truncate rounded-sm underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {found.name}
-        </Link>
+        <span className="truncate">{fault.what}</span>
       </p>
     );
-  if (read.settled === "probable")
-    return (
-      <p className="truncate text-xs text-muted-foreground" title={look?.reason}>
-        {where && <span className="text-bad">{where}</span>}
-        {where && " · "}
-        {look ? "Not confirmed when checked again" : "Not checked again yet"}
-      </p>
-    );
-  if (read.settled === "input" && look?.verdict === "test") return <p className="truncate text-xs text-warn">The app is fine, the test was wrong{look.reason ? `: ${look.reason}` : "."}</p>;
-  if ((read.settled === "fail" || read.settled === "input") && where) return <p className={cx("truncate text-xs", STATE_TEXT[read.settled])}>{where}</p>;
-  return null;
+  const reason = run?.result?.reason;
+  if (read.settled === "passed" || read.settled === "never" || !reason) return null;
+  return (
+    <p className={cx("truncate text-xs", STATE_TEXT[read.settled])} title={reason}>
+      {reason}
+    </p>
+  );
 }
 
-/** A test as one line, with the bug it found named under it and its conditions nested below. One that stopped says where, which is what lifts it out of the list. */
-export function TestLine(props: TestCardProps) {
-  const { appId, test, read, run, children } = props;
+/** A test as one line, with the bug it found or the reason it stopped under its name. */
+export function TestLine(props: TestLineProps) {
+  const { appId, test, read, run } = props;
   const now = progress(props);
-  const reason = read.settled !== "pass" ? run?.result?.failure : undefined;
   return (
     <li className="p-1.5">
       <Line
@@ -155,81 +90,23 @@ export function TestLine(props: TestCardProps) {
         mark={<StateMark state={read.mark} size="lg" />}
         name={
           <div className="flex min-w-0 flex-col gap-0.5">
-            <Title {...props} />
-            <Under read={read} run={run} found={props.found} />
-            <Steady appId={appId} test={test} read={read} stability={props.stability} />
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:flex-nowrap">
+              <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
+                {test.name}
+              </Link>
+              <SigningFlag reviews={run?.result?.signingReviews ?? []} />
+            </div>
+            <Under test={test} read={read} run={run} />
           </div>
         }
         status={
-          <span title={reason}>
+          <span>
             {now ?? <span className={STATE_TEXT[read.mark]}>{readLabel(read)}</span>}
             {!now && run?.finishedAt && ` · ${timeAgo(run.finishedAt)}`}
           </span>
         }
-        action={<RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} stopIds={[test.id]} label="Run test" disabled={read.drafting} />}
-      />
-      {children}
-    </li>
-  );
-}
-
-/** A test with a name and a goal but no steps yet. */
-export function DraftLine({ appId, test }: { appId: string; test: TestRow }) {
-  return (
-    <li className="p-1.5">
-      <Line
-        className="min-h-11 py-2"
-        mark={<StateMark state="never" size="lg" />}
-        name={
-          <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 font-medium text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
-            {test.name}
-          </Link>
-        }
-        status="Not tested yet"
-        action={<WriteTest testId={test.id} />}
+        action={<RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} stopIds={[test.id]} label="Run test" />}
       />
     </li>
-  );
-}
-
-/**
- * Tests the app has no use for: each asks for something it doesn't offer and has never passed.
- * They are out of the list, the counts and the runs. Nothing here asks for anything, so a line
- * has no status and no action, only why it is here.
- */
-export function SetAsideTests({ appId, app, tests }: { appId: string; app: string; tests: { test: TestRow; read: TestRead; run?: TestRunRow }[] }) {
-  if (tests.length === 0) return null;
-  const one = tests.length === 1;
-  return (
-    <section aria-labelledby="set-aside" className="flex flex-col gap-2">
-      <div className="flex min-h-8 flex-wrap items-baseline gap-x-2 px-1">
-        <h2 id="set-aside" className="text-sm font-medium">
-          {one ? "Shouldn't be a test" : "Shouldn't be tests"} {!one && <span className="font-normal text-muted-foreground tabular-nums">{tests.length}</span>}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {app} doesn&apos;t offer what {one ? "it asks for. It doesn't" : "they ask for. They don't"} run or count, and there is nothing for you to do.
-        </p>
-      </div>
-      <ul className="divide-y rounded-xl border bg-muted/40 text-muted-foreground">
-        {tests.map(({ test, read, run }) => (
-          <li key={test.id} className="p-1.5">
-            <Line
-              className="min-h-11 py-2"
-              mark={<StateMark state="skipped" size="lg" />}
-              name={
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <Link href={`/apps/${appId}/tests/${test.id}`} className="min-w-0 text-pretty outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:underline">
-                    {test.name}
-                  </Link>
-                  {run?.result?.secondLook?.reason && <p className="truncate text-xs">{run.result.secondLook.reason}</p>}
-                </div>
-              }
-              status={read.active && <span className="text-live">{ACTIVE_LABEL[read.active]}</span>}
-              action={null}
-            />
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

@@ -141,6 +141,20 @@
       "when": 1794346500771,
       "tag": "0019_pass_requested_by",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794510629920,
+      "tag": "0020_drop_old_pass",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794510630450,
+      "tag": "0021_simple_tests",
+      "breakpoints": true
     }
   ]
 }

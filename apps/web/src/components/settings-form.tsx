@@ -27,6 +27,7 @@ export interface SettingsDefaults {
   url: string;
   hints: string;
   funding: string;
+  signing: "allowed" | "setup" | "refused";
   chains: number[];
   otherChains: OtherChain[];
   wallets: WalletProfileId[];
@@ -262,7 +263,7 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
             <h2 id="context" className="text-base font-semibold">
               What DappDrill should know
             </h2>
-            <p className="text-sm text-muted-foreground">It reads these each time it explores the app.</p>
+            <p className="text-sm text-muted-foreground">It reads these each time it makes or runs a test.</p>
           </div>
           <HintRows
             hints={hints}
@@ -282,6 +283,17 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
             }
           />
         </section>
+
+        <SettingsSection id="signing" title="Signing" hint="What tests may approve in the wallet. Rejecting a request is always allowed.">
+          <Field label="In the wallet, tests may">
+            <NativeSelect name="signing" defaultValue={d.signing}>
+              <NativeSelectOption value="allowed">Approve what the test needs</NativeSelectOption>
+              <NativeSelectOption value="setup">Approve only during setup, such as signing in</NativeSelectOption>
+              <NativeSelectOption value="refused">Approve nothing</NativeSelectOption>
+            </NativeSelect>
+          </Field>
+          <p className="text-sm text-muted-foreground">On a local fork nothing real is spent. Pick one of the others for an app on a chain with real funds, or one that makes an account of whoever signs in.</p>
+        </SettingsSection>
 
         <SettingsSection id="schedule" title="Daily run" hint="Runs every test once a day and alerts the organization when one stops passing.">
           <Field label="Time (UTC)">

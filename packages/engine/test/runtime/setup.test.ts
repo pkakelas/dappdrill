@@ -4,12 +4,11 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DrillTarget, stalledLine } from "@dappdrill/core";
+import { DrillTarget } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { startChains } from "../../src/chain/controller.js";
 import { createSession } from "../../src/browser/session.js";
 import { urlMatcher } from "../../src/browser/setup.js";
-import { rpcFailures } from "../../src/browser/traffic.js";
 import { ACCOUNTS, CHAIN_ID, startFixture, type Fixture } from "./fixture.js";
 
 describe("urlMatcher", () => {
@@ -18,36 +17,6 @@ describe("urlMatcher", () => {
     expect(urlMatcher("https://app.gmx.io/config.json")("https://app.gmx.io/config.json.bak")).toBe(false);
     expect(urlMatcher("https://*.gmxinfra.io/prices/*")("https://arbitrum-api.gmxinfra.io/prices/tickers")).toBe(true);
     expect(urlMatcher("https://api.x/q?v=1")("https://api.x/q?v=2")).toBe(false);
-  });
-});
-
-describe("rpcFailures", () => {
-  it("counts failed fork reads per chain and names the upstream's cause", () => {
-    const at = new Date().toISOString();
-    const failures = rpcFailures(
-      [
-        { chainId: 1, method: "eth_call", via: "page", durationMs: 5, at, error: "-32603 HTTP error 429 with body: Too Many Requests" },
-        { chainId: 1, method: "eth_call", via: "page", durationMs: 5, at, error: "-32603 execution reverted" },
-        { chainId: 1, method: "eth_blockNumber", via: "page", durationMs: 5, at },
-        { chainId: 42161, method: "eth_call", via: "page", durationMs: 5, at, error: "-32603 missing trie node 0xabc" },
-        { chainId: 8453, method: "eth_call", via: "page", durationMs: 5, at, error: "23 The operation was aborted due to timeout" },
-        { chainId: 10, method: "eth_call", via: "page", durationMs: 5, at, error: "not a chain we run" },
-      ],
-      [1, 42161, 8453],
-    );
-    expect(failures).toEqual([
-      { chainId: 1, errors: 2, cause: "rate-limited", sample: "-32603 HTTP error 429 with body: Too Many Requests" },
-      { chainId: 42161, errors: 1, cause: "pruned", sample: "-32603 missing trie node 0xabc" },
-      { chainId: 8453, errors: 1, cause: "timed-out", sample: "23 The operation was aborted due to timeout" },
-    ]);
-    expect(stalledLine({ chains: [], backends: [], rpc: failures })).toMatch(/rate-limited by the RPC it forks from \(2 failed reads\)/);
-  });
-
-  it("puts a chain the wallet couldn't add ahead of everything else", () => {
-    const line = stalledLine({ chains: [{ chainId: 4242, name: "Other", rpcUrl: "https://rpc.other", reason: "https://rpc.other didn't answer as chain 4242" }], backends: [], rpc: [] });
-    expect(line).toBe(
-      "The app needs Other (chain 4242), RPC https://rpc.other, but the test wallet couldn't add it: https://rpc.other didn't answer as chain 4242. Add it under Settings → Chains with an RPC that answers for it.",
-    );
   });
 });
 
@@ -92,7 +61,7 @@ afterAll(async () => {
 });
 
 describe("test setup and traffic", () => {
-  it("seeds storage, answers fixed responses, and reports the backends the page waited on", async () => {
+  it("seeds storage and answers fixed responses", async () => {
     const url = `http://app.localhost:${port}/`;
     const target = DrillTarget.parse({
       url,
@@ -107,8 +76,6 @@ describe("test setup and traffic", () => {
       await session.page.goto(url);
       await session.page.waitForFunction(() => document.title !== "App");
       expect(await session.page.title()).toBe("true 2.0 503");
-      await session.page.waitForTimeout(200);
-      expect(session.traffic.backends(Date.now() + 20_000)).toEqual([{ host: `api.localhost:${port}`, failed: 1, hung: 1, statuses: [503] }]);
     } finally {
       await session.close();
     }

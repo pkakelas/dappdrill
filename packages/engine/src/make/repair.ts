@@ -31,7 +31,7 @@ const SYSTEM = `A test for a web app has just been written and is being run seve
 How a test is run: each line is an action or a check. An action by code replays a recording; an action by a model is done from its sentence. A check by code looks for one exact fact; a check by a model is answered from the page at that moment, what the page showed during the latest action and took away, and what the wallet was asked. When a line doesn't pass, later actions aren't done.
 
 verdict "test": the test is wrong or loose. The line names something the page writes differently; states a figure that differs from run to run; claims something no user is entitled to; can't be decided from what its reader sees; an action's sentence is too vague to do, or a step is missing before it. Put it right with edits.
-verdict "app": the app didn't do what a user is entitled to expect from the goal and from the app's own words. The line stands as written and the test will fail on it: that is the test doing its job. Give the finding. Edit the test only when the goal of this test is something else and it can reach its goal another way a user would take; give a note when later tests of this app will meet the same fault. A check after a line that was left to fail may fail only because of that fault: then it is the same problem (known), and it stands too. Would it be wrong without the fault as well, it is the test's.
+verdict "app": the app is at fault, and you can point at what shows it: the app's own words that it then goes against, figures on the page that don't add up, a transaction that reverted, a wallet request that differs from what the page said, something the user was told had happened and that isn't there. That the goal or a line of the test expected otherwise is not enough: when the only thing the app goes against is the test, the test is wrong. And rule out first what was set up by us and not by the app (you are told what): what the app does because of the test wallet's funds or because a chain is a local copy is not its fault, and a test may not depend on it. With the fault shown, the line stands as written and the test will fail on it: that is the test doing its job. Give the finding. Edit the test only when the goal of this test is something else and it can reach its goal another way a user would take; give a note when later tests of this app will meet the same fault. A check after a line that was left to fail may fail only because of that fault: then it is the same problem (known), and it stands too. Would it be wrong without the fault as well, it is the test's.
 verdict "cant-tell": what you have doesn't settle it. The test is run again.
 
 Edits:
@@ -56,6 +56,10 @@ export interface RepairInput {
   notes: string[];
   /** What was already found wrong with the app. */
   problems: Finding[];
+  /** Why a second look didn't put this line's failing on the app. The test may not be kept failing on it. */
+  objection?: string;
+  /** What we set up, see `ours` in doubt.ts. */
+  ours?: string;
   artifactsDir: string;
 }
 
@@ -75,6 +79,7 @@ export async function repair(llm: Llm, input: RepairInput): Promise<Repair> {
     `Goal: ${test.goal}`,
     `The test: ${test.name}, starting on ${test.startPath}`,
     Object.keys(test.values).length ? `Values picked on every run: ${Object.entries(test.values).map(([n, v]) => `${n} from ${v.from} to ${v.to}`).join("; ")}` : "",
+    input.ours ?? "",
     input.notes.length ? `What is known about this app:\n${input.notes.map((n) => `- ${n}`).join("\n")}` : "",
     "",
     "Lines:",
@@ -89,6 +94,9 @@ export async function repair(llm: Llm, input: RepairInput): Promise<Repair> {
     input.problems.length ? `Problems with the app already written down:\n${input.problems.map((f, i) => `${i + 1}. ${f.what}: ${f.saw}`).join("\n")}\n` : "",
     input.earlier.length ? `Earlier repairs of this test:\n${input.earlier.map((e) => `- ${e}`).join("\n")}\n` : "",
     latest.steps[line]?.page ? `The page at line ${line + 1} in the latest run, as text:\n${latest.steps[line]!.page}\n` : "",
+    input.objection
+      ? `Line ${line + 1} fails on every run and was left to fail as a fault of the app. Someone who didn't write the test looked again and didn't agree: ${input.objection}\nSo the test may not be kept failing on this. Verdict "test": reword this line, and those after it that hang on it, around what a user is entitled to and the page can answer, or take out what can't be saved. Verdict "cant-tell" when nothing of the goal is left to test without it.\n`
+      : "",
     `Decide line ${line + 1}.${input.flips ? " It passed in an earlier run of the test as it is worded now." : ""}${png ? " The picture is the page at that line in the latest run." : ""}`,
   ].filter(Boolean).join("\n");
   return llm.structured({ system: SYSTEM, prompt, images, schema: Repair, name: "repair" });

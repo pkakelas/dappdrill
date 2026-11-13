@@ -11,7 +11,7 @@ const RANK: Record<Role, number> = { member: 0, admin: 1, owner: 2 };
 
 /**
  * What takes more than being a member. Everything else (adding apps, running and editing
- * tests, the assistant) is open to everyone in the organization.
+ * tests) is open to everyone in the organization.
  */
 const NEEDS = {
   /** An app's settings (URL, keys, access headers, schedule) and deleting it. */
