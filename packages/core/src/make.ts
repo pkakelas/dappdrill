@@ -3,7 +3,7 @@
  * goal handed to the maker and what came of it.
  */
 import { z } from "zod";
-import { Suite, type Action, type LineResult } from "./suite.js";
+import { LineStatus, Suite, type Action, type LineResult } from "./suite.js";
 
 /** What a suite holds besides its tests: the setup, the notes, and what may be signed. Kept with the app. */
 export const SuiteSettings = Suite.omit({ tests: true });
@@ -24,6 +24,28 @@ export const Fault = z.object({
 });
 export type Fault = z.infer<typeof Fault>;
 
+/** What was tried for a goal that got no test: the test as it last stood, and how each line went in its runs. */
+export const Tried = z.object({
+  name: z.string().optional(),
+  lines: z
+    .array(
+      z.object({
+        type: z.enum(["action", "check"]),
+        text: z.string(),
+        /** How the line went in each run of the test as it stands, oldest first. */
+        runs: z.array(LineStatus).default([]),
+        /** What the latest run found at the line, when it didn't pass. */
+        note: z.string().optional(),
+      }),
+    )
+    .default([]),
+  /** Every run, including those of earlier wordings. */
+  runs: z.number().int().default(0),
+  /** The one question for the owner whose answer would let the test be made. */
+  ask: z.string().optional(),
+});
+export type Tried = z.infer<typeof Tried>;
+
 export const MakeGoal = z.object({
   goal: z.string().min(1),
   startPath: z.string().default("/"),
@@ -42,6 +64,8 @@ export const MakeGoal = z.object({
   stands: z.enum(["passed", "failed"]).optional(),
   /** Why no test was kept. */
   whyNot: z.string().optional(),
+  /** What was tried, when no test was kept. */
+  tried: Tried.optional(),
   /** No test was kept, and the owner dismissed it or tried it again: it leaves the app's list of goals without a test. */
   dismissed: z.boolean().optional(),
   costUsd: z.number().default(0),

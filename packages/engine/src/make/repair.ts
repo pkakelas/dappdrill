@@ -20,7 +20,10 @@ export const Repair = z.object({
   verdict: z.enum(["test", "app", "cant-tell"]),
   why: z.string().describe(`What decides it. ${SAID}`),
   edits: z.array(Edit).default([]),
-  values: z.array(z.object({ name: z.string().regex(/^\w+$/), ...RunValue.shape })).optional().describe("Only when the values change: all of them, as they should be now"),
+  values: z
+    .array(z.object({ name: z.string().regex(/^\w+$/), ...RunValue.shape }))
+    .optional()
+    .describe("Only when the values change: all of them, as they should be now"),
   finding: Finding.optional().describe("With verdict app, unless it is a problem already written down"),
   known: z.number().int().min(1).optional().describe("With verdict app: the number of the problem already written down that this is"),
   note: z.string().optional().describe("With verdict app, when later tests of this app will meet the same fault: how to get past it, in one sentence"),
@@ -79,7 +82,11 @@ export async function repair(llm: Llm, input: RepairInput): Promise<Repair> {
   const prompt = [
     `Goal: ${test.goal}`,
     `The test: ${test.name}, starting on ${test.startPath}`,
-    Object.keys(test.values).length ? `Values picked on every run: ${Object.entries(test.values).map(([n, v]) => `${n} from ${v.from} to ${v.to}`).join("; ")}` : "",
+    Object.keys(test.values).length
+      ? `Values picked on every run: ${Object.entries(test.values)
+          .map(([n, v]) => `${n} from ${v.from} to ${v.to}`)
+          .join("; ")}`
+      : "",
     input.ours ?? "",
     input.notes.length ? `What is known about this app:\n${input.notes.map((n) => `- ${n}`).join("\n")}` : "",
     "",
@@ -88,7 +95,13 @@ export async function repair(llm: Llm, input: RepairInput): Promise<Repair> {
     test.cleanup.length ? `Cleanup, when it stops half way:\n${test.cleanup.map((c) => `- ${c.do}`).join("\n")}` : "",
     "",
     ...runs.flatMap((r, n) => [
-      `Run ${n + 1}${Object.keys(r.values).length ? ` (${Object.entries(r.values).map(([k, v]) => `${k} = ${v}`).join(", ")})` : ""}: ${r.outcome}${r.reason ? `. ${r.reason}` : ""}`,
+      `Run ${n + 1}${
+        Object.keys(r.values).length
+          ? ` (${Object.entries(r.values)
+              .map(([k, v]) => `${k} = ${v}`)
+              .join(", ")})`
+          : ""
+      }: ${r.outcome}${r.reason ? `. ${r.reason}` : ""}`,
       ...r.steps.map((s, i) => `  ${i + 1}. ${s.status}${s.note ? `: ${s.note}` : ""}${s.redone ? ` (its recording failed: ${s.redone})` : ""}${s.by === "llm" && s.did.length ? ` (did: ${s.did.join("; ")})` : ""}`),
       "",
     ]),
@@ -99,7 +112,9 @@ export async function repair(llm: Llm, input: RepairInput): Promise<Repair> {
       ? `Line ${line + 1} fails on every run and was left to fail as a fault of the app. Someone who didn't write the test looked again and didn't agree: ${input.objection}\nSo the test may not be kept failing on this. Verdict "test": reword this line, and those after it that hang on it, around what a user is entitled to and the page can answer, or take out what can't be saved. Verdict "cant-tell" when nothing of the goal is left to test without it.\n`
       : "",
     `Decide line ${line + 1}.${input.flips ? " It passed in an earlier run of the test as it is worded now." : ""}${png ? " The picture is the page at that line in the latest run." : ""}`,
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
   return llm.structured({ system: SYSTEM, prompt, images, schema: Repair, name: "repair" });
 }
 

@@ -7,7 +7,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { AppActions } from "@/components/tests/app-actions";
 import { AppHero, type LiveChain, type Rollup } from "@/components/tests/app-hero";
 import { HISTORY_DAYS } from "@/components/tests/app-stats";
-import { GoalActions } from "@/components/tests/goal-actions";
+import { DismissGoal } from "@/components/tests/goal-actions";
 import { GoalList, MakeBand } from "@/components/tests/make-band";
 import { SetupStuckNotice } from "@/components/tests/setup-stuck";
 import { StartBand } from "@/components/tests/start-band";
@@ -19,6 +19,9 @@ import { can } from "@/lib/permissions";
 import { readBalance } from "@/lib/rpc";
 import { readSite } from "@/lib/site";
 import { requireApp } from "@/lib/session";
+
+/** A goal without a test has a page of its own: why, what was tried, and what we need to know. */
+const goalHref = (appId: string, { makeId, index }: { makeId: string; index: number }) => `/apps/${appId}/goals/${makeId}/${index + 1}`;
 
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
   const { app } = await requireApp((await params).appId);
@@ -34,7 +37,10 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const [latest, settled, history] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), runHistory(db(), appId, new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000))]);
   const reads = new Map(tests.map((t) => [t.id, readTest(latest.get(t.id), settled.get(t.id))]));
 
-  const making = make && (make.status === "queued" || make.status === "running") ? make : undefined;
+  // Makes go one at a time: the one going, or the next in line, is shown, and the tests waiting after it are listed under it.
+  const active = recent.filter((m) => m.status === "queued" || m.status === "running").reverse();
+  const making = active.find((m) => m.status === "running") ?? active[0];
+  const next = active.filter((m) => m !== making);
   // The app's first tests: nothing to report yet, so the page says what is happening and how long it takes.
   const first = Boolean(making && !making.goal && tests.length === 0);
   // The tests the running make has kept so far, listed first and marked New when there are older ones to tell them from.
@@ -87,7 +93,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
           action={!first && (tests.length > 0 || make) && <AppActions appId={appId} appUrl={app.url} tests={tests.length} running={activeIds.length > 0} making={Boolean(making)} canMake={manage} />}
         />
 
-        {making && <MakeBand appId={appId} appUrl={app.url} make={making} wait={first ? { email: making.requestedBy === user.id ? user.email : undefined } : undefined} />}
+        {making && <MakeBand appId={appId} appUrl={app.url} make={making} next={next} wait={first ? { email: making.requestedBy === user.id ? user.email : undefined } : undefined} />}
 
         {stuck && make && (
           <SetupStuckNotice appId={appId} stuck={stuck} kept={make.state.goals.filter((g) => g.status === "kept").length} left={make.state.goals.filter((g) => g.status === "waiting").length} chain={live?.name} canMake={manage} />
@@ -127,13 +133,14 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
               icon={CircleDashed}
               tint="quiet"
               title={`${plural(notKept.length, "goal")} without a test`}
-              detail={making ? "Tried, and no test was kept. Each says why, and can be tried again once these tests are made." : "Tried, and no test was kept. Each says why: try it again with what we should know, or dismiss it."}
+              detail={making ? "Tried, and no test was kept. Each says why, and can be tried again once these tests are made." : "Tried, and no test was kept. Open one to see why and tell us what we need to know."}
             />
             <div className="rounded-xl border border-dashed p-1.5">
               <GoalList
                 appId={appId}
                 goals={notKept.map((n) => n.goal)}
-                aside={making ? undefined : (g, i) => <GoalActions key={`${notKept[i]!.ref.makeId}:${notKept[i]!.ref.index}`} appId={appId} goal={g.goal} whyNot={g.whyNot} retries={notKept[i]!.ref} />}
+                href={making ? undefined : (_, i) => goalHref(appId, notKept[i]!.ref)}
+                aside={making ? undefined : (_, i) => <DismissGoal key={`${notKept[i]!.ref.makeId}:${notKept[i]!.ref.index}`} appId={appId} goal={notKept[i]!.ref} />}
               />
             </div>
           </section>

@@ -1,4 +1,4 @@
-import type { MakeGoal } from "@dappdrill/core";
+import { MakeGoal } from "@dappdrill/core";
 import type { makes } from "@dappdrill/db";
 import { CircleDashed, Mail, PenLine, TriangleAlert } from "lucide-react";
 import Link from "next/link";
@@ -56,7 +56,7 @@ function sharedReason(goals: MakeGoal[]): { why: string; count: number } | undef
 }
 
 /** The goals a make is working through, each with what came of it. A kept one links to its test. */
-export function GoalList({ appId, goals, live, aside }: { appId: string; goals: MakeGoal[]; live?: boolean; aside?: (goal: MakeGoal, i: number) => ReactNode }) {
+export function GoalList({ appId, goals, live, href, aside }: { appId: string; goals: MakeGoal[]; live?: boolean; href?: (goal: MakeGoal, i: number) => string; aside?: (goal: MakeGoal, i: number) => ReactNode }) {
   const shared = sharedReason(goals);
   const next = goals.findIndex((g) => g.status === "waiting");
   return (
@@ -75,6 +75,7 @@ export function GoalList({ appId, goals, live, aside }: { appId: string; goals: 
           const mark = goalMark(g);
           const whyNot = g.whyNot === shared?.why ? undefined : g.whyNot;
           const under = g.status === "not-kept" ? whyNot : undefined;
+          const to = g.testId ? `/apps/${appId}/tests/${g.testId}` : href?.(g, i);
           return (
             <li key={i} className="relative flex items-start gap-3 px-2 py-2.5 text-sm hover:bg-foreground/5">
               {g.status === "not-kept" ? (
@@ -85,8 +86,8 @@ export function GoalList({ appId, goals, live, aside }: { appId: string; goals: 
                 <StateMark state={mark.state} label={mark.label} className="mt-0.5" />
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                {g.testId ? (
-                  <Link href={`/apps/${appId}/tests/${g.testId}`} className="text-pretty outline-none after:absolute after:inset-0 focus-visible:underline">
+                {to ? (
+                  <Link href={to} className="text-pretty outline-none after:absolute after:inset-0 focus-visible:underline">
                     {g.goal}
                   </Link>
                 ) : (
@@ -153,7 +154,7 @@ function LiveDot() {
  * Tests being made, as it happens: what the browser sees, the goal in hand, and what came of the others. While an
  * app's first tests are made, `wait` adds how long it takes and who hears when it's done.
  */
-export function MakeBand({ appId, appUrl, make, wait }: { appId: string; appUrl: string; make: MakeRow; wait?: { email?: string } }) {
+export function MakeBand({ appId, appUrl, make, next = [], wait }: { appId: string; appUrl: string; make: MakeRow; next?: MakeRow[]; wait?: { email?: string } }) {
   const { state } = make;
   const queued = make.status === "queued";
   const n = state.goals.findIndex((g) => g.status === "making");
@@ -164,7 +165,8 @@ export function MakeBand({ appId, appUrl, make, wait }: { appId: string; appUrl:
   const done = state.goals.filter((g) => g.status === "kept" || g.status === "not-kept").length;
   const headline = queued ? "Waiting for a browser" : make.goal ? "Making your test" : state.stage === "looking" ? "Looking over the app" : current ? `${done} of ${plural(state.goals.length, "test")} made` : "Finishing up";
   // The goal in hand is shown beside the browser that is doing it, and the ones still to make under both. Kept ones are with the tests, and the page lists the rest after them.
-  const ahead = state.goals.filter((g) => g !== current && (g.status === "making" || g.status === "waiting"));
+  // Tests added meanwhile wait for this make to end, and come after its own goals.
+  const ahead = [...state.goals.filter((g) => g !== current && (g.status === "making" || g.status === "waiting")), ...next.flatMap((m) => (m.goal ? [MakeGoal.parse({ goal: m.goal })] : []))];
 
   return (
     <section aria-label="Making tests" className="flex flex-col gap-10">

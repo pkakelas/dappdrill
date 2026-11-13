@@ -8,6 +8,7 @@ import path from "node:path";
 import type { DrillEventSink, LineResult, SetupStuck, Test } from "@dappdrill/core";
 import { refuseOnLiveMainnet } from "../chain/controller.js";
 import { openSuite, type RunSuiteInput } from "../run/suite.js";
+import { askOwner, type AskInput } from "./ask.js";
 import { doubt, ours } from "./doubt.js";
 import { draftTest, type Finding } from "./draft.js";
 import { prove, type Proved } from "./prove.js";
@@ -24,6 +25,8 @@ export interface MakeInput extends RunSuiteInput {
 export interface Made extends Omit<Proved, "test"> {
   /** The test as it stands at the end, when one was written. `why` says why there is none. */
   test?: Test;
+  /** With no test: the one question for the owner whose answer would most likely let it be made. */
+  ask?: string;
   setup?: LineResult[];
   /** The setup didn't finish, so the goal was never tried. The next goal would end the same way. */
   stuck?: SetupStuck;
@@ -39,7 +42,29 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
   const open = await openSuite(input, sink, { refuseApprove: (r, env) => refuseOnLiveMainnet(env.chains, r) });
   const { env } = open;
   let draftUsd = 0;
-  const done = (more: Partial<Proved> & Pick<Made, "stuck">): Made => ({ proven: false, notes: [], findings: [], repairs: [], dismissed: [], runs: [], ...more, setup: open.setup, draftUsd, costUsd: env.costUsd(), durationMs: Date.now() - t0 });
+  const done = (more: Partial<Proved> & Pick<Made, "stuck">): Made => ({
+    proven: false,
+    notes: [],
+    findings: [],
+    repairs: [],
+    dismissed: [],
+    runs: [],
+    ...more,
+    setup: open.setup,
+    draftUsd,
+    costUsd: env.costUsd(),
+    durationMs: Date.now() - t0,
+  });
+  /** Why there is no test, from what was seen, and the question it leaves. The maker's own reason stands if this fails. */
+  const asked = async (tried: Omit<AskInput, "goal" | "notes" | "ours" | "artifactsDir" | "why"> & { why?: string }): Promise<{ why?: string; ask?: string }> => {
+    const why = tried.why ?? "It didn't go the same way twice.";
+    if (input.signal?.aborted) return { why };
+    try {
+      return await askOwner(env.fastLlm(), { ...tried, why, goal: input.goal, notes: open.opts.notes ?? [], ours: ours(env), artifactsDir });
+    } catch {
+      return { why };
+    }
+  };
   try {
     if (open.stuck) return done({ why: open.stuck, stuck: open.stuckAt ?? { reason: open.stuck } });
     const notes = open.opts.notes!;
@@ -59,7 +84,7 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       signal: input.signal,
     });
     draftUsd = env.costUsd();
-    if ("gaveUp" in draft) return done({ why: draft.gaveUp });
+    if ("gaveUp" in draft) return done(await asked({ why: draft.gaveUp, runs: [], repairs: [], dismissed: [], findings: [] }));
     notes.push(...draft.notes);
     const taken = new Set(suite.tests.map((t) => t.id));
     let test = draft.test;
@@ -76,7 +101,8 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       doubt: (asked) => doubt(env.thinkLlm(), { ...asked, ours: set, artifactsDir }),
       say,
     });
-    return done({ ...proved, notes: [...draft.notes, ...proved.notes] });
+    const all = { ...proved, notes: [...draft.notes, ...proved.notes] };
+    return done(proved.proven ? all : { ...all, ...(await asked({ ...proved, runs: proved.runs.slice(proved.runs.length - (proved.worded ?? 0)) })) });
   } finally {
     await open.close();
   }
