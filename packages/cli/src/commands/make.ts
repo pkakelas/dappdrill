@@ -3,8 +3,8 @@ import { join, resolve } from "node:path";
 import { CONNECTED } from "@dappdrill/core";
 import { loadEngine } from "@dappdrill/engine/fake";
 import { TestsFile, UsageError, addToTests, loadTests, suiteOf } from "../files.js";
-import { buildTarget, dim, warnSink, yellow, type TargetFlags } from "./target.js";
-import { interruptSignal } from "./util.js";
+import { buildTarget, type TargetFlags } from "./target.js";
+import { commandOn, dim, interruptSignal, secs, warnSink, yellow } from "./util.js";
 
 export interface MakeFlags extends TargetFlags {
   file: string;
@@ -13,7 +13,10 @@ export interface MakeFlags extends TargetFlags {
   start?: string;
 }
 
-const secs = (ms: number) => `${Math.round(ms / 1000)}s`;
+/** How a kept test stands. */
+const stands = (made: { stands?: "passed" | "failed" }) => `${made.stands === "passed" ? "passes" : "fails on a fault of the app"} twice in a row`;
+/** Why a goal got no test, when the engine gave no reason. */
+const NOT_PROVEN = "it didn't go the same way twice in a row.";
 
 /**
  * `dappdrill make`: look at the app, make a test for each thing worth one, and keep those that go the
@@ -35,40 +38,41 @@ export async function makeCommand(url: string, flags: MakeFlags): Promise<number
   let kept = 0;
   let inAll = file.tests.length;
   let writing = Promise.resolve();
+  // One more test for an app whose tests were made before starts where they did: the same chains, the same account.
+  const target = await buildTarget(url, flags, flags.goal ? "tests" : "look", file);
+  // The file remembers the account the tests were made on, and never the key.
+  const on = { account: target.account, fund: target.fund };
   const add = (more: Parameters<typeof addToTests>[2]) =>
     (writing = writing.catch(() => {}).then(async () => {
-      inAll = (await addToTests(flags.file, file, more)).tests.length;
+      inAll = (await addToTests(flags.file, { ...file, ...on }, { ...on, ...more })).tests.length;
       kept += more.tests?.length ?? 0;
     }));
 
   if (flags.goal) {
-    // One more test for an app whose tests were made before starts where they did: the same chains, the same tokens.
-    const target = await buildTarget(url, flags, "run", file);
     console.log(`Making a test on ${url}: ${flags.goal}\n`);
     const made = await engine.makeTest({ ...input, target, suite: suiteOf(file), goal: flags.goal, startPath: flags.start }, warnSink, (text) => console.log(dim(`  ${text}`)));
     costUsd = made.costUsd;
     if (made.proven && made.test) {
       await add({ notes: made.notes.map((text) => ({ text, from: "maker" as const })), tests: [made.test] });
-      console.log(`\n  ${made.test.name}: ${made.stands === "passed" ? "passes" : "fails on a fault of the app"} twice in a row`);
-    } else console.log(yellow(`\n  No test: ${made.why ?? "it didn't go the same way twice in a row."}`));
+      console.log(`\n  ${made.test.name}: ${stands(made)}`);
+    } else console.log(yellow(`\n  No test: ${made.why ?? NOT_PROVEN}`));
   } else {
-    const target = await buildTarget(url, flags, "make", file);
     console.log(`Looking at ${url}\n`);
     let was = suiteOf(file);
-    let started: Pick<TestsFile, "chains" | "tokens"> | undefined;
+    let started: Pick<TestsFile, "chains"> | undefined;
     const made = await engine.makeTests({ ...input, target, suite: was, count }, warnSink, {
       say: (text, n) => console.log(dim(`  ${n ? `(${n}) ` : ""}${text}`)),
       onLooked: (looked) => {
-        // A run starts where the tests were made: these chains at these blocks, the wallet holding these tokens.
-        started = { chains: looked.chains, tokens: looked.tokens };
+        // A run uses the chains the tests were made on.
+        started = { chains: looked.chains };
         if (looked.summary) console.log(`\n${looked.summary}`);
         if (looked.goals.length === 0) console.log(yellow(`\nNothing to test: ${looked.why ?? "the look found no goals."}`));
       },
       onGoal: (goal, n, suspicion) => console.log(`\n(${n}) ${suspicion ? `Looked wrong: ${suspicion.what}. Finding out: ` : ""}${goal}`),
       onAttempt: (a, n) => {
         const spent = a.made ? dim(`  ${secs(a.made.durationMs)}`) : "";
-        if (a.kept && a.made?.test) console.log(`  (${n}) ✓ ${a.made.test.name}: ${a.made.stands === "passed" ? "passes" : "fails on a fault of the app"} twice in a row${spent}`);
-        else console.log(yellow(`  (${n}) No test: ${a.why ?? "it didn't go the same way twice in a row."}`) + spent);
+        if (a.kept && a.made?.test) console.log(`  (${n}) ✓ ${a.made.test.name}: ${stands(a.made)}${spent}`);
+        else console.log(yellow(`  (${n}) No test: ${a.why ?? NOT_PROVEN}`) + spent);
       },
       onSuite: async (suite) => {
         // What the suite gained since the last write: the look's notes, or a test and what its make learned.
@@ -85,6 +89,6 @@ export async function makeCommand(url: string, flags: MakeFlags): Promise<number
   }
 
   console.log(`\n${kept} ${kept === 1 ? "test" : "tests"} added to ${flags.file} (${inAll} in all). ${secs(Date.now() - t0)}, $${costUsd.toFixed(2)}`);
-  if (inAll) console.log(`Run them with: dappdrill run${flags.file === ".dappdrill/tests.json" ? "" : ` ${flags.file}`}`);
+  if (inAll) console.log(`Run them with: ${commandOn("run", flags.file)}`);
   return kept > 0 ? 0 : 2;
 }

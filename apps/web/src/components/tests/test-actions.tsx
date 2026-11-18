@@ -15,7 +15,7 @@ export function TestActions({ appId, testId, active }: { appId: string; testId: 
   const [pending, start] = useTransition();
   return (
     <div className="flex items-center gap-2">
-      <RunButton target={{ appId, testIds: [testId] }} active={active} stopIds={[testId]} label="Run" size="md" primary />
+      <RunButton target={{ appId, testIds: [testId] }} active={active} label="Run" size="md" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="outline" size="icon" aria-label="More">

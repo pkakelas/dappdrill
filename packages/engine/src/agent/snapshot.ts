@@ -5,11 +5,13 @@
  * The same DOM element keeps its ref across snapshots.
  *
  * `locatorFor()` turns a ref into a core Locator that survives re-renders and
- * cosmetic changes: testId > role+name > label > placeholder > text > css.
+ * cosmetic changes: testId > role+name > label > placeholder > text > css. One of several alike
+ * ("Cancel" on each order) is named by the row it is in, before its place among them.
  */
 import type { Locator as PwLocator, Page } from "playwright";
 import type { Locator } from "@dappdrill/core";
 import { nearLocator } from "../replay/locators.js";
+import { rowsHolding } from "../replay/rows.js";
 
 export interface SnapshotNode {
   ref: string;
@@ -53,6 +55,8 @@ interface ElementFacts {
   text?: string;
   /** The whole text of the smallest box around the element that has a little: its label in the layout. */
   near?: string;
+  /** Words of the table row or list item the element is in, without figures: what could name that row ("Apple"). */
+  rowWords: string[];
   inDialog: boolean;
   cssPath: string;
 }
@@ -178,27 +182,30 @@ export function elementByRef(page: Page, ref: string): PwLocator {
   return page.locator(`[${REF_ATTR}="${ref}"]`).first();
 }
 
-/** Derive a robust core Locator for the element behind `ref`. */
-export async function locatorFor(page: Page, ref: string): Promise<Locator> {
+/**
+ * Derive a robust core Locator for the element behind `ref`. `rowTexts` are texts that name this run's
+ * own rows (the price it typed), tried first when the element is one of several alike.
+ */
+export async function locatorFor(page: Page, ref: string, rowTexts: string[] = []): Promise<Locator> {
   await shimKeepNames(page);
   const facts = await page.evaluate(factsInPage, { refAttr: REF_ATTR, ref });
   if (!facts) throw new Error(`Unknown element ref ${ref}; take a fresh look`);
   const scope: PwLocator | Page = facts.inDialog ? page.getByRole("dialog").last() : page;
   const within = facts.inDialog ? { withinDialog: true as const } : {};
 
-  const candidates: Array<{ loc: Locator; pw: PwLocator }> = [];
-  if (facts.testId) candidates.push({ loc: { testId: facts.testId }, pw: scope.getByTestId(facts.testId) });
+  const candidates: Array<{ loc: Locator; in: (scope: PwLocator | Page) => PwLocator }> = [];
+  if (facts.testId) candidates.push({ loc: { testId: facts.testId }, in: (s) => s.getByTestId(facts.testId!) });
   if (facts.role && facts.name) {
     candidates.push({
       loc: { role: facts.role, name: facts.name },
-      pw: scope.getByRole(facts.role as Parameters<Page["getByRole"]>[0], { name: facts.name, exact: true }),
+      in: (s) => s.getByRole(facts.role as Parameters<Page["getByRole"]>[0], { name: facts.name, exact: true }),
     });
   }
-  if (facts.label) candidates.push({ loc: { label: facts.label }, pw: scope.getByLabel(facts.label, { exact: true }) });
+  if (facts.label) candidates.push({ loc: { label: facts.label }, in: (s) => s.getByLabel(facts.label!, { exact: true }) });
   if (facts.placeholder) {
-    candidates.push({ loc: { placeholder: facts.placeholder }, pw: scope.getByPlaceholder(facts.placeholder, { exact: true }) });
+    candidates.push({ loc: { placeholder: facts.placeholder }, in: (s) => s.getByPlaceholder(facts.placeholder!, { exact: true }) });
   }
-  if (facts.text) candidates.push({ loc: { text: facts.text }, pw: scope.getByText(facts.text, { exact: true }) });
+  if (facts.text) candidates.push({ loc: { text: facts.text }, in: (s) => s.getByText(facts.text!, { exact: true }) });
 
   // A field named only by its placeholder (two "0.00" boxes side by side), or an element with no name at
   // all, is also found by the box it sits in, when it is the only control of its kind there.
@@ -208,17 +215,35 @@ export async function locatorFor(page: Page, ref: string): Promise<Locator> {
   const nearPw = near ? nearLocator(scope, near, facts.role || undefined) : undefined;
   const inBox = nearPw && (await indexOfRef(nearPw, ref)) !== null && (await nearPw.count()) === 1 ? { near } : {};
 
+  /** Our element as the only one of its name inside the one row that holds a text. */
+  const several: typeof candidates = [];
+  const inRow = async (): Promise<Locator | undefined> => {
+    for (const text of [...rowTexts, ...facts.rowWords]) {
+      const rows = rowsHolding(scope, text);
+      if ((await rows.count()) !== 1) continue;
+      for (const c of several) {
+        const there = c.in(rows);
+        if ((await there.count()) === 1 && (await indexOfRef(there, ref)) === 0) return { ...c.loc, row: text, ...within };
+      }
+    }
+    return undefined;
+  };
+
   for (const c of candidates) {
-    const idx = await indexOfRef(c.pw, ref);
+    const pw = c.in(scope);
+    const idx = await indexOfRef(pw, ref);
     if (idx === null) continue;
-    const count = await c.pw.count();
     const locator: Locator = { ...c.loc, ...inBox, ...within };
-    // Prefer a selector that matches uniquely; keep looking if this one needs nth.
-    if (count === 1) return locator;
-    if (c === candidates.at(-1) && !inBox.near) return { ...locator, nth: idx };
-    if (c === candidates.at(-1)) return locator;
+    // Prefer a selector that matches uniquely; keep looking if this one needs more to say which.
+    if ((await pw.count()) === 1) return locator;
+    several.push(c);
+    if (c !== candidates.at(-1)) continue;
+    if (inBox.near) return locator;
+    return (await inRow()) ?? { ...locator, nth: idx };
   }
   if (inBox.near) return { role: facts.role || undefined, ...inBox, ...within };
+  const row = await inRow();
+  if (row) return row;
   const css = facts.id && !looksGenerated(facts.id) ? `#${cssEscape(facts.id)}` : facts.cssPath;
   return { css, ...within };
 }
@@ -623,6 +648,17 @@ function factsInPage(args: { refAttr: string; ref: string }): ElementFacts | nul
     return undefined;
   };
 
+  // The words of its row that aren't figures and aren't its own: one of them may name the row among the others.
+  const rowWords = (): string[] => {
+    const row = el.closest('tr, li, [role="row"], [role="listitem"]');
+    if (!row) return [];
+    const words = [...row.querySelectorAll("*")]
+      .filter((e) => !e.children.length && !el.contains(e) && !e.closest("button, a, [role=button]"))
+      .map((e) => text(e.textContent))
+      .filter((t) => t.length >= 2 && t.length <= 40 && !/\d/.test(t));
+    return [...new Set(words)].slice(0, 6);
+  };
+
   const cssPath = (): string => {
     const parts: string[] = [];
     let cur: Element | null = el;
@@ -647,6 +683,7 @@ function factsInPage(args: { refAttr: string; ref: string }): ElementFacts | nul
     placeholder: text(el.getAttribute("placeholder")) || undefined,
     text: ownText,
     near: nearText(),
+    rowWords: rowWords(),
     inDialog: !!el.closest("[role=dialog],[role=alertdialog],dialog[open],[aria-modal=true]"),
     cssPath: cssPath(),
   };

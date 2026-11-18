@@ -1,7 +1,6 @@
 /**
- * A Playwright session with the wallet injected, the page's RPC routed to the
- * chain controller, and every artifact (video, trace, screenshots, live
- * frames, console, RPC log) collected under artifactsDir.
+ * A Playwright session with the wallet injected and every artifact (video,
+ * trace, screenshots, live frames, console, RPC log) collected under artifactsDir.
  */
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -13,8 +12,7 @@ import { Wallet } from "../wallet/controller.js";
 import { BINDING_NAME, walletInitScript, type BridgeRequest, type InjectConfig } from "../wallet/inject.js";
 import { toHex } from "../chain/rpc.js";
 import { installAccessHeaders, USER_AGENT } from "./access.js";
-import { installBackendBalances } from "./backend-balances.js";
-import { RpcRouter } from "./rpc-route.js";
+import { recordRpc } from "./rpc-log.js";
 import { Said } from "./said.js";
 import { installResponses, installStorage } from "./setup.js";
 import { Traffic } from "./traffic.js";
@@ -56,8 +54,6 @@ export interface EngineSession extends DrillSession {
   touch(): void;
   /** The page's non-RPC requests per host, for explaining a scan that found nothing. */
   readonly traffic: Traffic;
-  /** Backend hosts that reported the wallet's holdings from the real chain, which we answered from the fork instead. */
-  readonly backendsAnswered: readonly string[];
   /** Every line of text the page showed, and when. */
   readonly said: Said;
 }
@@ -94,14 +90,11 @@ export async function createSession(target: DrillTarget, chains: ChainController
     profile,
     chains,
     accounts: target.accounts,
-    liveKey: target.liveKey,
-    funding: Boolean(target.funding),
     startChainId,
     connected: before?.connected,
     policy: opts.policy,
     log,
   });
-  await wallet.fundOnForks(target.tokens);
 
   const browser = await chromium.launch({ headless: opts.headless ?? true });
   try {
@@ -130,7 +123,6 @@ class Session implements EngineSession {
   readonly rpc: RpcLogEntry[] = [];
   readonly traffic = new Traffic();
   readonly said = new Said();
-  readonly backendsAnswered: string[] = [];
   readonly artifactsDir: string;
   readonly emit: DrillEventSink;
   page!: Page;
@@ -142,7 +134,6 @@ class Session implements EngineSession {
   private framing = false;
   private frameFiles: string[] = [];
   private closed = false;
-  private readonly router: RpcRouter;
 
   constructor(
     readonly id: string,
@@ -157,11 +148,6 @@ class Session implements EngineSession {
   ) {
     this.artifactsDir = opts.artifactsDir;
     this.emit = opts.sink;
-    this.router = new RpcRouter({
-      chains,
-      onLog: (e) => this.rpc.push(e),
-      onActivity: () => this.touch(),
-    });
   }
 
   async init(profile: WalletProfileId, second: WalletProfileId | undefined, startChainId: number): Promise<void> {
@@ -207,17 +193,11 @@ class Session implements EngineSession {
     await context.addInitScript({ content: walletInitScript(cfg) });
     for (const content of this.target.initScripts ?? []) await context.addInitScript({ content });
     await installStorage(context, this.target.url, this.target.storage ?? {});
-    await this.router.install(context);
-    await installBackendBalances(context, {
-      chains: this.chains,
-      holders: Object.values(wallet.accounts),
-      onAnswered: (endpoint) => {
-        const host = endpoint.split("/")[0]!;
-        if (!this.backendsAnswered.includes(host)) this.backendsAnswered.push(host);
-        void this.emit({ type: "log", level: "info", message: `${endpoint} answers what the wallet holds from the real chain; answering it from the fork instead`, at: nowIso() });
-      },
+    recordRpc(context, this.chains, (e) => {
+      this.rpc.push(e);
+      this.touch();
     });
-    // Routes registered later run first: fixed responses, then access headers, then balances a backend reports, then the RPC router.
+    // Routes registered later run first: fixed responses, then access headers.
     await installAccessHeaders(context, this.target.url, this.target.headers ?? {});
     await installResponses(context, this.target.responses ?? []);
     this.traffic.install(context);

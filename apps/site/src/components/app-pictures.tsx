@@ -419,7 +419,7 @@ export function TestPicture() {
           <I name="check" />
         </span>
         <span className="dd-t13">
-          <span className="good">Passed</span> · 2 min ago · took 41s · fork of Ethereum
+          <span className="good">Passed</span> · 2 min ago · took 41s · on Ethereum
         </span>
       </div>
       <div className="dd-cols">
@@ -472,7 +472,7 @@ export function TestPicture() {
             </div>
             {(
               [
-                ["Connect", "0x7a3F…41e1 on Ethereum (fork)"],
+                ["Connect", "0x7a3F…41e1 on Ethereum"],
                 ["Approve hUSDC", "For HarborVault 0xe7f1…0512"],
                 ["Deposit 250 hUSDC", "To HarborVault 0xe7f1…0512"],
               ] as const
@@ -665,7 +665,7 @@ export function BreakPicture() {
             </div>
             {(
               [
-                ["Connect", "0x7a3F…41e1 on Ethereum (fork)", "Approved"],
+                ["Connect", "0x7a3F…41e1 on Ethereum", "Approved"],
                 ["Approve hUSDC", "For HarborVault 0xe7f1…0512", "Approved"],
                 ["Deposit 250 hUSDC", "To HarborVault 0xe7f1…0512", "Rejected"],
               ] as const

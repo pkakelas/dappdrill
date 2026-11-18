@@ -13,7 +13,7 @@ import { artifactUrl } from "@/lib/artifacts";
 import { plural } from "@/lib/format";
 import { SaidNote, saidShort } from "./said";
 import { Evidence } from "./signed";
-import { StateMark, type TestState } from "./status";
+import { LiveDot, StateMark, type TestState } from "./status";
 import { SectionHead, Tile } from "./tile";
 
 type MakeRow = typeof makes.$inferSelect;
@@ -141,12 +141,48 @@ function GoalProgress({ goals }: { goals: MakeGoal[] }) {
   );
 }
 
-function LiveDot() {
+/** The browser of a make or a repair: what it sees right now, with what it is doing written over it. */
+export function BandBrowser({ url, frame, doing }: { url: string; frame: string | null; doing: string }) {
   return (
-    <span className="relative flex size-2">
-      <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-50 motion-reduce:animate-none" />
-      <span className="relative inline-flex size-2 rounded-full bg-live" />
-    </span>
+    <div className="self-start">
+      <BrowserWindow url={url}>
+        <div className="relative aspect-[16/10] overflow-hidden bg-card">
+          {frame ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={frame} alt="What the browser sees right now" className="absolute inset-0 size-full object-cover object-top" />
+          ) : (
+            <SiteLoading />
+          )}
+          <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border bg-background/85 px-3 py-2 text-sm shadow-md backdrop-blur-md">
+            {!frame && <Spinner className="size-3.5 shrink-0 text-muted-foreground" />}
+            <span className="truncate">{doing}</span>
+          </div>
+        </div>
+      </BrowserWindow>
+    </div>
+  );
+}
+
+/** The line over a make or a repair: what is going on and for how long, and the button that stops it. */
+export function BandStatus({ make, children }: { make: Pick<MakeRow, "id" | "startedAt" | "stopRequested">; children: ReactNode }) {
+  return (
+    <div className="flex min-h-8 items-center justify-between gap-3 text-sm text-muted-foreground">
+      <span className="flex flex-wrap items-center gap-x-2">
+        <LiveDot />
+        {children}
+        {make.startedAt && (
+          <>
+            {" · "}
+            <Elapsed since={make.startedAt.toISOString()} />
+          </>
+        )}
+      </span>
+      <form action={stopMakeAction.bind(null, make.id)}>
+        <SubmitButton variant="outline" size="sm" busy="Stopping…" disabled={make.stopRequested}>
+          {make.stopRequested ? "Stopping…" : "Stop"}
+        </SubmitButton>
+      </form>
+    </div>
   );
 }
 
@@ -171,41 +207,10 @@ export function MakeBand({ appId, appUrl, make, next = [], wait }: { appId: stri
   return (
     <section aria-label="Making tests" className="flex flex-col gap-10">
       <div className="grid gap-8 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-10">
-        <div className="self-start">
-          <BrowserWindow url={appUrl}>
-            <div className="relative aspect-[16/10] overflow-hidden bg-card">
-              {frame ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={frame} alt="What the browser sees right now" className="absolute inset-0 size-full object-cover object-top" />
-              ) : (
-                <SiteLoading />
-              )}
-              <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border bg-background/85 px-3 py-2 text-sm shadow-md backdrop-blur-md">
-                {!frame && <Spinner className="size-3.5 shrink-0 text-muted-foreground" />}
-                <span className="truncate">{queued ? "Waiting for a browser…" : said ? saidShort(said) : `${headline}…`}</span>
-              </div>
-            </div>
-          </BrowserWindow>
-        </div>
+        <BandBrowser url={appUrl} frame={frame} doing={queued ? "Waiting for a browser…" : said ? saidShort(said) : `${headline}…`} />
 
         <div className="flex min-w-0 flex-col gap-4 md:py-1">
-          <div className="flex min-h-8 items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span className="flex flex-wrap items-center gap-x-2">
-              <LiveDot />
-              {queued ? "Queued" : state.stage === "looking" ? "Looking" : "Making tests"}
-              {make.startedAt && (
-                <>
-                  {" · "}
-                  <Elapsed since={make.startedAt.toISOString()} />
-                </>
-              )}
-            </span>
-            <form action={stopMakeAction.bind(null, make.id)}>
-              <SubmitButton variant="outline" size="sm" busy="Stopping…" disabled={make.stopRequested}>
-                {make.stopRequested ? "Stopping…" : "Stop"}
-              </SubmitButton>
-            </form>
-          </div>
+          <BandStatus make={make}>{queued ? "Queued" : state.stage === "looking" ? "Looking" : "Making tests"}</BandStatus>
 
           <div className="flex flex-col gap-3">
             <h2 className="text-xl font-semibold tracking-tight">{headline}</h2>

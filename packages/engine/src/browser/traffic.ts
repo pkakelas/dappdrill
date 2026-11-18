@@ -1,6 +1,6 @@
 /**
- * The page's own fetch/XHR traffic: which servers it asked, which were told about the wallet, and
- * which said no and why. JSON-RPC is left out: the fork answers it and the RPC log records it.
+ * The page's own fetch/XHR traffic: which servers it asked, and which said no and why. JSON-RPC
+ * is left out: the RPC log records it.
  */
 import type { BrowserContext, Request } from "playwright";
 
@@ -8,8 +8,6 @@ import type { BrowserContext, Request } from "playwright";
 const NOISE = /sentry|google-analytics|analytics\.google|googletagmanager|doubleclick|adnxs|launchdarkly|segment\.(io|com)|mixpanel|amplitude|hotjar|posthog|datadoghq|intercom|cloudflareinsights|vercel-insights|walletconnect|web3modal|reown|privy|coinbase\.com\/.*metrics/i;
 /** The part of NOISE that also signs users in. */
 const SIGN_IN = /privy|walletconnect|web3modal|reown/i;
-/** Addresses and transaction hashes a request carries: what the page tells its backends about. */
-const HEX_KEY = /0x[0-9a-f]{40}(?:[0-9a-f]{24})?/g;
 
 /** An error answer is short; anything longer is a page, not a reason. */
 const MAX_REFUSAL = 2_000;
@@ -17,19 +15,12 @@ const MAX_REFUSALS = 50;
 
 export class Traffic {
   private readonly seen = new Set<string>();
-  /** Which hosts were told about each address or transaction hash. */
-  private readonly told = new Map<string, Set<string>>();
   /** Error answers that said why, newest last. */
   private readonly refusals: { host: string; status: number; said: string; at: number }[] = [];
 
   install(context: BrowserContext): void {
     context.on("request", (r) => {
-      const host = tracked(r);
-      if (!host) return;
-      this.seen.add(new URL(r.url()).origin);
-      for (const [key] of `${r.url()} ${r.postData() ?? ""}`.toLowerCase().matchAll(HEX_KEY)) {
-        this.told.set(key, (this.told.get(key) ?? new Set()).add(host));
-      }
+      if (tracked(r)) this.seen.add(new URL(r.url()).origin);
     });
     context.on("requestfinished", (r) => {
       // A sign-in provider's requests are noise, but its "no" is what a failed login needs.
@@ -57,11 +48,6 @@ export class Traffic {
   refusedSince(at: number): string[] {
     const lines = this.refusals.filter((r) => r.at >= at).map((r) => `${r.host} answered ${r.status}: “${r.said}”`);
     return [...new Set(lines)].slice(0, 2);
-  }
-
-  /** Backends the page sent this address or transaction hash to: the ones that may answer for it from the real chain. */
-  hostsTold(key: string): string[] {
-    return [...(this.told.get(key.toLowerCase()) ?? [])];
   }
 
   /** Origins the page fetched from, ones on the app's own site (e.g. app.x.dev → node.x.dev) first. */

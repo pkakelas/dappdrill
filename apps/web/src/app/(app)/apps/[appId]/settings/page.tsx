@@ -1,6 +1,6 @@
-import { formatFixedResponse, KNOWN_CHAINS } from "@dappdrill/core";
-import { db, makes } from "@dappdrill/db";
-import { desc, eq } from "drizzle-orm";
+import { formatFixedResponse } from "@dappdrill/core";
+import { accountOf, db, isMake, makes } from "@dappdrill/db";
+import { and, desc, eq } from "drizzle-orm";
 import { X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -13,16 +13,15 @@ import { SetupEditor } from "@/components/tests/lines-editor";
 import { PageHeader, SettingsSection } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
+import { CHAINS } from "@/lib/chains";
 import { isHostVerified } from "@/lib/domains";
 import { timeAgo } from "@/lib/format";
 import { ownerHints } from "@/lib/hints";
+import { isCode } from "@/lib/lines";
 import { can } from "@/lib/permissions";
 import { requireApp } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Settings" };
-
-/** The ones with a chip. Any other chain shows with its RPC URL. */
-const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337 && c.forkable);
 
 export default async function SettingsPage({ params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
@@ -30,14 +29,16 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
   const manage = can(role, "apps.manage");
   const [verified, [seen]] = await Promise.all([
     isHostVerified(app.organizationId, app.host),
-    db().select({ id: makes.id, status: makes.status, state: makes.state, finishedAt: makes.finishedAt, createdAt: makes.createdAt }).from(makes).where(eq(makes.appId, app.id)).orderBy(desc(makes.createdAt)).limit(1),
+    db().select({ id: makes.id, status: makes.status, state: makes.state, finishedAt: makes.finishedAt, createdAt: makes.createdAt }).from(makes).where(and(eq(makes.appId, app.id), isMake)).orderBy(desc(makes.createdAt)).limit(1),
   ]);
   // What our browser last saw there: the look's last picture, or a goal's.
   const making = seen?.status === "queued" || seen?.status === "running";
   const frame = seen ? artifactUrl("makes", seen.id, seen.state.frame ?? seen.state.goals.findLast((g) => g.frame)?.frame) : null;
-  const setup = app.suite.setup && { startPath: app.suite.setup.startPath, steps: app.suite.setup.steps.map((s) => s.do) };
+  const lines = (part: typeof app.suite.setup) => part && { startPath: part.startPath, steps: part.steps.map((s) => ({ text: s.do, code: isCode(s) })) };
+  const kept = accountOf(app) === "kept";
   // What the look and the maker wrote down about the app. The owner's own answers are in the form above.
   const learned = app.suite.notes.filter((n) => n.from !== "owner");
+  // A chain we know has a chip. Any other shows with its RPC URL.
   const others = app.settings.chains.filter((c) => !CHAINS.some((k) => k.id === c.id && k.rpcUrl === c.rpcUrl));
 
   return (
@@ -54,9 +55,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
           funding: app.settings.funding ?? "",
           signing: app.suite.signing,
           chains: app.settings.chains.filter((c) => !others.includes(c)).map((c) => c.id),
-          otherChains: others.map((c) => ({ rpcUrl: c.rpcUrl, chainId: c.id, testnet: c.mode === "live" })),
+          otherChains: others.map((c) => ({ rpcUrl: c.rpcUrl, chainId: c.id })),
           wallets: app.settings.wallets,
-          liveKeyAddress: app.liveKeyAddress,
+          account: accountOf(app),
+          fund: (app.settings.fund ?? []).map(({ chainId, token, amount }) => ({ chainId, token, amount })),
+          keyAddress: app.liveKeyAddress,
           headerNames: app.accessHeaderNames,
           storage: Object.entries(app.settings.storage ?? {})
             .map(([k, v]) => `${k}=${v}`)
@@ -70,12 +73,23 @@ export default async function SettingsPage({ params }: { params: Promise<{ appId
       />
 
       {/* The app page links here as #setup. */}
-      <SettingsSection id="setup" title="Setup" hint="What every test needs first, like connecting the wallet or signing in. It is done once before the tests, so they don't repeat it.">
-        <SetupEditor appId={app.id} setup={setup} canEdit={manage} />
+      <SettingsSection id="setup" title="Setup" hint="What every test needs first, like connecting the wallet or signing in. Tests start where it ends, so they don't repeat it.">
+        <SetupEditor appId={app.id} setup={lines(app.suite.setup)} canEdit={manage} />
       </SettingsSection>
 
+      {/* Only a kept account is put back; a new one has nothing on it yet. */}
+      {(kept || app.suite.reset) && (
+        <SettingsSection
+          id="reset"
+          title="Before each test"
+          hint={kept ? "What puts the kept account back, like cancelling every open order. It is done before each test, so no test starts with what another left behind." : "Only done on a kept account. This app uses a new account for every test, so these lines are left out."}
+        >
+          <SetupEditor appId={app.id} which="reset" setup={lines(app.suite.reset)} canEdit={manage} />
+        </SettingsSection>
+      )}
+
       {learned.length > 0 && (
-        <SettingsSection id="learned" title="What DappDrill learned" hint="Written down while looking over the app and making tests, and read each time a test is made or run. Take out any that are wrong.">
+        <SettingsSection id="learned" title="What DappDrill learned" hint="Written down while looking over the app and making tests, and read each time a test is made or repaired. Take out any that are wrong.">
           <ul className="divide-y rounded-xl border bg-card shadow-xs">
             {learned.map((n, i) => (
               <li key={i} className="flex items-start gap-3 px-4 py-2.5 text-sm">

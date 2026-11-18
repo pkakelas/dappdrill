@@ -3,14 +3,14 @@
  * each, most important first, then one for each thing that looked wrong on the way (kept only when
  * it fails every time), then run them all once.
  *
- *   pnpm tests <url> <suite.json> [--count n] [--together n] [--chain id[=rpc]]… [--target file] [--headed]
+ *   pnpm tests <url> <suite.json> [--count n] [--together n] [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed]
  *
- * Three tests are made at a time when every chain is a local copy (--together changes that), and one
- * at a time on a live chain, where the tests share an account.
+ * Three tests are made at a time on new accounts (--together changes that), and one at a time on a
+ * kept account, which the tests share.
  *
  * The suite file is made when it isn't there, with a setup that connects the wallet. It is written
  * after the look and after every proven test, so a run that is stopped keeps what it had.
- * --target is a target.json kept for the app (see dev/target.ts).
+ * The account flags and --target are told in dev/target.ts.
  *
  * Everything else goes under .drill/tests/<host>/<time>/: the look, each make and the run.
  */
@@ -20,15 +20,15 @@ import { parseArgs } from "node:util";
 import { OUTCOME_LABEL, type Suite } from "@dappdrill/core";
 import { makeTests, runSuite } from "../src/api.js";
 import { MAX_GOALS } from "../src/make/look.js";
-import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs } from "./target.js";
+import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs, TARGET_FLAGS, TARGET_USAGE } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
-  options: { count: { type: "string" }, together: { type: "string" }, chain: { type: "string", multiple: true }, target: { type: "string" }, headed: { type: "boolean" } },
+  options: { ...TARGET_FLAGS, count: { type: "string" }, together: { type: "string" }, headed: { type: "boolean" } },
 });
 const [url, suiteFile] = positionals;
 if (!url || !suiteFile) {
-  console.error("usage: pnpm tests <url> <suite.json> [--count n] [--together n] [--chain id[=rpc]]… [--target file] [--headed]");
+  console.error(`usage: pnpm tests <url> <suite.json> [--count n] [--together n] ${TARGET_USAGE} [--headed]`);
   process.exit(2);
 }
 const count = Number(flags.count ?? MAX_GOALS);
@@ -78,7 +78,6 @@ const made = await makeTests({ target, suite, count, together: flags.together ? 
 await writeFile(path.join(out, "looked.json"), JSON.stringify(made.looked, null, 2));
 if (made.stopped) console.log(`\n${made.stopped} The goals left weren't tried.`);
 if (!made.looked.goals.length) process.exit(1);
-let costUsd = made.costUsd;
 
 if (suite.tests.length) {
   console.log(`\n${at()} Running the ${suite.tests.length} tests`);
@@ -88,15 +87,14 @@ if (suite.tests.length) {
       console.log(`  ${OUTCOME_LABEL[r.outcome].padEnd(15)} ${secs(r.durationMs)}  ${test.name}${r.rerun ? "  (run twice)" : ""}${r.reason ? `\n      ${r.reason}` : ""}`);
     },
   });
-  costUsd += result.costUsd;
   await writeFile(path.join(out, "result.json"), JSON.stringify(result, null, 2));
-  console.log(`  The run: ${secs(result.durationMs).trim()}, $${result.costUsd.toFixed(4)}`);
+  console.log(`  The run: ${secs(result.durationMs).trim()}`);
 }
 
 const faults = made.attempts.flatMap((a) => (a.kept ? (a.made?.findings ?? []).filter((f) => f.proven) : []));
 if (faults.length) console.log(`\nFaults a test fails on:\n${faults.map((f) => `- ${f.what}\n    expected: ${f.expected}\n    saw: ${f.saw}`).join("\n")}`);
 const unmade = made.attempts.filter((a) => !a.kept);
 if (unmade.length) console.log(`\nNo test for:\n${unmade.map((a) => `- ${a.goal}\n      ${a.why}`).join("\n")}`);
-console.log(`\n${suite.tests.length} tests in ${suiteFile}, from ${made.attempts.length} goals. ${secs(Date.now() - t0).trim()}, $${costUsd.toFixed(2)}`);
+console.log(`\n${suite.tests.length} tests in ${suiteFile}, from ${made.attempts.length} goals. ${secs(Date.now() - t0).trim()}, $${made.costUsd.toFixed(2)}`);
 console.log(out);
 process.exit(0);

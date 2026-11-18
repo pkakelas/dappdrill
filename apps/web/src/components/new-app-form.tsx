@@ -1,12 +1,12 @@
 "use client";
 
-import { KNOWN_CHAINS, MAINNET_CHAIN_IDS, chainInfo, chainName, type WalletProfileId } from "@dappdrill/core";
+import { chainName, type WalletProfileId } from "@dappdrill/core";
 import { ArrowRight, Check, Clock, Globe, Network, ScanSearch } from "lucide-react";
 import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createAppAction } from "@/actions/apps";
-import { HintRows, LiveKeyField, useHints } from "@/components/app-hints";
-import { FundsField, type FundsWay } from "@/components/funds-field";
-import { chainNote, RpcField, TestnetTick, useRpcCheck } from "@/components/rpc-field";
+import { AccountField } from "@/components/account-field";
+import { HINT_FIELD, HintRows, useHints } from "@/components/app-hints";
+import { chainNote, RpcField, useRpcCheck } from "@/components/rpc-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -14,21 +14,14 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { SitePreview, useSite } from "@/components/site-preview";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { ChainIcon, WalletIcon } from "@/components/web3-icons";
+import { ChainIcon, WALLETS, WalletIcon } from "@/components/web3-icons";
 import type { ActionResult } from "@/lib/action-result";
+import { CHAIN_GROUPS, CHAINS } from "@/lib/chains";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_WALLET: WalletProfileId = "metamask";
 const DETECT = "detect";
 const OTHER = "other";
-const WALLETS: { id: WalletProfileId; name: string }[] = [
-  { id: "metamask", name: "MetaMask" },
-  { id: "rabby", name: "Rabby" },
-  { id: "coinbase", name: "Coinbase Wallet" },
-];
-const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337);
-const MAINNETS = CHAINS.filter((c) => !c.testnet);
-const TESTNETS = CHAINS.filter((c) => c.testnet);
 const WIDE = "(min-width: 64rem)";
 const MOTION = "duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
 
@@ -51,9 +44,6 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   const [wallet, setWallet] = useState<WalletProfileId>(DEFAULT_WALLET);
   const [chainId, setChainId] = useState(DETECT);
   const [rpcUrl, setRpcUrl] = useState("");
-  const [ticked, setTicked] = useState(false);
-  const [liveKey, setLiveKey] = useState("");
-  const [way, setWay] = useState<FundsWay>("key");
   const answers = useHints();
   const rpcInput = useRef<HTMLInputElement>(null);
   const { site, open, looking, missed } = useSite(url);
@@ -67,20 +57,13 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
   const rpc = useRpcCheck(rpcUrl, other);
   const picked = CHAINS.find((c) => String(c.id) === chainId);
   const resolvedId = picked?.id ?? (rpc.status === "ok" ? rpc.chainId : undefined);
-  const known = resolvedId === undefined ? undefined : chainInfo(resolvedId);
-  // Only a chain we can't place needs the user's word that it's a testnet.
-  const askTestnet = resolvedId !== undefined && !known && !MAINNET_CHAIN_IDS.has(resolvedId);
-  const testnet = Boolean(known?.testnet || (askTestnet && ticked));
-  // A chain that can't be forked runs for real, so it needs a way to get test funds before anything else.
-  const unforkable = known?.forkable === false;
-  // A key typed and then left for "tell us how" isn't sent, so it doesn't count.
-  const hasKey = Boolean(liveKey.trim()) && !(unforkable && way === "funding");
-  const live = testnet && hasKey;
   const name = resolvedId === undefined ? undefined : chainName(resolvedId);
+  // What a new account is sent can be on any chain we list, or on the one behind the RPC just typed.
+  const fundChains = resolvedId === undefined || CHAINS.some((c) => c.id === resolvedId) ? CHAINS : [{ id: resolvedId, name: chainName(resolvedId) }, ...CHAINS];
   const rpcError = rpc.status === "bad" ? rpc.error : other && rpc.status === "idle" && state?.inline ? "Add the chain's RPC URL." : undefined;
   const customized = wallet !== DEFAULT_WALLET || chainId !== DETECT;
   // Hints already typed stay in view if the URL then changes, since they still get submitted.
-  const hints = open || answers.started || hasKey;
+  const hints = open || answers.started;
 
   // Not action={act}: React resets a form after its action runs, and on an error that puts the chain back on Detect.
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -200,10 +183,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
                         <ScanSearch className="size-[18px]" />
                         Detect automatically
                       </SelectItem>
-                      {[
-                        { label: "Mainnets", chains: MAINNETS },
-                        { label: "Testnets", chains: TESTNETS },
-                      ].map((group) => (
+                      {CHAIN_GROUPS.map((group) => (
                         <SelectGroup key={group.label}>
                           <SelectLabel>{group.label}</SelectLabel>
                           {group.chains.map((option) => (
@@ -224,32 +204,14 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
                 </Field>
               </div>
 
-              {other && (
-                <div className="flex animate-in flex-col gap-3 duration-200 fade-in-0 slide-in-from-top-1">
-                  <RpcField ref={rpcInput} id="rpcUrl" value={rpcUrl} onChange={setRpcUrl} check={rpc} chain={name} invalid={Boolean(rpcError)} />
-                  {askTestnet && <TestnetTick name="testnet" value="1" checked={ticked} onChange={setTicked} />}
-                </div>
-              )}
-
-              {unforkable && (
-                <FundsField
-                  chain={name ?? "This chain"}
-                  way={way}
-                  onWay={setWay}
-                  funding={answers.funding}
-                  onFunding={answers.setFunding}
-                  liveKey={liveKey}
-                  onKey={setLiveKey}
-                  className="animate-in duration-200 fade-in-0 slide-in-from-top-1"
-                />
-              )}
+              {other && <RpcField ref={rpcInput} id="rpcUrl" value={rpcUrl} onChange={setRpcUrl} check={rpc} chain={name} invalid={Boolean(rpcError)} className="animate-in duration-200 fade-in-0 slide-in-from-top-1" />}
 
               {rpcError ? (
                 <p role="alert" className="text-sm text-bad">
                   {rpcError}
                 </p>
-              ) : unforkable ? null : (
-                <FieldDescription>{chainNote({ name, other, testnet, live, forkable: known?.forkable ?? true })}</FieldDescription>
+              ) : (
+                <FieldDescription>{chainNote({ name, other })}</FieldDescription>
               )}
             </CardContent>
           </Card>
@@ -265,15 +227,7 @@ export function NewAppForm({ orgId, children }: { orgId: string; children: React
       <div className={cn("mx-auto flex w-full flex-col gap-8 transition-[max-width]", MOTION, open ? "lg:max-w-full" : "lg:max-w-[calc(50%-1rem)]")}>
         <div inert={!hints} className={cn("grid transition-[grid-template-rows,margin]", MOTION, hints ? "grid-rows-[1fr]" : "-mb-8 grid-rows-[0fr]")}>
           <div className="-mx-1 min-h-0 overflow-hidden px-1 pb-1">
-            <HintRows
-              hints={answers}
-              hasKey={hasKey}
-              keyField={testnet && !unforkable && <LiveKeyField value={liveKey} onChange={setLiveKey} />}
-              fundsRow={!unforkable}
-              shown={hints}
-              split={open}
-              className="pt-2"
-            />
+            <HintRows hints={answers} account={<AccountField chains={fundChains} chain={resolvedId} fieldClassName={HINT_FIELD} />} shown={hints} split={open} className="pt-2" />
           </div>
         </div>
 

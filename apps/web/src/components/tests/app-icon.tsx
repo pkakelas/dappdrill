@@ -5,7 +5,7 @@ import { cx } from "@/components/ui";
 import { TINT } from "./tile";
 
 /** Tints that say nothing about a result, so an initial never reads as passed or failed. */
-const INITIAL = [TINT.fork, TINT.pink, TINT.live];
+const INITIAL = [TINT.violet, TINT.pink, TINT.live];
 
 /**
  * The app's own icon, the one its site declares, over its initial: the initial shows until the icon has loaded,

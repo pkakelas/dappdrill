@@ -20,7 +20,7 @@ export function Hero() {
           A QA engineer that understands <span className="text-white/45">crypto and wallets.</span>
         </h1>
         <p className="mt-7 max-w-[44ch] text-[clamp(16px,1.35vw,19px)] leading-[1.5] text-pretty text-white/65">
-          Every flow of your dApp tested on forks, <br className="hidden sm:block" />including the odd cases real users run into.
+          Every flow of your dApp tested on its real chains, <br className="hidden sm:block" />including the odd cases real users run into.
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <a href={CTA.href} className="btn bg-white text-ink hover:bg-white/85">
@@ -41,7 +41,7 @@ export function Hero() {
   );
 }
 
-/** What `dappdrill run --unhappy` prints for Harbor Vault's 6 tests and 8 conditions (packages/cli, run.ts), the
+/** What `dappdrill run` prints for Harbor Vault's 6 tests and 8 conditions (packages/cli, run.ts), the
  *  same run as the app pictures: [label, seconds, why it failed]. */
 const RUN: [string, number, string?][] = [
   ["Deposit hUSDC into the vault", 41],
@@ -83,7 +83,7 @@ export function Ci() {
             {/* Rows rather than a padded <pre>, so a long line wraps on a phone instead of running off the side. */}
             <div className="px-5 py-6 font-mono text-[11.5px] leading-[1.75] break-words sm:px-8 sm:py-7 sm:text-[13.5px] lg:pb-24">
               <p>
-                <span className="text-red">$</span> dappdrill run --unhappy
+                <span className="text-red">$</span> dappdrill run
               </p>
               <p className="mb-[1.75em] text-white/45">Running {RUN.length} tests on https://harborvault.xyz</p>
               {RUN.map(([label, secs, why]) => (
@@ -241,7 +241,7 @@ export function Findings() {
           </li>
         ))}
       </ol>
-      <p className="mt-6 text-[13.5px] text-ink/50">Found by DappDrill on live frontends, run on local forks, November 2026. Each finding checked by hand.</p>
+      <p className="mt-6 text-[13.5px] text-ink/50">Found by DappDrill on live frontends, November 2026. Each finding checked by hand.</p>
     </section>
   );
 }

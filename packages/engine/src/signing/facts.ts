@@ -42,7 +42,6 @@ export interface Facts {
   tokens: TokenInfo[];
   knownBad: KnownBadResult;
   erc7730?: Erc7730Match;
-  fingerprint: string;
 }
 
 /** Contracts younger than this count as "new". */
@@ -52,14 +51,8 @@ export function nativeValue(facts: Facts): bigint {
   return facts.calls.reduce((sum, c) => sum + c.value, 0n);
 }
 
-/** Balance changes for the signer that are negative (something leaves the wallet). */
-export function outgoing(facts: Facts) {
-  const from = facts.from?.toLowerCase();
-  return (facts.simulation?.balanceChanges ?? []).filter((c) => c.owner.toLowerCase() === from && BigInt(c.delta) < 0n);
-}
-
-/** True when the request puts value at stake: an approval, native value, or tokens leaving. */
+/** True when the request is seen to put value at stake: an approval, or native value. What a call moves beyond that isn't measured. */
 export function hasStake(facts: Facts): boolean {
-  return facts.approvals.length > 0 || nativeValue(facts) > 0n || outgoing(facts).length > 0;
+  return facts.approvals.length > 0 || nativeValue(facts) > 0n;
 }
 

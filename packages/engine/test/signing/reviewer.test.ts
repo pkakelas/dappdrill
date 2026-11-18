@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { z, type ZodType } from "zod";
+import { z } from "zod";
 import type { SigningReview } from "@dappdrill/core";
 import { SigningReview as SigningReviewSchema } from "@dappdrill/core";
 import { createSigningReviewer } from "../../src/signing/index.js";
-import type { Llm, SigningInput } from "../../src/types.js";
+import type { SigningInput } from "../../src/types.js";
 import { FakeChain, fakeErc20, type FakeContract } from "./fake-chain.js";
 import { BLOCKLISTS, fakeFetch, sourcifyVerified, type Routes } from "./fake-fetch.js";
 import * as F from "./fixtures.js";
@@ -41,7 +41,7 @@ function reviewer(extra: Routes = {}) {
 }
 
 function input(request: SigningInput["request"], ui: SigningInput["ui"], rest: Partial<SigningInput> = {}): SigningInput {
-  return { request, chains: world(), ui: { pageUrl: "https://app.harborvault.xyz/deposit", ...ui }, baselines: {}, ...rest };
+  return { request, chains: world(), ui: { pageUrl: "https://app.harborvault.xyz/deposit", ...ui }, ...rest };
 }
 
 const check = (r: SigningReview, id: SigningReview["checks"][number]["id"]) => r.checks.find((c) => c.id === id)!;
@@ -95,7 +95,7 @@ describe("signing reviewer", () => {
       [F.USDC_MAINNET]: fakeErc20({ symbol: "USDC", name: "Test USD", decimals: 6, totalSupply: 10n ** 12n, balances: { [F.WALLET]: F.usdc(1000) } }),
       [F.NEW_ROUTER]: { createdAt: HEAD - DAYS(400) },
     }, { head: HEAD });
-    const r = await reviewer().review({ request: { ...F.txRequest(F.USDC_MAINNET, F.approveData(F.NEW_ROUTER, F.usdc(100))), chainId: 11155111 }, chains: testnet, ui: { buttonLabel: "Approve 100 USDC" }, baselines: {} });
+    const r = await reviewer().review({ request: { ...F.txRequest(F.USDC_MAINNET, F.approveData(F.NEW_ROUTER, F.usdc(100))), chainId: 11155111 }, chains: testnet, ui: { buttonLabel: "Approve 100 USDC" } });
     expect(r.verdict).toBe("check");
     expect(check(r, "approval")).toMatchObject({ status: "warn" });
     expect(check(r, "approval").detail).toMatch(/Common on a testnet/);
@@ -139,7 +139,7 @@ describe("signing reviewer", () => {
   });
 
   it("never throws, even for nonsense", async () => {
-    const r = await reviewer().review({ request: { ...F.signRequest("eth_signTypedData_v4", [42, null]), chainId: 999 }, chains: world(), ui: {}, baselines: {} });
+    const r = await reviewer().review({ request: { ...F.signRequest("eth_signTypedData_v4", [42, null]), chainId: 999 }, chains: world(), ui: {} });
     expect(r.verdict).toBe("check");
     expect(SigningReviewSchema.parse(r)).toBeTruthy();
   });
@@ -161,21 +161,6 @@ describe("signing reviewer", () => {
     const r2 = await offline.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(1))), { buttonLabel: "Approve 1 USDC" }));
     expect(check(r2, "known-bad").status).toBe("unverified");
     expect(r2.verdict).toBe("check");
-  });
-
-  it("baseline diff: the spender changed since the accepted run", async () => {
-    const rv = reviewer();
-    const first = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.PERMIT2_ADDRESS, F.usdc(250))), { buttonLabel: "Approve 250 USDC" }, { script: { id: "test_1", name: "Deposit", stepIndex: 2, params: {} } }));
-    expect(first.verdict).toBe("consistent");
-    const second = await rv.review(
-      input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(250))), { buttonLabel: "Approve 250 USDC" }, { script: { id: "test_1", name: "Deposit", stepIndex: 2, params: {} }, baselines: { [first.fingerprint]: first } }),
-    );
-    expect(second.fingerprint).toBe(first.fingerprint);
-    expect(second.verdict).toBe("check");
-    expect(second.baseline?.changes).toEqual([{ field: "spender", before: F.PERMIT2_ADDRESS.toLowerCase(), after: F.VAULT.toLowerCase() }]);
-    expect(check(second, "baseline")).toMatchObject({ status: "warn" });
-    expect(check(second, "baseline").detail).toMatch(/Permit2/);
-    expect(second.explanation).toContain("Different spender from the last run");
   });
 
   it("test expectation: amounts with params, unlimited, spender, and Permit2 acceptance", async () => {
@@ -202,50 +187,6 @@ describe("signing reviewer", () => {
     expect(check(bySelector, "expectation")).toMatchObject({ status: "pass" });
     const otherSelector = await rv.review(input(F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100))), { buttonLabel: "Approve 100 USDC" }, { script: script({ functionName: "0xa1903eab" }) }));
     expect(check(otherSelector, "expectation").detail).toMatch(/expected 0xa1903eab\(\), got approve\(\)/);
-  });
-
-  it("uses the model for labels the rules can't settle", async () => {
-    const llm = (answer: { matches: boolean; confidence: "high" | "medium" | "low"; reason: string }): Llm & { prompts: string[] } => {
-      const prompts: string[] = [];
-      return {
-        backend: "api",
-        model: "scripted",
-        prompts,
-        runAgent: async () => ({ text: "" }),
-        async structured<T>(opts: { prompt: string; schema: ZodType<T>; name: string }): Promise<T> {
-          prompts.push(opts.prompt);
-          expect(opts.name).toBe("ui_match");
-          return opts.schema.parse(answer);
-        },
-        costUsd: () => 0,
-      };
-    };
-    const req = F.txRequest(F.USDC_MAINNET, F.approveData(F.VAULT, F.usdc(100)));
-
-    const no = llm({ matches: false, confidence: "high", reason: "The page talks about staking HARB, not approving USDC." });
-    const r1 = await reviewer().review(input(req, { buttonLabel: "Continue", context: "Stake HARB to earn rewards" }, { llm: no }));
-    expect(no.prompts[0]).toContain("Button label: Continue");
-    expect(no.prompts[0]).toContain("Grants: 100 USDC of USDC to HarborVault");
-    expect(check(r1, "ui-match")).toMatchObject({ status: "fail", detail: "The page talks about staking HARB, not approving USDC." });
-    expect(r1.verdict).toBe("dangerous");
-
-    const yes = llm({ matches: true, confidence: "high", reason: "The page shows a 100 USDC deposit; approving it first is expected." });
-    const r2 = await reviewer().review(input(req, { buttonLabel: "Continue" }, { llm: yes }));
-    expect(check(r2, "ui-match")).toMatchObject({ status: "pass" });
-    expect(r2.verdict).toBe("consistent");
-
-    // Edge cases replay the same request: one reviewer asks the model once per label and request.
-    const once = llm({ matches: true, confidence: "high", reason: "Fine." });
-    const shared = reviewer();
-    for (let i = 0; i < 3; i++) await shared.review(input(req, { buttonLabel: "Continue" }, { llm: once }));
-    await shared.review(input(req, { buttonLabel: "Next" }, { llm: once }));
-    expect(once.prompts).toHaveLength(2);
-
-    // The rules already found an exact match: the model can only soften that to a warning.
-    const contrary = llm({ matches: false, confidence: "high", reason: "Looks off." });
-    const r3 = await reviewer().review(input(req, { buttonLabel: "Approve 100 USDC" }, { llm: contrary }));
-    expect(check(r3, "ui-match").status).toBe("warn");
-    expect(r3.verdict).toBe("check");
   });
 
   it("wallet_sendCalls batches are decoded call by call", async () => {

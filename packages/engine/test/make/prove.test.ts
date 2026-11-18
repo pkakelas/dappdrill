@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { outcomeOf, sentence, Test, TestResult, type LineResult } from "@dappdrill/core";
+import { outcomeOf, sentence, Test, TestResult, type CodeAssert, type LineResult } from "@dappdrill/core";
 import { Doubt } from "../../src/make/doubt.js";
 import { prove, type ProveInput } from "../../src/make/prove.js";
 import { Repair } from "../../src/make/repair.js";
@@ -10,28 +10,37 @@ const drafted = Test.parse({
   goal: "Go somewhere.",
   steps: [
     { type: "action", by: "code", do: "Click Go." },
-    { type: "check", by: "llm", claim: "It went." },
-    { type: "check", by: "llm", claim: "The total is right." },
+    { type: "check", by: "code", claim: "It went.", expect: { kind: "shows", text: "Went" } },
+    { type: "check", by: "code", claim: "The total is right.", expect: { kind: "shows", text: "Total 3" } },
   ],
 });
+/** A check as a repair writes it, with its code. */
+const check = (text: string) => ({ type: "check", text, expect: { kind: "shows", text } });
 const clicks = [{ kind: "click" as const, target: { role: "button", name: "Go" } }];
 const STATUS = { p: "pass", f: "fail", u: "unsure", s: "skipped" } as const;
 type Letters = string;
 
 /**
- * A run that goes the way its letters say, one per line (p, f, u, s). A code action with nothing
- * recorded is done by a model and comes back recorded; `redo` makes it so for a recorded one too.
+ * A run that goes the way its letters say, one per line (p, f, u, s). An action with nothing recorded is
+ * done by a model and comes back recorded (`redo`: one whose recording stopped working too), and a check
+ * that is only a sentence is a model's.
  */
 function ran(test: Test, letters: Letters, more: { redo?: boolean; outcome?: TestResult["outcome"]; reason?: string } = {}): TestResult {
   const steps = test.steps.map((line, i): LineResult => {
     const status = STATUS[(letters[i] ?? "s") as keyof typeof STATUS];
     const base = { status, note: status === "pass" ? "" : `line ${i + 1} ${status}`, did: [], durationMs: 0, costUsd: 0 };
     if (line.type !== "action" || line.by !== "code") return { ...base, by: line.by };
-    const byModel = !line.run.length || more.redo;
-    return byModel ? { ...base, by: "llm", redone: line.run.length ? "The button wasn't there." : undefined, recorded: status === "pass" ? clicks : undefined } : { ...base, by: "code" };
+    if (line.run.length && !more.redo) return { ...base, by: "code" };
+    return { ...base, by: "llm", redone: line.run.length ? "The page isn't as recorded." : undefined, recorded: status === "pass" ? clicks : undefined };
   });
   const outcome = more.outcome ?? outcomeOf(steps);
   return TestResult.parse({ testId: test.id, outcome, reason: more.reason ?? (outcome === "passed" ? undefined : "It didn't pass."), steps, durationMs: 0, costUsd: 0 });
+}
+
+/** A run with no model in which the recording of the first action no longer fits the page. */
+function broke(test: Test): TestResult {
+  const steps = test.steps.map((line, i): LineResult => ({ status: i ? "skipped" : "unsure", by: line.by, note: i ? "" : "The page isn't as recorded: no button “Go”.", did: [], durationMs: 0, costUsd: 0 }));
+  return TestResult.parse({ testId: test.id, outcome: "unverified", reason: "It didn't pass.", repairable: true, steps, durationMs: 0, costUsd: 0 });
 }
 
 /** Proves `drafted` against runs and repairs given in order. Says what was asked of the repairer. */
@@ -39,16 +48,24 @@ async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs
   const asked: Parameters<ProveInput["repair"]>[0][] = [];
   const doubted: Parameters<NonNullable<ProveInput["doubt"]>>[0][] = [];
   const notes: string[] = [];
+  /** Which runs had a model. */
+  const models: boolean[] = [];
   let r = 0;
+  let redo = false;
   const proved = await prove({
     test: drafted,
     problems,
     notes,
+    asCode: async ({ test, line }) => ({ expect: { kind: "shows", text: sentence(test.steps[line]!) } }),
     ...more,
-    run: async (test) => {
+    run: async (test, { byModel }) => {
       const next = runs[r++];
       if (next === undefined) throw new Error("more runs than expected");
-      return typeof next === "string" ? ran(test, next) : next(test);
+      models.push(byModel);
+      // The run after one whose recording broke is the one a model does that action in again.
+      const again = redo;
+      redo = next === broke;
+      return typeof next === "string" ? ran(test, next, { redo: again }) : next(test);
     },
     repair: async (input) => {
       asked.push(input);
@@ -63,24 +80,25 @@ async function proving(runs: (Letters | ((test: Test) => TestResult))[], repairs
       return Doubt.parse(second);
     }),
   });
-  return { proved, asked, doubted, notes, runsLeft: runs.length - r };
+  return { proved, asked, doubted, notes, models, runsLeft: runs.length - r };
 }
 
 const lines = (test: Test) => test.steps.map(sentence);
 const fault = { what: "The total is wrong", expected: "The total of the rows.", saw: "A total of 0." };
 
 describe("prove", () => {
-  it("takes a draft that passes: one run to record it, two more to see it hold", async () => {
-    const { proved, asked, runsLeft } = await proving(["ppp", "ppp", "ppp"]);
+  it("takes a draft that passes: one run with a model to record it, two more with none to see it hold", async () => {
+    const { proved, asked, models, runsLeft } = await proving(["ppp", "ppp", "ppp"]);
     expect(proved).toMatchObject({ proven: true, stands: "passed", repairs: [], findings: [] });
     expect(proved.test.steps[0]).toMatchObject({ by: "code", run: clicks });
+    expect(models).toEqual([true, false, false]);
     expect(proved.runs).toHaveLength(3);
     expect(asked).toHaveLength(0);
     expect(runsLeft).toBe(0);
   });
 
   it("puts a wrong line right and proves the test as it is worded then", async () => {
-    const edit = { verdict: "test", edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: "The total is shown." } }] };
+    const edit = { verdict: "test", edits: [{ line: 3, op: "replace", with: check("The total is shown.") }] };
     const { proved, asked } = await proving(["ppf", "ppp", "ppp"], [edit]);
     expect(proved).toMatchObject({ proven: true, stands: "passed" });
     expect(lines(proved.test)).toEqual(["Click Go.", "It went.", "The total is shown."]);
@@ -109,8 +127,10 @@ describe("prove", () => {
   });
 
   it("goes round a fault when the repair says how, and still reports it", async () => {
-    const round = { verdict: "app", finding: fault, note: "The total only shows after a reload.", edits: [{ line: 3, op: "insert-before", with: { type: "action", by: "llm", text: "Reload the page." } }] };
-    const { proved, notes } = await proving(["ppf", "pppp", "pppp"], [round]);
+    const round = { verdict: "app", finding: fault, note: "The total only shows after a reload.", edits: [{ line: 3, op: "insert-before", with: { type: "action", text: "Reload the page." } }] };
+    // The action put in has no recording yet: the run a model does it in proves nothing.
+    const { proved, notes, models } = await proving(["ppf", "pppp", "pppp", "pppp"], [round]);
+    expect(models).toEqual([true, true, false, false]);
     expect(proved).toMatchObject({ proven: true, stands: "passed", findings: [{ ...fault, proven: false }], notes: ["The total only shows after a reload."] });
     expect(notes).toEqual(["The total only shows after a reload."]);
     expect(lines(proved.test)).toEqual(["Click Go.", "It went.", "Reload the page.", "The total is right."]);
@@ -128,13 +148,42 @@ describe("prove", () => {
     expect(proved.why).toMatch(/“Click Go.” couldn't be done twice/);
   });
 
-  it("doesn't count a run whose recording had to be made again, and hands the action to a model after three", async () => {
-    const redo = (test: Test) => ran(test, "ppp", { redo: true });
-    const { proved } = await proving(["ppp", redo, redo, "ppp", "ppp"]);
+  it("has a model do an action again when its recording stopped working, and doesn't count that run", async () => {
+    const { proved, models } = await proving(["ppp", broke, "ppp", "ppp", "ppp"]);
     expect(proved).toMatchObject({ proven: true, stands: "passed" });
-    expect(proved.test.steps[0]).toEqual({ type: "action", by: "llm", do: "Click Go." });
-    expect(proved.repairs).toEqual([expect.stringMatching(/is a model's from now on/)]);
+    expect(models).toEqual([true, false, true, false, false]);
     expect(proved.runs).toHaveLength(5);
+  });
+
+  it("gives up on an action whose recording never works on the next run", async () => {
+    const { proved, runsLeft } = await proving(["ppp", broke, "ppp", broke, "ppp", broke]);
+    expect(proved.proven).toBe(false);
+    expect(proved.why).toMatch(/“Click Go.” was done by a model 3 times/);
+    expect(runsLeft).toBe(0);
+  });
+
+  it("writes a check that is only a sentence as code, from the run a model answered it in", async () => {
+    const sentenced = Test.parse({ ...drafted, steps: [drafted.steps[0], { type: "check", by: "llm", claim: "It went." }] });
+    const written: number[] = [];
+    const asCode = async ({ line }: { line: number }) => (written.push(line), { expect: { kind: "said", text: "Went" } as CodeAssert });
+    const { proved, models } = await proving(["pp", "pp", "pp"], [], [], undefined, { test: sentenced, asCode });
+    expect(written).toEqual([1]);
+    expect(proved).toMatchObject({ proven: true, stands: "passed" });
+    expect(proved.test.steps[1]).toEqual({ type: "check", by: "code", claim: "It went.", expect: { kind: "said", text: "Went" } });
+    expect(models).toEqual([true, false, false]);
+  });
+
+  it("takes out a check no code can say, and doesn't prove a test left with no check", async () => {
+    const two = Test.parse({ ...drafted, steps: [...drafted.steps.slice(0, 2), { type: "check", by: "llm", claim: "The chart looks right." }] });
+    const asCode = async () => ({ cannot: "Nothing on the page says how a chart looks." });
+    const { proved } = await proving(["ppp", "pp", "pp"], [], [], undefined, { test: two, asCode });
+    expect(proved).toMatchObject({ proven: true, stands: "passed", repairs: [expect.stringMatching(/“The chart looks right\.” was taken out: no check by code can say it/)] });
+    expect(lines(proved.test)).toEqual(["Click Go.", "It went."]);
+
+    const one = Test.parse({ ...drafted, steps: [drafted.steps[0], { type: "check", by: "llm", claim: "The chart looks right." }] });
+    const { proved: none } = await proving(["pp"], [], [], undefined, { test: one, asCode });
+    expect(none.proven).toBe(false);
+    expect(none.why).toMatch(/can't be checked by code, and the test has no other check/);
   });
 
   it("proves a failure that is in no line: the page threw the same error twice", async () => {
@@ -145,7 +194,7 @@ describe("prove", () => {
   });
 
   it("decides every line of a run that didn't pass: one fault of the app, one of the test", async () => {
-    const reword = { verdict: "test", edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: "The total is about right." } }] };
+    const reword = { verdict: "test", edits: [{ line: 3, op: "replace", with: check("The total is about right.") }] };
     const { proved, asked } = await proving(["pff", "pfp", "pfp"], [{ verdict: "app", finding: fault }, reword]);
     // Both were asked about from the first run.
     expect(asked.map((a) => [a.line, a.runs.length])).toEqual([[1, 1], [2, 1]]);
@@ -161,21 +210,30 @@ describe("prove", () => {
     expect(proved.findings).toHaveLength(1);
   });
 
-  it("doesn't ask about the checks after an action the app wouldn't take", async () => {
-    const { proved, asked } = await proving(["fff", "fff"], [{ verdict: "app", finding: fault }]);
-    expect(asked.map((a) => a.line)).toEqual([0]);
+  it("says an action the app won't take through a check before it: with no model an action can't fail", async () => {
+    const before = { verdict: "app", finding: fault, edits: [{ line: 1, op: "insert-before", with: { type: "check", text: "Go can be clicked.", expect: { kind: "button", name: "Go", is: "enabled" } } }] };
+    const { proved, asked, models } = await proving(["fss", "fsss", "fsss"], [before, { verdict: "app", known: 1 }]);
+    expect(asked.map((a) => a.line)).toEqual([0, 0]);
     expect(proved).toMatchObject({ proven: true, stands: "failed", findings: [{ ...fault, proven: true }] });
+    expect(lines(proved.test)[0]).toBe("Go can be clicked.");
+    // The action after the failing check is never reached, so no model does anything in those runs.
+    expect(models).toEqual([true, true, true]);
+
+    const { proved: left } = await proving(["fss", "fss", "fss", "fss", "fss"], [1, 2, 3, 4].map(() => ({ verdict: "app", finding: fault })));
+    expect(left.proven).toBe(false);
+    expect(left.repairs[0]).toMatch(/An action can't be left to fail/);
   });
 
   it("leaves any number of lines to fail without calling it a repair", async () => {
     const stand = (n: number) => ({ verdict: "app", finding: { ...fault, what: `Fault ${n}` } });
-    const six = Test.parse({ ...drafted, steps: [drafted.steps[0], ...[1, 2, 3, 4, 5, 6].map((n) => ({ type: "check", by: "llm", claim: `Claim ${n}.` }))] });
+    const six = Test.parse({ ...drafted, steps: [drafted.steps[0], ...[1, 2, 3, 4, 5, 6].map((n) => ({ type: "check", by: "code", claim: `Claim ${n}.`, expect: { kind: "shows", text: `Claim ${n}` } }))] });
     const asked: number[] = [];
     const proved = await prove({
       test: six,
       problems: [],
       notes: [],
       run: async (test) => ran(test, "pffffff"),
+      asCode: async () => ({ cannot: "not asked" }),
       repair: async (input) => (asked.push(input.line), Repair.parse({ why: "because", ...stand(input.line) })),
     });
     expect(asked).toEqual([1, 2, 3, 4, 5, 6]);
@@ -185,7 +243,7 @@ describe("prove", () => {
   });
 
   it("stops after four repairs", async () => {
-    const reword = (n: number) => ({ verdict: "test", edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: `The total is right, try ${n}.` } }] });
+    const reword = (n: number) => ({ verdict: "test", edits: [{ line: 3, op: "replace", with: check(`The total is right, try ${n}.`) }] });
     const { proved, asked } = await proving(["ppf", "ppf", "ppf", "ppf", "ppf"], [1, 2, 3, 4].map(reword));
     expect(asked).toHaveLength(4);
     expect(proved).toMatchObject({ proven: false, why: expect.stringMatching(/^Still not steady after 4 repairs\. “/) });
@@ -223,7 +281,7 @@ describe("prove", () => {
   });
 
   it("puts a line another way when a second look doesn't put its failing on the app", async () => {
-    const reword = { verdict: "test", edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: "A total is shown." } }] };
+    const reword = { verdict: "test", edits: [{ line: 3, op: "replace", with: check("A total is shown.") }] };
     const { proved, asked, doubted, runsLeft } = await proving(["ppf", "ppf", "ppf", "ppp", "ppp"], [{ verdict: "app", finding: fault }, reword], [], [{ verdict: "other", why: "The rows are the test wallet's own." }]);
     expect(proved).toMatchObject({ proven: true, stands: "passed", findings: [], dismissed: ["The rows are the test wallet's own."] });
     expect(lines(proved.test)[2]).toBe("A total is shown.");
@@ -254,7 +312,7 @@ describe("prove", () => {
   });
 
   it("gives up when a repair didn't change what goes wrong", async () => {
-    const reword = (n: number, again?: boolean) => ({ verdict: "test", again, edits: [{ line: 3, op: "replace", with: { type: "check", by: "llm", text: `The total is right, try ${n}.` } }] });
+    const reword = (n: number, again?: boolean) => ({ verdict: "test", again, edits: [{ line: 3, op: "replace", with: check(`The total is right, try ${n}.`) }] });
     const { proved, asked, runsLeft } = await proving(["ppf", "ppf", "ppp"], [reword(1), reword(2, true)]);
     expect(proved.proven).toBe(false);
     expect(proved.why).toMatch(/^Repairs didn't change what goes wrong at “The total is right, try 1\.”/);
@@ -262,13 +320,48 @@ describe("prove", () => {
     expect(runsLeft).toBe(1);
   });
 
+  it("looks in the app for why before it runs again without knowing, and decides with what it found", async () => {
+    const looked: number[] = [];
+    const cause = "The book shows bids and no asks: nobody is selling.";
+    const blocker = "Nobody is selling on this market, so buys expire unfilled.";
+    const lookInto = async ({ line }: { line: number }) => (looked.push(line), cause);
+    const { proved, asked, runsLeft } = await proving(["pfs"], [{ verdict: "cant-tell" }, { verdict: "in-the-way", why: "Nobody sells.", blocker }], [], undefined, { lookInto });
+    expect(looked).toEqual([1]);
+    expect(asked[1]).toMatchObject({ cause });
+    expect(proved).toMatchObject({ proven: false, blocker });
+    expect(proved.repairs).toEqual([`Looked into why “It went.” went wrong: ${cause}`]);
+    expect(runsLeft).toBe(0);
+  });
+
+  it("looks into a line once, and not when the repair already knows why", async () => {
+    const looked: number[] = [];
+    const lookInto = async ({ line }: { line: number }) => (looked.push(line), "The app doesn't say: the order's details show only Expired.");
+    const { proved, asked } = await proving(["fss", "fss"], [{ verdict: "cant-tell" }, { verdict: "cant-tell" }, { verdict: "cant-tell" }], [], undefined, { lookInto });
+    expect(looked).toEqual([0]);
+    expect(asked.map((a) => a.cause)).toEqual([undefined, "The app doesn't say: the order's details show only Expired.", undefined]);
+    expect(proved.why).toMatch(/couldn't be done twice/);
+
+    const { asked: once } = await proving(["ppf", "ppp", "ppp"], [{ verdict: "test", edits: [{ line: 3, op: "replace", with: check("The total shows.") }] }], [], undefined, {
+      lookInto: async () => {
+        throw new Error("no look expected");
+      },
+    });
+    expect(once).toHaveLength(1);
+  });
+
+  it("decides without a look when looking breaks", async () => {
+    const { proved, asked } = await proving(["pfs"], [{ verdict: "in-the-way", why: "Expired.", blocker: "Buys expire." }], [], undefined, { lookInto: async () => Promise.reject(new Error("the browser closed")) });
+    expect(asked).toHaveLength(1);
+    expect(proved.blocker).toBe("Buys expire.");
+  });
+
   it("stops on a shared account when the cleanup didn't take back what a run left", async () => {
     const tidy = { ...drafted, cleanup: [{ type: "action" as const, by: "llm" as const, do: "Close the position." }] };
     const untidy = (test: Test) => ({ ...ran(test, "pfs"), cleanup: [{ status: "fail" as const, by: "llm" as const, note: "The close order expired.", did: [], durationMs: 0, costUsd: 0 }] });
-    const shared = await prove({ test: tidy, problems: [], notes: [], shared: true, run: async (t) => untidy(t), repair: async () => { throw new Error("no repair expected"); } });
+    const shared = await prove({ test: tidy, problems: [], notes: [], shared: true, run: async (t) => untidy(t), asCode: async () => ({ cannot: "not asked" }), repair: async () => { throw new Error("no repair expected"); } });
     expect(shared).toMatchObject({ proven: false, runs: [expect.anything()] });
     expect(shared.blocker).toContain("“Close the position.”: The close order expired.");
-    // On a copy of the chain each run starts clean, so a cleanup that didn't finish is nothing to stop for.
+    // On a new account each run starts clean, so a cleanup that didn't finish is nothing to stop for.
     const { asked } = await proving([untidy], [{ verdict: "in-the-way", why: "No.", blocker: "No." }], [], undefined, { test: tidy } as Partial<ProveInput>);
     expect(asked).toHaveLength(1);
   });

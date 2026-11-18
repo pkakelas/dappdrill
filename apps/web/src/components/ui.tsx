@@ -1,16 +1,16 @@
-import { VERDICT_LABEL, shortAddress, type Verdict } from "@dappdrill/core";
+import { shortAddress } from "@dappdrill/core";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export { cn as cx };
 
-/** The site's mark: a circle, half filled in the brand red (`mono` draws it in one colour). */
-export function Logo({ size = 20, mono }: { size?: number; mono?: boolean }) {
+/** The site's mark: a circle, half filled in the brand red. */
+export function Logo({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
       <circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M10 1.5a8.5 8.5 0 0 1 0 17z" fill={mono ? "currentColor" : "var(--color-red)"} />
+      <path d="M10 1.5a8.5 8.5 0 0 1 0 17z" fill="var(--color-red)" />
     </svg>
   );
 }
@@ -24,41 +24,24 @@ export function Addr({ value, chars = 4, className }: { value?: string | null; c
   );
 }
 
-/** bad for Critical / Dangerous, warn for Medium / Check this. */
 const TONE = {
-  bad: "bg-bad-bg text-bad-ink",
-  high: "bg-bad-soft text-bad",
   warn: "bg-warn-bg text-warn",
   quiet: "bg-secondary text-muted-foreground",
 };
 
-export function Tag({ tone, children, className }: { tone: keyof typeof TONE; children: ReactNode; className?: string }) {
+export function Tag({ tone, children }: { tone: keyof typeof TONE; children: ReactNode }) {
   return (
-    <Badge variant="secondary" className={cn("rounded-md", TONE[tone], className)}>
+    <Badge variant="secondary" className={cn("rounded-md", TONE[tone])}>
       {children}
     </Badge>
   );
 }
 
-const VERDICT_TONE: Record<Verdict, keyof typeof TONE> = { dangerous: "bad", check: "warn", consistent: "quiet" };
-
-export function VerdictTag({ verdict, large }: { verdict: Verdict; large?: boolean }) {
+export function PageHeader({ title, description }: { title: ReactNode; description?: ReactNode }) {
   return (
-    <Tag tone={VERDICT_TONE[verdict]} className={cn(large && "px-2.5 py-1 text-sm")}>
-      {VERDICT_LABEL[verdict]}
-    </Tag>
-  );
-}
-
-export function PageHeader({ title, description, actions, children }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && <div className="text-muted-foreground">{description}</div>}
-        {children}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    <div className="mb-6 flex min-w-0 flex-col gap-1">
+      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      {description && <div className="text-muted-foreground">{description}</div>}
     </div>
   );
 }
@@ -78,8 +61,8 @@ export function SettingsSection({ id, title, hint, children }: { id: string; tit
   );
 }
 
-export function List({ children, className }: { children: ReactNode; className?: string }) {
-  return <ul className={cn("divide-y rounded-xl border bg-card shadow-xs", className)}>{children}</ul>;
+export function List({ children }: { children: ReactNode }) {
+  return <ul className="divide-y rounded-xl border bg-card shadow-xs">{children}</ul>;
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {

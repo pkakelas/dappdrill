@@ -55,7 +55,7 @@
   const SEL = { balanceOf: "0x70a08231", allowance: "0xdd62ed3e", approve: "0x095ea7b3", deposit: "0xb6b55f25", shares: "0xce7c2ac2" };
   const MAX = (1n << 256n) - 1n;
 
-  // The page's own JSON-RPC reads (what the engine must route to the fork).
+  // The page's own JSON-RPC reads, straight to the chain (the engine records them).
   let rpcId = 1;
   async function rpcRead(method, params) {
     const res = await fetch(cfg.rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method, params }) });

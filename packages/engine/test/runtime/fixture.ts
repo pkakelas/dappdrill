@@ -1,8 +1,8 @@
 /**
- * Shared fixture for the runtime tests: an Anvil instance standing in for the
- * "real" chain the dApp talks to, the test token + vault deployed on it, and a
- * tiny static server for the test dApp. The engine then forks this chain, so
- * writes made during tests never reach it (which the tests check).
+ * Shared fixture for the runtime tests: an Anvil instance as the chain the dApp
+ * talks to, the test token + vault deployed on it, and a tiny static server for
+ * the test dApp. The engine uses the chain as it is, so what one test sends is
+ * still there for the next test in the same file.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
@@ -12,10 +12,9 @@ import { fileURLToPath } from "node:url";
 import { createPublicClient, createWalletClient, http, parseUnits, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { freePort, rpcCall, sleep } from "../../src/chain/rpc.js";
-import { stopProcess } from "../../src/chain/anvil.js";
 import { TOKEN_ABI, TOKEN_BYTECODE, VAULT_ABI, VAULT_BYTECODE } from "./contracts.js";
 
-/** Anvil's first default account: deploys the contracts and mints tokens. */
+/** Anvil's first default account: deploys the contracts and mints tokens. It holds the chain's coin, so tests use it as the key that funds new accounts. */
 export const DEPLOYER_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as const;
 /** Deterministic test accounts A and B. */
 export const ACCOUNTS = {
@@ -88,6 +87,14 @@ export async function startBareChain(chainId: number): Promise<{ rpcUrl: string;
   const anvil = spawn("anvil", ["--port", String(port), "--chain-id", String(chainId), "--silent"], { stdio: "ignore" });
   await waitFor(rpcUrl);
   return { rpcUrl, close: () => stopProcess(anvil) };
+}
+
+function stopProcess(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    child.once("exit", () => resolve());
+    child.kill("SIGTERM");
+  });
 }
 
 async function waitFor(url: string): Promise<void> {

@@ -55,13 +55,9 @@ export interface TokenInfo {
 export interface ContractsDeps {
   http: Http;
   chainId: number;
-  /** Fork (or live) client. Undefined when the chain isn't available. */
+  /** Undefined when the chain isn't available. */
   client?: PublicClient;
-  /** Upstream RPC of the fork, used for the creation-block search. Falls back to `client`. */
-  upstream?: PublicClient;
   etherscanApiKey?: string;
-  /** Block the fork is pinned at; ages are relative to it. */
-  headBlock?: bigint;
   lookupTimeoutMs?: number;
 }
 
@@ -219,7 +215,7 @@ export class Contracts {
     const { http, chainId, client, etherscanApiKey } = this.deps;
     // Everything on a dev chain was deployed minutes ago; "new contract" would mean nothing.
     if (!client || isLocalChain(chainId)) return undefined;
-    const head = this.deps.headBlock ?? (await client.getBlockNumber());
+    const head = await client.getBlockNumber();
 
     let creation: { blockNumber: bigint; source: ContractAge["source"] } | undefined;
     if (etherscanApiKey) {
@@ -243,9 +239,9 @@ export class Contracts {
 
   /** Binary search over eth_getCode for the first block with code. ~log2(head) RPC calls. */
   private async findCreationBlock(address: Address, head: bigint): Promise<bigint | undefined> {
-    const rpc = this.deps.upstream ?? this.deps.client!;
+    const client = this.deps.client!;
     const hasCode = async (blockNumber: bigint) => {
-      const code = await rpc.getCode({ address, blockNumber });
+      const code = await client.getCode({ address, blockNumber });
       return !!code && code !== "0x";
     };
     if (!(await hasCode(head))) return undefined;

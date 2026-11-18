@@ -3,7 +3,7 @@
  * SigningCheck with a plain detail sentence. The verdict is decided in verdict.ts.
  */
 import type { Address } from "viem";
-import { MAINNET_CHAIN_IDS, applyParams, chainName, matchesFunction, shortAddress, type BaselineChange, type CheckStatus, type SigningCheck, type SigningReview, type WalletExpectation } from "@dappdrill/core";
+import { MAINNET_CHAIN_IDS, applyParams, chainName, matchesFunction, shortAddress, type CheckStatus, type SigningCheck, type WalletExpectation } from "@dappdrill/core";
 import { formatUnitsPlain } from "@dappdrill/core";
 import { NEW_CONTRACT_DAYS, hasStake, nativeValue, type Facts, type Subject } from "./facts.js";
 import { isLocalChain } from "./contract.js";
@@ -19,7 +19,6 @@ export function buildChecks(facts: Facts, ui: UiMatchResult): SigningCheck[] {
   return [
     uiMatch(facts, ui),
     verifiedSource(facts),
-    baseline(facts),
     contractAge(facts),
     proxy(facts),
     token(facts),
@@ -105,7 +104,8 @@ function contractAge(facts: Facts): SigningCheck {
 }
 
 function proxy(facts: Facts): SigningCheck {
-  const list = [...subjects(facts), ...(facts.target && facts.spenders.length ? [facts.target] : [])].filter((s, i, arr) => s.info.code !== "eoa" && arr.findIndex((x) => same(x.info.address, s.info.address)) === i);
+  const involved = [...subjects(facts), ...(facts.target && facts.spenders.length ? [facts.target] : [])];
+  const list = involved.filter((s, i, arr) => s.info.code !== "eoa" && arr.findIndex((x) => same(x.info.address, s.info.address)) === i);
   if (!list.length) return { id: "proxy", label: "Proxy", status: "skip", detail: "No contract involved." };
   const proxies = list.filter((s) => s.info.proxy);
   if (!proxies.length) {
@@ -127,7 +127,7 @@ function proxy(facts: Facts): SigningCheck {
 function token(facts: Facts): SigningCheck {
   const tokens = facts.tokens.filter((t) => t.standard !== "none");
   if (!tokens.length) return { id: "token", label: "Token contract", status: "skip", detail: "No token involved." };
-  if (!facts.chainAvailable) return { id: "token", label: "Token contract", status: "unverified", detail: "The chain isn't available, so the token couldn't be read on the fork." };
+  if (!facts.chainAvailable) return { id: "token", label: "Token contract", status: "unverified", detail: "The chain isn't available, so the token couldn't be read." };
   const parts: string[] = [];
   const statuses: CheckStatus[] = [];
   for (const t of tokens) {
@@ -143,7 +143,7 @@ function token(facts: Facts): SigningCheck {
       parts.push(`${name} has no verified source.`);
       statuses.push("warn");
     } else {
-      const read = `${name} read on the fork (${t.standard.toUpperCase()}${t.decimals !== undefined ? `, ${t.decimals} decimals` : ""})`;
+      const read = `${name} read on the chain (${t.standard.toUpperCase()}${t.decimals !== undefined ? `, ${t.decimals} decimals` : ""})`;
       parts.push(isLocalChain(facts.chainId) ? `${read}; a local dev chain has no source to check.` : `${read}; source status unknown.`);
       statuses.push(isLocalChain(facts.chainId) ? "skip" : "unverified");
     }
@@ -226,8 +226,7 @@ function expectation(facts: Facts): SigningCheck {
 
 /**
  * The amounts the test expectation can refer to, in human units: the approval
- * if there is one, else the native value and every balance change. A withdraw
- * of 5 assets burns 4.9 shares and pays out 5, so either side may be the typed amount.
+ * if there is one, else the native value.
  */
 function expectedAmounts(facts: Facts): number[] {
   const human = (v: bigint, decimals: number) => Number(formatUnitsPlain(v, decimals, 18).replace(/,/g, ""));
@@ -237,60 +236,13 @@ function expectedAmounts(facts: Facts): number[] {
     const t = facts.tokens.find((t) => same(t.address, a.token));
     return t?.decimals === undefined ? [] : [human(BigInt(a.amount), t.decimals)];
   }
-  const out: number[] = [];
   const value = nativeValue(facts);
-  if (value > 0n) out.push(human(value, 18));
-  for (const c of facts.simulation?.balanceChanges ?? []) {
-    if (!same(c.owner, facts.from) || c.decimals === undefined) continue;
-    const d = BigInt(c.delta);
-    // Outflows first: what the user pays is what they usually typed.
-    if (d < 0n) out.unshift(human(-d, c.decimals));
-    else if (d > 0n) out.push(human(d, c.decimals));
-  }
-  return out;
+  return value > 0n ? [human(value, 18)] : [];
 }
 
 function describeExpectation(exp: WalletExpectation): string {
   const bits = [exp.functionName && `${exp.functionName}()`, exp.to && `to ${shortAddress(exp.to)}`, exp.spenderMustBe && `spender ${shortAddress(exp.spenderMustBe)}`, exp.amountMustEqual && `amount ${exp.amountMustEqual}`].filter(Boolean);
   return bits.length ? `: ${bits.join(", ")}` : "";
-}
-
-/** Fields compared against the accepted baseline. */
-export function baselineFields(review: Pick<SigningReview, "decoded" | "approvals" | "chainId">): Record<string, string | undefined> {
-  const a = review.approvals[0];
-  return {
-    target: review.decoded.to?.toLowerCase(),
-    function: review.decoded.functionName,
-    spender: a?.spender.toLowerCase(),
-    amount: a ? (a.unlimited ? "unlimited" : a.amount) : review.decoded.value && review.decoded.value !== "0" ? review.decoded.value : undefined,
-    chain: String(review.chainId),
-    primaryType: review.decoded.primaryType,
-    verifyingContract: typeof review.decoded.domain?.verifyingContract === "string" ? review.decoded.domain.verifyingContract.toLowerCase() : undefined,
-  };
-}
-
-export function diffBaseline(previous: SigningReview, current: Pick<SigningReview, "decoded" | "approvals" | "chainId">): BaselineChange[] {
-  const before = baselineFields(previous);
-  const after = baselineFields(current);
-  const changes: BaselineChange[] = [];
-  for (const field of Object.keys(after)) {
-    const b = before[field];
-    const a = after[field];
-    if ((b ?? "") !== (a ?? "")) changes.push({ field, before: b ?? "—", after: a ?? "—" });
-  }
-  return changes;
-}
-
-function baseline(facts: Facts): SigningCheck {
-  const previous = facts.input.baselines[facts.fingerprint];
-  if (!previous) return { id: "baseline", label: "Same as last run", status: "skip", detail: "No accepted earlier run to compare against." };
-  const changes = diffBaseline(previous, { decoded: facts.decoded, approvals: facts.approvals, chainId: facts.chainId });
-  const when = previous.createdAt.slice(0, 10);
-  if (!changes.length) return { id: "baseline", label: "Same as last run", status: "pass", detail: `Same target, function, spender and amount as the run accepted on ${when}.`, evidence: { previousAt: previous.createdAt } };
-  const prevSpender = previous.approvals[0];
-  const was = prevSpender ? `approved ${prevSpender.display} to ${displayAddress(prevSpender.spender, prevSpender.spenderName)}` : `${previous.decoded.functionName ?? previous.decoded.primaryType ?? "signed"} on ${previous.decoded.to ? shortAddress(previous.decoded.to) : "?"}`;
-  const detail = `On ${when} this step ${was}. Changed now: ${changes.map((c) => c.field).join(", ")}.`;
-  return { id: "baseline", label: "Same as last run", status: "warn", detail, evidence: { previousAt: previous.createdAt, changes } };
 }
 
 function simulation(facts: Facts): SigningCheck {
@@ -299,13 +251,9 @@ function simulation(facts: Facts): SigningCheck {
   if (!sim || sim.status === "unavailable") {
     return { id: "simulation", label: "Simulated", status: "unverified", detail: sim?.revertReason ?? "Simulation unavailable." };
   }
-  if (sim.status === "reverted") return { id: "simulation", label: "Simulated", status: "warn", detail: `Reverts on the fork: ${sim.revertReason ?? "no reason given"}.`, evidence: { revertReason: sim.revertReason } };
-  const mine = sim.balanceChanges.filter((c) => same(c.owner, facts.from));
-  const parts: string[] = [];
-  parts.push(mine.length ? `Balance changes: ${mine.map((c) => c.display).join(", ")}.` : "No balance change now.");
-  for (const a of sim.allowanceChanges) parts.push(`Allowance for ${shortAddress(a.spender)} goes from ${a.before} to ${a.after}.`);
-  const stake = hasStake(facts);
-  return { id: "simulation", label: "Simulated", status: "pass", detail: parts.join(" "), evidence: { gasUsed: sim.gasUsed, balanceChanges: sim.balanceChanges, stake } };
+  if (sim.status === "reverted") return { id: "simulation", label: "Simulated", status: "warn", detail: `Would revert on the chain as it is now: ${sim.revertReason ?? "no reason given"}.`, evidence: { revertReason: sim.revertReason } };
+  // The chain was asked whether it goes through, not what it moves.
+  return { id: "simulation", label: "Simulated", status: "pass", unverified: true, detail: "Wouldn't revert on the chain as it is now. What it moves wasn't measured.", evidence: { stake: hasStake(facts) } };
 }
 
 function erc7730(facts: Facts): SigningCheck {

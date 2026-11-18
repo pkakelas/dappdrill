@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* shadcn/ui, neutral, with the soft tints of the New app page on top: good (Passed), bad (Failed,
- * Dangerous), warn (Couldn't run, Check this), live (Running, Queued), fork (conditions). */
+ * Dangerous), warn (Couldn't verify, Check this), live (Running, Queued). */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -59,30 +59,19 @@
 @theme {
   --color-red: #ff4a1f;
   --color-good: #047857;
-  --color-good-ink: #065f46;
-  --color-good-bg: #d1fae5;
-  --color-good-soft: #ecfdf5;
   --color-good-bar: #34d399;
   --color-bad: #c9184a;
   --color-bad-ink: #9f1239;
-  --color-bad-bg: #ffe4e9;
   --color-bad-soft: #fff5f7;
-  --color-bad-line: #fecdd6;
   --color-bad-mid: #fb7190;
   --color-warn: #b45309;
   --color-warn-bg: #fef3c7;
   --color-warn-soft: #fffbeb;
-  --color-warn-line: #fde68a;
   --color-warn-bar: #f59e0b;
   --color-warn-ink: #78350f;
-  --color-warn-icon: #d97706;
   --color-live: #0369a1;
-  --color-live-ink: #075985;
   --color-live-bg: #e0f2fe;
   --color-live-soft: #f0f9ff;
-  --color-fork: #7c3aed;
-  --color-fork-bg: #ede9fe;
-  --color-fork-line: #c4b5fd;
 }
 
 @layer base {

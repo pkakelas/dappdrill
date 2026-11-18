@@ -1,5 +1,13 @@
 import { VERDICT_LABEL, type SigningReview, type TestResult } from "@dappdrill/core";
 
+/** Under a test that stopped on a line that isn't code, or whose code stopped working. A run uses no model, so it can't go on. */
+export const NEEDS_REPAIR = "Needs repairing: run dappdrill repair.";
+
+/** Why a test didn't pass, with what to do about it when it needs repairing. */
+export function whyNot(r: TestResult): string {
+  return [r.reason, r.repairable ? NEEDS_REPAIR : undefined].filter(Boolean).join(" ");
+}
+
 export function dangerous(r: TestResult): SigningReview[] {
   return r.signingReviews.filter((s) => s.verdict === "dangerous");
 }
@@ -14,11 +22,13 @@ export function exitCode(results: TestResult[], asked: number): 0 | 1 | 2 {
   return results.length < asked || results.length === 0 || results.some((r) => r.outcome === "unverified") ? 2 : 0;
 }
 
-/** "4 of 6 passed, 1 failed, 1 not run · 1 dangerous signature · 2 signatures to check" */
+/** "3 of 6 passed, 1 failed, 1 couldn't be verified (1 needs repairing), 1 not run · 1 dangerous signature · 2 signatures to check" */
 export function summaryText(results: TestResult[], asked: number): string {
   const n = (outcome: TestResult["outcome"]) => results.filter((r) => r.outcome === outcome).length;
   const notRun = asked - results.length;
-  const counts = [`${n("passed")} of ${asked} passed`, n("failed") && `${n("failed")} failed`, n("unverified") && `${n("unverified")} couldn't be verified`, notRun > 0 && `${notRun} not run`].filter(Boolean).join(", ");
+  const repair = results.filter((r) => r.repairable).length;
+  const unverified = n("unverified") && `${n("unverified")} couldn't be verified${repair ? ` (${repair} ${repair === 1 ? "needs" : "need"} repairing)` : ""}`;
+  const counts = [`${n("passed")} of ${asked} passed`, n("failed") && `${n("failed")} failed`, unverified, notRun > 0 && `${notRun} not run`].filter(Boolean).join(", ");
   const verdicts = results.flatMap((r) => r.signingReviews.map((s) => s.verdict));
   const having = (v: SigningReview["verdict"]) => verdicts.filter((x) => x === v).length;
   const plural = (n: number) => (n === 1 ? "signature" : "signatures");

@@ -12,12 +12,12 @@ export default function BotPage() {
   return (
     <DocPage
       title="The DappDrill browser"
-      lead="DappDrill tests web3 apps for the teams that build them. It opens the app in a real Chromium with a test wallet, on a local copy of the chain, and clicks through it like a user would."
+      lead="DappDrill tests web3 apps for the teams that build them. It opens the app in a real Chromium with a test wallet and clicks through it like a user would."
     >
       <Section title="How to recognise it">
         <p className="m-0">
-          Every request carries a normal Chrome user agent with <Code>{UA_TOKEN}</Code> appended. It browses at a person&apos;s pace and only visits the app it was pointed at. Transactions go to a
-          local fork, never to the real chain.
+          Every request carries a normal Chrome user agent with <Code>{UA_TOKEN}</Code> appended. It browses at a person&apos;s pace and only visits the app it was pointed at. What it signs comes from a
+          test account the team set up for it.
         </p>
       </Section>
 

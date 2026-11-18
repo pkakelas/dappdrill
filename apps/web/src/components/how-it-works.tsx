@@ -1,18 +1,19 @@
 import { Compass, Link2, ListChecks, Play } from "lucide-react";
+import { Tile } from "@/components/tests/tile";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
-  { icon: Link2, tint: "bg-pink-500/10 text-pink-600 dark:text-pink-400", title: "Add your app", detail: "Its URL, wallet and chain" },
-  { icon: Compass, tint: "bg-sky-500/10 text-sky-600 dark:text-sky-400", title: "We use it", detail: "With a test wallet, like a real user" },
-  { icon: ListChecks, tint: "bg-violet-500/10 text-violet-600 dark:text-violet-400", title: "You get tests", detail: "In plain English, yours to edit" },
-  { icon: Play, tint: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", title: "We run them", detail: "On local forks, never mainnet" },
-];
+  { icon: Link2, tint: "pink", title: "Add your app", detail: "Its URL, wallet and chain" },
+  { icon: Compass, tint: "live", title: "We use it", detail: "With a test wallet, like a real user" },
+  { icon: ListChecks, tint: "violet", title: "You get tests", detail: "In plain English, yours to edit" },
+  { icon: Play, tint: "good", title: "We run them", detail: "On the chains your app uses" },
+] as const;
 
 /** The process in four numbered steps: a column on phones, a row from `sm` up. `centered` centres each step in its column of the row. */
 export function HowItWorks({ centered, className }: { centered?: boolean; className?: string }) {
   return (
     <ol className={cn("grid gap-5 sm:grid-cols-4 sm:gap-4", className)}>
-      {STEPS.map(({ icon: Icon, tint, title, detail }, index) => (
+      {STEPS.map(({ icon, tint, title, detail }, index) => (
         <li
           key={title}
           className={cn(
@@ -21,9 +22,7 @@ export function HowItWorks({ centered, className }: { centered?: boolean; classN
             centered && "sm:items-center sm:text-center sm:text-balance sm:after:right-[calc(10px-50%)] sm:after:left-[calc(50%+26px)]",
           )}
         >
-          <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", tint)}>
-            <Icon className="size-[18px]" />
-          </span>
+          <Tile icon={icon} tint={tint} />
           <div>
             <p className="text-sm font-medium">
               {index + 1}. {title}

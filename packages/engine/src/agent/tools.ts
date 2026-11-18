@@ -1,51 +1,37 @@
 /**
- * The browser/wallet tools the model drives, shared by explore, describe and
- * repair. Every action goes through the Recorder, which turns it into a core
- * Step with a robust Locator, so whatever the agent did can be replayed
- * without a model.
+ * The browser and wallet tools a model acts with while a test is made or repaired. Every action goes
+ * through the Recorder, which turns it into a core Step with a Locator that names the element the way a
+ * user would, so whatever the model did can be replayed by code with no model.
  */
 import { formatEther } from "viem";
 import { z } from "zod";
-import { applyParams, type Blocked, type ReplayScript, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
+import { chainName, type Blocked, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
 import { detectBotCheck } from "../browser/access.js";
 import { fillField } from "../replay/fill.js";
 import { waitQuiet } from "../replay/quiet.js";
 import type { AgentTool, AgentToolResult, DrillSession, Inbox } from "../types.js";
 import { elementByRef, formatSnapshot, locatorFor, takeSnapshot } from "./snapshot.js";
-import { decodeWalletRequest, matchTypedAmount, short } from "./wallet-decode.js";
+import { decodeWalletRequest, matchTypedAmount } from "./wallet-decode.js";
 
 const SETTLE_MS = 600;
 /** How long a busy button gets to finish before the model looks at the page. */
 const QUIET_MS = 10_000;
 const ACTION_SNAPSHOT_CHARS = 9_000;
 
-export interface RecordedScript {
-  name: string;
-  startUrl: string;
-  steps: Step[];
-  params: ReplayScript["params"];
-  chainId: number;
-}
-
-/** Records the steps of the script currently being captured. */
+/** Records what a model does, once started. Until then, and after `take()`, nothing is kept. */
 export class Recorder {
-  private active?: { name: string; startUrl: string; steps: Step[] };
+  private active?: Step[];
   private typed: string[] = [];
 
   constructor(private readonly session: DrillSession) {}
 
-  recording(): boolean {
-    return !!this.active;
-  }
-
-  /** Begin a script at the current URL. `prefix` steps (already replayed) count as part of it. */
-  start(name: string, prefix: Step[] = [], params: Record<string, string> = {}) {
-    this.active = { name, startUrl: this.session.page.url(), steps: [...prefix] };
-    this.typed = prefix.flatMap((s) => (s.kind === "fill" ? [applyParams(s.value, params)] : []));
+  start() {
+    this.active = [];
+    this.typed = [];
   }
 
   add(step: Step) {
-    this.active?.steps.push(step);
+    this.active?.push(step);
     if (step.kind === "fill") this.typed.push(step.value);
   }
 
@@ -59,7 +45,7 @@ export class Recorder {
    * fail a replay when the button is gone.
    */
   markConnectClicks() {
-    const steps = this.active?.steps ?? [];
+    const steps = this.active ?? [];
     for (let i = steps.length - 1; i >= 0; i--) {
       const s = steps[i]!;
       if (s.kind !== "click") break;
@@ -67,50 +53,12 @@ export class Recorder {
     }
   }
 
-  steps(): Step[] {
-    return this.active?.steps ?? [];
-  }
-
-  /** A copy of the steps so far, made generic like take(), with the recording still going. */
-  snapshot(): Step[] {
-    const steps = structuredClone(this.steps());
-    this.generic(steps);
-    return steps;
-  }
-
-  /**
-   * Close the script: amounts the user typed that showed up in a transaction
-   * become {{amount}}, and the wallet's address becomes {{account}} so the
-   * script replays with any test account.
-   */
-  end(): RecordedScript | undefined {
-    const a = this.active;
-    if (!a) return undefined;
-    this.active = undefined;
-    this.generic(a.steps);
-    const params: ReplayScript["params"] = [];
-    const amountStep = a.steps.find((s) => s.kind === "wallet" && s.expect?.amountMustEqual && !s.expect.amountMustEqual.includes("{{"));
-    if (amountStep?.kind === "wallet" && amountStep.expect?.amountMustEqual) {
-      const typed = amountStep.expect.amountMustEqual;
-      params.push({ name: "amount", default: typed, description: "Amount typed into the form" });
-      for (const s of a.steps) {
-        if (s.kind === "fill" && s.value === typed) s.value = "{{amount}}";
-        if (s.kind === "wallet" && s.expect?.amountMustEqual === typed) s.expect.amountMustEqual = "{{amount}}";
-      }
-    }
-    return { name: a.name, startUrl: a.startUrl, steps: a.steps, params, chainId: this.session.wallet.chainId() };
-  }
-
-  /** Close the recording and return its steps with the wallet's address made generic, without params. */
+  /** Close the recording and return its steps, with the wallet's address made generic. */
   take(): Step[] {
-    const steps = this.active?.steps ?? [];
+    const steps = this.active ?? [];
     this.active = undefined;
     this.generic(steps);
     return steps;
-  }
-
-  discard() {
-    this.active = undefined;
   }
 
   /** The wallet's address becomes {{account}}, so steps replay with any test account. */
@@ -144,15 +92,12 @@ export interface ToolContext {
   refuseApprove?: (request: WalletRequest) => string | undefined;
   /** After each click: undefined when it landed, otherwise what we failed to click. */
   onClick?: (failed?: string) => void;
+  /** Texts that name this run's own rows ("287.40"): one of several alike buttons is recorded by the row it is in. */
+  rowTexts?: string[];
 }
 
 /** Tools for looking at and acting on the page; recording happens as a side effect. */
 export function browserTools(ctx: ToolContext): AgentTool[] {
-  return createToolkit(ctx).tools;
-}
-
-/** The browser tools plus `after()`, which callers use to describe the state after their own actions. */
-export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (what: string) => Promise<AgentToolResult> } {
   const { session, recorder } = ctx;
   const page = () => session.page;
   const origin = new URL(session.target.url).origin;
@@ -191,7 +136,7 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
   };
 
   const target = async (ref: string) => {
-    const locator = await locatorFor(page(), ref);
+    const locator = await locatorFor(page(), ref, ctx.rowTexts);
     return { locator, el: elementByRef(page(), ref) };
   };
 
@@ -217,7 +162,7 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
         optional: z
           .boolean()
           .optional()
-          .describe("True for a one-time prompt a returning user won't see again (terms, cookie banner, onboarding, one-time trading setup). Replays skip it, and the signature it asks for, when it doesn't show."),
+          .describe("True for a click that is made only when the page asks for it: a one-time prompt (terms, cookie banner, onboarding, one-time trading setup), a confirmation that doesn't always come, a row that may not be listed. Replays go on without it, and without the signature it asks for, when it isn't there."),
       }),
       handler: async ({ ref, why, optional }) => {
         const { locator, el } = await target(ref);
@@ -323,8 +268,10 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
     {
       name: "wallet_approve",
       description: "Approve the pending signing request (transaction or signature) in the wallet. Records a wallet step with what the request must look like on replay.",
-      schema: z.object({}),
-      handler: async () => {
+      schema: z.object({
+        optional: z.boolean().optional().describe("True when the app doesn't ask for this every time (\"approve the wallet request if one comes\"). Replays go on without it when nothing is asked; a request that does come must still look like this one."),
+      }),
+      handler: async ({ optional }) => {
         const pending = pendingSign(session);
         if (!pending) return "No signing request is pending. Trigger one in the app first.";
         const refused = ctx.refuseApprove?.(pending);
@@ -335,7 +282,7 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
         if (match) expect.amountMustEqual = match.typed;
         await ctx.beforeApprove?.(pending);
         await session.wallet.approve(pending.id);
-        recorder.add({ kind: "wallet", respond: "approve", expect, note: `Approve ${decoded.summary.split(":")[0]}` });
+        recorder.add({ kind: "wallet", respond: "approve", expect, note: `Approve ${decoded.summary.split(":")[0]}`, ...(optional ? { optional } : {}) });
         return after(`Approved ${pending.id} (${decoded.summary}).${match ? ` The amount matches what you typed ("${match.typed}").` : ""}`);
       },
     },
@@ -376,7 +323,7 @@ export function createToolkit(ctx: ToolContext): { tools: AgentTool[]; after: (w
       },
     },
   ];
-  return { tools, after };
+  return tools;
 }
 
 /** The session's inbox address, so the agent can type it into a login form. */
@@ -406,36 +353,14 @@ export async function settle(session: DrillSession): Promise<void> {
   await session.page.waitForLoadState("networkidle", { timeout: 2_500 }).catch(() => null);
 }
 
-/** What the test wallet holds, for a model that would otherwise take a page showing 0 at its word. */
+/** What the test wallet holds on the chain it is on, for a model that would otherwise take a page showing 0 at its word. */
 export async function walletLine(session: DrillSession): Promise<string> {
   try {
     const address = session.wallet.address();
-    const wei = await session.chains.client(session.wallet.chainId()).getBalance({ address });
-    return `The test wallet ${address} holds ${formatEther(wei)} of the native coin on the test chain.`;
+    const chainId = session.wallet.chainId();
+    const wei = await session.chains.client(chainId).getBalance({ address });
+    return `The test wallet ${address} holds ${formatEther(wei)} of the native coin on ${chainName(chainId)}.`;
   } catch {
     return "";
   }
-}
-
-/** Render a script's steps for the model, one per line with indices. */
-export function listSteps(steps: Step[], params: Record<string, string> = {}): string {
-  return steps
-    .map((s, i) => {
-      const t = (l?: { name?: string; text?: string; label?: string; placeholder?: string; testId?: string; css?: string }) =>
-        l ? `"${l.name ?? l.text ?? l.label ?? l.placeholder ?? l.testId ?? l.css ?? "?"}"` : "";
-      let body: string;
-      switch (s.kind) {
-        case "goto": body = `goto ${s.url}`; break;
-        case "click": body = `click ${t(s.target)}`; break;
-        case "fill": body = `fill ${t(s.target)} with "${applyParams(s.value, params)}"`; break;
-        case "select": body = `select "${s.value}" in ${t(s.target)}`; break;
-        case "press": body = `press ${s.key}${s.target ? ` on ${t(s.target)}` : ""}`; break;
-        case "wait": body = `wait ${s.until}${s.text ? ` "${s.text}"` : ""}${s.ms ? ` ${s.ms}ms` : ""}`; break;
-        case "wallet": body = `wallet ${s.respond}${s.expect?.functionName ? ` ${s.expect.functionName}` : ""}${s.expect?.to ? ` to ${short(s.expect.to)}` : ""}`; break;
-        case "expect": body = `expect ${s.assert.type} ${"text" in s.assert ? `"${s.assert.text}"` : s.assert.contains}`; break;
-        case "email-code": body = `email-code into ${t(s.target)}`; break;
-      }
-      return `${i}. ${body}${s.note ? `  (${s.note})` : ""}`;
-    })
-    .join("\n");
 }

@@ -89,11 +89,13 @@ describe("withRecordings", () => {
   const result = (steps: Partial<LineResult>[]) =>
     TestResult.parse({ testId: "o", outcome: "passed", values: { size: "0.03", price: "150.03" }, steps: steps.map((s) => ({ status: "pass", by: "llm", ...s })), durationMs: 0, costUsd: 0 });
 
-  it("writes in what a model did for a code action, with the run's values under their names", () => {
+  it("writes in what a model did for an action as its code, with the run's values under their names", () => {
     const made = withRecordings(test, result([{ recorded: [fill("Size", "0.03"), fill("Price", "150.03")] }, { recorded: [click("Place 0.03")] }, { recorded: [click("Cancel")] }, {}]));
     expect(made.steps[0]).toMatchObject({ run: [{ value: "{{size}}" }, { value: "{{price}}" }] });
     expect(made.steps[1]).toMatchObject({ run: [{ target: { name: "Place {{size}}" } }] });
-    expect(made.steps[2]).toEqual(test.steps[2]);
+    // A line that was only a sentence is code once a model has done it.
+    expect(made.steps[2]).toEqual({ type: "action", by: "code", do: "Cancel whatever is open.", run: [click("Cancel")] });
+    expect(made.steps[3]).toEqual(test.steps[3]);
   });
 
   it("leaves a line alone when the action didn't pass or code did it", () => {
@@ -108,7 +110,7 @@ describe("withRecordings", () => {
 });
 
 describe("the suites written by hand", () => {
-  it.each(["harbor-vault", "pod"])("%s parses, with every value it names declared", (name) => {
+  it.each(["harbor-vault", "pod", "axelar"])("%s parses, with every value it names declared", (name) => {
     const file = new URL(`../../../fixtures/${name}/tests.json`, import.meta.url);
     const suite = Suite.parse(JSON.parse(readFileSync(file, "utf8")));
     expect(suite.setup?.steps.length).toBeGreaterThan(0);

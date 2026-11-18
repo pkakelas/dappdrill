@@ -85,6 +85,23 @@ export async function deploy(): Promise<void> {
   await send(ANVIL_KEYS.deployer, 'HUSDC', 'mint', [addresses.HarborVault, usdc(1_842.5)])
 }
 
+/** hUSDC account 0 holds to send to test accounts. Topped up at every start, a faucet call at a time. */
+const FUNDER_STOCK = 1_000_000
+
+/**
+ * DappDrill gives each test a new account and pays it from a key the owner holds. Here that key is
+ * anvil account 0, which has ETH from anvil and gets its hUSDC from the faucet.
+ */
+export async function stockFunder(): Promise<void> {
+  const { abi } = artifact('HUSDC')
+  const wallet = createWalletClient({ account: deployer, chain: anvil, transport: http(RPC_URL) })
+  const held = () => publicClient.readContract({ address: addresses.hUSDC, abi, functionName: 'balanceOf', args: [deployer.address] }) as Promise<bigint>
+  while ((await held()) < parseUnits(String(FUNDER_STOCK), 6)) {
+    const hash = await wallet.writeContract({ address: addresses.hUSDC, abi, functionName: 'mint', args: [deployer.address, parseUnits('100000', 6)] })
+    await publicClient.waitForTransactionReceipt({ hash })
+  }
+}
+
 export function writeDeployments(): void {
   const deployments = { chainId: anvil.id, rpcUrl: RPC_URL, deployer: deployer.address, contracts: addresses }
   writeFileSync(join(ROOT, 'site', 'public', 'deployments.json'), JSON.stringify(deployments, null, 2) + '\n')

@@ -40,6 +40,10 @@ describe("summaryText", () => {
   it("counts the tests an interrupted run never reached", () => {
     expect(summaryText([result("a", "passed")], 3)).toBe("1 of 3 passed, 2 not run");
   });
+
+  it("says how many of the unverified need repairing", () => {
+    expect(summaryText([result("a", "passed"), { ...result("b", "unverified"), repairable: true }, result("c", "unverified")], 3)).toBe("1 of 3 passed, 2 couldn't be verified (1 needs repairing)");
+  });
 });
 
 describe("reviewsLine", () => {
@@ -77,6 +81,11 @@ describe("renderJunit", () => {
     expect(renderJunit(file, [result("a", "unverified", [], "No RPC.")])).toContain('<error message="No RPC."/>');
     expect(renderJunit(file, [result("a", "passed", ["check"])])).toContain('<testsuite name="app.example" tests="1" failures="0" errors="0" skipped="0"');
   });
+
+  it("says a test needs repairing, and with which command", () => {
+    const xml = renderJunit(file, [{ ...result("a", "unverified", [], "Line 2 isn't code yet."), repairable: true }]);
+    expect(xml).toContain('<error message="Line 2 isn\'t code yet. Needs repairing: run dappdrill repair."/>');
+  });
 });
 
 describe("renderMarkdown", () => {
@@ -103,6 +112,12 @@ describe("renderMarkdown", () => {
     const md = renderMarkdown(file, [result("a", "passed"), result("b", "unverified", [], "No RPC.")], ["a", "b"]);
     expect(md).toContain("**1 of 2 passed, 1 couldn't be verified**");
     expect(md).toContain("- **Close a long**: Couldn't verify. No RPC.");
+  });
+
+  it("says a test needs repairing, and with which command", () => {
+    const md = renderMarkdown(file, [{ ...result("a", "unverified", [], "Line 2 isn't code yet."), repairable: true }], ["a"]);
+    expect(md).toContain("**0 of 1 passed, 1 couldn't be verified (1 needs repairing)**");
+    expect(md).toContain("- **Open a long**: Couldn't verify. Line 2 isn't code yet. Needs repairing: run dappdrill repair.");
   });
 
   it("lists signing requests to check once, and counts them all", () => {

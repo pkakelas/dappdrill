@@ -3,9 +3,9 @@
  * Anything that needs a job returns ids; the caller sends the job.
  */
 import { and, asc, count, desc, eq, gte, inArray, max, min, sql, type SQL } from "drizzle-orm";
-import { newId, Suite, Test, type Fault, type Verdict } from "@dappdrill/core";
+import { newId, Suite, Test, type Fault, type LineResult, type Verdict } from "@dappdrill/core";
 import type { Db } from "./client.js";
-import { apps, testRuns, tests, type RunStatus, type Trigger } from "./schema/app.js";
+import { apps, makes, testRuns, tests, type RepairState, type RunStatus, type Trigger } from "./schema/app.js";
 
 export type TestRow = typeof tests.$inferSelect;
 export type TestRunRow = typeof testRuns.$inferSelect;
@@ -23,6 +23,10 @@ export async function updateApp(db: Db, appId: string, change: (app: typeof apps
     if (patch) await tx.update(apps).set(patch).where(eq(apps.id, appId));
   });
 }
+
+/** Rows of `makes` that are repairs, and those that make tests. */
+export const isRepair = sql`${makes.state} -> 'repair' is not null`;
+export const isMake = sql`${makes.state} -> 'repair' is null`;
 
 /** The row as the engine's test. Its id is the row's. */
 export function testOf(t: TestRow): Test {
@@ -144,8 +148,42 @@ export async function queueRuns(db: Db, appId: string, testIds: string[], trigge
   return batchId;
 }
 
+/** What a repair is asked for: the tests to write again, and the tests to run once it is done. */
+export interface RepairAsk {
+  testIds: string[];
+  then: string[];
+}
+
+/**
+ * What to repair after these results. A test that stopped on a line of its own is repaired. One that never
+ * reached its lines stopped in the setup or the reset, which every repair does first, so it is only run again.
+ */
+export function repairAsk(results: { testId: string; repairable: boolean; steps: Pick<LineResult, "status">[] }[]): RepairAsk {
+  const stopped = results.filter((r) => r.repairable);
+  return { testIds: stopped.filter((r) => r.steps.some((s) => s.status !== "skipped")).map((r) => r.testId), then: stopped.map((r) => r.testId) };
+}
+
+/**
+ * A queued repair for the app, as a row of `makes`. Nothing is queued while another repair of the app is
+ * queued or running, or when the ask is empty. `afterBatch` is the run that asked for it; `userId` the person who did.
+ */
+export async function queueRepair(db: Db, appId: string, ask: RepairAsk, by: { afterBatch?: string; userId?: string } = {}): Promise<string | undefined> {
+  if (ask.then.length === 0 && ask.testIds.length === 0) return undefined;
+  const [busy] = await db.select({ id: makes.id }).from(makes).where(and(eq(makes.appId, appId), inArray(makes.status, ["queued", "running"]), isRepair)).limit(1);
+  if (busy) return undefined;
+  const rows = await db.select({ id: tests.id, name: tests.name }).from(tests).where(eq(tests.appId, appId)).orderBy(asc(tests.position), asc(tests.createdAt));
+  const repair: RepairState = {
+    afterBatch: by.afterBatch,
+    tests: rows.filter((t) => ask.testIds.includes(t.id)).map((t) => ({ testId: t.id, name: t.name, status: "waiting" })),
+    then: rows.filter((t) => ask.then.includes(t.id) || ask.testIds.includes(t.id)).map((t) => t.id),
+  };
+  const id = newId("repair");
+  await db.insert(makes).values({ id, appId, count: repair.tests.length, state: { stage: "making", goals: [], repair }, requestedBy: by.userId ?? null });
+  return id;
+}
+
 /** The position after the app's last test. */
-export async function nextPosition(db: Db, appId: string): Promise<number> {
+async function nextPosition(db: Db, appId: string): Promise<number> {
   const [row] = await db.select({ n: max(tests.position) }).from(tests).where(eq(tests.appId, appId));
   return (row?.n ?? -1) + 1;
 }

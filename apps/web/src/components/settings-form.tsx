@@ -1,12 +1,13 @@
 "use client";
 
-import { BOT_GUIDE_URL, chainInfo, chainName, FORK_GUIDE_URL, KNOWN_CHAINS, MAINNET_CHAIN_IDS, type WalletProfileId } from "@dappdrill/core";
+import { BOT_GUIDE_URL, chainName, type WalletProfileId } from "@dappdrill/core";
 import { Globe, Plus, ScanSearch, X } from "lucide-react";
 import Link from "next/link";
 import { startTransition, useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { saveSettingsAction } from "@/actions/apps";
-import { HintRows, LiveKeyField, useHints } from "@/components/app-hints";
-import { chainNote, RpcField, TestnetTick, useRpcCheck } from "@/components/rpc-field";
+import { AccountField, CHIP, type AccountChoice, type FundDefault } from "@/components/account-field";
+import { HintRows, useHints } from "@/components/app-hints";
+import { chainNote, RpcField, useRpcCheck } from "@/components/rpc-field";
 import { BrowserWindow, LastFrame } from "@/components/site-preview";
 import { cx, SettingsSection } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -16,11 +17,11 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { toggleVariants } from "@/components/ui/toggle";
-import { ChainIcon, WalletIcon } from "@/components/web3-icons";
+import { ChainIcon, WALLETS, WalletIcon } from "@/components/web3-icons";
 import type { ActionResult } from "@/lib/action-result";
+import { CHAIN_GROUPS, CHAINS } from "@/lib/chains";
 
-type OtherChain = { rpcUrl: string; chainId?: number; testnet: boolean };
+type OtherChain = { rpcUrl: string; chainId?: number };
 
 export interface SettingsDefaults {
   name: string;
@@ -31,7 +32,10 @@ export interface SettingsDefaults {
   chains: number[];
   otherChains: OtherChain[];
   wallets: WalletProfileId[];
-  liveKeyAddress: string | null;
+  account: AccountChoice;
+  fund: FundDefault[];
+  /** The address of the saved key that holds funds. */
+  keyAddress: string | null;
   headerNames: string[];
   storage: string;
   responses: string;
@@ -39,39 +43,17 @@ export interface SettingsDefaults {
   verified: boolean;
 }
 
-const WALLETS: { id: WalletProfileId; name: string }[] = [
-  { id: "metamask", name: "MetaMask" },
-  { id: "rabby", name: "Rabby" },
-  { id: "coinbase", name: "Coinbase Wallet" },
-];
-const CHAINS = KNOWN_CHAINS.filter((c) => c.id !== 31337);
-const CHAIN_GROUPS = [
-  { label: "Mainnets", chains: CHAINS.filter((c) => !c.testnet) },
-  { label: "Testnets", chains: CHAINS.filter((c) => c.testnet) },
-];
 const MAX_TOOLBAR_CHAINS = 3;
-
-/** A checkbox drawn as an outline toggle; a real input, so the form posts it and sees the change. */
-const CHIP = cx(
-  toggleVariants({ variant: "outline" }),
-  "relative cursor-pointer px-3 select-none has-checked:border-primary has-checked:bg-primary has-checked:text-primary-foreground has-focus-visible:border-ring has-focus-visible:ring-[3px] has-focus-visible:ring-ring/50",
-);
 
 /** Lines up the questions with the sections around them. */
 const SECTION_ROW = "sm:grid-cols-1 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-6";
 
 const TIMES = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
 
-type PickedChain = { name: string; other: boolean; testnet: boolean; forkable: boolean };
-
-/** /new's note for one chain; a shorter one when several are on. */
-function chainsNote(picks: PickedChain[], pendingOther: boolean, hasKey: boolean) {
-  const [only] = picks;
-  if (picks.length < 2) return chainNote({ name: only?.name, other: only?.other ?? pendingOther, testnet: only?.testnet ?? false, live: Boolean(only?.testnet && hasKey), forkable: only?.forkable ?? true });
-  const live = picks.filter((p) => !p.forkable || (p.testnet && hasKey));
-  if (live.length) return `${live.map((p) => p.name).join(", ")} ${live.length > 1 ? "run" : "runs"} on the real network, not a fork.${live.length < picks.length ? " The rest run on local forks." : ""}`;
-  if (picks.some((p) => p.testnet)) return "Tests run on a local fork of each chain. Add a private key below to use the real testnets.";
-  return "Tests run on a local fork of each chain, so no real funds are involved.";
+/** /new's note for one chain; the names when several are on. */
+function chainsNote(names: string[], pendingOther: boolean) {
+  if (names.length < 2) return chainNote({ name: names[0], other: pendingOther });
+  return `Tests run on ${names.slice(0, -1).join(", ")} and ${names.at(-1)}. What a test signs is sent there.`;
 }
 
 function OtherChainRow({ row, onChange, onRemove }: { row: OtherChain; onChange: (change: Partial<OtherChain>) => void; onRemove: () => void }) {
@@ -81,7 +63,6 @@ function OtherChainRow({ row, onChange, onRemove }: { row: OtherChain; onChange:
     if (found !== undefined) onChange({ chainId: found });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [found]);
-  const askTestnet = row.chainId !== undefined && !chainInfo(row.chainId) && !MAINNET_CHAIN_IDS.has(row.chainId);
   return (
     <div className="flex animate-in flex-col gap-3 duration-200 fade-in-0 slide-in-from-top-1">
       <div className="flex items-center gap-1">
@@ -98,9 +79,6 @@ function OtherChainRow({ row, onChange, onRemove }: { row: OtherChain; onChange:
           <X />
         </Button>
       </div>
-      {askTestnet && <TestnetTick checked={row.testnet} onChange={(testnet) => onChange({ testnet })} />}
-      {/* Not on the tick: it hides until the RPC answers, and that shouldn't change what gets saved. */}
-      {row.testnet && <input type="hidden" name="testnetRpc" value={row.rpcUrl} readOnly />}
       {check.status === "bad" && (
         <p role="alert" className="text-sm text-bad">
           {check.error}
@@ -117,13 +95,11 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
   const [others, setOthers] = useState(() => d.otherChains.map((row, key) => ({ ...row, key })));
   const nextKey = useRef(d.otherChains.length);
   const [wallets, setWallets] = useState(d.wallets);
-  const [liveKey, setLiveKey] = useState("");
-  const [removeKey, setRemoveKey] = useState(false);
   const hints = useHints(d);
 
   // Typing marks the form as edited; the rest is compared, since buttons change it without a change event.
   const [edited, setEdited] = useState(false);
-  const snapshot = JSON.stringify([chains, others.map((o) => [o.rpcUrl, o.testnet]), wallets, hints.text, hints.funding]);
+  const snapshot = JSON.stringify([chains, others.map((o) => o.rpcUrl), wallets, hints.text, hints.funding]);
   const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
   const dirty = edited || snapshot !== savedSnapshot;
   const [saved, setSaved] = useState(false);
@@ -134,23 +110,14 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
     setSavedSnapshot(snapshot);
     setSaved(true);
     setSaves((n) => n + 1);
-    setLiveKey("");
-    setRemoveKey(false);
     const t = setTimeout(() => setSaved(false), 2500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
-  const picks: PickedChain[] = [
-    ...CHAINS.filter((c) => chains.includes(c.id)).map((c) => ({ name: c.name, other: false, testnet: c.testnet, forkable: c.forkable })),
-    ...others.flatMap(({ chainId, testnet }) => {
-      if (chainId === undefined) return [];
-      const info = chainInfo(chainId);
-      return [{ name: chainName(chainId), other: true, testnet: info ? info.testnet : testnet && !MAINNET_CHAIN_IDS.has(chainId), forkable: info?.forkable ?? true }];
-    }),
-  ];
-  const pickedIds = [...chains, ...others.flatMap((o) => (o.chainId === undefined ? [] : [o.chainId]))];
-  const hasKey = !removeKey && Boolean(liveKey.trim() || d.liveKeyAddress);
+  const pickedIds = [...new Set([...CHAINS.filter((c) => chains.includes(c.id)).map((c) => c.id), ...others.flatMap((o) => (o.chainId === undefined ? [] : [o.chainId]))])];
+  // What a new account is sent is on one of the app's chains, or on any we list while the chain is detected.
+  const fundChains = pickedIds.length ? pickedIds.map((id) => ({ id, name: chainName(id) })) : CHAINS;
   const detect = chains.length === 0 && others.length === 0;
 
   // Not action={act}: React resets a form after its action runs, and on an error that throws away what was typed.
@@ -251,11 +218,16 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
               onRemove={() => setOthers((rows) => rows.filter((r) => r.key !== row.key))}
             />
           ))}
-          <Button type="button" variant="ghost" size="sm" onClick={() => setOthers((rows) => [...rows, { key: nextKey.current++, rpcUrl: "", testnet: false }])} className="-ml-2 self-start text-muted-foreground">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOthers((rows) => [...rows, { key: nextKey.current++, rpcUrl: "" }])} className="-ml-2 self-start text-muted-foreground">
             <Plus />
             Other chain
           </Button>
-          <FieldDescription>{chainsNote(picks, others.length > 0, hasKey)}</FieldDescription>
+          <FieldDescription>{chainsNote(pickedIds.map(chainName), others.length > 0)}</FieldDescription>
+        </SettingsSection>
+
+        {/* The app page links here as #account. */}
+        <SettingsSection id="account" title="Account" hint="Who the tests are, and what pays for them on the chain.">
+          <AccountField defaults={{ account: d.account, fund: d.fund }} chains={fundChains} chain={pickedIds[0]} saved={d.keyAddress} cleared={saves} onEdit={() => setEdited(true)} />
         </SettingsSection>
 
         <section aria-labelledby="context" className="flex flex-col gap-7 border-t py-8">
@@ -263,25 +235,9 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
             <h2 id="context" className="text-base font-semibold">
               What DappDrill should know
             </h2>
-            <p className="text-sm text-muted-foreground">It reads these each time it makes or runs a test.</p>
+            <p className="text-sm text-muted-foreground">It reads these each time it makes or repairs a test.</p>
           </div>
-          <HintRows
-            hints={hints}
-            hasKey={hasKey}
-            rowClassName={SECTION_ROW}
-            keyField={
-              (picks.some((p) => p.testnet) || d.liveKeyAddress) && (
-                <>
-                  <LiveKeyField value={liveKey} onChange={setLiveKey} saved={d.liveKeyAddress} />
-                  {d.liveKeyAddress && (
-                    <Check name="removeLiveKey" checked={removeKey} onChange={setRemoveKey}>
-                      Remove the saved key
-                    </Check>
-                  )}
-                </>
-              )
-            }
-          />
+          <HintRows hints={hints} rowClassName={SECTION_ROW} />
         </section>
 
         <SettingsSection id="signing" title="Signing" hint="What tests may approve in the wallet. Rejecting a request is always allowed.">
@@ -292,7 +248,7 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
               <NativeSelectOption value="refused">Approve nothing</NativeSelectOption>
             </NativeSelect>
           </Field>
-          <p className="text-sm text-muted-foreground">On a local fork nothing real is spent. Pick one of the others for an app on a chain with real funds, or one that makes an account of whoever signs in.</p>
+          <p className="text-sm text-muted-foreground">What a test approves is sent to the chain the app uses. Pick one of the others for tests that should only look, or for an app that makes an account of whoever signs in.</p>
         </SettingsSection>
 
         <SettingsSection id="schedule" title="Daily run" hint="Runs every test once a day and alerts the organization when one stops passing.">
@@ -343,20 +299,9 @@ export function SettingsForm({ appId, defaults: d, frame, seen, readOnly }: { ap
           {d.headerNames.length > 0 && <Check name="removeHeaders">Remove the saved header ({d.headerNames.join(", ")})</Check>}
         </SettingsSection>
 
-        <SettingsSection
-          id="fork-setup"
-          title="Fork setup"
-          hint={
-            <>
-              For apps that need a flag to work on a fork, or a backend that disagrees with it.{" "}
-              <a href={FORK_GUIDE_URL} className="underline underline-offset-4 hover:text-foreground">
-                How fork setup works
-              </a>
-            </>
-          }
-        >
+        <SettingsSection id="app-setup" title="Before the app loads" hint="For an app that needs a flag set to be tested, or a request the tests shouldn't depend on.">
           <Field label="localStorage" hint="key=value, one per line. Set before the app loads.">
-            <Textarea name="storage" defaultValue={d.storage} rows={2} className="font-mono" placeholder="forkMode=true" spellCheck={false} />
+            <Textarea name="storage" defaultValue={d.storage} rows={2} className="font-mono" placeholder="testMode=true" spellCheck={false} />
           </Field>
           <Field label="Fixed responses" hint='"<url> [status] <body>", one per line. * matches anything.'>
             <Textarea name="responses" defaultValue={d.responses} rows={2} className="font-mono" placeholder='https://api.example.com/health {"ok":true}' spellCheck={false} />
@@ -397,10 +342,10 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function Check({ name, checked, onChange, children }: { name: string; checked?: boolean; onChange?: (checked: boolean) => void; children: ReactNode }) {
+function Check({ name, children }: { name: string; children: ReactNode }) {
   return (
     <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-      <Checkbox name={name} value="1" checked={checked} onCheckedChange={onChange && ((next) => onChange(next === true))} />
+      <Checkbox name={name} value="1" />
       {children}
     </label>
   );

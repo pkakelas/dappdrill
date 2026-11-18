@@ -19,6 +19,8 @@ const CHAIN_LOGOS: Record<number, string> = {
 };
 
 export const WALLET_NAME: Record<WalletProfileId, string> = { metamask: "MetaMask", rabby: "Rabby", coinbase: "Coinbase Wallet" };
+/** The wallets a form offers, in the order it lists them. */
+export const WALLETS = (Object.entries(WALLET_NAME) as [WalletProfileId, string][]).map(([id, name]) => ({ id, name }));
 
 /** A logo is decoration: its name is written beside it. */
 export function WalletIcon({ wallet, className }: { wallet: WalletProfileId; className?: string }) {

@@ -1,5 +1,10 @@
 # Simple tests: how we would build it
 
+> **Changed 2026-11-18.** Forks are gone, and a run calls no model: see `real-environment-tests.md`. What this
+> file says about forks, live mode, pinned blocks, minted balances, `liveKey`, `--target` meaning a fork-free
+> run, and a model doing or judging a line during a run describes the engine as it was until then. The test
+> format, the maker, the look, the second look at a failing test and the measurements are still how it works.
+
 Status: a plan, its decisions and its open questions, written 2026-11-12 from a read of the code at `a92c44f`.
 Stages 1 to 3 of the build order are built and measured on Harbor Vault (below). The test maker and the look
 (stage 5) are built too and were tried on Harbor Vault and on pod's staging app. Stage 6 is done as well:

@@ -1,8 +1,9 @@
 /**
- * A test is a flat list of actions and checks, and every line says who does it: code or a model.
- * An action by code is replayed in the browser with no model; an action by a model is done from
- * its sentence. A check by code is a fact about the page, the wallet or the chain; a check by a
- * model is a claim answered yes, no or can't tell by a model that never saw the actions being done.
+ * A test is a flat list of actions and checks. The code of a line is the test, and its sentence says
+ * what the code does. An action's code is a recording replayed in the browser; a check's code is one
+ * assertion about the page, the wallet or the chain. A run does only the code and never calls a model.
+ * A line that has no code yet (`by: "llm"`, or a code action whose recording is empty) can't be run:
+ * it is written as code while the test is made or repaired, which is when models are used.
  */
 import { z } from "zod";
 import { SigningReview } from "./signing.js";
@@ -15,13 +16,14 @@ export type BrowserAction = Step;
 export const CodeAction = z.object({
   type: z.literal("action"),
   by: z.literal("code"),
-  /** What is done, in plain words. A model does it from this sentence when `run` stops working. */
+  /** What is done, in plain words. Making and repairing do it from this sentence to record `run`. */
   do: z.string().min(1),
-  /** Empty until a run has recorded it: a model does it from the sentence and the run hands back what it did. */
+  /** The recording a run replays. Empty until making or repairing has recorded it; a run can't do the line till then. */
   run: z.array(BrowserAction).default([]),
 });
 export type CodeAction = z.infer<typeof CodeAction>;
 
+/** An action not written as code yet, and never recorded: a run can't do it. Repairing makes it a code action. */
 export const LlmAction = z.object({
   type: z.literal("action"),
   by: z.literal("llm"),
@@ -34,32 +36,114 @@ export const Action = z.discriminatedUnion("by", [CodeAction, LlmAction]);
 export type Action = z.infer<typeof Action>;
 
 /**
- * What code can decide.
- * shows / hides: text on the page now. said: text the page showed since the latest action began,
- * still there or not (a notice that fades). url: the address contains it. button: a button by its name is
- * enabled or disabled. signed: the wallet was asked to sign something that holds this (a function
- * name, an address, an amount in the token's units). not-signed: nothing was asked, or nothing
- * that holds this. mined: the latest transaction, or the latest that holds this, was mined and didn't revert. changes: the figure
- * under a label moved by this much since the test began, read on the page it names.
+ * Where on the page a check reads. `row`: only inside the row that holds this text (a line of a table or a
+ * list: "{{price}}", "Apple"). `dialog`: only inside the dialog or menu that is open. Neither: the whole page.
+ */
+const where = {
+  row: z.string().min(1).optional(),
+  dialog: z.boolean().optional(),
+};
+
+/**
+ * How long a check keeps looking, in seconds. The whole assertion is read again every quarter of a second
+ * until it passes or the time is up, and the last reading is what the line says. Left out, each kind has its
+ * own: 5 for shows, said and figures, 3 for button, 20 for changes, 15 for mined, and none for the rest
+ * (hides, url, signed, not-signed, no-error are read once). A group waits as long as the longest of its parts.
+ */
+const wait = z.number().min(0).max(120).optional();
+
+/** A number of the test's own: 100, or a value of the run written "{{amount}}". */
+const Stated = z.union([z.number(), z.string().regex(/^-?(\{\{\w+\}\}|\d+(\.\d+)?)$/, 'a number, or a value of the run like "{{amount}}"')]);
+
+/**
+ * A figure read off the page, one of:
+ * - `label`: the first number after this label, as the page writes it ("Cash"). With `row`, in that row; with `dialog`, in the open dialog.
+ * - `column` and `row`: the number under this column heading, in the row that holds the text.
+ * - `column` and `all`: every row's number under this column heading added up ("sum"), or how many rows the table has ("count").
+ * - `row` and `all: "count"`, with no label or column: how many rows hold the text.
+ */
+export const PageFigure = z
+  .object({
+    label: z.string().min(1).optional(),
+    column: z.string().min(1).optional(),
+    all: z.enum(["sum", "count"]).optional(),
+    ...where,
+  })
+  .refine((f) => (f.label ? !f.column && !f.all : f.column ? Boolean(f.row) !== Boolean(f.all) : Boolean(f.row) && f.all === "count"), {
+    message: "A figure is a label, a column with a row, a column with all, or a row with all: count",
+  });
+export type PageFigure = z.infer<typeof PageFigure>;
+
+const Term = z.union([Stated, PageFigure]);
+/** One side of a comparison: a figure, or several added up or multiplied together. */
+const Side = z.union([z.object({ add: z.array(Term).min(2) }), z.object({ multiply: z.array(Term).min(2) }), Term]);
+export type FigureSide = z.infer<typeof Side>;
+
+/** A text on the page now, in one place or read across elements the way a person reads them. */
+const Shows = z.object({ kind: z.literal("shows"), text: z.string().min(1), ...where, wait });
+/** The text isn't on the page. In a row that isn't there, nothing is, so that passes too. */
+const Hides = z.object({ kind: z.literal("hides"), text: z.string().min(1), ...where, wait });
+/** A text the page showed since the latest action began, still there or not (a notice that fades). */
+const Said = z.object({ kind: z.literal("said"), text: z.string().min(1), wait });
+const Url = z.object({ kind: z.literal("url"), contains: z.string().min(1), wait });
+/** A button, a link or another control with exactly this name is offered and can be used, or is greyed out. */
+const Button = z.object({ kind: z.literal("button"), name: z.string().min(1), is: z.enum(["enabled", "disabled"]), ...where, wait });
+/** Only what the wallet was asked since the latest action began, not everything since the test began. */
+const latest = z.boolean().optional();
+/**
+ * The wallet was asked to sign something that holds this: a function name, an address, an amount in the
+ * token's units. `was` also says how the request ended.
+ */
+const Signed = z.object({ kind: z.literal("signed"), holds: z.string().min(1), was: z.enum(["approved", "rejected"]).optional(), latest, wait });
+/** The wallet was asked nothing, or nothing that holds this. */
+const NotSigned = z.object({ kind: z.literal("not-signed"), holds: z.string().min(1).optional(), latest, wait });
+/** The latest transaction, or the latest that holds this, was mined and didn't revert. */
+const Mined = z.object({ kind: z.literal("mined"), holds: z.string().min(1).optional(), wait });
+/** The figure under a label moved by this much since the test began. */
+const Changes = z.object({
+  kind: z.literal("changes"),
+  /** The label the figure stands under, as the page writes it ("Wallet balance"). */
+  figure: z.string().min(1),
+  /** Signed: -100 for a fall of 100. A value of the run's own is written with its sign: "-{{amount}}". */
+  by: Stated,
+  wait,
+});
+/**
+ * Two figures compared: `left` is equal to, at most, at least, less than or more than `right`.
+ * `within` is how far off still counts, as a number (0.02) or a share of the right side ("2%"); it widens
+ * equal, at-most and at-least. Left out, equal allows one unit of the last digit the page shows.
+ * Unsure, not failed, when a figure it needs isn't on the page.
+ */
+const Figures = z.object({
+  kind: z.literal("figures"),
+  left: Side,
+  is: z.enum(["equal", "at-most", "at-least", "less", "more"]),
+  right: Side,
+  within: z.union([z.number().min(0), z.string().regex(/^\d+(\.\d+)?%$/, 'a number, or a share like "2%"')]).optional(),
+  wait,
+});
+/**
+ * Nothing a user shouldn't be shown is on the page or was said since the latest action began: an error
+ * code, a stack trace, an exception's name, raw JSON, "[object Object]", "undefined" or "NaN" where a value belongs.
+ */
+const NoError = z.object({ kind: z.literal("no-error"), ...where, wait });
+
+const plain = [Shows, Hides, Said, Url, Button, Signed, NotSigned, Mined, Figures, NoError] as const;
+/** Several outcomes any of which is fine ("Cancelled, or gone from the list"). */
+const Any = z.object({ kind: z.literal("any"), of: z.array(z.discriminatedUnion("kind", [...plain, Changes])).min(2), wait });
+/** Several things that must all hold at the same moment. A part may itself be an `any`. */
+const All = z.object({ kind: z.literal("all"), of: z.array(z.discriminatedUnion("kind", [...plain, Changes, Any])).min(2), wait });
+
+/**
+ * What code can decide, as data: every kind is something Playwright can read or wait for, and none needs a
+ * model. A check that needs several facts is an `all`, one with several good outcomes an `any`.
  */
 export const CodeAssert = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("shows"), text: z.string().min(1) }),
-  z.object({ kind: z.literal("hides"), text: z.string().min(1) }),
-  z.object({ kind: z.literal("said"), text: z.string().min(1) }),
-  z.object({ kind: z.literal("url"), contains: z.string().min(1) }),
-  z.object({ kind: z.literal("button"), name: z.string().min(1), is: z.enum(["enabled", "disabled"]) }),
-  z.object({ kind: z.literal("signed"), holds: z.string().min(1) }),
-  z.object({ kind: z.literal("not-signed"), holds: z.string().min(1).optional() }),
-  z.object({ kind: z.literal("mined"), holds: z.string().min(1).optional() }),
-  z.object({
-    kind: z.literal("changes"),
-    /** The label the figure stands under, as the page writes it ("Wallet balance"). */
-    figure: z.string().min(1),
-    /** Signed: -100 for a fall of 100. A value of the run's own is written with its sign: "-{{amount}}". */
-    by: z.union([z.number(), z.string().regex(/^-?(\{\{\w+\}\}|\d+(\.\d+)?)$/)]),
-    /** The path of the page the figure is on ("/home"), when it isn't where the test is. The check opens it. */
-    on: z.string().regex(/^\//, "on is the path of a page on the app, like /home, not a label").optional(),
-  }),
+  ...plain,
+  /** On its own line, `changes` may name the page the figure is on ("/home"), when it isn't where the test is. The check opens it. */
+  Changes.extend({ on: z.string().regex(/^\//, "on is the path of a page on the app, like /home, not a label").optional() }),
+  Any,
+  All,
 ]);
 export type CodeAssert = z.infer<typeof CodeAssert>;
 
@@ -72,6 +156,7 @@ export const CodeCheck = z.object({
 });
 export type CodeCheck = z.infer<typeof CodeCheck>;
 
+/** A check not written as code yet: a run can't decide it. Repairing writes it as a code check, from what the page showed. */
 export const LlmCheck = z.object({
   type: z.literal("check"),
   by: z.literal("llm"),
@@ -85,6 +170,9 @@ export type Check = z.infer<typeof Check>;
 
 /** A line's own words: what an action does, or what a check claims. */
 export const sentence = (line: Action | Check): string => (line.type === "action" ? line.do : line.claim);
+
+/** A line a run can do, since a run calls no model: an action with a recording, a check with its code. */
+export const isCode = (line: Action | Check): boolean => line.by === "code" && (line.type === "check" || line.run.length > 0);
 
 /** A number between two bounds, written with a fixed count of decimals ("287.40"). */
 export const RunValue = z.object({ from: z.number(), to: z.number(), decimals: z.number().int().min(0).max(8).default(2) });
@@ -144,6 +232,11 @@ export function withNotes(notes: Note[], texts: string[], from: Note["from"]): N
 export const Suite = z.object({
   /** Done once in a browser of its own: connect, sign in, get funds. Every test starts from where it ends. */
   setup: z.object({ startPath: z.string().default("/"), steps: z.array(Action).min(1) }).optional(),
+  /**
+   * Done before each test on a kept account, from where the setup ends: put the account back to where a test
+   * expects it (cancel every open order, close every position). Not used with new accounts, which start clean.
+   */
+  reset: z.object({ startPath: z.string().default("/"), steps: z.array(Action).min(1) }).optional(),
   notes: z.array(Note).default([]),
   /**
    * What may be approved in the wallet. "setup": only while setting up (signing in), nothing in a
@@ -201,6 +294,13 @@ export const TestResult = z.object({
   values: z.record(z.string(), z.string()).default({}),
   /** The cleanup's lines, when it had to run. */
   cleanup: z.array(LineResult).default([]),
+  /** The reset's lines, when the suite has one: what was done to the kept account before this test. */
+  reset: z.array(LineResult).default([]),
+  /**
+   * It stopped on a line that isn't written as code yet, or whose recording no longer fits the page. A run
+   * uses no model, so it couldn't go on: repairing the test may put it right.
+   */
+  repairable: z.boolean().default(false),
   signingReviews: z.array(SigningReview).default([]),
   /** A failure is run once more before it counts; true when this result is that second run. */
   rerun: z.boolean().default(false),
@@ -230,33 +330,33 @@ export function outcomeOf(steps: LineResult[]): Outcome {
 const NAMED = /\{\{(\w+)\}\}/g;
 
 /**
- * The test with what a run recorded written in: every code action a model did gets the browser
- * actions it took, with the run's values put back under their names. A recording that lost a value
- * its sentence names isn't kept, since it would type the same number on every run.
+ * The test with what a making or repairing run recorded written in: every action a model did, in the test
+ * or in its cleanup, becomes a code action with the browser actions it took, and the run's values put back
+ * under their names. A recording that lost a value its sentence names isn't kept, since it would type the
+ * same number on every run.
  */
 export function withRecordings(test: Test, result: TestResult): Test {
   const values = Object.entries(result.values).filter(([name]) => name in test.values);
-  const steps = test.steps.map((line, i) => {
-    const went = result.steps[i];
-    if (line.type !== "action" || line.by !== "code" || went?.status !== "pass" || !went.recorded?.length) return line;
-    // Only inside text (what was typed, a name), never a number of the recording's own (a row's position). Not
-    // inside a longer number: 20.00 isn't put back into 120.005. A short whole number ("3") is put back only
-    // where it is the whole text, since "Step 3" or "3 of 5" means something else.
-    const named = (text: string) => {
-      for (const [name, value] of values) {
-        if (/^\d{1,2}$/.test(value)) text = text === value ? `{{${name}}}` : text;
-        else text = text.replace(new RegExp(`(?<![\\d.])${value.replace(/\./g, "\\.")}(?!\\d)`, "g"), `{{${name}}}`);
-      }
-      return text;
-    };
+  // Only inside text (what was typed, a name), never a number of the recording's own (a row's position). Not
+  // inside a longer number: 20.00 isn't put back into 120.005. A short whole number ("3") is put back only
+  // where it is the whole text, since "Step 3" or "3 of 5" means something else.
+  const named = (text: string) => {
+    for (const [name, value] of values) {
+      if (/^\d{1,2}$/.test(value)) text = text === value ? `{{${name}}}` : text;
+      else text = text.replace(new RegExp(`(?<![\\d.])${value.replace(/\./g, "\\.")}(?!\\d)`, "g"), `{{${name}}}`);
+    }
+    return text;
+  };
+  const recorded = <L extends Action | Check>(line: L, went: LineResult | undefined): L | CodeAction => {
+    if (line.type !== "action" || went?.status !== "pass" || !went.recorded?.length) return line;
     const written = JSON.stringify(went.recorded, (_key, v: unknown) => (typeof v === "string" ? named(v) : v));
     const lost = [...line.do.matchAll(NAMED)].some(([whole, name]) => name! in test.values && !written.includes(whole));
-    return lost ? line : { ...line, run: z.array(BrowserAction).parse(JSON.parse(written)) };
-  });
-  return { ...test, steps };
+    return lost ? line : { type: "action", by: "code", do: line.do, run: z.array(BrowserAction).parse(JSON.parse(written)) };
+  };
+  return { ...test, steps: test.steps.map((line, i) => recorded(line, result.steps[i])), cleanup: test.cleanup.map((line, i) => recorded(line, result.cleanup[i])) };
 }
 
-/** Where a path on the app opens. The app URL's query (`?chain=…`, a fork flag) stays unless the path has its own. */
+/** Where a path on the app opens. The app URL's query (`?chain=…`, a flag) stays unless the path has its own. */
 export function urlOnApp(path: string, appUrl: string): string {
   const app = new URL(appUrl);
   const url = new URL(path, app);

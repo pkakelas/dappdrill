@@ -39,11 +39,11 @@ export const STEPS = [
   },
   {
     name: "Write",
-    line: "Write your own tests or edit the ones it wrote. Say what should happen in plain words, and an LLM checks it on every run, not just a fixed script.",
+    line: "Write your own tests or edit the ones it wrote. Say what should happen in plain words: it becomes code that runs the same way every time, with your sentence beside it.",
   },
   {
     name: "Run",
-    line: "Runs every test with its own wallet on a local fork. Real contracts.",
+    line: "Runs every test with its own wallet on the chains your app uses. Real contracts.",
   },
   {
     name: "Break",
@@ -55,7 +55,7 @@ export const STEPS = [
   },
 ];
 
-/** Chains a run can fork today (packages/core/src/chains.ts). */
+/** The chain logos under the Run step. A run reaches any EVM chain through its RPC; these are the ones we name. */
 export const CHAINS = [
   { name: "Ethereum", icon: "ethereum" },
   { name: "Base", icon: "base" },

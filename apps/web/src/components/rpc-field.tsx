@@ -1,10 +1,8 @@
 "use client";
 
 import { Check, Link2 } from "lucide-react";
-import { useEffect, useId, useState, type Ref } from "react";
+import { useEffect, useState, type Ref } from "react";
 import { checkRpcAction } from "@/actions/apps";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldContent, FieldDescription, FieldLabel, FieldTitle } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -73,27 +71,8 @@ export function RpcField({ ref, id, autoFocus, value, onChange, check, chain, in
   );
 }
 
-/** Only a chain we can't place needs the user's word that it's a testnet. */
-export function TestnetTick({ name, value, checked, onChange }: { name?: string; value?: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  const id = useId();
-  return (
-    <FieldLabel htmlFor={id} className="animate-in duration-200 fade-in-0 slide-in-from-top-1">
-      <Field orientation="horizontal" className="p-3!">
-        <Checkbox id={id} name={name} value={value} checked={checked} onCheckedChange={(next) => onChange(next === true)} />
-        <FieldContent>
-          <FieldTitle>This is a testnet</FieldTitle>
-          <FieldDescription>Lets you add a private key below.</FieldDescription>
-        </FieldContent>
-      </Field>
-    </FieldLabel>
-  );
-}
-
-export function chainNote({ name, other, testnet, live, forkable }: { name?: string; other: boolean; testnet: boolean; live: boolean; forkable: boolean }) {
+/** Where the tests will run, said under the chain choice. */
+export function chainNote({ name, other }: { name?: string; other: boolean }) {
   if (!name) return other ? "Paste the RPC your app uses and we'll work out the chain." : "We'll see which chain your app connects to.";
-  if (live) return "Tests run on the real testnet with your key, not a fork.";
-  if (!forkable) return `${name} can't be forked, so tests run on it for real, from an account with test funds there.`;
-  if (testnet && other) return `Tests run on a local fork of ${name}. If it can't be forked, or you want the real testnet, add a private key below.`;
-  if (testnet) return `Tests run on a local fork of ${name}. Add a private key below to use the real testnet.`;
-  return `Tests run on a local fork of ${name}, so no real funds are involved.`;
+  return `Tests run on ${name}. What a test signs is sent there.`;
 }

@@ -1,6 +1,6 @@
 const MIN = 60_000;
 const HOUR = 60 * MIN;
-const DAY = 24 * HOUR;
+export const DAY = 24 * HOUR;
 
 export function timeAgo(d: Date | string | null | undefined, now = Date.now()): string {
   if (!d) return "never";
@@ -67,4 +67,4 @@ export function plainError(error: string, url?: string): string {
   return first.replace(/^[\w.]+: /, "").trim();
 }
 
-export const TRIGGER_LABEL = { manual: "Run by you", make: "When the tests were made", schedule: "Daily run" } as const;
+export const TRIGGER_LABEL = { manual: "Run by you", make: "When the tests were made", schedule: "Daily run", repair: "After a repair" } as const;

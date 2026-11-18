@@ -7,7 +7,7 @@ const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
   title: "DappDrill: a QA engineer that understands crypto and wallets",
-  description: "Every flow of your dApp tested on forks, including the odd cases real users run into.",
+  description: "Every flow of your dApp tested on its real chains, including the odd cases real users run into.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,17 +1,16 @@
 import { chainName, shortAddress, type WalletProfileId } from "@dappdrill/core";
 import type { RunSummary } from "@dappdrill/db";
-import { ArrowUpRight, Radio } from "lucide-react";
+import { ArrowUpRight, UserRound, UserRoundPlus } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
 import { ChainIcon, WALLET_NAME, WalletIcon } from "@/components/web3-icons";
-import { hostFromUrl, timeAgo } from "@/lib/format";
+import { DAY, hostFromUrl, timeAgo } from "@/lib/format";
 import { Separator } from "@/components/ui/separator";
 import { AppIcon } from "./app-icon";
 import { RunHistory } from "./app-stats";
+import { LiveDot } from "./status";
 import { Tile } from "./tile";
-
-const DAY = 24 * 60 * 60 * 1000;
 
 /** How the app's tests stand: each by its latest finished result. */
 export interface Rollup {
@@ -43,15 +42,6 @@ function Ring({ rollup }: { rollup: Rollup }) {
         return arc;
       })}
     </svg>
-  );
-}
-
-function LiveDot() {
-  return (
-    <span aria-hidden="true" className="relative flex size-1.5">
-      <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-60 motion-reduce:animate-none" />
-      <span className="relative inline-flex size-1.5 rounded-full bg-live" />
-    </span>
   );
 }
 
@@ -94,7 +84,7 @@ function Figures({ appId, rollup, running, lastRun, history }: { appId: string; 
         </Figure>
       )}
       {running > 0 && (
-        <Figure label="Running now" dot={<LiveDot />} tone="text-live">
+        <Figure label="Running now" dot={<LiveDot small />} tone="text-live">
           {running}
         </Figure>
       )}
@@ -110,24 +100,26 @@ function Figures({ appId, rollup, running, lastRun, history }: { appId: string; 
   );
 }
 
-/** The chain tests run on for real, when they don't run on a fork, and the account that pays there. */
-export interface LiveChain {
-  name: string;
-  /** The funded wallet, when the app has one, with what it holds ("0.42 ETH") when the chain answered. */
-  wallet?: { address: string; balance?: string };
-  /** The owner said how a new account gets test funds, which is what runs do without a funded wallet. */
-  funding?: boolean;
+/** The account with a key of its own that the tests use, or that pays for each new one. */
+export interface TestAccount {
+  kept: boolean;
+  address: string;
+  /** The app's first chain, and what the account holds there ("0.42 ETH") when the chain answered. */
+  chain?: string;
+  balance?: string;
 }
 
-/** Where tests run for real, and the account that pays there: the figures first, then what that means. */
-function LiveNote({ appId, live }: { appId: string; live: LiveChain }) {
-  const facts: { value: ReactNode; label: string }[] = [{ value: live.name, label: "Live chain, can't be forked" }];
-  if (live.wallet) facts.push({ value: <span className="font-mono">{shortAddress(live.wallet.address)}</span>, label: "Funded wallet" });
-  if (live.wallet?.balance) facts.push({ value: <span className="tabular-nums">{live.wallet.balance}</span>, label: "In the wallet" });
+/** The account that pays on the chain: the figures first, then what that means. */
+function AccountNote({ appId, account }: { appId: string; account: TestAccount }) {
+  const facts: { value: ReactNode; label: string }[] = [
+    { value: account.kept ? "Kept account" : "New account for every test", label: "Account" },
+    { value: <span className="font-mono">{shortAddress(account.address)}</span>, label: account.kept ? "Signs every test" : "Pays each new account" },
+  ];
+  if (account.balance) facts.push({ value: <span className="tabular-nums">{account.balance}</span>, label: account.chain ? `Holds on ${account.chain}` : "Holds" });
   return (
     <div className="-mt-3 flex flex-col gap-2.5">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Tile icon={Radio} tint="live" />
+        <Tile icon={account.kept ? UserRound : UserRoundPlus} tint="violet" />
         {facts.map(({ value, label }, i) => (
           <div key={label} className="flex items-center gap-5">
             {i > 0 && <Separator orientation="vertical" className="data-[orientation=vertical]:h-8" />}
@@ -139,19 +131,10 @@ function LiveNote({ appId, live }: { appId: string; live: LiveChain }) {
         ))}
       </div>
       <p className="max-w-prose text-sm text-pretty text-muted-foreground">
-        {live.wallet ? (
-          <>
-            Every run leaves real orders, positions and transactions on this account.
-          </>
-        ) : (
-          <>
-            {live.funding ? "Each run signs in with a new account and gets test funds the way you described;" : "Each run needs an account with test funds there;"}{" "}
-            <Link href={`/apps/${appId}/settings`} className="underline underline-offset-4 hover:text-foreground">
-              add a funded key
-            </Link>{" "}
-            {live.funding ? "to run everything from one account instead." : "or say how to get test funds."}
-          </>
-        )}
+        {account.kept ? "Every run leaves its orders, positions and transactions on this account." : "Each test's account is sent its funds from this one before the setup."}{" "}
+        <Link href={`/apps/${appId}/settings#account`} className="underline underline-offset-4 hover:text-foreground">
+          Change the account
+        </Link>
       </p>
     </div>
   );
@@ -191,7 +174,7 @@ export function AppHero({
   lastRun,
   wallet,
   chainId,
-  live,
+  account,
   rollup,
   running,
   runs,
@@ -203,7 +186,7 @@ export function AppHero({
   lastRun?: Date;
   wallet?: WalletProfileId;
   chainId?: number;
-  live?: LiveChain;
+  account?: TestAccount;
   /** Unset while there are no tests to count. */
   rollup?: Rollup;
   running: number;
@@ -226,7 +209,7 @@ export function AppHero({
         </div>
         <div className="shrink-0">{action}</div>
       </div>
-      {live && <LiveNote appId={appId} live={live} />}
+      {account && <AccountNote appId={appId} account={account} />}
       {rollup && <Figures appId={appId} rollup={rollup} running={running} lastRun={lastRun} history={charted && <RunHistory runs={runs} />} />}
     </header>
   );

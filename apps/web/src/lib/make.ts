@@ -1,6 +1,6 @@
 import "server-only";
 import { newId } from "@dappdrill/core";
-import { db, makes } from "@dappdrill/db";
+import { db, isMake, makes } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { enqueue } from "./jobs";
 
@@ -17,7 +17,7 @@ export async function startMake(appId: string, userId: string, goal?: string): P
   const [busy] = await db()
     .select({ id: makes.id })
     .from(makes)
-    .where(and(eq(makes.appId, appId), inArray(makes.status, ["queued", "running"])));
+    .where(and(eq(makes.appId, appId), inArray(makes.status, ["queued", "running"]), isMake));
   if (busy && !goal) return false;
   const id = newId("make");
   await db()

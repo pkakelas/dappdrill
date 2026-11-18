@@ -65,6 +65,16 @@ const BOX: Record<TestState, string> = {
   never: "bg-muted",
 };
 
+/** The dot of something going on now. */
+export function LiveDot({ small }: { small?: boolean }) {
+  return (
+    <span aria-hidden="true" className={cx("relative flex", small ? "size-1.5" : "size-2")}>
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-50 motion-reduce:animate-none" />
+      <span className="relative inline-flex size-full rounded-full bg-live" />
+    </span>
+  );
+}
+
 function Glyph({ state, size }: { state: TestState; size: string }) {
   const icon = { className: size, strokeWidth: 2.75, "aria-hidden": true };
   switch (state) {
@@ -81,12 +91,7 @@ function Glyph({ state, size }: { state: TestState; size: string }) {
     case "stopped":
       return <Minus {...icon} />;
     case "running":
-      return (
-        <span className="relative flex size-2">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-live opacity-50 motion-reduce:animate-none" />
-          <span className="relative inline-flex size-2 rounded-full bg-live" />
-        </span>
-      );
+      return <LiveDot />;
     case "queued":
       return <span className="size-2 rounded-full border-2 border-live" />;
     default:

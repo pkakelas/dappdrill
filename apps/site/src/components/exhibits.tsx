@@ -109,7 +109,7 @@ export function Wallet({ rejected }: { rejected?: boolean }) {
         </div>
         <div>
           <span>Network</span>
-          <span>Ethereum (fork)</span>
+          <span>Ethereum</span>
         </div>
       </div>
       <div className="wl-btns">

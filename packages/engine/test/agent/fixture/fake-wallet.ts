@@ -29,7 +29,6 @@ export class FakeWallet implements WalletController {
   address() { return this.accounts[this.selected]; }
   chainId() { return this.chain; }
   policy() { return this.pol; }
-  setPolicy(patch: Partial<WalletPolicy>) { Object.assign(this.pol, patch); }
   requests() { return this.log; }
   onRequest(cb: (req: WalletRequest) => void) {
     this.listeners.push(cb);
@@ -37,7 +36,6 @@ export class FakeWallet implements WalletController {
   }
   async switchAccount(to: "A" | "B") { this.selected = to; }
   async switchChain(chainId: number) { this.chain = chainId; }
-  async disconnect() {}
 
   nextSign(timeoutMs: number): Promise<PendingSign> {
     const open = this.log.find((r) => r.kind === "sign" && r.outcome === "pending");

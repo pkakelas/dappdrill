@@ -1,7 +1,7 @@
 /**
  * Looks around an app and lists the goals worth a test.
  *
- *   pnpm look <url> <suite.json> [--chain id[=rpc]]… [--target file] [--headed] [--dry]
+ *   pnpm look <url> <suite.json> [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed] [--dry]
  *
  * The suite file gives the setup, what is known about the app and the tests it already has; it
  * needn't be there yet. The notes the look comes back with are written into it, unless --dry.
@@ -13,15 +13,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { lookForGoals } from "../src/api.js";
-import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs } from "./target.js";
+import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs, TARGET_FLAGS, TARGET_USAGE } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
-  options: { chain: { type: "string", multiple: true }, target: { type: "string" }, headed: { type: "boolean" }, dry: { type: "boolean" } },
+  options: { ...TARGET_FLAGS, headed: { type: "boolean" }, dry: { type: "boolean" } },
 });
 const [url, suiteFile] = positionals;
 if (!url || !suiteFile) {
-  console.error("usage: pnpm look <url> <suite.json> [--chain id[=rpc]]… [--target file] [--headed] [--dry]");
+  console.error(`usage: pnpm look <url> <suite.json> ${TARGET_USAGE} [--headed] [--dry]`);
   process.exit(2);
 }
 

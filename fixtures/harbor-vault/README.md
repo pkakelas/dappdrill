@@ -33,6 +33,25 @@ addresses are always the same (also written to `site/public/deployments.json`):
 Deployment also seeds ~102k hUSDC of TVL from anvil accounts 8 and 9 plus some yield, so the
 share price is above 1. Anvil accounts 1–7 start with no hUSDC; use "Get test hUSDC".
 
+## Running DappDrill against it
+
+It is a plain local chain to DappDrill: every test gets a new account, paid from anvil account 0.
+`start` keeps 1,000,000 hUSDC on that account for it. From the repo root:
+
+```bash
+corepack pnpm suite http://localhost:5173 fixtures/harbor-vault/tests.json \
+  --account new --key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --fund 31337:1
+```
+
+`--fund 31337:1` is 1 ETH for gas. The setup in `tests.json` takes 1,000 hUSDC from the app's own faucet,
+so nothing else is needed (`--fund 31337:0x5FbDB2315678afecb367f032d93F642f64180aa3:1000` would send
+1,000 hUSDC as well).
+
+Every line of the seven tests is code, so the run calls no model. With the bugs on, all seven fail, each on
+a seeded bug; on `http://localhost:5173/?bugs=none` all seven pass. When the site changes and a line stops
+fitting the page, `corepack pnpm repair <url> fixtures/harbor-vault/tests.json` with the same flags writes
+the lines again (that part uses models).
+
 ## Layout
 
 ```

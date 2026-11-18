@@ -1,12 +1,13 @@
 "use server";
 
 import { sentence, Test, type Action, type Check } from "@dappdrill/core";
-import { db, makes, queueRuns, testOf, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
+import { appTests, db, makes, queueRepair, queueRuns, repairAsk, settledRuns, testOf, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { enqueue } from "@/lib/jobs";
+import { isCode, unwritten } from "@/lib/lines";
 import { startMake } from "@/lib/make";
 import { looksLikeKey } from "@/lib/secrets";
 import { requireApp } from "@/lib/session";
@@ -139,6 +140,37 @@ export async function stopMakeAction(makeId: string): Promise<void> {
   refresh(make.appId);
 }
 
+// ---------------------------------------------------------------- repairing
+
+/**
+ * Starts a repair: the setup and the reset are written as code again where they need it, then the tests
+ * named. With none named, every test whose last result says it needs repairing or that has a line not
+ * written as code yet. The tests are run once afterwards.
+ */
+export async function repairTestsAction(appId: string, testIds?: string[]): Promise<{ error?: string }> {
+  const { app, user } = await requireApp(appId);
+  const rows = await appTests(db(), appId);
+  let ask: { testIds: string[]; then: string[] };
+  if (testIds) {
+    const own = rows.filter((t) => testIds.includes(t.id)).map((t) => t.id);
+    ask = { testIds: own, then: own };
+  } else {
+    const settled = await settledRuns(db(), rows.map((t) => t.id));
+    const stopped = repairAsk([...settled.values()].flatMap((r) => (r.result ? [{ testId: r.testId, repairable: Boolean(r.result.repairable), steps: r.result.steps }] : [])));
+    const waitingOnCode = rows.filter(unwritten).map((t) => t.id);
+    // Every test starts with the setup and the reset, so all of them are run again once those are written.
+    const before = [...(app.suite.setup?.steps ?? []), ...(app.suite.reset?.steps ?? [])];
+    const waiting = before.every(isCode) ? stopped.then : rows.map((t) => t.id);
+    ask = { testIds: [...new Set([...stopped.testIds, ...waitingOnCode])], then: [...new Set([...waiting, ...waitingOnCode])] };
+  }
+  if (ask.then.length === 0) return { error: "Nothing needs repairing." };
+  const repairId = await queueRepair(db(), appId, ask, { userId: user.id });
+  if (!repairId) return { error: "A repair is going for this app already." };
+  await enqueue("repair.run", { repairId });
+  refresh(appId);
+  return {};
+}
+
 // ---------------------------------------------------------------- editing
 
 const Edit = z.object({
@@ -153,9 +185,9 @@ const Edit = z.object({
 export type TestEdit = z.input<typeof Edit>;
 
 /**
- * Saves a test edited by hand. A line whose words didn't change stays as it was, with what it
- * recorded. A new or reworded action is done by a model on the next run, which records it; a new
- * or reworded check is answered by a model from then on. Nothing proves the edit: the next run does.
+ * Saves a test edited by hand. A line whose words didn't change stays as it was, with its code.
+ * A new or reworded line isn't code yet: a run stops at it and says the test needs repairing, and
+ * the next repair writes it as code.
  */
 export async function saveTestAction(testId: string, input: TestEdit): Promise<{ error?: string }> {
   const row = await ownTest(testId);

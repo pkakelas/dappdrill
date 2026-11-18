@@ -5,7 +5,7 @@ import { cx } from "@/components/ui";
 
 /** Destructive action that asks once, in place: the first click arms it for a few seconds.
  *  An action that answers `{ error }` has it shown beside the button.
- *  Unstyled: pass `buttonVariants(...)` or a menu class as className. */
+ *  Unstyled: pass `buttonVariants(...)` as className. */
 export function ConfirmButton({
   onConfirm,
   children,
@@ -41,7 +41,7 @@ export function ConfirmButton({
           {error}
         </span>
       )}
-      <button type="button" data-keep-open disabled={pending} className={cx(className, armed && "border-bad text-bad hover:text-bad")} onClick={() => (armed ? run() : setArmed(true))}>
+      <button type="button" disabled={pending} className={cx(className, armed && "border-bad text-bad hover:text-bad")} onClick={() => (armed ? run() : setArmed(true))}>
         {pending ? busy : armed ? confirm : children}
       </button>
     </>

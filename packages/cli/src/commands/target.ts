@@ -1,11 +1,12 @@
-import { DrillTarget, type ChainConfig, type DrillEventSink } from "@dappdrill/core";
+import { DrillTarget } from "@dappdrill/core";
 import type { Command } from "commander";
-import { UsageError, collect, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, readInitScripts, type TestsFile } from "../files.js";
+import { UsageError, collect, parseAccount, parseChain, parseFund, parseHeaders, parseResponses, parseStorage, readInitScripts, type TestsFile } from "../files.js";
 
 export interface TargetFlags {
   chain: string[];
-  liveKeyEnv?: string;
-  token: string[];
+  account?: string;
+  key?: string;
+  fund: string[];
   initScript: string[];
   header: string[];
   storage: string[];
@@ -14,38 +15,43 @@ export interface TargetFlags {
   out: string;
 }
 
-/** How to open the app: the same flags for `make` and `run`. */
+/** How to open the app: the same flags for every command. */
 export function targetOptions(cmd: Command): Command {
   return cmd
-    .option("--chain <id[=rpc]>", "chain to fork (repeatable); known chains need no RPC", collect, [])
+    .option("--chain <id[=rpc]>", "a chain the app uses (repeatable); known chains need no RPC", collect, [])
+    .option("--account <new|kept>", "new: every test starts on an account of its own. kept: every run uses the account of --key")
+    .option("--key <hex>", "private key of the account that holds funds (also $DAPPDRILL_KEY)")
+    .option("--fund <chain[:token]:amount>", "what the key sends each new account: the chain's coin, or the token at that address (repeatable)", collect, [])
     .option("--header <name: value>", "header for the app's own site only, e.g. your bot-protection bypass (repeatable; also $DAPPDRILL_HEADERS)", collect, [])
-    .option("--storage <key=value>", "localStorage entry set before the app loads, e.g. a fork-mode flag (repeatable)", collect, [])
+    .option("--storage <key=value>", "localStorage entry set before the app loads, e.g. a test-mode flag (repeatable)", collect, [])
     .option("--respond <url [status] body|@file>", "answer requests to this URL (* wildcards) with a fixed body (repeatable)", collect, [])
-    .option("--token <chain:address=amount>", "ERC-20 balance for the test wallet on a fork (repeatable)", collect, [])
     .option("--init-script <file>", "JavaScript to run in every page before the app (repeatable)", collect, [])
-    .option("--live-key-env <VAR>", "env var holding a funded testnet key for chains that can't be forked")
     .option("--out <dir>", "where videos, screenshots and results go", "dappdrill-out")
     .option("--headed", "show the browser");
 }
 
 /**
- * `use` says what the chains in the tests file are for. Making tests looks again, so they are only
- * chains to have ready. A run starts from them as they were when the tests were made, block and all,
- * unless --chain names others.
+ * `use` says what the chains in the tests file are for. A look finds the app's chains again, so they
+ * are only chains to have ready. Tests (run, repaired, or one more made) use them unless --chain names
+ * others. The account and what each new one is sent come from the file too, unless a flag says
+ * otherwise; the key never does.
  */
-export async function buildTarget(url: string, flags: TargetFlags, use: "make" | "run", file?: Pick<TestsFile, "chains" | "tokens">): Promise<DrillTarget> {
-  const liveKey = flags.liveKeyEnv ? process.env[flags.liveKeyEnv] : undefined;
-  if (flags.liveKeyEnv && !liveKey) throw new UsageError(`${flags.liveKeyEnv} is not set.`);
+export async function buildTarget(url: string, flags: TargetFlags, use: "look" | "tests", file?: Pick<TestsFile, "chains" | "account" | "fund">): Promise<DrillTarget> {
+  const fundedKey = flags.key ?? (process.env.DAPPDRILL_KEY || undefined);
+  if (fundedKey && !/^(0x)?[0-9a-fA-F]{64}$/.test(fundedKey)) throw new UsageError("Bad key: expected a private key of 64 hex characters.");
+  const account = flags.account ? parseAccount(flags.account) : (file?.account ?? "new");
+  if (account === "kept" && !fundedKey) throw new UsageError("A kept account needs its key: pass --key or set $DAPPDRILL_KEY.");
+  const fund = flags.fund.length ? flags.fund.map(parseFund) : (file?.fund ?? []);
+  if (account === "new" && fund.length && !fundedKey) throw new UsageError("New accounts are sent funds from a key: pass --key or set $DAPPDRILL_KEY.");
   const asked = flags.chain.map(parseChain);
   const seen = file?.chains ?? [];
-  const given = flags.token.map(parseToken);
   const parsed = DrillTarget.safeParse({
     url,
-    chains: use === "run" && asked.length === 0 ? seen : asked,
-    learnedChains: use === "make" ? seen.filter((c) => c.fromApp).map(({ forkBlock: _, ...c }): ChainConfig => c) : [],
-    liveKey,
-    // A --token wins over what the wallet was given when the tests were made.
-    tokens: [...given, ...(file?.tokens ?? []).filter((t) => !given.some((g) => g.chainId === t.chainId && g.address.toLowerCase() === t.address.toLowerCase()))],
+    chains: use === "tests" && asked.length === 0 ? seen : asked,
+    learnedChains: use === "look" ? seen.filter((c) => c.fromApp) : [],
+    account,
+    fundedKey,
+    fund,
     initScripts: await readInitScripts(flags.initScript),
     headers: parseHeaders(flags.header),
     storage: parseStorage(flags.storage),
@@ -54,14 +60,3 @@ export async function buildTarget(url: string, flags: TargetFlags, use: "make" |
   if (!parsed.success) throw new UsageError(`Bad target: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
   return parsed.data;
 }
-
-const useColour = process.stdout.isTTY && !process.env.NO_COLOR;
-/** Only problems get colour. */
-export const red = (s: string) => (useColour ? `\x1b[31m${s}\x1b[0m` : s);
-export const yellow = (s: string) => (useColour ? `\x1b[33m${s}\x1b[0m` : s);
-export const dim = (s: string) => (useColour ? `\x1b[2m${s}\x1b[0m` : s);
-
-/** The engine's warnings; frames, wallet chatter and its own progress notes are left out. */
-export const warnSink: DrillEventSink = (event) => {
-  if (event.type === "log" && event.level !== "info") console.log((event.level === "error" ? red : yellow)(`  ${event.message}`));
-};

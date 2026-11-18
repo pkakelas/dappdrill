@@ -1,6 +1,6 @@
 import type { TestResult } from "@dappdrill/core";
 import type { TestsFile } from "./files.js";
-import { dangerous, distinctReviews, reviewLine, reviewsLine, summaryText } from "./outcomes.js";
+import { dangerous, distinctReviews, reviewLine, reviewsLine, summaryText, whyNot } from "./outcomes.js";
 
 /** A short summary for a PR comment or a CI job summary: problems first, passes folded away. `asked` is the tests the run was for. */
 export function renderMarkdown(file: TestsFile, results: TestResult[], asked: string[]): string {
@@ -13,7 +13,7 @@ export function renderMarkdown(file: TestsFile, results: TestResult[], asked: st
     ...ran.flatMap(({ label, r }) => [
       ...dangerous(r).map((d) => `- **${label}**: Dangerous signature: ${d.title}`),
       ...(r.outcome === "failed" ? [`- **${label}**: ${r.reason ?? "Failed."}`] : []),
-      ...(r.outcome === "unverified" ? [`- **${label}**: Couldn't verify. ${r.reason ?? ""}`.trimEnd()] : []),
+      ...(r.outcome === "unverified" ? [`- **${label}**: Couldn't verify. ${whyNot(r)}`.trimEnd()] : []),
     ]),
     ...notRun.map((t) => `- ${t.name}: Not run.`),
   ];

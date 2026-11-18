@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { BrowserWindow, SiteLoading } from "@/components/site-preview";
 import { cx } from "@/components/ui";
+import { NotCode } from "./not-code";
 import { Evidence } from "./signed";
 import { StateMark, type TestState } from "./status";
 
@@ -19,6 +20,15 @@ export interface ViewLine {
   redone?: string;
   did?: string[];
   shot?: string | null;
+  /** The line has no code yet, so a run stops at it. */
+  notCode?: boolean;
+}
+
+/** The lines done around the test: the reset before it, the cleanup after it. `status` is how they went, in a word. */
+export interface Around {
+  lines: ViewLine[];
+  status: string;
+  open: boolean;
 }
 
 const TONE = { bad: "text-bad", warn: "text-warn", quiet: "text-muted-foreground" };
@@ -31,6 +41,7 @@ export function TestRunView({
   appUrl,
   startPath,
   lines,
+  reset,
   cleanup,
   video,
   poster,
@@ -42,7 +53,9 @@ export function TestRunView({
   appUrl: string;
   startPath: string;
   lines: ViewLine[];
-  cleanup?: { lines: ViewLine[]; status: string; open: boolean };
+  /** What put the kept account back before the test. */
+  reset?: Around;
+  cleanup?: Around;
   video?: string | null;
   poster?: string | null;
   /** While a run is on: the page it is on now, or null before it has one. */
@@ -54,7 +67,8 @@ export function TestRunView({
   /** What goes under the lines: the signatures. */
   children?: ReactNode;
 }) {
-  const all = [...lines, ...(cleanup?.lines ?? [])];
+  const all = [...(reset?.lines ?? []), ...lines, ...(cleanup?.lines ?? [])];
+  const first = reset?.lines.length ?? 0;
   const [picked, setPicked] = useState<string | undefined>(pick ?? (video ? undefined : all.findLast((l) => l.shot)?.key));
   const at = all.findIndex((l) => l.key === picked);
   const line = at >= 0 ? all[at] : undefined;
@@ -73,17 +87,17 @@ export function TestRunView({
               Starts on <span className="font-mono">{startPath}</span>
             </span>
           </div>
+          {reset && reset.lines.length > 0 && (
+            <Fold title="Before the test" about="puts the kept account back" around={reset}>
+              {reset.lines.map(row)}
+            </Fold>
+          )}
           <ol className="flex flex-col">{lines.map(row)}</ol>
           {stale && <p className="px-2 text-sm text-pretty text-muted-foreground">The test was edited after this result, so the lines don&apos;t show how each went. Run it again.</p>}
           {cleanup && cleanup.lines.length > 0 && (
-            <details open={cleanup.open} className="group/cleanup px-0">
-              <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-                <ChevronRight className="size-3.5 transition-transform group-open/cleanup:rotate-90" aria-hidden="true" />
-                <span className="font-medium">Cleanup</span>
-                <span>· puts the account back afterwards{cleanup.status}</span>
-              </summary>
-              <ol className="mt-2 flex flex-col">{cleanup.lines.map(row)}</ol>
-            </details>
+            <Fold title="Cleanup" about="puts the account back afterwards" around={cleanup}>
+              {cleanup.lines.map(row)}
+            </Fold>
           )}
         </section>
         {children}
@@ -126,7 +140,7 @@ export function TestRunView({
             ) : line ? (
               line.shot ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={line.key} src={line.shot} alt={`The page at line ${at + 1}`} className="absolute inset-0 size-full animate-in object-cover object-top duration-200 fade-in-0" />
+                <img key={line.key} src={line.shot} alt="The page at the line picked" className="absolute inset-0 size-full animate-in object-cover object-top duration-200 fade-in-0" />
               ) : (
                 <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">No picture of the page at this line.</p>
               )
@@ -142,7 +156,7 @@ export function TestRunView({
           <div className="flex items-start gap-3 px-1">
             <StateMark state={line.state} label={line.label} className="mt-0.5" />
             <p className="min-w-0 flex-1 text-sm text-pretty">
-              <span className="text-muted-foreground">{at < lines.length ? `Line ${at + 1}` : "Cleanup"} · </span>
+              <span className="text-muted-foreground">{at < first ? "Before the test" : at < first + lines.length ? `Line ${at - first + 1}` : "Cleanup"} · </span>
               {line.text}
             </p>
             <div className="flex shrink-0">
@@ -168,7 +182,10 @@ function Row({ line, last, picked, onPick }: { line: ViewLine; last: boolean; pi
       <StateMark state={line.state} label={line.label} className="mt-px" />
       <span className="w-11 shrink-0 pt-[3px] text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{line.kind === "check" ? "Check" : "Do"}</span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-pretty">{line.text}</span>
+        <span className="flex items-start justify-between gap-3">
+          <span className="min-w-0 text-pretty">{line.text}</span>
+          {line.notCode && <NotCode />}
+        </span>
         {/* What a passing check saw shows once its line is picked (folded when it can't be); a problem always shows whole. */}
         {line.note && (line.tone !== "quiet" || picked || !line.shot) && (
           <Evidence text={line.note} className="mt-0.5 text-sm" textClassName={cx("text-pretty [overflow-wrap:anywhere]", TONE[line.tone ?? "quiet"], !picked && line.tone === "quiet" && "line-clamp-2")} />
@@ -192,6 +209,23 @@ function Row({ line, last, picked, onPick }: { line: ViewLine; last: boolean; pi
         <div className={box}>{body}</div>
       )}
     </li>
+  );
+}
+
+/** Lines done around the test, folded away unless something in them went wrong. */
+function Fold({ title, about, around, children }: { title: string; about: string; around: Around; children: ReactNode }) {
+  return (
+    <details open={around.open} className="group/fold px-0">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="size-3.5 transition-transform group-open/fold:rotate-90" aria-hidden="true" />
+        <span className="font-medium">{title}</span>
+        <span>
+          · {about}
+          {around.status}
+        </span>
+      </summary>
+      <ol className="mt-2 flex flex-col">{children}</ol>
+    </details>
   );
 }
 

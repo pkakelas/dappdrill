@@ -1,15 +1,10 @@
 /**
  * Does the wallet request match what the UI promised? A deterministic
- * comparison of the button label (and page context) against the decoded
- * action, token, amount and spender, plus an optional model check for the
- * cases the rules can't settle.
+ * comparison of the button label against the decoded action, token, amount
+ * and spender. No model is asked: what the rules can't settle stays unverified.
  */
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { z } from "zod";
-import type { ApprovalGrant, BalanceChange, CheckStatus } from "@dappdrill/core";
+import type { ApprovalGrant, CheckStatus } from "@dappdrill/core";
 import { formatUnitsPlain, shortAddress } from "@dappdrill/core";
-import type { ImageInput, Llm } from "../types.js";
 
 /** What a label or a request is, in one word. */
 export type Intent = "approve" | "signin" | "deposit" | "withdraw" | "swap" | "claim" | "send" | "mint" | "sign" | "cancel" | "bridge" | "borrow" | "repay" | "vote" | "other";
@@ -85,21 +80,17 @@ export interface RequestSummary {
   nameGuessed?: boolean;
   primaryType?: string;
   approvals: ApprovalGrant[];
-  /** Balance changes for the signer, from the simulation. */
-  outgoing: BalanceChange[];
   valueWei: bigint;
   nativeSymbol: string;
   siwe?: { domain: string; matchesPage?: boolean; pageHost?: string };
   isHash?: boolean;
-  /** One-line description of the request for the model and the detail text. */
-  description: string;
 }
 
 export interface UiMatchResult {
   status: CheckStatus;
   detail: string;
   /** Where the answer came from. */
-  via: "rules" | "model" | "none";
+  via: "rules" | "none";
   evidence?: Record<string, unknown>;
 }
 
@@ -161,23 +152,13 @@ export function matchByRules(label: string | undefined, req: RequestSummary, tok
 
   // Plain transaction.
   const fnIntent = functionIntent(req.functionName);
-  const leaves = req.outgoing.filter((c) => BigInt(c.delta) < 0n);
-  if ((intent === "signin" || intent === "claim") && (req.valueWei > 0n || leaves.length > 0)) {
-    const what = leaves.map((c) => c.display.replace(/^[−-]/, "")).join(", ") || `${formatUnitsPlain(req.valueWei, 18, 6)} ${req.nativeSymbol}`;
-    return { status: "fail", detail: `The button says ${quoted}, but ${what} leaves the wallet.`, via: "rules" };
+  if ((intent === "signin" || intent === "claim") && req.valueWei > 0n) {
+    return { status: "fail", detail: `The button says ${quoted}, but ${formatUnitsPlain(req.valueWei, 18, 6)} ${req.nativeSymbol} leaves the wallet.`, via: "rules" };
   }
-  if (said) {
-    const matching = said.symbol ? leaves.find((c) => c.symbol && sameSymbol(said.symbol!, c.symbol)) : undefined;
-    if (matching && matching.decimals !== undefined) {
-      const actual = Number(formatUnitsPlain(-BigInt(matching.delta), matching.decimals, 18).replace(/,/g, ""));
-      if (!close(said.amount, actual)) return { status: "fail", detail: `Button says ${said.amount} ${said.symbol}; ${matching.display.replace(/^[−-]/, "")} leaves the wallet.`, via: "rules" };
-      return { status: "pass", detail: `Button says ${said.amount} ${said.symbol} and exactly that leaves the wallet.`, via: "rules" };
-    }
-    if (said.symbol === req.nativeSymbol && req.valueWei > 0n) {
-      const actual = Number(formatUnitsPlain(req.valueWei, 18, 18).replace(/,/g, ""));
-      if (!close(said.amount, actual)) return { status: "fail", detail: `Button says ${said.amount} ${said.symbol}; the transaction sends ${formatUnitsPlain(req.valueWei, 18, 6)} ${req.nativeSymbol}.`, via: "rules" };
-      return { status: "pass", detail: `Button says ${said.amount} ${said.symbol} and the transaction sends exactly that.`, via: "rules" };
-    }
+  if (said && said.symbol === req.nativeSymbol && req.valueWei > 0n) {
+    const actual = Number(formatUnitsPlain(req.valueWei, 18, 18).replace(/,/g, ""));
+    if (!close(said.amount, actual)) return { status: "fail", detail: `Button says ${said.amount} ${said.symbol}; the transaction sends ${formatUnitsPlain(req.valueWei, 18, 6)} ${req.nativeSymbol}.`, via: "rules" };
+    return { status: "pass", detail: `Button says ${said.amount} ${said.symbol} and the transaction sends exactly that.`, via: "rules" };
   }
   // A name guessed from the selector alone can't confirm the label; it can still contradict it below.
   if (intent && fnIntent && intent === fnIntent) return req.nameGuessed ? undefined : { status: "pass", detail: `${quoted} and the call is ${req.functionName}().`, via: "rules" };
@@ -185,48 +166,4 @@ export function matchByRules(label: string | undefined, req: RequestSummary, tok
     return { status: "warn", detail: `The button says ${quoted}, but the call is ${req.functionName}().`, via: "rules" };
   }
   return undefined;
-}
-
-const ModelAnswer = z.object({
-  matches: z.boolean(),
-  confidence: z.enum(["high", "medium", "low"]),
-  reason: z.string(),
-});
-
-export async function matchByModel(
-  llm: Llm,
-  ui: { buttonLabel?: string; pageUrl?: string; context?: string; screenshot?: string },
-  req: RequestSummary,
-  artifactsDir?: string,
-): Promise<UiMatchResult> {
-  const images: ImageInput[] = [];
-  if (ui.screenshot && artifactsDir) {
-    try {
-      images.push({ data: (await readFile(join(artifactsDir, ui.screenshot))).toString("base64"), mediaType: "image/png" });
-    } catch {
-      // No screenshot, text only.
-    }
-  }
-  const system =
-    "You review wallet requests for a dApp QA tool. Compare what the page promised (button label, nearby text, screenshot) with what the wallet is actually asked to sign. " +
-    "Answer whether a careful user who read the button would expect exactly this request: same action, same token, same amount, same counterparty. " +
-    "An unlimited approval behind a button that names an amount does not match. A permit or approval behind a 'sign in' button does not match. " +
-    "An approval before a deposit/swap matches when the amount is consistent. Be strict about value leaving the wallet.";
-  const prompt = [
-    `Button label: ${ui.buttonLabel ?? "(none captured)"}`,
-    `Page: ${ui.pageUrl ?? "(unknown)"}`,
-    ui.context ? `Page context:\n${ui.context.slice(0, 2000)}` : "",
-    `Wallet request: ${req.description}`,
-    req.approvals.length ? `Grants: ${req.approvals.map((a) => `${a.display} of ${a.symbol ?? a.token} to ${a.spenderName ?? a.spender}${a.unlimited ? " (UNLIMITED)" : ""}`).join("; ")}` : "",
-    req.outgoing.length ? `Simulated balance changes for the signer: ${req.outgoing.map((c) => c.display).join(", ")}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-  try {
-    const answer = await llm.structured({ system, prompt, images, schema: ModelAnswer, name: "ui_match" });
-    const status: CheckStatus = answer.matches ? "pass" : answer.confidence === "low" ? "warn" : "fail";
-    return { status, detail: answer.reason, via: "model", evidence: { confidence: answer.confidence } };
-  } catch (e) {
-    return { status: "unverified", detail: `The model check failed: ${(e as Error).message}`, via: "none" };
-  }
 }

@@ -20,7 +20,7 @@ export function AppActions({ appId, appUrl, tests, running, making, canMake }: {
   if (tests === 0) return <AddTestButton appId={appId} />;
   return (
     <div className="flex items-center gap-2">
-      <RunButton target={{ appId, all: true }} active={running} label="Run all" size="md" primary />
+      <RunButton target={{ appId, all: true }} active={running} label="Run all" size="md" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="outline" size="icon" aria-label="More">

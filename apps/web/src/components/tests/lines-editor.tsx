@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 import { saveSetupAction } from "@/actions/apps";
 import { saveTestAction } from "@/actions/tests";
+import { NotCode } from "@/components/tests/not-code";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,8 +118,8 @@ export interface TestDraft {
 }
 
 /**
- * A test as fields, opened from its page's menu. A line left as it was keeps what it recorded; a new or
- * reworded one is done by a model on the next run. Saving or cancelling goes back to `back`.
+ * A test as fields, opened from its page's menu. A line left as it was keeps its code; a new or reworded
+ * one has none until the next repair writes it. Saving or cancelling goes back to `back`.
  */
 export function TestEditor({ testId, test, back }: { testId: string; test: TestDraft; back: string }) {
   const [draft, setDraft] = useState(test);
@@ -156,22 +157,29 @@ export function TestEditor({ testId, test, back }: { testId: string; test: TestD
         <span className="text-sm font-medium">Lines</span>
         <Rows rows={rows} onChange={setRows} kinds disabled={pending} />
       </div>
-      <Footer error={error} pending={pending} note="A line you change is worked out again on the next run, then replayed." onCancel={() => router.push(back)} />
+      <Footer error={error} pending={pending} note="A line you add or reword isn't code yet. The next repair writes it as code, and a run stops at it until then." onCancel={() => router.push(back)} />
     </form>
   );
 }
 
+const WORDS = {
+  setup: { none: "No setup. Each test starts on its own page with nothing done first.", edit: "Edit the setup", add: "Add a setup", gone: "No lines means no setup." },
+  reset: { none: "No reset. Each test starts with the account as the last one left it.", edit: "Edit the reset", add: "Add a reset", gone: "No lines means no reset." },
+};
+
 /**
  * What every test starts from: the page the setup opens and the lines it does there, such as
- * connecting the wallet. Saving with no lines removes the setup.
+ * connecting the wallet. The reset is the same for a kept account: what puts it back before each test.
+ * Saving with no lines removes it.
  */
-export function SetupEditor({ appId, setup, canEdit }: { appId: string; setup?: { startPath: string; steps: string[] }; canEdit: boolean }) {
+export function SetupEditor({ appId, which = "setup", setup, canEdit }: { appId: string; which?: "setup" | "reset"; setup?: { startPath: string; steps: { text: string; code: boolean }[] }; canEdit: boolean }) {
   const [editing, setEditing] = useState(false);
   const [startPath, setStartPath] = useState(setup?.startPath ?? "/");
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const router = useRouter();
+  const words = WORDS[which];
 
   if (!editing)
     return (
@@ -183,15 +191,16 @@ export function SetupEditor({ appId, setup, canEdit }: { appId: string; setup?: 
             </p>
             <ol className="flex flex-col divide-y rounded-xl border bg-card shadow-xs">
               {setup.steps.map((s, i) => (
-                <li key={i} className="flex gap-3 px-4 py-2.5 text-sm">
+                <li key={i} className="flex items-start gap-3 px-4 py-2.5 text-sm">
                   <span className="w-4 shrink-0 text-right text-muted-foreground tabular-nums">{i + 1}</span>
-                  <span className="text-pretty">{s}</span>
+                  <span className="min-w-0 flex-1 text-pretty">{s.text}</span>
+                  {!s.code && <NotCode />}
                 </li>
               ))}
             </ol>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No setup. Each test starts on its own page with nothing done first.</p>
+          <p className="text-sm text-muted-foreground">{words.none}</p>
         )}
         {canEdit && (
           <Button
@@ -201,12 +210,12 @@ export function SetupEditor({ appId, setup, canEdit }: { appId: string; setup?: 
             className="w-fit"
             onClick={() => {
               setStartPath(setup?.startPath ?? "/");
-              setRows((setup?.steps ?? []).map((s) => row("action", s)));
+              setRows((setup?.steps ?? []).map((s) => row("action", s.text)));
               setError(undefined);
               setEditing(true);
             }}
           >
-            {setup ? "Edit the setup" : "Add a setup"}
+            {setup ? words.edit : words.add}
           </Button>
         )}
       </div>
@@ -214,7 +223,7 @@ export function SetupEditor({ appId, setup, canEdit }: { appId: string; setup?: 
 
   const save = () =>
     start(async () => {
-      const r = await saveSetupAction(appId, { startPath, steps: rows.map((l) => l.text.trim()).filter(Boolean) });
+      const r = await saveSetupAction(appId, { startPath, steps: rows.map((l) => l.text.trim()).filter(Boolean) }, which);
       if (r.error) return setError(r.error);
       setEditing(false);
       router.refresh();
@@ -228,14 +237,14 @@ export function SetupEditor({ appId, setup, canEdit }: { appId: string; setup?: 
         save();
       }}
     >
-      <Field id="setup-start" label="Starts on">
-        <Input id="setup-start" value={startPath} disabled={pending} onChange={(e) => setStartPath(e.target.value)} className="bg-background font-mono text-sm" />
+      <Field id={`${which}-start`} label="Starts on">
+        <Input id={`${which}-start`} value={startPath} disabled={pending} onChange={(e) => setStartPath(e.target.value)} className="bg-background font-mono text-sm" />
       </Field>
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Lines</span>
         <Rows rows={rows} onChange={setRows} kinds={false} disabled={pending} />
       </div>
-      <Footer error={error} pending={pending} note="A line you change is worked out again on the next run, then replayed. No lines means no setup." onCancel={() => setEditing(false)} />
+      <Footer error={error} pending={pending} note={`A line you add or reword isn't code yet. The next repair writes it as code. ${words.gone}`} onCancel={() => setEditing(false)} />
     </form>
   );
 }

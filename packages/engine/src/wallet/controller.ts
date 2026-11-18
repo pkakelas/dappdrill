@@ -5,24 +5,19 @@
  * messages so dApps take the same code paths they would with a real wallet.
  */
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { recoverMessageAddress, isHex, parseUnits } from "viem";
-import { KNOWN_CHAINS, MAINNET_CHAIN_IDS, SIGN_METHODS, chainName, newId, nowIso, type DrillTarget, type WalletProfileId, type WalletRequest } from "@dappdrill/core";
+import { recoverMessageAddress, isHex } from "viem";
+import { KNOWN_CHAINS, SIGN_METHODS, newId, nowIso, type WalletProfileId, type WalletRequest } from "@dappdrill/core";
 import type { ChainController, Hex, PendingSign, WalletController, WalletPolicy } from "../types.js";
 import { JsonRpcError, hexToNumber, rpcCall, toHex, toRpcError } from "../chain/rpc.js";
-import { onChainInTurn } from "../chain/turns.js";
 import { WalletErrors } from "./errors.js";
 import type { BridgeRequest, BridgeResponse } from "./inject.js";
-import { nodeError, prepareTransaction, sendPrepared, signEthSign, signPersonal, signTypedData, typedDataChainId, typedDataDomain, type PreparedTx, type TxRequest } from "./signer.js";
+import { nodeError, prepareTransaction, sendPrepared, signEthSign, signPersonal, signTypedData, typedDataChainId, type PreparedTx, type TxRequest } from "./signer.js";
 
 export interface WalletOptions {
   profile: WalletProfileId;
   chains: ChainController;
   /** Hex private keys. Generated when missing. */
   accounts?: { A: string; B: string };
-  /** Funded key for live chains; becomes account A when any chain runs live. */
-  liveKey?: string;
-  /** The app's owner said how to get test funds, so an account of ours can fund itself on a live chain. */
-  funding?: boolean;
   startChainId: number;
   /** The site was connected in an earlier session that this one carries on from. */
   connected?: boolean;
@@ -54,7 +49,6 @@ interface Pending {
   run: () => Promise<BridgeResponse>;
 }
 
-const DECIMALS_ABI = [{ type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] }] as const;
 const DEFAULT_POLICY: WalletPolicy = { autoConnect: true, autoSwitch: true, unknownChainOnce: false, autoSign: false };
 const PASSTHROUGH_CAP = 40;
 
@@ -65,27 +59,11 @@ export function errorLine(error: { code: number; message: string; data?: unknown
   return `${error.code} ${error.message.replace(/\.$/, reason ? "" : ".")}${reason}`;
 }
 
-/** 100 ETH and the requested ERC-20 balances for each address, on one fork. */
-export async function fundOnFork(chains: ChainController, chainId: number, addresses: Hex[], tokens: DrillTarget["tokens"] = []): Promise<void> {
-  for (const a of addresses) await chains.setBalance(chainId, a, 100n * 10n ** 18n);
-  for (const t of tokens.filter((t) => t.chainId === chainId)) {
-    const token = t.address as Hex;
-    const decimals = await chains.client(chainId).readContract({ address: token, abi: DECIMALS_ABI, functionName: "decimals" });
-    const amount = parseUnits(t.amount, decimals);
-    for (const a of addresses) await chains.dealErc20(chainId, token, a, amount);
-  }
-}
-
 export class Wallet implements WalletController {
   readonly profile: WalletProfileId;
   readonly accounts: { A: Hex; B: Hex };
   /** Wallets the dApp asked the user something through (connect, sign, switch); passive reads don't count. */
   readonly usedWallets = new Set<WalletProfileId>();
-  /** Set when a signing request was refused because a live chain has no funded key. */
-  /** A live chain refused a sign-in or transaction for want of an account funded on it. */
-  needsLiveKey = false;
-  /** Last transaction we broadcast; speed-up replaces it. */
-  lastTx?: { prepared: PreparedTx; hash: Hex; account: "A" | "B" };
 
   private readonly keys: { A: PrivateKeyAccount; B: PrivateKeyAccount };
   private current: "A" | "B" = "A";
@@ -102,34 +80,19 @@ export class Wallet implements WalletController {
   private emitter: (event: string, args: unknown) => Promise<void> = async () => {};
   private rpcHints: () => string[] = () => [];
   private readonly chains: ChainController;
-  private readonly liveKey?: string;
-  /** Account A is the funded key (not when a live chain only turned up after the wallet was made). */
-  private readonly liveA: boolean;
-  private readonly funding: boolean;
   private readonly log: (m: string) => void;
 
   constructor(opts: WalletOptions) {
     this.profile = opts.profile;
     this.chains = opts.chains;
-    this.liveKey = opts.liveKey;
     this.chain = opts.startChainId;
     this.connected = opts.connected ?? false;
     this.pol = { ...DEFAULT_POLICY, ...opts.policy };
     this.log = opts.log ?? (() => {});
-    const anyLive = opts.chains.configs().some((c) => c.mode === "live");
-    this.liveA = anyLive && Boolean(opts.liveKey);
-    this.funding = Boolean(opts.funding);
-    const keyA = this.liveA ? opts.liveKey! : (opts.accounts?.A ?? generatePrivateKey());
+    const keyA = opts.accounts?.A ?? generatePrivateKey();
     const keyB = opts.accounts?.B ?? generatePrivateKey();
     this.keys = { A: privateKeyToAccount(keyA as Hex), B: privateKeyToAccount(keyB as Hex) };
     this.accounts = { A: this.keys.A.address, B: this.keys.B.address };
-  }
-
-  /** Give both accounts 100 ETH, and the requested ERC-20 balances, on every fork. */
-  async fundOnForks(tokens: DrillTarget["tokens"] = []): Promise<void> {
-    for (const c of this.chains.configs()) {
-      if (c.mode === "fork") await fundOnFork(this.chains, c.id, [this.accounts.A, this.accounts.B], tokens);
-    }
   }
 
   /** The session installs the function that emits provider events into the page(s). */
@@ -153,17 +116,11 @@ export class Wallet implements WalletController {
   policy(): WalletPolicy {
     return { ...this.pol };
   }
-  setPolicy(patch: Partial<WalletPolicy>): void {
-    this.pol = { ...this.pol, ...patch };
-  }
   requests(): WalletRequest[] {
     return [...this.reqs];
   }
   isConnected(): boolean {
     return this.connected;
-  }
-  account(): "A" | "B" {
-    return this.current;
   }
 
   /** Signing requests waiting for an answer that nobody has taken yet. */
@@ -223,13 +180,6 @@ export class Wallet implements WalletController {
     await this.emitter("chainChanged", toHex(chainId));
   }
 
-  async disconnect(): Promise<void> {
-    if (!this.connected) return;
-    this.connected = false;
-    this.log("wallet: disconnected");
-    await this.emitter("accountsChanged", []);
-  }
-
   onRequest(cb: (req: WalletRequest) => void): () => void {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
@@ -250,20 +200,6 @@ export class Wallet implements WalletController {
   /** Reject whatever is still open (session is closing). */
   async closeAll(): Promise<void> {
     for (const id of [...this.pending.keys()]) await this.reject(id, 4001, "User rejected the request.");
-  }
-
-  /** Re-broadcast the last transaction with a 30% higher fee and the same nonce. */
-  async speedUpLast(): Promise<Hex> {
-    if (!this.lastTx) throw new Error("no transaction to speed up");
-    const { prepared, account } = this.lastTx;
-    const bumped: PreparedTx = {
-      ...prepared,
-      maxFeePerGas: (prepared.maxFeePerGas * 130n) / 100n,
-      maxPriorityFeePerGas: (prepared.maxPriorityFeePerGas * 130n) / 100n,
-    };
-    const hash = await onChainInTurn(this.chains, prepared.chainId, () => sendPrepared(this.chains, this.keys[account], bumped));
-    this.lastTx = { prepared: bumped, hash, account };
-    return hash;
   }
 
   // ------------------------------------------------------------ bridge
@@ -321,8 +257,6 @@ export class Wallet implements WalletController {
       case "wallet_requestPermissions": {
         const result = () => (method === "eth_requestAccounts" ? [this.address()] : this.permissions());
         if (this.connected) return { result: result() };
-        // Signing in on a chain that can't be forked makes a real account on the app's side: not with one that holds nothing.
-        if (this.unfundedLive()) throw this.refuseLive();
         const connect = async (): Promise<BridgeResponse> => {
           this.connected = true;
           return { result: result(), emit: [{ event: "accountsChanged", args: [this.address()] }] };
@@ -356,7 +290,7 @@ export class Wallet implements WalletController {
       case "wallet_addEthereumChain": {
         const target = chainIdParam(params[0]);
         if (!this.chains.has(target)) {
-          // Approve it as a user would: the run starts the chain (often one detection
+          // Approve it as a user would: the run takes the chain on (often one detection
           // couldn't see from the landing page) and later runs start with it.
           const p = (params[0] ?? {}) as { chainName?: unknown; rpcUrls?: unknown };
           const rpcUrls = Array.isArray(p.rpcUrls) ? p.rpcUrls.filter((u): u is string => typeof u === "string") : [];
@@ -398,9 +332,6 @@ export class Wallet implements WalletController {
       case "eth_signTypedData_v4":
       case "wallet_sendCalls": {
         if (!this.connected) throw WalletErrors.unauthorized();
-        // On a chain that can't be forked the wallet is the funded key, or an account that gets its own
-        // test funds the way the owner said. With neither it signs nothing there, not even a sign-in.
-        if (this.unfundedLive()) throw this.refuseLive();
         // Messages sign on any network, as in MetaMask; transactions need the chain.
         const signsMessage = method === "personal_sign" || method === "eth_sign" || method.startsWith("eth_signTypedData");
         if (!signsMessage && !this.chains.has(this.chain)) throw WalletErrors.chainDisconnected(this.chain);
@@ -421,27 +352,17 @@ export class Wallet implements WalletController {
   }
 
   /**
-   * Typed data bound to a chain we don't run means the app works on that chain, even
+   * Typed data bound to a chain we don't have means the app works on that chain, even
    * when it never asked the wallet to add or switch to it (it signs for its own chain
-   * straight away). Start that chain so later runs begin on it. The request itself
+   * straight away). Take that chain on so later runs begin on it. The request itself
    * still fails below, as MetaMask refuses typed data for another chain than its own.
    */
-  /** On a live chain with no account funded there: neither the key nor a way to get test funds. */
-  private unfundedLive(): boolean {
-    return this.chains.has(this.chain) && this.chains.mode(this.chain) === "live" && !this.liveA && !this.funding;
-  }
-
-  private refuseLive(): JsonRpcError {
-    this.needsLiveKey = true;
-    return WalletErrors.needsLiveFunds(chainName(this.chain));
-  }
-
   private async learnChain(chainId: number | undefined): Promise<void> {
     if (chainId === undefined || chainId === this.chain || this.chains.has(chainId)) return;
     try {
       await this.chains.addFromApp({ id: chainId, rpcUrls: [], rpcHints: this.rpcHints() });
     } catch (e) {
-      this.log(`wallet: the app asked to sign for chain ${chainId}, which couldn't be started: ${(e as Error).message}`);
+      this.log(`wallet: the app asked to sign for chain ${chainId}, which couldn't be reached: ${(e as Error).message}`);
       return;
     }
     // The Ethereum fallback was our guess, not the app's choice: move to the chain the app uses.
@@ -457,7 +378,7 @@ export class Wallet implements WalletController {
         throw nodeError(e);
       }
     }
-    // Wallet parked on a chain we don't run (wrong-network): a real wallet would still
+    // Wallet parked on a chain we don't have (wrong-network): a real wallet would still
     // read from that network, so forward a bounded number of calls to its public RPC.
     const known = KNOWN_CHAINS.find((c) => c.id === this.chain);
     if (!known || this.passthroughCalls >= PASSTHROUGH_CAP) throw WalletErrors.chainDisconnected(this.chain);
@@ -470,10 +391,8 @@ export class Wallet implements WalletController {
   }
 
   private async sign(method: string, params: unknown[]): Promise<unknown> {
-    // As they were when the user approved, should a transaction wait its turn on the chain.
     const chain = this.chain;
-    const who = this.current;
-    const account = this.keys[who];
+    const account = this.keys[this.current];
     const addressParam = (i: number) => {
       const a = params[i];
       if (typeof a === "string" && a.toLowerCase() !== account.address.toLowerCase()) throw WalletErrors.unauthorized();
@@ -489,31 +408,22 @@ export class Wallet implements WalletController {
       case "eth_signTypedData_v3":
       case "eth_signTypedData_v4": {
         addressParam(0);
-        const { chainId = this.chain, verifyingContract } = typedDataDomain(params);
-        this.refuseOwnKeyOnMainnet(chainId);
-        const signature = await signTypedData(account, params, this.chain);
-        // The app's server may use it on the real chain, which our copy would never see.
-        if (verifyingContract) this.chains.watchSignature?.(chainId, verifyingContract, account.address);
-        return signature;
+        return signTypedData(account, params, this.chain);
       }
-      // Transactions wait for any simulation on the fork to revert first; see chain/turns.ts.
-      case "eth_sendTransaction":
-        return onChainInTurn(this.chains, chain, async () => {
-          const tx = (params[0] ?? {}) as TxRequest;
-          let prepared: PreparedTx;
-          try {
-            prepared = await prepareTransaction(this.chains, chain, account.address, tx);
-          } catch (e) {
-            throw e instanceof JsonRpcError && e.code === -32602 ? e : nodeError(e);
-          }
-          const hash = await sendPrepared(this.chains, account, prepared);
-          this.lastTx = { prepared, hash, account: who };
-          this.log(`wallet: sent ${hash} on chain ${chain} (nonce ${prepared.nonce})`);
-          return hash;
-        });
+      case "eth_sendTransaction": {
+        const tx = (params[0] ?? {}) as TxRequest;
+        let prepared: PreparedTx;
+        try {
+          prepared = await prepareTransaction(this.chains, chain, account.address, tx);
+        } catch (e) {
+          throw e instanceof JsonRpcError && e.code === -32602 ? e : nodeError(e);
+        }
+        const hash = await sendPrepared(this.chains, account, prepared);
+        this.log(`wallet: sent ${hash} on chain ${chain} (nonce ${prepared.nonce})`);
+        return hash;
+      }
       case "eth_signTransaction": {
-        this.refuseOwnKeyOnMainnet(chain);
-        const prepared = await onChainInTurn(this.chains, chain, () => prepareTransaction(this.chains, chain, account.address, (params[0] ?? {}) as TxRequest));
+        const prepared = await prepareTransaction(this.chains, chain, account.address, (params[0] ?? {}) as TxRequest);
         return account.signTransaction({ ...prepared, type: "eip1559" });
       }
       case "wallet_sendCalls": {
@@ -521,32 +431,16 @@ export class Wallet implements WalletController {
         if (batch.chainId && hexToNumber(batch.chainId) !== chain) throw WalletErrors.invalidParams("wallet_sendCalls chainId does not match the wallet's chain");
         const id = newId("calls");
         const hashes: Hex[] = [];
-        await onChainInTurn(this.chains, chain, async () => {
-          for (const call of batch.calls ?? []) {
-            const prepared = await prepareTransaction(this.chains, chain, account.address, { ...call, from: account.address });
-            const hash = await sendPrepared(this.chains, account, prepared);
-            this.lastTx = { prepared, hash, account: who };
-            hashes.push(hash);
-          }
-        });
+        for (const call of batch.calls ?? []) {
+          const prepared = await prepareTransaction(this.chains, chain, account.address, { ...call, from: account.address });
+          hashes.push(await sendPrepared(this.chains, account, prepared));
+        }
         this.batches.set(id, { chainId: chain, hashes });
         return { id };
       }
       default:
         throw WalletErrors.unsupportedMethod(method);
     }
-  }
-
-  /**
-   * The owner's key is for the live chain it was given for, and it signs on the copies too. A transaction
-   * sent to a copy stays there, but a signature handed to the app (a permit, an order, a signed
-   * transaction) works on the real chain as well, so none is made for a mainnet that isn't run live.
-   */
-  private refuseOwnKeyOnMainnet(chainId: number): void {
-    if (!this.liveA || this.current !== "A" || !MAINNET_CHAIN_IDS.has(chainId)) return;
-    if (this.chains.has(chainId) && this.chains.mode(chainId) === "live") return;
-    this.log(`wallet: refused to sign for ${chainName(chainId)} with the owner's key`);
-    throw WalletErrors.ownKeyOnMainnet(chainName(chainId));
   }
 
   private readonly batches = new Map<string, { chainId: number; hashes: Hex[] }>();

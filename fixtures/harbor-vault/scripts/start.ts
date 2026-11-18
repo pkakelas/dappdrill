@@ -3,7 +3,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, openSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { addresses, deploy, isDeployed, ROOT, RPC_URL, writeDeployments } from './deploy.ts'
+import { addresses, ANVIL_KEYS, deploy, isDeployed, ROOT, RPC_URL, stockFunder, writeDeployments } from './deploy.ts'
 
 export const RUN_DIR = join(ROOT, '.run')
 export const SITE_URL = 'http://localhost:5173'
@@ -67,6 +67,7 @@ if (await isDeployed()) {
   await deploy()
   console.log('contracts deployed')
 }
+await stockFunder()
 writeDeployments()
 
 if (await siteUp()) {
@@ -81,3 +82,5 @@ if (await siteUp()) {
 console.log(`\nHarbor Vault: ${SITE_URL}  (?bugs=none for the fixed app)`)
 console.log(`RPC: ${RPC_URL} (chain 31337)`)
 for (const [name, address] of Object.entries(addresses)) console.log(`  ${name.padEnd(18)} ${address}`)
+console.log(`\nTest accounts are paid from anvil account 0, which holds ETH and hUSDC:`)
+console.log(`  --account new --key ${ANVIL_KEYS.deployer} --fund 31337:1 --fund 31337:${addresses.hUSDC}:1000`)

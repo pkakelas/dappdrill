@@ -2,10 +2,12 @@
  * Turn a core Locator into a Playwright locator. Candidates are tried in the
  * order the Locator schema documents (testId, the control in the box `near` names,
  * role+name exact then by part of the name, label, placeholder, text, css) until exactly one matches a
- * visible element, polling until the timeout so slow pages still work.
+ * visible element, polling until the timeout so slow pages still work. A locator with a `row` is
+ * looked for only inside the row that holds that text.
  */
 import type { Locator as PwLocator, Page } from "playwright";
 import type { Locator } from "@dappdrill/core";
+import { rowsHolding } from "./rows.js";
 
 type Scope = Page | PwLocator;
 
@@ -14,14 +16,15 @@ export async function resolveLocator(page: Page, loc: Locator, timeoutMs: number
   const tried: string[] = [];
   const several = new Set<string>();
   do {
-    const scope = loc.withinDialog ? await openDialog(page) : page;
+    const whole = loc.withinDialog ? await openDialog(page) : page;
+    const scope = whole && loc.row ? rowsHolding(whole, loc.row) : whole;
     if (scope) {
       for (const { name, build } of candidates(scope, loc)) {
         if (!tried.includes(name)) tried.push(name);
         const visible = build().filter({ visible: true });
         const count = await visible.count().catch(() => 0);
         // It was recorded without a position because it was the only one. Several now can't say which
-        // one was meant ("Cancel" on the oldest of three orders), so a model looks again instead.
+        // one was meant ("Cancel" on the oldest of three orders), so the recording no longer fits the page.
         if (count > 1 && loc.nth === undefined) {
           several.add(name);
           continue;
@@ -112,12 +115,16 @@ export function anyFigures(text: string): RegExp | undefined {
   return pattern(words);
 }
 
+const DIALOGS = '[role="dialog"], dialog[open], [role="alertdialog"], [aria-modal="true"]';
+const MENUS = '[role="menu"], [role="listbox"]';
+
 /**
  * The topmost open dialog, or undefined when none is open yet. Some dialogs (Privy's sign-in) are
  * a wrapper with no height around fixed-position content, so one with anything visible inside counts.
+ * With `menus`, an open menu or list of options counts as one too.
  */
-export async function openDialog(page: Page): Promise<PwLocator | undefined> {
-  const dialogs = page.locator('[role="dialog"], dialog[open], [role="alertdialog"], [aria-modal="true"]');
+export async function openDialog(page: Page, menus = false): Promise<PwLocator | undefined> {
+  const dialogs = page.locator(menus ? `${DIALOGS}, ${MENUS}` : DIALOGS);
   const n = await dialogs.count().catch(() => 0);
   for (let i = n - 1; i >= 0; i--) {
     const dialog = dialogs.nth(i);
@@ -137,6 +144,7 @@ export function describeLocator(loc: Locator): string {
   if (loc.text) parts.push(`text="${loc.text}"`);
   if (loc.near) parts.push(`in "${loc.near}"`);
   if (loc.css) parts.push(`css=${loc.css}`);
+  if (loc.row) parts.push(`in the row with "${loc.row}"`);
   if (loc.withinDialog) parts.push("in dialog");
   return parts.join(" ") || "element";
 }

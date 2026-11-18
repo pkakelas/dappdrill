@@ -95,7 +95,7 @@ function readAt(s: string, at: number, method: string): { asked: Asked; end: num
 type Part = { text: string } | { asked: Asked };
 
 /** A note as its words and the wallet requests in it. */
-export function splitSigned(note: string): Part[] {
+function splitSigned(note: string): Part[] {
   const parts: Part[] = [];
   let last = 0;
   for (const m of note.matchAll(START)) {
@@ -133,7 +133,7 @@ function Value({ name, value }: { name?: string; value: string }) {
 }
 
 /** One request the wallet was asked: what kind, what it is, and what is in it. */
-export function SignedCard({ asked, className }: { asked: Asked; className?: string }) {
+function SignedCard({ asked, className }: { asked: Asked; className?: string }) {
   const Icon = asked.kind === "tx" ? Send : asked.kind === "message" ? MessageSquareText : FileSignature;
   const kind = asked.kind === "tx" ? "Transaction" : asked.kind === "message" ? "Message" : "Signature";
   const title = asked.kind === "typed" ? asked.primary : asked.kind === "tx" ? asked.call : undefined;

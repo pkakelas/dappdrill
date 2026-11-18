@@ -2,7 +2,6 @@
 
 import {
   KNOWN_CHAINS,
-  MAINNET_CHAIN_IDS,
   newId,
   parseFixedResponse,
   parseStorageEntry,
@@ -20,6 +19,7 @@ import { redirect } from "next/navigation";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
+import { CHAINS } from "@/lib/chains";
 import { hostOf } from "@/lib/domains";
 import { withOwnerHints } from "@/lib/hints";
 import { startMake } from "@/lib/make";
@@ -29,11 +29,14 @@ import { can, denied } from "@/lib/permissions";
 import { orgAccess, requireApp, requireUser } from "@/lib/session";
 import { readSite, type SiteInfo } from "@/lib/site";
 
+/** A URL typed without its scheme is https. */
+const withScheme = (s: string) => (/^https?:\/\//i.test(s) ? s : `https://${s}`);
+
 const Url = z
   .string()
   .trim()
   .min(1, "Paste your app's URL.")
-  .transform((s) => (/^https?:\/\//i.test(s) ? s : `https://${s}`))
+  .transform(withScheme)
   .pipe(z.string().url("That doesn't look like a URL."))
   .transform((s) => {
     const u = new URL(s);
@@ -60,18 +63,58 @@ const KeyHex = z
   .transform((s) => (s.startsWith("0x") ? s : `0x${s}`))
   .pipe(z.string().regex(/^0x[0-9a-fA-F]{64}$/, "The private key is 64 hex characters."));
 
+/** The key that holds funds, as its columns keep it (they are named for what it once was): the kept account, or what pays each new one. */
+function readKey(input: string): { liveKeyEnc: string; liveKeyAddress: string } | { error: string } {
+  const hex = KeyHex.safeParse(input);
+  if (!hex.success) return { error: hex.error.issues[0]!.message };
+  return { liveKeyEnc: encrypt(hex.data), liveKeyAddress: privateKeyToAccount(hex.data as `0x${string}`).address };
+}
+
+const KEY_IN_TEXT = "That looks like a private key. Text boxes aren't encrypted, so take it out.";
+
 const RpcUrl = z
   .string()
   .trim()
   .min(1, "Add the chain's RPC URL.")
-  .transform((s) => (/^https?:\/\//i.test(s) ? s : `https://${s}`))
+  .transform(withScheme)
   .pipe(z.string().url("That doesn't look like a URL."));
 const NO_CHAIN = "No chain answered at that URL.";
 
-/** /new: tells the form which chain an RPC belongs to while the user is still typing. */
-/** A chain that can't be forked runs for real, so an app on it starts with a way to get test funds. */
-const noFunds = (chain: string) => `${chain} can't be forked, so the tests run on the real network. Paste a private key that holds test funds there, or tell us how to get them.`;
+const Token = z.string().trim().regex(/^0x[0-9a-fA-F]{40}$/, "A token is its contract address: 0x and 40 hex characters.");
+const Amount = z
+  .string()
+  .trim()
+  .regex(/^\d+(\.\d+)?$/, "An amount to send is a number, like 0.05 or 100.")
+  .refine((a) => Number(a) > 0, "An amount to send is more than zero.");
 
+type Account = Required<Pick<AppSettings, "account" | "fund">>;
+
+/**
+ * The account choice as both forms post it, and what each new account is sent: rows of `fundChain`,
+ * `fundToken` (empty for the chain's own coin) and `fundAmount`. A row with no amount and no token is skipped.
+ */
+function readAccount(form: FormData): Account | { error: string } {
+  const account = form.get("account") === "kept" ? "kept" : "new";
+  const fund: Account["fund"] = [];
+  if (account === "kept") return { account, fund };
+  const [chains, tokens, amounts] = ["fundChain", "fundToken", "fundAmount"].map((name) => form.getAll(name).map((v) => String(v).trim())) as [string[], string[], string[]];
+  for (const [i, amountIn] of amounts.entries()) {
+    const tokenIn = tokens[i] ?? "";
+    if (!amountIn && !tokenIn) continue;
+    const chainId = Number(chains[i]);
+    if (!Number.isInteger(chainId) || chainId <= 0) return { error: "Choose the chain for what each new account is sent." };
+    const amount = Amount.safeParse(amountIn);
+    if (!amount.success) return { error: amount.error.issues[0]!.message };
+    const token = tokenIn ? Token.safeParse(tokenIn) : undefined;
+    if (token && !token.success) return { error: token.error.issues[0]!.message };
+    fund.push({ chainId, ...(token ? { token: token.data } : {}), amount: amount.data });
+  }
+  return { account, fund };
+}
+
+const NO_PAYER = "Add the private key that pays each new account, or take out what to send.";
+
+/** /new: tells the form which chain an RPC belongs to while the user is still typing. */
 export async function checkRpcAction(input: string): Promise<{ chainId?: number; error?: string }> {
   await requireUser();
   const url = RpcUrl.safeParse(input);
@@ -92,8 +135,10 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
   const customized = form.get("customized") === "1";
   const hints = String(form.get("hints") ?? "").trim().slice(0, 4000);
   const funding = String(form.get("funding") ?? "").trim().slice(0, 1000);
-  if (looksLikeKey(hints) || looksLikeKey(funding)) return { error: "That looks like a private key. Text boxes aren't encrypted, so take it out.", inline: true };
-  const keyIn = String(form.get("liveKey") ?? "").trim();
+  if (looksLikeKey(hints) || looksLikeKey(funding)) return { error: KEY_IN_TEXT, inline: true };
+  const keyIn = String(form.get("fundedKey") ?? "").trim();
+  const account = readAccount(form);
+  if ("error" in account) return account;
   let wallets: AppSettings["wallets"] = ["metamask"];
   const chains: ChainConfig[] = [];
 
@@ -107,30 +152,23 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
       if (!rpc.success) return { error: rpc.error.issues[0]?.message, inline: true };
       const id = await readChainId(rpc.data);
       if (id === undefined) return { error: NO_CHAIN, inline: true };
-      const info = chainInfo(id);
-      const testnet = info ? info.testnet : form.get("testnet") === "1";
-      if (info?.forkable === false && !keyIn && !funding) return { error: noFunds(info.name) };
-      chains.push({ id, name: info?.name, rpcUrl: rpc.data, mode: (testnet && keyIn) || info?.forkable === false ? "live" : "fork" });
+      chains.push({ id, name: chainInfo(id)?.name, rpcUrl: rpc.data });
     } else if (chainId) {
-      const info = KNOWN_CHAINS.find((c) => c.id === Number(chainId) && c.id !== 31337);
+      const info = CHAINS.find((c) => c.id === Number(chainId));
       if (!info) return { error: "Choose a supported chain." };
-      if (!info.forkable && !keyIn && !funding) return { error: noFunds(info.name) };
-      // A key is what opts a testnet into running live, and a chain that can't be forked always is. Everything else, mainnets included, is a local fork.
-      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: !info.forkable || (info.testnet && keyIn) ? "live" : "fork" });
+      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl });
     }
   }
-  if (chains.some((c) => c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id))) return { error: "Live mode is for testnets only. Mainnet chains always run on a local fork." };
 
   const [existing] = await db().select().from(apps).where(and(eq(apps.organizationId, a.org.id), eq(apps.url, url.data)));
-  let liveKey: { liveKeyEnc: string; liveKeyAddress: string } | undefined;
-  if (keyIn && chains.some((c) => c.mode === "live")) {
-    const key = KeyHex.safeParse(keyIn);
-    if (!key.success) return { error: key.error.issues[0]?.message };
-    liveKey = { liveKeyEnc: encrypt(key.data), liveKeyAddress: privateKeyToAccount(key.data as `0x${string}`).address };
-  }
+  const key = keyIn ? readKey(keyIn) : undefined;
+  if (key && "error" in key) return key;
+  if (account.fund.length > 0 && !key && !existing?.liveKeyEnc) return { error: NO_PAYER };
 
   const funds = funding ? { funding } : {};
-  const settingsBase: AppSettings = { wallets, chains, ...funds };
+  // On an app that exists, the form's untouched choice (a new account, nothing sent) doesn't replace the saved one.
+  const chosen = !existing || key || account.account === "kept" || account.fund.length > 0 ? account : {};
+  const settingsBase: AppSettings = { wallets, chains, ...chosen, ...funds };
 
   let appId = existing?.id;
   if (!existing) {
@@ -147,12 +185,12 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
         settings: settingsBase,
         // Every test starts as a user whose wallet is connected; what the owner answered is the app's first notes.
         suite: { setup: CONNECTED, notes: withOwnerHints([], hints), signing: "allowed" },
-        ...liveKey,
+        ...key,
       });
-  } else if (can(a.role, "apps.manage") && (customized || hints || funding || liveKey)) {
-    const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...funds };
+  } else if (can(a.role, "apps.manage") && (customized || hints || funding || key || "account" in chosen)) {
+    const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...chosen, ...funds };
     // The suite is changed as the row holds it now: a make may be writing notes to it.
-    await updateApp(db(), existing.id, (now) => ({ settings, ...(hints ? { suite: { ...now.suite, notes: withOwnerHints(now.suite.notes, hints) } } : {}), ...liveKey }));
+    await updateApp(db(), existing.id, (now) => ({ settings, ...(hints ? { suite: { ...now.suite, notes: withOwnerHints(now.suite.notes, hints) } } : {}), ...key }));
   }
   const hasTests = existing ? (await db().select({ id: tests.id }).from(tests).where(eq(tests.appId, existing.id)).limit(1)).length > 0 : false;
   if (!hasTests) await startMake(appId!, a.user.id);
@@ -174,21 +212,21 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
 
   const hints = String(form.get("hints") ?? "").trim().slice(0, 4000);
   const funding = String(form.get("funding") ?? "").trim().slice(0, 1000);
-  if (looksLikeKey(hints) || looksLikeKey(funding)) return { error: "That looks like a private key. Text boxes aren't encrypted, so take it out." };
+  if (looksLikeKey(hints) || looksLikeKey(funding)) return { error: KEY_IN_TEXT };
 
-  const keyIn = String(form.get("liveKey") ?? "").trim();
-  const removeKey = form.get("removeLiveKey") === "1";
-  // As on /new, a key is what opts a testnet into running live.
-  const hasKey = !removeKey && Boolean(keyIn || app.liveKeyAddress);
+  const keyIn = String(form.get("fundedKey") ?? "").trim();
+  const removeKey = form.get("removeKey") === "1";
+  const account = readAccount(form);
+  if ("error" in account) return account;
+  if (account.fund.length > 0 && !keyIn && (removeKey || !app.liveKeyEnc)) return { error: NO_PAYER };
 
   const known = form
     .getAll("chain")
     .map(Number)
     .map((id) => KNOWN_CHAINS.find((c) => c.id === id))
     .filter((c) => c !== undefined)
-    .map((c): ChainConfig => ({ id: c.id, name: c.name, rpcUrl: c.rpcUrl, mode: !c.forkable || (c.testnet && hasKey) ? "live" : "fork" }));
+    .map((c): ChainConfig => ({ id: c.id, name: c.name, rpcUrl: c.rpcUrl }));
 
-  const ticked = new Set(form.getAll("testnetRpc"));
   const others: ChainConfig[] = [];
   for (const input of form.getAll("rpcUrl").map(String).filter((s) => s.trim())) {
     const rpc = RpcUrl.safeParse(input);
@@ -197,27 +235,17 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
     const saved = app.settings.chains.find((c) => c.rpcUrl === rpc.data);
     const id = saved?.id ?? (await readChainId(rpc.data));
     if (id === undefined) return { error: `${NO_CHAIN} ${rpc.data}` };
-    const info = chainInfo(id);
-    const testnet = info ? info.testnet : ticked.has(input) && !MAINNET_CHAIN_IDS.has(id);
-    const live = info?.forkable === false || (testnet && (hasKey || (!info && saved?.mode === "live")));
-    others.push({ id, name: info?.name ?? saved?.name, rpcUrl: rpc.data, mode: live ? "live" : "fork" });
+    others.push({ id, name: chainInfo(id)?.name ?? saved?.name, rpcUrl: rpc.data });
   }
 
-  // One entry per chain, and an RPC the user gave beats ours. Keep fork blocks already pinned for chains that stay.
-  const picked = new Map([...known, ...others].map((c) => [c.id, c]));
-  const chains = [...picked.values()].map((c) => ({ ...c, forkBlock: app.settings.chains.find((o) => o.id === c.id && o.rpcUrl === c.rpcUrl)?.forkBlock }));
-  if (chains.some((c) => c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id))) return { error: "Live mode is for testnets only. Mainnet chains always run on a local fork." };
+  // One entry per chain, and an RPC the user gave beats ours.
+  const chains = [...new Map([...known, ...others].map((c) => [c.id, c])).values()];
 
   const wallets = form.getAll("wallet").map((w) => WalletProfileId.safeParse(w)).flatMap((r) => (r.success ? [r.data] : []));
   if (wallets.length === 0) return { error: "Pick at least one wallet." };
 
-  let liveKey: { enc: string | null; address: string | null } | undefined;
-  if (removeKey) liveKey = { enc: null, address: null };
-  else if (keyIn) {
-    const k = KeyHex.safeParse(keyIn);
-    if (!k.success) return { error: k.error.issues[0]?.message };
-    liveKey = { enc: encrypt(k.data), address: privateKeyToAccount(k.data as `0x${string}`).address };
-  }
+  const key = keyIn ? readKey(keyIn) : removeKey ? { liveKeyEnc: null, liveKeyAddress: null } : undefined;
+  if (key && "error" in key) return key;
 
   let headers: { enc: string | null; names: string[] } | undefined;
   const headerName = String(form.get("headerName") ?? "").trim();
@@ -252,8 +280,8 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
     ...app.settings,
     wallets,
     chains,
+    ...account,
     funding: funding || undefined,
-    allowMainnetLive: false,
     storage,
     responses,
   };
@@ -264,7 +292,7 @@ export async function saveSettingsAction(_prev: ActionResult, form: FormData): P
     settings,
     suite: { ...now.suite, notes: withOwnerHints(now.suite.notes, hints), signing: signing.data },
     scheduleTime: schedule || null,
-    ...(liveKey ? { liveKeyEnc: liveKey.enc, liveKeyAddress: liveKey.address } : {}),
+    ...key,
     ...(headers ? { accessHeadersEnc: headers.enc, accessHeaderNames: headers.names } : {}),
   }));
   revalidatePath("/", "layout"); // the name shows in the app switcher
@@ -297,25 +325,26 @@ const SetupEdit = z.object({
 });
 
 /**
- * What is done once before the tests, so each starts as a user who is already in. A line whose
- * words didn't change keeps what it recorded; a new one is done by a model, which records it.
- * With no lines the app has no setup, and every test starts from a fresh visit.
+ * The setup: what is done once before the tests, so each starts as a user who is already in. Or the
+ * reset (`which`): what is done before each test on a kept account, to put it back. A line whose words
+ * didn't change keeps its code; a new one isn't code until the next repair writes it. With no lines
+ * there is no setup (every test starts from a fresh visit), or no reset.
  */
-export async function saveSetupAction(appId: string, input: z.input<typeof SetupEdit>): Promise<{ error?: string }> {
+export async function saveSetupAction(appId: string, input: z.input<typeof SetupEdit>, which: "setup" | "reset" = "setup"): Promise<{ error?: string }> {
   const { role } = await requireApp(appId);
   if (!can(role, "apps.manage")) return { error: denied("apps.manage") };
   const e = SetupEdit.safeParse(input);
   if (!e.success) return { error: e.error.issues[0]?.message };
   if (e.data.steps.some(looksLikeKey)) return { error: "A line looks like a private key. Take it out: this text isn't encrypted." };
   await updateApp(db(), appId, ({ suite }) => {
-    const old = suite.setup;
+    const old = suite[which];
     const kept = old?.startPath === e.data.startPath ? [...old.steps] : [];
     const steps = e.data.steps.map((text): Action => {
       const same = kept.findIndex((line) => line.do === text);
       return same >= 0 ? kept.splice(same, 1)[0]! : { type: "action", by: "code", do: text, run: [] };
     });
-    const { setup: _gone, ...rest } = suite;
-    return { suite: steps.length ? { ...rest, setup: { startPath: e.data.startPath, steps } } : rest };
+    const { [which]: _gone, ...rest } = suite;
+    return { suite: steps.length ? { ...rest, [which]: { startPath: e.data.startPath, steps } } : rest };
   });
   revalidatePath(`/apps/${appId}`, "layout");
   return {};

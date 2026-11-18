@@ -10,7 +10,7 @@ describe("shareArtifacts", () => {
 
   it("gives the new job every file the result names, at the same relative path, and nothing else", async () => {
     root = await mkdtemp(join(tmpdir(), "dd-artifacts-"));
-    const from = join(root, "explorations", "exp_1");
+    const from = join(root, "makes", "make_1");
     const to = join(root, "runs", "batch_1");
     await mkdir(join(from, "videos"), { recursive: true });
     await mkdir(join(from, "screenshots"), { recursive: true });

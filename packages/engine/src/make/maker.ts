@@ -1,19 +1,19 @@
 /**
  * Making a test: a goal goes in, a proven test comes out. A model does the goal once and writes the
- * test as sentences (draft.ts); the test is then run and put right until it goes the same way twice
- * in a row (prove.ts). A test that fails every time is only kept when a second look agrees the app is
- * at fault (doubt.ts).
+ * test, each check with its code (draft.ts); the test is then run, its actions recorded, and put right
+ * until it goes the same way twice in a row with no model (prove.ts). A test that fails every time is
+ * only kept when a second look agrees the app is at fault (doubt.ts).
  */
 import path from "node:path";
 import type { DrillEventSink, LineResult, SetupStuck, Test } from "@dappdrill/core";
-import { refuseOnLiveMainnet } from "../chain/controller.js";
 import { openSuite, type RunSuiteInput } from "../run/suite.js";
 import { askOwner, type AskInput } from "./ask.js";
+import { findCause } from "./cause.js";
 import { doubt, ours } from "./doubt.js";
 import { draftTest, type Finding } from "./draft.js";
 import { spending, type Spending } from "./each.js";
 import { prove, type Proved } from "./prove.js";
-import { repair } from "./repair.js";
+import { repair, writeCheck } from "./repair.js";
 
 export interface MakeInput extends RunSuiteInput {
   goal: string;
@@ -44,8 +44,8 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
   const t0 = Date.now();
   const { suite, artifactsDir } = input;
   const spent = input.spending ?? spending(input.maxUsd);
-  // Nothing made here may sign on a live mainnet, whoever does the line.
-  const open = await openSuite(input, sink, { refuseApprove: (r, env) => refuseOnLiveMainnet(env.chains, r) });
+  // Making is where a model does what has no code yet: the setup's lines too.
+  const open = await openSuite(input, sink, { byModel: true });
   const { env } = open;
   const settle = spent.follow(() => env.costUsd());
   let draftUsd = 0;
@@ -78,16 +78,16 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
     const set = ours(env);
 
     say(`Drafting: ${input.goal}`);
-    const draft = await draftTest(env, {
+    const start = await open.fresh();
+    if (start.why) return done({ why: start.why, stuck: start.stuck ?? { reason: start.why } });
+    const draft = await draftTest(start, {
       goal: input.goal,
       startPath: input.startPath ?? "/",
-      storageState: open.opts.storageState,
       notes,
       existing: suite.tests.map((t) => t.name),
       suspicion: input.suspicion,
       ours: set,
       artifactsDir: path.join(artifactsDir, "draft"),
-      refuseApprove: open.opts.refuseApprove,
       signal: input.signal,
     });
     draftUsd = env.costUsd();
@@ -103,9 +103,14 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       test,
       problems: draft.problems,
       notes,
-      run: (t) => open.run(t),
-      shared: env.chains.configs().some((c) => c.mode === "live"),
+      run: (t, more) => open.run(t, more),
+      asCode: (asked) => writeCheck(env.fastLlm(), { ...asked, artifactsDir, signal: input.signal }),
+      shared: env.target.account === "kept",
       repair: (asked) => repair(env.fastLlm(), { ...asked, ours: set, artifactsDir, signal: input.signal }),
+      lookInto: async (asked) => {
+        const from = await open.fresh();
+        return from.why ? undefined : findCause(from, { ...asked, notes, artifactsDir: path.join(artifactsDir, "cause"), signal: input.signal });
+      },
       // The thinking model: it is asked once or twice a test, and only for a test about to be kept as failing.
       doubt: (asked) => doubt(env.thinkLlm(), { ...asked, ours: set, artifactsDir, signal: input.signal }),
       overBudget: spent.over,

@@ -1,6 +1,6 @@
 import { db, listBatches, makes, type Batch } from "@dappdrill/db";
 import { desc, eq } from "drizzle-orm";
-import { ListPlus } from "lucide-react";
+import { ListPlus, Wrench } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -29,25 +29,32 @@ function batchMark(b: Batch): TestState {
  */
 function foldProofs(batches: Batch[], made: MakeRow[]): Batch[] {
   return batches.filter((b) => {
-    const make = b.trigger === "make" ? made.find((m) => m.at <= b.startedAt) : undefined;
+    const make = b.trigger === "make" ? made.find((m) => !m.state.repair && m.at <= b.startedAt) : undefined;
     if (!make || make.proof) return true;
     make.proof = b;
     return false;
   });
 }
 
-function MakeStatus({ make: m, appUrl }: { make: MakeRow; appUrl: string }) {
-  if (m.status === "queued") return <span className="text-live">Queued</span>;
+/** What a make came to: the tests it kept, the bugs it found, the goals left without a test. For a repair, how many of its tests were written as code again. */
+function outcome(m: MakeRow): string {
+  const repair = m.state.repair;
+  if (repair) return repair.tests.length > 0 ? `${repair.tests.filter((t) => t.status === "repaired").length} of ${plural(repair.tests.length, "test")} repaired` : "The setup written as code";
   const goals = m.state.goals;
   // A test kept because it fails on a bug is counted as the bug, as the app page counts it.
   const bugs = goals.filter((g) => g.status === "kept" && g.stands === "failed").length;
   const kept = goals.filter((g) => g.status === "kept").length - bugs;
   const none = goals.filter((g) => g.status === "not-kept").length;
-  const found = [`${plural(kept, "test")} kept`,bugs > 0 && `${plural(bugs, "bug")} found`, none > 0 && `${none} without a test`].filter(Boolean).join(" · ");
+  return [`${plural(kept, "test")} kept`, bugs > 0 && `${plural(bugs, "bug")} found`, none > 0 && `${none} without a test`].filter(Boolean).join(" · ");
+}
+
+/** The line under a make or a repair: where it is, or what came of it. */
+function MakeStatus({ make: m, appUrl }: { make: MakeRow; appUrl: string }) {
+  if (m.status === "queued") return <span className="text-live">Queued</span>;
   if (m.status === "running")
     return (
       <>
-        <span className="text-live">Running</span> · {found}
+        <span className="text-live">Running</span> · {outcome(m)}
       </>
     );
   if (m.status === "failed")
@@ -60,13 +67,14 @@ function MakeStatus({ make: m, appUrl }: { make: MakeRow; appUrl: string }) {
   return (
     <>
       {m.status === "stopped" && "Stopped · "}
-      {found}
+      {outcome(m)}
     </>
   );
 }
 
 function makeTitle(m: MakeRow) {
   const going = m.status === "queued" || m.status === "running";
+  if (m.state.repair) return going ? "Repairing tests" : "Repaired tests";
   if (m.goal) return going ? "Making a test" : "Made a test";
   return going ? "Making tests" : "Made tests";
 }
@@ -86,7 +94,7 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
   return (
     <div className="page">
       {anyActive && <AutoRefresh every={2000} />}
-      <PageHeader title="Runs" description={`Every time ${app.name}'s tests were made or ran: by you, or on the daily schedule.`} />
+      <PageHeader title="Runs" description={`Every time ${app.name}'s tests were made, repaired or ran: by you, or on the daily schedule.`} />
       {rows.length === 0 ? (
         <Empty title="No runs yet">Run a test and it shows up here.</Empty>
       ) : (
@@ -118,12 +126,12 @@ export default async function RunsPage({ params }: { params: Promise<{ appId: st
               </li>
             ) : (
               <li key={m.id} className={ROW}>
-                <span className={cx("inline-flex size-7 shrink-0 items-center justify-center rounded-lg", TINT.live)}>
-                  <ListPlus className="size-4" aria-hidden="true" />
+                <span className={cx("inline-flex size-7 shrink-0 items-center justify-center rounded-lg", m.state.repair ? TINT.violet : TINT.live)}>
+                  {m.state.repair ? <Wrench className="size-4" aria-hidden="true" /> : <ListPlus className="size-4" aria-hidden="true" />}
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  {/* The results of the tests it kept, when it kept any; the app page has the rest. */}
-                  <Link href={m.proof ? `/apps/${appId}/runs/${m.proof.batchId}` : `/apps/${appId}`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
+                  {/* The results of the tests it kept or repaired, when there are any; the app page has the rest. */}
+                  <Link href={m.proof || m.state.repair?.batchId ? `/apps/${appId}/runs/${m.proof?.batchId ?? m.state.repair?.batchId}` : `/apps/${appId}`} className="font-medium outline-none after:absolute after:inset-0 focus-visible:underline">
                     {makeTitle(m)}
                   </Link>
                   <span className="text-sm text-pretty text-muted-foreground">

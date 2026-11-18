@@ -15,7 +15,7 @@ export type MakeEnd = "done" | "failed";
 
 /** Why making stopped at the setup, and what puts it right, in a line. */
 function stuckLine(stuck: SetupStuck): string {
-  if (stuck.fix === "funds") return "Test funds aren't set up for the chain the app runs on, so the wallet couldn't be connected. Add a funded key or say how to get test funds under Settings, then make the tests again.";
+  if (stuck.fix === "funds") return "The test account has no funds on the chain the app runs on, so the setup couldn't be done. Add a key that holds funds or say how to get test funds under Settings, then make the tests again.";
   return `The setup didn't finish: ${stuck.reason} Check the setup under Settings, then make the tests again.`;
 }
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
-/** A public guide page (/bot, /fork): the site header, a title, a lead and sections. */
+/** A public guide page (/bot): the site header, a title, a lead and sections. */
 export function DocPage({ title, lead, children }: { title: string; lead: React.ReactNode; children: React.ReactNode }) {
   return (
     <>

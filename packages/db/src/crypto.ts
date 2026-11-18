@@ -22,7 +22,3 @@ export function decrypt(sealed: string): string {
   decipher.setAuthTag(buf.subarray(12, 28));
   return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
 }
-
-export function sha256(text: string): string {
-  return createHash("sha256").update(text).digest("hex");
-}

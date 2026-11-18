@@ -6,14 +6,16 @@
  * The fake app is a small USDC vault. The look comes back with five goals and one thing that looked
  * wrong. Withdrawing fails every time on a fault of the app and is kept for it, and so is claiming
  * rewards, which asks the wallet for something dangerous. Saying no in the wallet never goes the
- * same way twice and isn't kept, and what looked wrong turns out to be nothing.
+ * same way twice and isn't kept, and what looked wrong turns out to be nothing. The test of a deposit
+ * too big is kept with a check that isn't code yet: a run stops there and asks for a repair, and a
+ * repair writes it.
  *
  * Selected with DAPPDRILL_FAKE_ENGINE=1. DAPPDRILL_FAKE_DELAY_MS sets the pace (default 100).
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { LineResult, newId, nowIso, sentence, Test, type ChainConfig, type DrillEventSink, type DrillTarget, type SigningReview, type TestResult } from "@dappdrill/core";
+import { isCode, LineResult, newId, nowIso, sentence, Test, type Action, type ChainConfig, type Check, type DrillEventSink, type DrillTarget, type SigningReview, type Suite, type TestResult } from "@dappdrill/core";
 import type * as api from "../api.js";
 import { makeEach, TOGETHER } from "../make/each.js";
 import { stripedPng } from "./png.js";
@@ -22,13 +24,14 @@ export interface Engine {
   makeTests: typeof api.makeTests;
   makeTest: typeof api.makeTest;
   runSuite: typeof api.runSuite;
+  repairSuite: typeof api.repairSuite;
 }
 
 /** The real engine, or the fake one when DAPPDRILL_FAKE_ENGINE=1. Loaded lazily so the fake path never loads Playwright. */
 export async function loadEngine(): Promise<Engine> {
   if (process.env.DAPPDRILL_FAKE_ENGINE === "1") return fakeEngine;
   const real = await import("../api.js");
-  return { makeTests: real.makeTests, makeTest: real.makeTest, runSuite: real.runSuite };
+  return { makeTests: real.makeTests, makeTest: real.makeTest, runSuite: real.runSuite, repairSuite: real.repairSuite };
 }
 
 const VAULT = "0x9f3a6c1e0b7d4e2a8c5f1b3d7e9a2c4f6b8dc2e1";
@@ -50,13 +53,15 @@ interface Canned {
   says: string;
   claim: string;
   ends: "passes" | "fails" | "dangerous" | "unsteady";
+  /** The last check was left as a sentence: a run can't decide it until a repair writes it as code. */
+  unwritten?: boolean;
 }
 
 const CANNED: Canned[] = [
   { goal: "A user with USDC in the wallet deposits 100 of it into the vault.", why: "It is what the app is for", name: "Deposit 100 USDC", do: "Type 100 into the amount field and click Deposit, then approve the request in the wallet.", says: "Deposited 100 USDC", claim: "The vault balance is 100 USDC higher than before the deposit.", ends: "passes" },
   { goal: "A user with 100 USDC in the vault takes 40 of it back.", why: "Funds would be stuck", name: "Withdraw 40 USDC", do: "Open the Withdraw tab, type 40 and click Withdraw, then approve the request in the wallet.", says: "Withdrawn 40 USDC", claim: "The vault balance is 40 USDC lower than before the withdrawal.", ends: "fails" },
   { goal: "A user claims the rewards the vault shows for them.", why: "Rewards are why users stay", name: "Claim rewards", do: "Click Claim rewards and approve the request in the wallet.", says: "Rewards claimed", claim: "The rewards figure is back to zero.", ends: "dangerous" },
-  { goal: "A user who asks to deposit more than the wallet holds is told so, and the wallet is asked nothing.", why: "A failed transaction costs gas", name: "Deposit more than the balance", do: "Type 5000000 into the amount field.", says: "Insufficient balance", claim: "The Deposit button can't be clicked.", ends: "passes" },
+  { goal: "A user who asks to deposit more than the wallet holds is told so, and the wallet is asked nothing.", why: "A failed transaction costs gas", name: "Deposit more than the balance", do: "Type 5000000 into the amount field.", says: "Insufficient balance", claim: "The Deposit button can't be clicked.", ends: "passes", unwritten: true },
   { goal: "A user who says no in the wallet while depositing is told the deposit was cancelled.", why: "A stuck spinner looks like lost funds", name: "Reject a deposit", do: "Type 100 into the amount field and click Deposit, then reject the request in the wallet.", says: "Deposit cancelled", claim: "The form can be used again.", ends: "unsteady" },
 ];
 const TOTAL = { what: "The vault's total differs from the sum of its rows", expected: "The page lists two positions under “Your total”, so the total is their sum.", saw: "Your total reads 104.20 USDC; the rows read 100.00 and 3.10.", goal: "A user with a deposit sees a total that equals the sum of the rows under it." };
@@ -68,19 +73,27 @@ const FAULTS: Partial<Record<Canned["ends"], { what: string; expected: string; s
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "test";
 const endsOf = (test: Pick<Test, "name" | "goal">): Canned["ends"] => (/withdraw|takes .* back/i.test(`${test.name} ${test.goal}`) ? "fails" : /claim/i.test(test.name) ? "dangerous" : "passes");
 
+/** The line as a repair leaves it: an action recorded, a check as a fact about the page. */
+function written(line: Action | Check): Action | Check {
+  if (isCode(line)) return line;
+  if (line.type === "action") return { type: "action", by: "code", do: line.do, run: [{ kind: "click", target: { role: "button", name: line.do.split(" ").slice(0, 3).join(" ") } }] };
+  return { type: "check", by: "code", claim: line.claim, expect: { kind: "shows", text: line.claim.replace(/[.]$/, "") } };
+}
+
 function testFor(c: Canned): Test {
-  return Test.parse({
+  const test = Test.parse({
     id: slug(c.name),
     name: c.name,
     goal: c.goal,
     startPath: "/vault",
     steps: [
-      { type: "action", by: "code", do: "Open the Vault page." },
+      { type: "action", by: "llm", do: "Open the Vault page." },
       { type: "action", by: "llm", do: c.do },
       { type: "check", by: "code", claim: `The page says “${c.says}”.`, expect: { kind: "said", text: c.says } },
       { type: "check", by: "llm", claim: c.claim },
     ],
   });
+  return { ...test, steps: test.steps.map((line, i) => (c.unwritten && i === test.steps.length - 1 ? line : written(line))) };
 }
 
 /** A goal someone typed, as a test that passes. */
@@ -110,8 +123,7 @@ async function frame(dir: string, sink: DrillEventSink, url: string) {
 }
 
 function chainsOf(target: DrillTarget): ChainConfig[] {
-  const chains = target.chains.length > 0 ? target.chains : [{ id: 8453, name: "Base", rpcUrl: "https://base-rpc.publicnode.com", mode: "fork" as const }];
-  return chains.map((c) => ({ ...c, forkBlock: c.forkBlock ?? "23456789" }));
+  return target.chains.length > 0 ? target.chains : [{ id: 8453, name: "Base", rpcUrl: "https://base-rpc.publicnode.com" }];
 }
 
 function review(test: Test, dangerous: boolean): SigningReview {
@@ -151,46 +163,65 @@ interface Going {
   sink: DrillEventSink;
   url: string;
   signal?: AbortSignal;
+  target: DrillTarget;
+  suite: Suite;
 }
 
-/** One run of a test: a line at a time, each with its picture. */
+const goingOn = (input: api.RunSuiteInput, sink: DrillEventSink): Going => ({ dir: input.artifactsDir, sink, url: input.target.url, signal: input.signal, target: input.target, suite: input.suite });
+
+const NOT_CODE = "This line isn't written as code yet.";
+
+/** The reset's lines before a test, on a kept account whose suite has one. */
+const resetOf = (input: Pick<api.RunSuiteInput, "target" | "suite">): LineResult[] =>
+  input.target.account === "kept" ? (input.suite.reset?.steps ?? []).map((line) => LineResult.parse({ status: "pass", by: "code", did: [`Did: ${sentence(line)}`], durationMs: 300 })) : [];
+
+/**
+ * One run of a test: a line at a time, each with its picture, and no model. It stops at the first line
+ * that isn't code, and says the test can be repaired.
+ */
 async function run(test: Test, ends: Canned["ends"], going: Going, onLine?: (index: number, result: LineResult) => void): Promise<TestResult> {
   const t0 = Date.now();
   const steps: LineResult[] = [];
   const failsAt = ends === "fails" ? test.steps.length - 1 : -1;
+  const stopsAt = test.steps.findIndex((line) => !isCode(line));
   for (const [i, line] of test.steps.entries()) {
+    if (stopsAt >= 0 && i > stopsAt) {
+      steps.push(LineResult.parse({ status: "skipped", by: "code" }));
+      continue;
+    }
     await beat(going.signal, 3);
     await frame(going.dir, going.sink, `${going.url}${test.startPath}`);
     const failed = i === failsAt;
+    const stopped = i === stopsAt;
     steps.push(
       LineResult.parse({
-        status: failed ? "fail" : "pass",
-        by: line.by,
-        model: line.by === "llm" ? "claude-sonnet-5-5" : undefined,
-        note: failed ? FAULTS.fails!.saw : "",
-        did: line.type === "action" ? [`Did: ${sentence(line)}`] : [],
+        status: stopped ? "unsure" : failed ? "fail" : "pass",
+        by: "code",
+        note: stopped ? NOT_CODE : failed ? FAULTS.fails!.saw : "",
+        did: line.type === "action" && !stopped ? [`Did: ${sentence(line)}`] : [],
         screenshot: await png(going.dir, `screenshots/${test.id}-${i + 1}-${pictures}.png`),
         page: failed ? "Vault\nYour balance 100.00 USDC\nWithdrawn 40 USDC" : undefined,
         durationMs: 300,
-        costUsd: line.by === "llm" ? 0.004 : 0,
       }),
     );
     onLine?.(i, steps[i]!);
   }
   const signs = /deposit|withdraw|claim/i.test(test.name) && !/more than|reject/i.test(test.name);
   const signingReviews = signs ? [review(test, ends === "dangerous")] : [];
+  const base = { testId: test.id, steps, values: {}, cleanup: [], reset: resetOf(going), signingReviews, rerun: false, durationMs: Date.now() - t0, costUsd: 0 };
+  if (stopsAt >= 0) return { ...base, outcome: "unverified", reason: `“${sentence(test.steps[stopsAt]!)}”: ${NOT_CODE}`, repairable: true };
   const reason =
     ends === "fails"
       ? `“${sentence(test.steps[failsAt]!)}”: ${FAULTS.fails!.saw}`
       : ends === "dangerous"
         ? `The wallet was asked for something dangerous: ${signingReviews[0]!.title}. ${signingReviews[0]!.explanation}`
         : undefined;
-  return { testId: test.id, outcome: reason ? "failed" : "passed", reason, steps, values: {}, cleanup: [], signingReviews, rerun: false, durationMs: Date.now() - t0, costUsd: 0.012 };
+  return { ...base, outcome: reason ? "failed" : "passed", reason, repairable: false };
 }
 
 const makeTest: Engine["makeTest"] = async (input, sink = () => {}, say = () => {}) => {
   const t0 = Date.now();
-  const going: Going = { dir: input.artifactsDir, sink, url: input.target.url, signal: input.signal };
+  const going = goingOn(input, sink);
   const known = CANNED.find((c) => c.goal === input.goal);
   const canned = known ?? { ...typed(input.goal), ...(input.suspicion ? { name: "Total equals the rows" } : {}) };
   const ends = known?.ends ?? endsOf(canned);
@@ -206,9 +237,10 @@ const makeTest: Engine["makeTest"] = async (input, sink = () => {}, say = () => 
 
   const runs: TestResult[] = [];
   for (let n = 1; n <= (ends === "unsteady" ? 3 : 2); n++) {
-    const went = await run(test, ends === "unsteady" && n % 2 ? "fails" : ends === "unsteady" ? "passes" : ends, going);
+    // The runs that prove a test are of its lines as code: what a kept test leaves unwritten shows in a later run.
+    const went = await run({ ...test, steps: test.steps.map(written) }, ends === "unsteady" && n % 2 ? "fails" : ends === "unsteady" ? "passes" : ends, going);
     runs.push(went);
-    say(`Run ${n}: ${went.outcome === "passed" ? "Passed" : "Failed"}, 1 s, $0.01.${went.reason ? ` ${went.reason}` : ""}`);
+    say(`Run ${n}: ${went.outcome === "passed" ? "Passed" : "Failed"}, 1 s.${went.reason ? ` ${went.reason}` : ""}`);
   }
   if (ends === "unsteady") return done({ test, runs, worded: runs.length, why: "“Deposit cancelled” showed in one run and was gone before the check looked in the next.", ask: "After a rejected deposit, how long should “Deposit cancelled” stay on screen?" });
   if (input.suspicion) return done({ test, runs, proven: true, stands: "passed", dismissed: ["The total includes rewards not yet claimed, which the page says under the figure."] });
@@ -227,7 +259,6 @@ async function look(input: api.RunSuiteInput, sink: DrillEventSink, say: (text: 
     await beat(input.signal, 5);
     await frame(dir, sink, `${input.target.url}${page}`);
   }
-  say("The test wallet starts with 1000 USDC on Base");
   await beat(input.signal, 5);
   const have = new Set(input.suite.tests.map((t) => t.goal));
   return {
@@ -235,10 +266,9 @@ async function look(input: api.RunSuiteInput, sink: DrillEventSink, say: (text: 
     goals: CANNED.filter((c) => !have.has(c.goal)).map((c) => ({ goal: c.goal, startPath: "/vault", why: c.why })),
     notes: input.suite.notes.some((n) => n.from === "look") ? [] : ["The Withdraw tab only appears once the wallet has a deposit."],
     problems: have.size ? [] : [TOTAL],
-    live: false,
     chains: chainsOf(input.target),
-    tokens: [{ chainId: 8453, address: USDC, amount: "1000", symbol: "USDC" }],
-    setup: input.suite.setup?.steps.map((line) => LineResult.parse({ status: "pass", by: line.by, did: ["Clicked Connect wallet", "Chose MetaMask"] })),
+    // The look does the setup with a model where it has no recording, and hands back what it did.
+    setup: input.suite.setup?.steps.map((line) => LineResult.parse({ status: "pass", by: line.by, did: ["Clicked Connect wallet", "Chose MetaMask"], recorded: isCode(line) ? undefined : (written(line) as Extract<Action, { by: "code" }>).run })),
     costUsd: 0.9,
     durationMs: Date.now() - t0,
   };
@@ -248,21 +278,30 @@ const makeTests: Engine["makeTests"] = async (input, sink = () => {}, progress =
   const t0 = Date.now();
   const looked = await look(input, sink, progress.say);
   progress.onLooked?.(looked);
-  const made = await makeEach(looked, { ...input, together: input.together ?? TOGETHER }, (asked, n) => makeTest({ ...input, ...asked, artifactsDir: path.join(input.artifactsDir, `make-${n}`) }, sink, (text) => progress.say?.(text, n)), progress);
+  // A kept account is one account: its tests are made one at a time.
+  const together = input.target.account === "kept" ? 1 : (input.together ?? TOGETHER);
+  const made = await makeEach(looked, { ...input, together }, (asked, n) => makeTest({ ...input, ...asked, artifactsDir: path.join(input.artifactsDir, `make-${n}`) }, sink, (text) => progress.say?.(text, n)), progress);
   return { ...made, looked, costUsd: looked.costUsd + made.attempts.reduce((sum, a) => sum + (a.made?.costUsd ?? 0), 0), durationMs: Date.now() - t0 };
 };
 
 const runSuite: Engine["runSuite"] = async (input, sink = () => {}, progress = {}) => {
   const t0 = Date.now();
-  const going: Going = { dir: input.artifactsDir, sink, url: input.target.url, signal: input.signal };
+  const going = goingOn(input, sink);
   await sink({ type: "chains", chains: chainsOf(input.target) });
-  const setup = input.suite.setup?.steps.map((line) => LineResult.parse({ status: "pass", by: line.by, did: ["Clicked Connect wallet", "Chose MetaMask"] }));
+  const setup = setupOf(input.suite);
   for (const [i, line] of (setup ?? []).entries()) {
     await beat(input.signal, 3);
     progress.onLine?.(undefined, i, line);
   }
   const tests: TestResult[] = [];
+  // A setup that stops on a line that isn't code leaves every test where a repair can pick it up.
+  const stuck = setup?.some((line) => line.status !== "pass");
   for (const test of input.suite.tests) {
+    if (stuck) {
+      tests.push({ testId: test.id, outcome: "unverified", reason: `The setup didn't finish. ${NOT_CODE}`, steps: test.steps.map(() => LineResult.parse({ status: "skipped", by: "code" })), values: {}, cleanup: [], reset: [], repairable: true, signingReviews: [], rerun: false, durationMs: 0, costUsd: 0 });
+      progress.onTest?.(tests.at(-1)!);
+      continue;
+    }
     const once = () => {
       progress.onStart?.(test.id);
       return run(test, endsOf(test), going, (i, r) => progress.onLine?.(test.id, i, r));
@@ -275,7 +314,55 @@ const runSuite: Engine["runSuite"] = async (input, sink = () => {}, progress = {
     tests.push(result);
     progress.onTest?.(result);
   }
-  return { setup, tests, durationMs: Date.now() - t0, costUsd: tests.reduce((sum, t) => sum + t.costUsd, 0) };
+  return { setup, tests, durationMs: Date.now() - t0, costUsd: 0 };
 };
 
-export const fakeEngine: Engine = { makeTests, makeTest, runSuite };
+/** The setup's lines as a run does them: it stops at the first that isn't code. */
+function setupOf(suite: Suite): LineResult[] | undefined {
+  const lines = suite.setup?.steps;
+  if (!lines) return undefined;
+  const stopsAt = lines.findIndex((line) => !isCode(line));
+  return lines.map((_, i) =>
+    stopsAt < 0 || i < stopsAt
+      ? LineResult.parse({ status: "pass", by: "code", did: ["Clicked Connect wallet", "Chose MetaMask"] })
+      : LineResult.parse(i === stopsAt ? { status: "unsure", by: "code", note: NOT_CODE } : { status: "skipped", by: "code" }),
+  );
+}
+
+/**
+ * A repair: the setup and the reset recorded where they weren't, then each test's lines written as code.
+ * A test about saying no in the wallet can't be repaired, like the one that was never kept.
+ */
+const repairSuite: Engine["repairSuite"] = async (input, sink = () => {}, progress = {}) => {
+  const t0 = Date.now();
+  const { suite } = input;
+  const going = goingOn(input, sink);
+  const again = <S extends { steps: Action[] }>(part: S | undefined): S | undefined => (part && !part.steps.every(isCode) ? { ...part, steps: part.steps.map(written) as Action[] } : undefined);
+  const setup = again(suite.setup);
+  const reset = again(suite.reset);
+  for (const [part, name] of [[setup, "setup"], [reset, "reset"]] as const) {
+    if (!part) continue;
+    progress.say?.(`Recording the ${name} again`);
+    await beat(input.signal, 4);
+    await frame(going.dir, sink, `${going.url}${part.startPath}`);
+  }
+  const asked = suite.tests.filter((t) => (input.testIds ? input.testIds.includes(t.id) : !t.steps.every(isCode)));
+  const tests: api.Repaired["tests"] = [];
+  for (const test of asked) {
+    progress.onStart?.(test.id);
+    progress.say?.(`Repairing “${test.name}”`);
+    for (let i = 0; i < 3; i++) {
+      await beat(input.signal, 4);
+      await frame(going.dir, sink, `${going.url}${test.startPath}`);
+    }
+    const done = /reject/i.test(test.name)
+      ? { testId: test.id, why: "It went one way in the first run and another in the second: “Deposit cancelled” was gone before the check looked." }
+      : { testId: test.id, test: { ...test, steps: test.steps.map(written), cleanup: test.cleanup.map(written) as Action[] } };
+    tests.push(done);
+    progress.say?.(done.test ? `“${test.name}” went the same way twice with every line as code` : `“${test.name}” wasn't repaired`);
+    progress.onTest?.(done);
+  }
+  return { setup, reset, tests, costUsd: 0.14 * tests.length + (setup ? 0.05 : 0) + (reset ? 0.05 : 0), durationMs: Date.now() - t0 };
+};
+
+export const fakeEngine: Engine = { makeTests, makeTest, runSuite, repairSuite };

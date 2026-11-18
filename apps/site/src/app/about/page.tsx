@@ -24,15 +24,15 @@ export default function About() {
         signature, try again. It is slow, it is easy to skip a case, and the cases people skip are the ones users hit.
       </p>
       <p>
-        DappDrill does that pass for you. It finds the flows that matter, writes a test for each, and runs them on local forks
-        of the chain with its own wallet, including the odd cases. You get a short report of what broke, with a video of it
+        DappDrill does that pass for you. It finds the flows that matter, writes a test for each, and runs them on the
+        chains your app uses with its own wallet, including the odd cases. You get a short report of what broke, with a video of it
         happening.
       </p>
 
       <h2>How we work</h2>
       <ul>
         <li>We build what we would use ourselves, and keep it plain.</li>
-        <li>We test on local forks, against the real contracts.</li>
+        <li>We test on the app’s real chains, against the real contracts.</li>
         <li>We collect only what a product needs to work. The <a href="/privacy/">privacy policy</a> says what that is.</li>
       </ul>
 

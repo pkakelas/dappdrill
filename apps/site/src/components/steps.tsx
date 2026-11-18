@@ -89,7 +89,7 @@ function Chains() {
           <img key={chain.icon} src={`/icons/${chain.icon}.svg`} alt={chain.name} title={chain.name} width={20} height={20} className="size-5" />
         ))}
       </span>
-      <span className="text-[13.5px] text-ink/55">Forks of six chains today</span>
+      <span className="text-[13.5px] text-ink/55">Any EVM chain your app uses</span>
     </div>
   );
 }

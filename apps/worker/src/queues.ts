@@ -5,6 +5,8 @@
  *   "tests.run"  { batchId }  test_runs rows sharing the batch id, status "queued" (queueRuns in @dappdrill/db).
  *   "make.run"   { makeId }   makes row, status "queued". With a goal it makes that one test; without, it
  *                             looks over the app and makes a test for each goal it finds.
+ *   "repair.run" { repairId } makes row whose state has `repair` (the tests to repair), status "queued".
+ *                             What is repaired replaces the setup, the reset and the tests as they were.
  *
  * Stopping is not a job: the web sets stop_requested on the make or the runs and the worker polls it.
  */
@@ -13,17 +15,18 @@ import { PgBoss, type Queue } from "pg-boss";
 export const QUEUES = {
   tests: "tests.run",
   make: "make.run",
+  repair: "repair.run",
   scheduleTick: "schedule.tick",
 } as const;
-
-/** How long a job waits before it looks again when another is on the app's live chain. */
-export const LIVE_RETRY_SECONDS = 30;
 
 export interface TestsJob {
   batchId: string;
 }
 export interface MakeJob {
   makeId: string;
+}
+export interface RepairJob {
+  repairId: string;
 }
 /** `at` ("HH:MM" UTC) overrides the current minute; handy for testing. */
 export interface ScheduleTickJob {
@@ -39,14 +42,15 @@ const HOUR = 3600;
 const QUEUE_OPTIONS: Record<(typeof QUEUES)[keyof typeof QUEUES], Omit<Queue, "name">> = {
   "tests.run": { retryLimit: 0, expireInSeconds: 4 * HOUR },
   "make.run": { retryLimit: 0, expireInSeconds: 6 * HOUR },
+  "repair.run": { retryLimit: 0, expireInSeconds: 6 * HOUR },
   "schedule.tick": { retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: HOUR },
 };
 
 /**
- * Queues must exist before send() or work(). Safe to call from every process. A queue someone
- * else created with pg-boss defaults (2 retries) is brought in line with our options.
+ * Queues must exist before send() or work(). One created with other options (the web app creates a
+ * queue it sends to before the worker has started) is brought in line with ours.
  */
-export async function ensureQueues(boss: PgBoss): Promise<void> {
+async function ensureQueues(boss: PgBoss): Promise<void> {
   const existing = new Map((await boss.getQueues()).map((q) => [q.name, q]));
   for (const [name, options] of Object.entries(QUEUE_OPTIONS)) {
     const queue = existing.get(name);

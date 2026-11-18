@@ -1,10 +1,11 @@
 /**
  * Deterministic replay of a saved script inside a session. No model calls.
- * Edge cases plug in through `hooks` to change how wallet requests are
- * answered or to act between steps (switch account, reload, …).
+ * An optional step is done when the page asks for it and passed over when it doesn't: a prompt that
+ * didn't show, a wallet request that never came. `hooks` change how a wallet request
+ * is answered, or act between steps. The signing review gets no model here.
  */
-import { applyParams, describeStep, newId, paramValues, type ReplayScript, type SigningReview, type Step, type StepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
-import type { Inbox, Llm, SigningReviewer } from "../types.js";
+import { applyParams, describeStep, newId, type ReplayScript, type SigningReview, type Step, type StepResult, type WalletRequest, urlOnApp } from "@dappdrill/core";
+import type { Inbox, SigningReviewer } from "../types.js";
 import type { EngineSession } from "../browser/session.js";
 import type { PendingSignRequest } from "../wallet/controller.js";
 import { fillField } from "./fill.js";
@@ -14,9 +15,13 @@ import { waitQuiet } from "./quiet.js";
 
 /** How long to look for an optional step's element before deciding it didn't show. */
 const OPTIONAL_TIMEOUT_MS = 4_000;
+/** How long an optional wallet step waits for the app to ask before deciding it won't. */
+const OPTIONAL_SIGN_TIMEOUT_MS = 8_000;
+/** How long a wallet step waits for the app to ask. */
+const SIGN_TIMEOUT_MS = 30_000;
 /** How long a busy button ("Placing…") gets to finish after a click, before the next step. */
 const QUIET_MS = 15_000;
-/** A fork reads state upstream the first time, so a dApp's data can take half a minute to show. */
+/** A dApp's data comes from a chain and an indexer, and can take half a minute to show. */
 export const STEP_TIMEOUT_MS = 45_000;
 
 export interface StepContext {
@@ -30,8 +35,6 @@ export interface StepContext {
 }
 
 export interface ReplayHooks {
-  /** Runs before a step. "skip" marks it skipped; "stop" ends the replay after it. */
-  beforeStep?(ctx: StepContext): Promise<void | "skip" | "stop">;
   /** Decides how to answer a signing request. "default" follows the step's `respond`. */
   respond?(ctx: StepContext & { pending: PendingSignRequest }): Promise<"approve" | "reject" | "default">;
   /** Runs after a step; "stop" ends the replay here. */
@@ -39,16 +42,10 @@ export interface ReplayHooks {
 }
 
 export interface ReplayScriptOptions {
-  params?: Record<string, string>;
   reviewer?: SigningReviewer;
-  /** Lets the reviewer compare vague button labels with the request. Scans only: CI replays stay model-free. */
-  reviewLlm?: Llm;
-  baselines?: Record<string, SigningReview>;
   inbox?: Inbox;
   /** Per-step timeout for finding elements and waiting (default 45s). */
   stepTimeoutMs?: number;
-  /** How long a `wallet` step waits for the dApp to ask (default 30s). */
-  signTimeoutMs?: number;
   hooks?: ReplayHooks;
   /** Continue on the page the session is on instead of opening the script's start URL. */
   here?: boolean;
@@ -89,9 +86,8 @@ export interface ReplayScriptResult {
 export async function replayScript(session: EngineSession, script: ReplayScript, opts: ReplayScriptOptions = {}): Promise<ReplayScriptResult> {
   // {{account}} is whichever test account this replay runs with; head and tail make up its short form.
   const account = session.wallet.address();
-  const params = { account, "account-head": account.slice(0, 6), "account-tail": account.slice(-4), ...paramValues(script, opts.params) };
+  const params = { account, "account-head": account.slice(0, 6), "account-tail": account.slice(-4) };
   const stepTimeout = opts.stepTimeoutMs ?? STEP_TIMEOUT_MS;
-  const signTimeout = opts.signTimeoutMs ?? 30_000;
   const log = opts.log ?? (() => {});
   const runId = opts.runId ?? newId("rpl");
   const startedAt = Date.now();
@@ -122,13 +118,6 @@ export async function replayScript(session: EngineSession, script: ReplayScript,
       break;
     }
 
-    const before = await opts.hooks?.beforeStep?.(ctx);
-    if (before === "skip") {
-      result.steps.push({ index, status: "skipped", durationMs: 0 });
-      if (step.kind === "wallet") signIndex++;
-      continue;
-    }
-    if (before === "stop") stopped = true;
     if (step.kind === "wallet" && triggerSkipped) {
       result.steps.push({ index, status: "skipped", durationMs: 0, error: "the optional step that asks for it didn't show" });
       log(`step ${index} skipped: its optional trigger didn't show`);
@@ -140,13 +129,15 @@ export async function replayScript(session: EngineSession, script: ReplayScript,
     log(`step ${index}: ${describeStep(step)}`);
     let stepResult: StepResult;
     try {
-      const walletRequestId = await runStep(ctx, { stepTimeout: step.optional ? OPTIONAL_TIMEOUT_MS : stepTimeout, signTimeout, opts, result, runId, startedAt });
+      const walletRequestId = await runStep(ctx, { stepTimeout: step.optional ? OPTIONAL_TIMEOUT_MS : stepTimeout, opts, result, runId, startedAt });
       stepResult = { index, status: "pass", durationMs: Date.now() - t0, walletRequestId };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const screenshot = await session.screenshot(`${runId}-step${index}-fail`);
-      stepResult = { index, status: step.optional ? "skipped" : "fail", durationMs: Date.now() - t0, error: message, screenshot };
-      log(`step ${index} ${step.optional ? "skipped (optional)" : "failed"}: ${message}`);
+      // An optional wallet step is passed over only when nothing was asked: a request that came is held to the step.
+      const skip = step.optional && !(e instanceof Asked);
+      stepResult = { index, status: skip ? "skipped" : "fail", durationMs: Date.now() - t0, error: message, screenshot };
+      log(`step ${index} ${skip ? "skipped (optional)" : "failed"}: ${message}`);
     }
     if (step.kind === "wallet") signIndex++;
     else triggerSkipped = stepResult.status === "skipped";
@@ -176,7 +167,6 @@ async function gotoUrl(session: EngineSession, url: string, params: Record<strin
 
 interface RunEnv {
   stepTimeout: number;
-  signTimeout: number;
   opts: ReplayScriptOptions;
   result: ReplayScriptResult;
   runId: string;
@@ -262,13 +252,16 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
   }
 }
 
+/** A wallet step failed after the app did ask: the request didn't match, or couldn't be sent. */
+class Asked extends Error {}
+
 async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
   const { step, session, script, index, params } = ctx;
   if (step.kind !== "wallet") throw new Error("not a wallet step");
   const { wallet, chains } = session;
   const log = env.opts.log ?? (() => {});
 
-  const pending = await wallet.nextSign(env.signTimeout);
+  const pending = await wallet.nextSign(step.optional ? OPTIONAL_SIGN_TIMEOUT_MS : SIGN_TIMEOUT_MS);
   const req = pending.request;
   const buttonLabel = pending.buttonLabel ?? session.lastClickedLabel();
   const screenshot = await session.screenshot(`${env.runId}-step${index}-wallet`);
@@ -282,9 +275,6 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
         chains,
         ui: { buttonLabel, pageUrl: pending.pageUrl, screenshot },
         script: { id: script.id, name: script.name, stepIndex: index, expectation: step.expect, params },
-        baselines: env.opts.baselines ?? {},
-        artifactsDir: session.artifactsDir,
-        llm: env.opts.reviewLlm,
       });
       review.runId = env.runId;
       env.result.signingReviews.push(review);
@@ -310,7 +300,7 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
 
   if (!check.ok) {
     await wallet.reject(req.id);
-    throw new Error(`The wallet request doesn't match the test: ${check.problems.join("; ")}`);
+    throw new Asked(`The wallet request doesn't match the test: ${check.problems.join("; ")}`);
   }
 
   const decision = (await env.opts.hooks?.respond?.({ ...ctx, pending })) ?? "default";
@@ -324,7 +314,7 @@ async function walletStep(ctx: StepContext, env: RunEnv): Promise<string> {
     } catch (e) {
       info.approveError = e instanceof Error ? e.message : String(e);
       const data = (e as { data?: { message?: string } }).data?.message;
-      throw new Error(`The wallet could not send the transaction: ${data ?? info.approveError}`);
+      throw new Asked(`The wallet could not send the transaction: ${data ?? info.approveError}`);
     }
   }
 

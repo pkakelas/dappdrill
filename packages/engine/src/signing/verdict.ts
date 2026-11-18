@@ -4,17 +4,17 @@
  *
  *  dangerous  known-bad hit; an approval or permit to a wallet address or to an
  *             unverified / new contract (on a testnet, unverified alone is only
- *             "check": that is the rule there); the UI doesn't match while an approval,
- *             native value or outgoing tokens are at stake (this covers "Sign in"
- *             buttons that are really permits or transfers).
+ *             "check": that is the rule there); the UI doesn't match while an approval
+ *             or native value is at stake (this covers "Sign in" buttons that
+ *             are really permits or payments).
  *  check      any other failing or warning check (unlimited approval, revert,
- *             baseline change, expectation mismatch…), or data we needed but
+ *             expectation mismatch…), or data we needed but
  *             couldn't confirm: the UI comparison, the blocklists, or — when value
  *             is at stake — the spender's source, age or the token.
  *  consistent everything else.
  */
 import type { SigningCheck, Verdict } from "@dappdrill/core";
-import { hasStake, outgoing, type Facts } from "./facts.js";
+import { hasStake, type Facts } from "./facts.js";
 import { labelIntent } from "./ui-match.js";
 
 export interface Decision {
@@ -25,8 +25,8 @@ export interface Decision {
 
 const NEEDS_STAKE_TO_MATTER = new Set<SigningCheck["id"]>(["verified-source", "contract-age", "token", "approval", "proxy"]);
 /**
- * Unverified, these keep a request from looking consistent. A transaction that couldn't be simulated counts
- * even with nothing seen at stake: what it moves is only known from the simulation (signatures skip it).
+ * Unverified, these keep a request from looking consistent. A transaction the chain couldn't be asked about
+ * counts even with nothing seen at stake (signatures skip it).
  */
 const ALWAYS_MATTERS = new Set<SigningCheck["id"]>(["ui-match", "known-bad", "simulation"]);
 
@@ -49,9 +49,9 @@ export function decideVerdict(facts: Facts, checks: SigningCheck[]): Decision {
     reasons.push(uiReason(facts, byId["ui-match"]));
   }
   const intent = labelIntent(facts.input.ui.buttonLabel);
-  if ((intent === "signin" || intent === "claim") && (facts.approvals.length || outgoing(facts).length) && !reasons.some((r) => r.startsWith("The button says"))) {
+  if ((intent === "signin" || intent === "claim") && facts.approvals.length && !reasons.some((r) => r.startsWith("The button says"))) {
     dangerous = true;
-    reasons.push(`The button says “${facts.input.ui.buttonLabel}” but ${facts.approvals.length ? "the request grants an allowance" : "tokens leave the wallet"}`);
+    reasons.push(`The button says “${facts.input.ui.buttonLabel}” but the request grants an allowance`);
   }
   if (dangerous) {
     reasons.push(...secondary(checks, reasons));
@@ -102,10 +102,6 @@ function secondary(checks: SigningCheck[], already: string[]): string[] {
 /** One short phrase per check for the explanation bullets. */
 function short(c: SigningCheck): string {
   switch (c.id) {
-    case "baseline": {
-      const changed = (c.evidence?.changes as { field: string }[] | undefined)?.map((x) => x.field) ?? [];
-      return changed.length ? `Different ${changed.join(", ")} from the last run` : "Differs from the last run";
-    }
     case "approval":
       if (c.status === "warn") return c.detail.includes("no verified source") ? "Spender has no verified source" : "Unlimited approval";
       return c.status === "unverified" ? "Couldn't confirm the spender's source" : c.detail.replace(/\.$/, "");
@@ -120,7 +116,7 @@ function short(c: SigningCheck): string {
     case "known-bad":
       return c.status === "unverified" ? "Blocklists unavailable" : "On a known-bad list";
     case "simulation":
-      return c.status === "warn" ? "Reverts on the fork" : "Not simulated";
+      return c.status === "warn" ? "Would revert" : "Not simulated";
     case "ui-match":
       return c.status === "unverified" ? "Couldn't compare with the button" : c.detail.replace(/\.$/, "");
     case "expectation":

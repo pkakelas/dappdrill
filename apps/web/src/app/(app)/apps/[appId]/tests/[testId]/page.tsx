@@ -1,20 +1,23 @@
 import { formatDuration, sentence, type LineResult } from "@dappdrill/core";
-import { db, testOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
+import { accountOf, db, isRepair, makes, testOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, desc, eq } from "drizzle-orm";
-import { Bug, ChevronLeft } from "lucide-react";
+import { Bug, ChevronLeft, Wrench } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { TestEditor } from "@/components/tests/lines-editor";
+import { RepairButton } from "@/components/tests/repair-button";
 import { SigningReviews } from "@/components/tests/run-details";
 import { Evidence } from "@/components/tests/signed";
 import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, shortReason } from "@/components/tests/status";
 import { TestActions } from "@/components/tests/test-actions";
-import { TestRunView, type ViewLine } from "@/components/tests/test-run-view";
+import { TestRunView, type Around, type ViewLine } from "@/components/tests/test-run-view";
+import { Tile } from "@/components/tests/tile";
 import { cx } from "@/components/ui";
 import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo, TRIGGER_LABEL } from "@/lib/format";
+import { isCode, unwritten } from "@/lib/lines";
 import { requireApp } from "@/lib/session";
 
 type Params = { appId: string; testId: string };
@@ -43,6 +46,15 @@ function filled(text: string, values?: Record<string, string>) {
   return text.replace(/\{\{(\w+)\}\}/g, (whole, name: string) => values[name] ?? whole);
 }
 
+/** The reset or the cleanup as the run on screen left it: folded unless a line of it didn't pass. */
+function around(prefix: string, lines: Line[], results: LineResult[] | undefined, url: (p?: string | null) => string | null): Around | undefined {
+  if (lines.length === 0) return undefined;
+  // Lines edited since the run no longer line up with its results. Nothing is there when they didn't have to be done.
+  const ran = results && results.length === lines.length ? results : undefined;
+  const failed = Boolean(ran?.some((s) => s.status !== "pass"));
+  return { lines: viewLines(prefix, lines, ran, url), open: failed, status: ran ? (failed ? " · didn't finish" : " · done") : "" };
+}
+
 /** The lines with how each went in the run on screen. While a run is on, the first line with no result yet is the one being done. */
 function viewLines(prefix: string, lines: Line[], results: LineResult[] | undefined, url: (p?: string | null) => string | null, values?: Record<string, string>, running?: boolean): ViewLine[] {
   const at = running && results ? results.findIndex((r) => r.status === "skipped") : -1;
@@ -60,6 +72,7 @@ function viewLines(prefix: string, lines: Line[], results: LineResult[] | undefi
       redone: r?.redone,
       did: bad ? r?.did : undefined,
       shot: url(r?.screenshot),
+      notCode: !isCode(line),
     };
   });
 }
@@ -68,7 +81,10 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const { appId, testId } = await params;
   const { run: runParam, edit } = await searchParams;
   const { test, app } = await load(appId, testId);
-  const history = await db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15);
+  const [history, [repair]] = await Promise.all([
+    db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15),
+    db().select().from(makes).where(and(eq(makes.appId, appId), isRepair)).orderBy(desc(makes.createdAt)).limit(1),
+  ]);
 
   const spec = testOf(test);
   const latest = history[0];
@@ -90,8 +106,12 @@ export default async function TestPage({ params, searchParams }: { params: Promi
 
   const running = run?.status === "running";
   const lines = viewLines("l", spec.steps, lined, url, result?.values, running);
-  const ranCleanup = result?.cleanup && result.cleanup.length === spec.cleanup.length ? result.cleanup : undefined;
-  const cleanupFailed = ranCleanup?.some((s) => s.status !== "pass");
+  // A run can't do the test as it is: its last one stopped for want of code, or a line was added or reworded since.
+  const needsRepair = Boolean(settled?.result?.repairable) || unwritten(spec);
+  const inRepair = repair?.state.repair?.tests.find((t) => t.testId === test.id);
+  const repairing = Boolean(inRepair && (repair?.status === "queued" || repair?.status === "running"));
+  // Why the last repair left it, unless the test was edited after that repair.
+  const notRepaired = !repairing && inRepair?.status === "not-repaired" && repair?.finishedAt && repair.finishedAt > test.updatedAt ? inRepair.why : undefined;
   const wrong = lines.find((l) => l.state === "failed" || l.state === "unverified");
   // A failure counts once a second run goes the same way; when the first went another way, that is worth a line.
   const firstOther = result?.rerun && result.firstReason && result.firstReason !== result.reason ? shortReason(result.firstReason, true) : undefined;
@@ -143,6 +163,32 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             </div>
           )}
 
+          {(needsRepair || repairing) && !viewingOld && (
+            <div role="status" className="-mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border bg-card px-5 py-4 text-sm shadow-xs">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Tile icon={Wrench} tint={repairing ? "live" : "warn"} />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <p className="font-medium">{repairing ? "This test is being repaired" : "This test needs repairing"}</p>
+                  <p className="text-pretty text-muted-foreground">
+                    {repairing
+                      ? "Its lines are being written as code again, and it is run once afterwards."
+                      : settled?.result?.repairable
+                        ? "Its last run stopped at a line it has no working code for. A repair does the test in the browser and writes that line as code again."
+                        : "A line isn't code yet, so a run stops there. A repair does the test in the browser and writes the line as code."}
+                    {notRepaired && ` The last repair left it as it was: ${notRepaired}`}
+                  </p>
+                </div>
+              </div>
+              {repairing ? (
+                <Link href={`/apps/${appId}`} className="shrink-0 font-medium hover:underline">
+                  See the repair
+                </Link>
+              ) : (
+                <RepairButton appId={appId} testIds={[test.id]} />
+              )}
+            </div>
+          )}
+
           {/* A reason that is a line's is said by that line, below. Only one that isn't (blocked, a dangerous signature, a page error) gets said here. */}
           {result?.reason && run && !wrong && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
             <div role="status" className={cx("-mt-4 rounded-xl px-5 py-4 leading-relaxed", run.status === "failed" ? "bg-bad-soft text-bad-ink" : "bg-warn-soft text-warn-ink")}>
@@ -187,7 +233,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             appUrl={app.url}
             startPath={test.startPath}
             lines={lines}
-            cleanup={spec.cleanup.length > 0 ? { lines: viewLines("c", spec.cleanup, ranCleanup, url), open: Boolean(cleanupFailed), status: ranCleanup ? (cleanupFailed ? " · didn't finish" : " · done") : "" } : undefined}
+            reset={accountOf(app) === "kept" ? around("r", app.suite.reset?.steps ?? [], result?.reset, url) : undefined}
+            cleanup={around("c", spec.cleanup, result?.cleanup, url)}
             video={running ? null : url(result?.video)}
             poster={url(result?.steps.findLast((s) => s.screenshot)?.screenshot)}
             live={state.active && run?.id === latest?.id ? { frame: url(run?.liveFrame), queued: run?.status === "queued" } : undefined}

@@ -13,21 +13,20 @@ export interface DetectChainsOptions {
   headless?: boolean;
   /** How long to watch the page after it loads (default 10s). */
   settleMs?: number;
-  /** Chain the probe wallet starts on (default 1). */
-  startChainId?: number;
-  /** Max chains returned (default 4). */
-  maxChains?: number;
   log?: (message: string) => void;
 }
 
 const PROBE_ADDRESS = "0x000000000000000000000000000000000000d411";
 const PASSTHROUGH_CAP = 30;
+/** No more chains than this are returned. */
+const MAX_CHAINS = 4;
 
 export async function detectChains(url: string, opts: DetectChainsOptions = {}): Promise<ChainConfig[]> {
   const log = opts.log ?? (() => {});
   const endpoints = new Map<string, number>(); // url -> request count
   const switches: number[] = [];
-  let current = opts.startChainId ?? 1;
+  // The chain the probe wallet starts on.
+  let current = 1;
   let passthrough = 0;
 
   const browser = await chromium.launch({ headless: opts.headless ?? true });
@@ -48,7 +47,7 @@ export async function detectChains(url: string, opts: DetectChainsOptions = {}):
         const u = tidyUrl(request.url());
         endpoints.set(u, (endpoints.get(u) ?? 0) + 1);
       }
-      // .catch: an error left in a route handler ends the process (see browser/backend-balances.ts).
+      // .catch: an error left in a route handler ends the process.
       return route.fallback().catch(() => {});
     });
 
@@ -119,9 +118,9 @@ export async function detectChains(url: string, opts: DetectChainsOptions = {}):
     const info = chainInfo(id);
     const rpcUrl = reads.get(id)?.endpoint ?? info?.rpcUrl;
     if (!rpcUrl) continue; // the dApp asked for a chain we know nothing about and never read from
-    configs.push({ id, name: info?.name, rpcUrl, mode: info && !info.forkable ? "live" : "fork" });
+    configs.push({ id, name: info?.name, rpcUrl });
   }
-  return configs.slice(0, opts.maxChains ?? 4);
+  return configs.slice(0, MAX_CHAINS);
 }
 
 function looksLikeRpc(body: string | null): boolean {

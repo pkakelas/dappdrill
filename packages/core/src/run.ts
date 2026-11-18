@@ -24,18 +24,25 @@ export const DrillTarget = z.object({
   /** Chains earlier runs saw the app ask for; added to the detected ones when `chains` is empty. */
   learnedChains: z.array(ChainConfig).default([]),
   wallets: z.array(WalletProfileId).default(["metamask"]),
-  /** Hex private keys for test accounts A and B. Generated if missing. */
+  /** Hex private keys for test accounts A and B, used on a kept account. Generated if missing. */
   accounts: z.object({ A: z.string(), B: z.string() }).optional(),
-  /** A funded testnet key for chains that can't be forked (live mode). */
-  liveKey: z.string().optional(),
-  /** How to get test funds on a chain that can't be forked, in the owner's words. Without it or a live key, nothing is made on such a chain. */
+  /**
+   * new: every test starts on accounts of its own, so a test stands alone and meets nothing an earlier run left.
+   * kept: every run uses the same accounts (`fundedKey` as A when there is one), put back before each test by the
+   * suite's reset lines. For an app where a new user can't be had every time.
+   */
+  account: z.enum(["new", "kept"]).default("new"),
+  /** The owner's key that holds funds. On a kept account it is account A. With new accounts it only pays each one `fund`. */
+  fundedKey: z.string().optional(),
+  /**
+   * What each new account is sent from `fundedKey` before the setup: the chain's own coin when `token` is
+   * missing, else the ERC-20 at that address. Amounts in whole units ("0.05", "100").
+   */
+  fund: z.array(z.object({ chainId: z.number().int(), token: z.string().optional(), amount: z.string(), symbol: z.string().optional() })).default([]),
+  /** How to get test funds inside the app, in the owner's words (a faucet button, a claim page). */
   funding: z.string().optional(),
-  /** Live mode refuses mainnet chain IDs unless this is set. */
-  allowMainnetLive: z.boolean().default(false),
   /** Disposable inbox for email-code logins (embedded wallets). */
   inbox: z.object({ address: z.string(), password: z.string() }).optional(),
-  /** ERC-20 balances the test accounts get on forked chains; amount in whole tokens ("1000"). */
-  tokens: z.array(z.object({ chainId: z.number().int(), address: z.string(), amount: z.string(), symbol: z.string().optional() })).default([]),
   /** Scripts run in every page after the wallet is injected and before the dApp's own code. */
   initScripts: z.array(z.string()).default([]),
   /**
@@ -44,9 +51,9 @@ export const DrillTarget = z.object({
    * rule, Vercel's x-vercel-protection-bypass).
    */
   headers: z.record(z.string(), z.string()).default({}),
-  /** localStorage entries set on the app's own origin before its code runs: a fork mode or feature flag the app reads at startup. */
+  /** localStorage entries set on the app's own origin before its code runs: a test mode or feature flag the app reads at startup. */
   storage: z.record(z.string(), z.string()).default({}),
-  /** Requests answered with a fixed body instead of the network: a version check, a flags file, a backend that disagrees with the fork. */
+  /** Requests answered with a fixed body instead of the network: a version check, a flags file, a backend the tests shouldn't depend on. */
   responses: z.array(FixedResponse).default([]),
 });
 export type DrillTarget = z.infer<typeof DrillTarget>;

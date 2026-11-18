@@ -1,11 +1,9 @@
 import type { RunSummary } from "@dappdrill/db";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { plural, shortDate } from "@/lib/format";
+import { DAY, plural, shortDate } from "@/lib/format";
 
 /** How far back the chart looks. */
 export const HISTORY_DAYS = 14;
-
-const DAY = 24 * 60 * 60 * 1000;
 
 /** A slot per day, oldest first. */
 function byDay(runs: RunSummary[], now = Date.now()) {

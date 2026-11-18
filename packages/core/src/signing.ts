@@ -47,6 +47,7 @@ export const SigningCheck = z.object({
   id: z.enum([
     "ui-match",
     "verified-source",
+    // No longer written; stored reviews may still hold it.
     "baseline",
     "contract-age",
     "proxy",
@@ -60,7 +61,7 @@ export const SigningCheck = z.object({
   label: z.string(),
   status: CheckStatus,
   detail: z.string(),
-  /** Indexer- or explorer-backed data that we couldn't verify on the fork. */
+  /** What we couldn't confirm on the chain ourselves: indexer- or explorer-backed data, what a transaction would move. */
   unverified: z.boolean().optional(),
   evidence: z.record(z.string(), z.unknown()).optional(),
 });
@@ -122,13 +123,9 @@ export const ApprovalGrant = z.object({
 });
 export type ApprovalGrant = z.infer<typeof ApprovalGrant>;
 
-export const BaselineChange = z.object({ field: z.string(), before: z.string(), after: z.string() });
-export type BaselineChange = z.infer<typeof BaselineChange>;
-
 /**
- * The signing review answers five questions: what it does, where it goes,
- * what it grants, whether it matches the UI, and what changed since last run.
- * Verdicts never say "safe".
+ * The signing review answers four questions: what it does, where it goes,
+ * what it grants, and whether it matches the UI. Verdicts never say "safe".
  */
 export const SigningReview = z.object({
   id: z.string(),
@@ -148,7 +145,6 @@ export const SigningReview = z.object({
       buttonLabel: z.string().optional(),
       pageUrl: z.string().optional(),
       screenshot: z.string().optional(),
-      context: z.string().optional(),
     })
     .default({}),
   decoded: DecodedRequest,
@@ -157,7 +153,6 @@ export const SigningReview = z.object({
       status: z.enum(["ok", "reverted", "unavailable"]),
       balanceChanges: z.array(BalanceChange).default([]),
       revertReason: z.string().optional(),
-      gasUsed: z.string().optional(),
     })
     .optional(),
   approvals: z.array(ApprovalGrant).default([]),
@@ -166,10 +161,7 @@ export const SigningReview = z.object({
   explanation: z.string(),
   /** What the dApp team should change. */
   advice: z.string().optional(),
-  baseline: z
-    .object({ previousAt: z.string().optional(), changes: z.array(BaselineChange).default([]) })
-    .optional(),
-  /** Stable key for baseline matching: test + step + method + target. */
+  /** The same for the same request of the same step: test + step + method + target + function. */
   fingerprint: z.string(),
   createdAt: z.string(),
 });

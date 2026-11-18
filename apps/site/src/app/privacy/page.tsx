@@ -61,7 +61,7 @@ export default function Privacy() {
       <p>
         Only with service providers that help us run DappDrill, under agreements that limit them to doing that: hosting and
         database providers, an email provider, Google if you choose to sign in with it, and the language model provider
-        (currently Anthropic) that reads the pages under test to explore them, run test steps and judge results. Some of
+        (currently Anthropic) that reads the pages under test while tests are written or repaired. Running a test calls no model. Some of
         these providers may process data outside your country; when they do, we rely on the safeguards the law requires, such
         as standard contractual clauses.
       </p>
@@ -85,7 +85,7 @@ export default function Privacy() {
       <h2>Security</h2>
       <p>
         Data travels over encrypted connections, and keys and passwords you give us for test accounts are encrypted at rest.
-        Tests run against local forks of the chain with test wallets, never with real funds on mainnet.
+        Tests run on the chains you choose, with test wallets and only the keys you give us for them.
       </p>
 
       <h2>Children</h2>

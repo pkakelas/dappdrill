@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asRead, loosely } from "../../src/run/figures.js";
-import { withToken } from "../../src/make/funding.js";
+import { asRead, labelled, loosely } from "../../src/run/figures.js";
 import { SitePages } from "../../src/browser/site-pages.js";
 
 describe("asRead", () => {
@@ -19,11 +18,18 @@ describe("loosely", () => {
   });
 });
 
-describe("withToken", () => {
-  it("keeps one entry per chain and address", () => {
-    const usdc = { chainId: 42161, address: "0xAF88", amount: "1000" };
-    expect(withToken([usdc], { chainId: 42161, address: "0xaf88", amount: "50" })).toEqual([{ chainId: 42161, address: "0xaf88", amount: "50" }]);
-    expect(withToken([usdc], { chainId: 1, address: "0xaf88", amount: "50" })).toHaveLength(2);
+describe("labelled", () => {
+  it("reads the figure after a label, on its line or the lines under it", () => {
+    expect(labelled("Cash: $1,200.50\nHoldings\n3", "cash")?.value).toBe(1200.5);
+    expect(labelled("Deposited\n100.00 hUSDC", "Deposited")?.value).toBe(100);
+  });
+
+  it("takes the line that begins with the label over one that only mentions it", () => {
+    const page = "Deposit hUSDC, receive vault shares that grow, and collect a 5% deposit bonus.\nDeposited\n100.00 hUSDC\nVault shares\n98.20 hvUSDC";
+    expect(labelled(page, "Vault shares")?.value).toBe(98.2);
+    expect(labelled("Subtotal 10.00\nTotal 12.00", "Total")?.value).toBe(12);
+    // Only a mention: it is still read.
+    expect(labelled("Your cash: 40", "cash")?.value).toBe(40);
   });
 });
 

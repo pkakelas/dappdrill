@@ -3,7 +3,7 @@
  * mockups: say what the button said, what the wallet is asked, and why that matters.
  */
 import { shortAddress, type SigningCheck, type Verdict } from "@dappdrill/core";
-import { NEW_CONTRACT_DAYS, nativeValue, outgoing, type Facts, type Subject } from "./facts.js";
+import { NEW_CONTRACT_DAYS, nativeValue, type Facts, type Subject } from "./facts.js";
 import { daysAgo, displayNative } from "./format.js";
 import type { Decision } from "./verdict.js";
 
@@ -100,9 +100,7 @@ function asked(facts: Facts): string {
     const argText = call.args.length ? `(${call.args.slice(0, 4).map((x) => x.display ?? truncate(x.value)).join(", ")}${call.args.length > 4 ? ", …" : ""})` : "()";
     const inner = facts.calls.length > 1 ? ` plus ${facts.calls.length - 1} more call${facts.calls.length > 2 ? "s" : ""}` : call.inner.length ? ` which makes ${call.inner.length} inner call${call.inner.length > 1 ? "s" : ""}` : "";
     const sim = facts.simulation;
-    const leaves = outgoing(facts);
-    const effect =
-      sim?.status === "reverted" ? `; on the fork it reverts (${sim.revertReason})` : leaves.length ? `; on the fork ${leaves.map((c) => c.display).join(", ")} leaves the wallet` : "";
+    const effect = sim?.status === "reverted" ? `; it would revert on the chain as it is now (${sim.revertReason})` : "";
     return `call ${call.functionName}${argText} on ${target}${value > 0n ? ` with ${displayNative(value, facts.nativeSymbol)}` : ""}${inner}${effect}`;
   }
   return `handle ${facts.input.request.method}, which couldn't be decoded`;
@@ -141,14 +139,13 @@ function advice(facts: Facts, checks: SigningCheck[], verdict: Verdict): string 
   if (byId["known-bad"]?.status === "fail") tips.push("Stop: a blocklisted address or domain is involved. Find out how it got into the request before anything else.");
   if (spender?.info.code === "eoa") tips.push("Approvals should go to the contract that pulls the tokens, never to a wallet address.");
   else if (spender && (spender.info.verified === false || (spender.age && spender.age.days < NEW_CONTRACT_DAYS))) {
-    tips.push(byId.baseline?.status === "warn" ? "If you did move to a new router: verify its source, limit the approval to the deposit amount, then mark it as expected. Future runs will check against it." : "Verify the spender's source on Sourcify or the explorer so users (and this review) can read what it does.");
+    tips.push("Verify the spender's source on Sourcify or the explorer so users (and this review) can read what it does.");
   }
   if (a?.unlimited) tips.push("Limit the approval to the amount shown, or use a permit with a deadline.");
   if (byId["ui-match"]?.status === "fail" || byId["ui-match"]?.status === "warn") tips.push("Make the button say what the wallet will ask for: the action, the token and the amount.");
   if (byId["ui-match"]?.status === "unverified") tips.push("No button label was captured; give the control an accessible name so the request can be compared with it.");
-  if (byId.simulation?.status === "warn") tips.push(`The transaction reverts on a fork of the current chain state (${facts.simulation?.revertReason}); the page should not offer it in this state.`);
+  if (byId.simulation?.status === "warn") tips.push(`The transaction would revert on the chain as it is now (${facts.simulation?.revertReason}); the page should not offer it in this state.`);
   if (byId.expectation?.status === "fail") tips.push("Either the dApp changed or the test's expectation is stale: update the expectation if the change is intended.");
-  if (byId.baseline?.status === "warn" && !tips.some((t) => t.startsWith("If you did move"))) tips.push("If this change is intended, accept it as the new baseline.");
   if (facts.message?.siwe && byId["ui-match"]?.status === "fail") tips.push("The SIWE domain must be the page's own origin; wallets warn users when it isn't.");
   if (!tips.length && byId["known-bad"]?.status === "unverified") tips.push("The blocklists couldn't be loaded this time; re-run with network access to complete the check.");
   return tips.length ? tips.join(" ") : undefined;

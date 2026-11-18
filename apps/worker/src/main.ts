@@ -3,10 +3,11 @@ import { loadEngine } from "@dappdrill/engine/fake";
 import type { Job } from "pg-boss";
 import { config } from "./config.js";
 import { runMake } from "./jobs/make.js";
+import { runRepair } from "./jobs/repair.js";
 import { scheduleTick } from "./jobs/schedule.js";
 import { runTestBatch } from "./jobs/tests.js";
 import { errorMessage, logger } from "./log.js";
-import { createBoss, QUEUES, type MakeJob, type ScheduleTickJob, type TestsJob } from "./queues.js";
+import { createBoss, QUEUES, type MakeJob, type RepairJob, type ScheduleTickJob, type TestsJob } from "./queues.js";
 
 const log = logger("worker");
 const SHUTDOWN_GRACE_MS = 30_000;
@@ -27,6 +28,8 @@ async function main() {
 
   await boss.work<TestsJob>(QUEUES.tests, { localConcurrency: config.testsConcurrency }, each((d, s) => runTestBatch(db, engine, boss, d.batchId, s)));
   await boss.work<MakeJob>(QUEUES.make, { localConcurrency: config.makeConcurrency }, each((d, s) => runMake(db, engine, boss, d.makeId, s)));
+  // A repair holds the app like a make does: as many apps are repaired at once as have tests made.
+  await boss.work<RepairJob>(QUEUES.repair, { localConcurrency: config.makeConcurrency }, each((d, s) => runRepair(db, engine, boss, d.repairId, s)));
   await boss.work<ScheduleTickJob>(QUEUES.scheduleTick, each((d) => scheduleTick(db, boss, d?.at)));
   await boss.schedule(QUEUES.scheduleTick, "* * * * *");
 

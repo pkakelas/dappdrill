@@ -1,16 +1,17 @@
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { MakeState, newId, sentence, withNotes, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
-import { addTest, appTests, makes, suiteOf, testRuns, tryAppLock, type Db } from "@dappdrill/db";
+import { MakeState, newId, sentence, setupWithRecordings, withNotes, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
+import { addTest, appTests, makes, testRuns, updateApp, type Db } from "@dappdrill/db";
 import type { Attempt, Looked } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
 import type { PgBoss } from "pg-boss";
 import { artifactsDir, shareArtifacts } from "../artifacts.js";
 import { errorMessage, logger, type Logger } from "../log.js";
 import { notifyMake } from "../notify/make.js";
-import { LIVE_RETRY_SECONDS, QUEUES, type MakeJob } from "../queues.js";
-import { buildTarget, keepSetup, loadApp, ownerNotes, updateApp, type AppRow } from "../target.js";
-import { pollStops, throttle } from "./stop.js";
+import { QUEUES, type MakeJob } from "../queues.js";
+import { appSuite, buildTarget, loadApp, type AppRow } from "../target.js";
+import { makeStopAsked, stopSignal, throttle } from "./stop.js";
+import { appTurn } from "./turn.js";
 
 const SAVE_EVERY_MS = 1000;
 
@@ -22,20 +23,15 @@ const SAVE_EVERY_MS = 1000;
 export async function runMake(db: Db, engine: Engine, boss: PgBoss, makeId: string, signal: AbortSignal): Promise<void> {
   const log = logger(`make ${makeId}`);
   const [row] = await db.select().from(makes).where(eq(makes.id, makeId));
-  if (!row || row.status !== "queued") return log.warn("not queued; skipping");
+  if (!row || row.status !== "queued" || row.state.repair) return log.warn("not a queued make; skipping");
   const app = await loadApp(db, row.appId);
 
-  // Makes on an app go one at a time, and so do all jobs on a live account: the rest wait their turn.
-  const lock = await tryAppLock(db, app.id);
-  if (!lock) {
-    log.info(`another job is on this app; looking again in ${LIVE_RETRY_SECONDS}s`);
-    await boss.send(QUEUES.make, { makeId } satisfies MakeJob, { startAfter: LIVE_RETRY_SECONDS });
-    return;
-  }
+  // Makes and repairs on an app go one at a time, and so do all jobs on a kept account: the rest wait their turn.
+  const lock = await appTurn(db, boss, app.id, QUEUES.make, { makeId } satisfies MakeJob, log);
+  if (!lock) return;
   try {
     // Stopped while it waited its turn.
-    const [now] = await db.select({ stop: makes.stopRequested }).from(makes).where(eq(makes.id, makeId));
-    if (now?.stop) return void (await db.update(makes).set({ status: "stopped", finishedAt: new Date() }).where(eq(makes.id, makeId)));
+    if (await makeStopAsked(db, makeId)) return void (await db.update(makes).set({ status: "stopped", finishedAt: new Date() }).where(eq(makes.id, makeId)));
     await make(db, engine, app, row, signal, log);
   } finally {
     await lock.release();
@@ -53,12 +49,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
   const saving = throttle(SAVE_EVERY_MS, () => db.update(makes).set({ state, costUsd: spent() }).where(eq(makes.id, row.id)));
   const save = () => saving.push(undefined);
 
-  const stop = new AbortController();
-  const stopPolling = pollStops(
-    async () => ((await db.select({ stop: makes.stopRequested }).from(makes).where(eq(makes.id, row.id)))[0]?.stop ? [row.id] : []),
-    () => stop.abort(),
-    log,
-  );
+  const stop = stopSignal(() => makeStopAsked(db, row.id), log);
   const signal = AbortSignal.any([shutdown, stop.signal]);
 
   // A picture of a browser belongs to the look or to the make whose folder it is in.
@@ -120,7 +111,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
   let error: string | undefined;
   try {
     // In here, so a test that can't be read ends the make failed, with why, rather than leaving it running.
-    const suite = { ...suiteOf(app, await appTests(db, app.id)), ...ownerNotes(app) };
+    const suite = appSuite(app, await appTests(db, app.id));
     if (row.goal) {
       const one = await engine.makeTest({ target: await buildTarget(db, app, "tests"), suite, goal: row.goal, artifactsDir: path.join(dir, "make-1"), signal }, sink, (text) => say(text, 1));
       await keepSetup(db, app.id, one.setup);
@@ -154,15 +145,18 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
           for (const from of ["look", "maker", "unkept"] as const) await keepNotes(db, app.id, notesFrom(next, from), from);
         },
       });
-      // The spending limit: the goals not started yet get no test, and say why.
-      if (all.stopped) for (const goal of state.goals) if (goal.status === "waiting") Object.assign(goal, { status: "not-kept", whyNot: all.stopped } satisfies Partial<MakeGoal>);
+      // No more goals were started: the make says why, and so does each goal not started.
+      if (all.stopped) {
+        state.why = all.stopped;
+        for (const goal of state.goals) if (goal.status === "waiting") Object.assign(goal, { status: "not-kept", whyNot: all.stopped } satisfies Partial<MakeGoal>);
+      }
     }
   } catch (e) {
     end = stop.signal.aborted ? "stopped" : "failed";
     error = stop.signal.aborted ? undefined : shutdown.aborted ? "The worker shut down while the tests were being made." : errorMessage(e);
     if (end === "failed") log.error("failed", e);
   } finally {
-    stopPolling();
+    stop.end();
   }
   state.stage = "done";
   await saving.flush();
@@ -186,11 +180,20 @@ async function keepNotes(db: Db, appId: string, notes: string[], from: LearnedFr
   });
 }
 
-/** The chains the app turned out to use and the tokens the wallet was given: every run starts from these. */
+/**
+ * Saves the browser actions a model took for the setup while tests were made, so a run replays them.
+ * Nothing is saved when the setup has been changed to another number of lines meanwhile.
+ */
+async function keepSetup(db: Db, appId: string, lines: LineResult[] | undefined): Promise<void> {
+  if (!lines?.some((s) => s.recorded?.length)) return;
+  await updateApp(db, appId, ({ suite }) => (suite.setup && suite.setup.steps.length === lines.length ? { suite: { ...suite, setup: setupWithRecordings(suite.setup, lines) } } : undefined));
+}
+
+/** The setup as it was done, and the chains the app turned out to use: every run starts from these. */
 async function keepLooked(db: Db, appId: string, looked: Looked): Promise<void> {
   await keepSetup(db, appId, looked.setup);
   if (!looked.goals.length) return;
-  await updateApp(db, appId, ({ settings }) => ({ chains: looked.chains, settings: { ...settings, tokens: looked.tokens } }));
+  await updateApp(db, appId, () => ({ chains: looked.chains }));
 }
 
 /**

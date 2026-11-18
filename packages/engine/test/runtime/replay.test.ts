@@ -17,7 +17,7 @@ let artifactsDir: string;
 
 beforeAll(async () => {
   fx = await startFixture();
-  chains = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], {});
+  chains = startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }], {});
   artifactsDir = await mkdtemp(path.join(os.tmpdir(), "dappdrill-replay-"));
 }, 60_000);
 
@@ -35,12 +35,11 @@ async function open(bugs: string[] = []): Promise<EngineSession> {
 describe("replayScript", () => {
   it("replays connect → approve → deposit and checks every wallet expectation", async () => {
     const session = await open();
-    const snap = await chains.snapshot(CHAIN_ID);
     try {
-      const script = depositScript(fx.pageUrl(), fx.token, fx.vault);
+      const script = depositScript(fx.pageUrl(), fx.token, fx.vault, {}, "7");
       // A stand-in reviewer: this test is about the replay, not the review.
       const reviewer = { review: async () => ({ id: "sgr_stub", verdict: "consistent", checks: [], approvals: [] }) as unknown as SigningReview };
-      const r = await replayScript(session, script, { params: { amount: "7" }, reviewer, runId: "run_replay" });
+      const r = await replayScript(session, script, { reviewer, runId: "run_replay" });
       expect(r.error).toBeUndefined();
       // Signing issues find their edge case through the review's run.
       expect(r.signingReviews.map((s) => s.runId)).toEqual(["run_replay", "run_replay"]);
@@ -55,13 +54,11 @@ describe("replayScript", () => {
       expect(r.walletRequests.filter((w) => w.kind === "sign").every((w) => w.outcome === "approved")).toBe(true);
     } finally {
       await session.close();
-      await chains.revert(CHAIN_ID, snap);
     }
   }, 90_000);
 
   it("fails the wallet step when the dApp asks for an unlimited approval", async () => {
     const session = await open(["unlimited"]);
-    const snap = await chains.snapshot(CHAIN_ID);
     try {
       const r = await replayScript(session, depositScript(fx.pageUrl(["unlimited"]), fx.token, fx.vault));
       expect(r.completed).toBe(false);
@@ -72,13 +69,11 @@ describe("replayScript", () => {
       expect(r.steps[4]!.screenshot).toMatch(/step4-fail\.png$/);
     } finally {
       await session.close();
-      await chains.revert(CHAIN_ID, snap);
     }
   }, 90_000);
 
   it("honours hooks: reject at a wallet step and stop", async () => {
     const session = await open();
-    const snap = await chains.snapshot(CHAIN_ID);
     try {
       const r = await replayScript(session, depositScript(fx.pageUrl(), fx.token, fx.vault), {
         hooks: {
@@ -93,13 +88,11 @@ describe("replayScript", () => {
       await session.page.getByText("You rejected the transaction").waitFor({ timeout: 5_000 });
     } finally {
       await session.close();
-      await chains.revert(CHAIN_ID, snap);
     }
   }, 90_000);
 
   it("skips an optional one-time prompt that doesn't show, and the signature it would ask for", async () => {
     const session = await open();
-    const snap = await chains.snapshot(CHAIN_ID);
     try {
       const base = depositScript(fx.pageUrl(), fx.token, fx.vault);
       const terms = [
@@ -115,7 +108,6 @@ describe("replayScript", () => {
       expect(Date.now() - t0).toBeLessThan(40_000);
     } finally {
       await session.close();
-      await chains.revert(CHAIN_ID, snap);
     }
   }, 90_000);
 

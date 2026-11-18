@@ -1,8 +1,9 @@
 # Example: copy to .github/workflows/dappdrill.yml in your dApp's repo.
 #
-# Runs the tests in .dappdrill/tests.json against the PR's build on local forks, comments the
+# Runs the tests in .dappdrill/tests.json against the PR's build, comments the
 # results on the PR, and fails when a test fails. Make the tests file once with
-# `dappdrill make <url>` and commit it.
+# `dappdrill make <url>` and commit it. A run calls no model, so there is no API key here: a test
+# whose lines no longer fit the page says so, and `dappdrill repair` writes them again.
 name: DappDrill
 
 on:
@@ -32,8 +33,8 @@ jobs:
         with:
           url: http://localhost:4173
         env:
-          # A model does the lines written for one, and works a recorded line out again when its recording stops working.
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The account that holds test funds: each new test account is paid from it, or it is the kept account.
+          DAPPDRILL_KEY: ${{ secrets.DAPPDRILL_KEY }}
 
   # The same tests against a preview deployment instead of a local build: pass the deploy's URL
   # to `url:`. The tests and their saved steps are the app's own; only the address changes.
@@ -57,4 +58,4 @@ jobs:
         with:
           url: ${{ steps.deploy.outputs.preview-url }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DAPPDRILL_KEY: ${{ secrets.DAPPDRILL_KEY }}

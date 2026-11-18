@@ -1,22 +1,23 @@
 import type { TestRow, TestRunRow } from "@dappdrill/db";
-import { Bug } from "lucide-react";
+import { Bug, Wrench } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
 import { timeAgo } from "@/lib/format";
+import { unwritten } from "@/lib/lines";
 import { RunButton } from "./run-button";
 import { readLabel, REVEAL, STATE_TEXT, StateMark, type TestRead, shortReason } from "./status";
 
 /** One line of a list: its name and one status on the right. Pointing at the line swaps the status for its action. */
-export function Line({ mark, name, status, action, className }: { mark: ReactNode; name: ReactNode; status: ReactNode; action?: ReactNode; className?: string }) {
+function Line({ mark, name, status, action }: { mark: ReactNode; name: ReactNode; status: ReactNode; action: ReactNode }) {
   return (
-    <div className={cx("group/line relative flex items-center gap-3 rounded-lg px-2 transition-colors hover:bg-foreground/5", className)}>
+    <div className="group/line relative flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-foreground/5">
       {mark}
       <div className="flex min-w-0 flex-1 flex-col gap-x-4 sm:flex-row sm:items-center sm:justify-between">
         {name}
-        <span className={cx("shrink-0 text-xs text-muted-foreground", Boolean(action) && "sm:group-hover/line:invisible sm:group-has-[button:focus-visible]/line:invisible")}>{status}</span>
+        <span className="shrink-0 text-xs text-muted-foreground sm:group-hover/line:invisible sm:group-has-[button:focus-visible]/line:invisible">{status}</span>
       </div>
-      {Boolean(action) && <span className={cx("relative z-10 flex items-center [@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-2", REVEAL, "group-hover/line:opacity-100")}>{action}</span>}
+      <span className={cx("relative z-10 flex items-center [@media(hover:hover)]:absolute [@media(hover:hover)]:inset-y-0 [@media(hover:hover)]:right-2", REVEAL, "group-hover/line:opacity-100")}>{action}</span>
     </div>
   );
 }
@@ -55,8 +56,16 @@ function progress({ read, live }: TestLineProps): ReactNode {
   return <span className="text-live">{read.active === "running" ? "Starting" : "Queued"}</span>;
 }
 
-/** The line under the name: the bug a failing test found, or why its last run isn't Passed. */
+/** The line under the name: that it needs repairing, the bug a failing test found, or why its last run isn't Passed. */
 function Under({ test, read, run }: Pick<TestLineProps, "test" | "read" | "run">) {
+  // A run can't do it as it is: its last one stopped for want of code, or a line was added or reworded since.
+  if (run?.result?.repairable || unwritten(test))
+    return (
+      <p className="flex min-w-0 items-center gap-1.5 text-xs text-warn">
+        <Wrench className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="truncate">Needs repairing</span>
+      </p>
+    );
   const fault = test.faults[0];
   if (read.settled === "failed" && fault)
     return (
@@ -81,7 +90,6 @@ export function TestLine(props: TestLineProps) {
   return (
     <li className={cx("p-1.5", fresh && "animate-in duration-500 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none")}>
       <Line
-        className="min-h-11 py-2"
         mark={<StateMark state={read.mark} size="lg" />}
         name={
           <div className="flex min-w-0 flex-col gap-0.5">
@@ -100,7 +108,7 @@ export function TestLine(props: TestLineProps) {
             {!now && run?.finishedAt && ` · ${timeAgo(run.finishedAt)}`}
           </span>
         }
-        action={<RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} stopIds={[test.id]} label="Run test" />}
+        action={<RunButton target={{ appId, testIds: [test.id] }} active={Boolean(read.active)} label="Run test" />}
       />
     </li>
   );

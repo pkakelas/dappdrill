@@ -23,7 +23,7 @@ describe("makeAlert", () => {
     const none = makeAlert("Pod", "done", state([{ status: "waiting" }, { status: "waiting" }], { stuck }), link);
     expect(none.title).toBe("Pod: no tests could be made");
     expect(none.lines).toHaveLength(1);
-    expect(none.lines[0]).toContain("Add a funded key or say how to get test funds");
+    expect(none.lines[0]).toContain("Add a key that holds funds or say how to get test funds");
     const some = makeAlert("Pod", "done", state([{ status: "kept", stands: "passed" }, { status: "waiting" }], { stuck: { line: 2, sentence: "Sign in.", reason: "The code never arrived." } }), link);
     expect(some.title).toBe("Pod: 1 test ready");
     expect(some.lines).toEqual(["1 test passes and will run again on every change.", "The setup didn't finish: The code never arrived. Check the setup under Settings, then make the tests again."]);

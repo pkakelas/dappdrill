@@ -1,9 +1,9 @@
 /**
  * In-memory ChainController for unit tests: a handful of fake contracts with
  * code, storage, creation blocks and canned eth_call answers, behind a real
- * viem client. Runs in "live" mode, so the reviewer only eth_calls it.
+ * viem client.
  */
-import { createPublicClient, custom, encodeFunctionResult, decodeFunctionData, toHex, type Address, type Hex, type PublicClient } from "viem";
+import { createPublicClient, custom, encodeFunctionResult, decodeFunctionData, toHex, type Hex, type PublicClient } from "viem";
 import type { ChainConfig } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { BUILTIN_ABI } from "../../src/signing/builtin.js";
@@ -67,10 +67,9 @@ export class FakeChain implements ChainController {
   }
 
   configs(): ChainConfig[] {
-    return [{ id: this.chainId, rpcUrl: "fake://", mode: "live" }];
+    return [{ id: this.chainId, rpcUrl: "fake://" }];
   }
   has(chainId: number) { return chainId === this.chainId; }
-  mode(): "fork" | "live" { return "live"; }
   rpcUrl() { return "fake://"; }
   client() { return this.viem; }
 
@@ -104,15 +103,6 @@ export class FakeChain implements ChainController {
     }
   }
 
-  // Fork-only controls: not available in live mode.
-  setBalance(): Promise<void> { return Promise.reject(new Error("live mode")); }
-  dealErc20(): Promise<void> { return Promise.reject(new Error("live mode")); }
-  setAutomine(): Promise<void> { return Promise.reject(new Error("live mode")); }
-  mine(): Promise<void> { return Promise.reject(new Error("live mode")); }
-  snapshot(): Promise<string> { return Promise.reject(new Error("live mode")); }
-  revert(): Promise<void> { return Promise.reject(new Error("live mode")); }
-  impersonate(_chainId: number, _address: Address): Promise<void> { return Promise.reject(new Error("live mode")); }
-  setFaults(): void {}
   async addFromApp(): Promise<never> {
     throw new Error("this test chain can't add chains");
   }

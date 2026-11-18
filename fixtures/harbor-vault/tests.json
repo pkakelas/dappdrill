@@ -7,9 +7,25 @@
         "by": "code",
         "do": "Connect the MetaMask wallet.",
         "run": [
-          { "kind": "click", "target": { "role": "button", "name": "Connect wallet" } },
-          { "kind": "click", "target": { "role": "button", "name": "MetaMask", "withinDialog": true } },
-          { "kind": "wait", "until": "text", "text": "Your position" }
+          {
+            "note": "Connect the MetaMask wallet from the header Connect wallet button",
+            "optional": true,
+            "kind": "click",
+            "target": {
+              "text": "Connect wallet",
+              "nth": 0
+            }
+          },
+          {
+            "note": "Pick MetaMask in the Connect a wallet dialog",
+            "optional": true,
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "MetaMask",
+              "withinDialog": true
+            }
+          }
         ]
       },
       {
@@ -17,142 +33,403 @@
         "by": "code",
         "do": "Click “Get test hUSDC” and approve the request in the wallet, so the wallet holds 1,000 hUSDC.",
         "run": [
-          { "kind": "click", "target": { "role": "button", "name": "Get test hUSDC" } },
-          { "kind": "wallet", "respond": "approve" },
-          { "kind": "wait", "until": "text", "text": "Sent 1,000 test hUSDC to your wallet." }
+          {
+            "kind": "click",
+            "target": {
+              "role": "button",
+              "name": "Get test hUSDC"
+            }
+          },
+          {
+            "kind": "wallet",
+            "respond": "approve"
+          },
+          {
+            "kind": "wait",
+            "until": "text",
+            "text": "Sent 1,000 test hUSDC to your wallet."
+          }
         ]
       }
     ]
   },
+  "notes": [],
+  "signing": "allowed",
   "tests": [
     {
       "id": "deposit",
       "name": "Deposit 100 hUSDC",
       "goal": "A user with hUSDC in the wallet deposits 100 of it into the vault.",
       "startPath": "/vault",
+      "values": {},
       "steps": [
         {
           "type": "action",
           "by": "code",
           "do": "Type 100 into “Amount to deposit”.",
-          "run": [{ "kind": "fill", "target": { "label": "Amount to deposit" }, "value": "100" }]
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "label": "Amount to deposit"
+              },
+              "value": "100"
+            }
+          ]
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The button asks to approve 100 hUSDC.",
-          "expect": { "kind": "button", "name": "Approve 100 hUSDC", "is": "enabled" }
+          "expect": {
+            "kind": "button",
+            "name": "Approve 100 hUSDC",
+            "is": "enabled"
+          }
         },
         {
           "type": "action",
           "by": "code",
           "do": "Click “Approve 100 hUSDC” and approve the request in the wallet.",
           "run": [
-            { "kind": "click", "target": { "role": "button", "name": "Approve 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" }
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Approve 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            }
           ]
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The wallet was not asked for an unlimited approval.",
-          "expect": { "kind": "not-signed", "holds": "MAX_UINT256" }
+          "expect": {
+            "kind": "not-signed",
+            "holds": "MAX_UINT256"
+          }
         },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "The wallet was asked to let the vault spend exactly 100 hUSDC, the amount on the button."
+          "by": "code",
+          "claim": "The wallet was asked to let the vault spend exactly 100 hUSDC, the amount on the button.",
+          "expect": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "signed",
+                "holds": "approve("
+              },
+              {
+                "kind": "signed",
+                "holds": "100000000"
+              }
+            ]
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The page says the approval went through.",
-          "expect": { "kind": "shows", "text": "Approved 100 hUSDC. Now confirm the deposit." }
+          "expect": {
+            "kind": "shows",
+            "text": "Approved 100 hUSDC. Now confirm the deposit."
+          }
         },
         {
           "type": "action",
           "by": "code",
           "do": "Click “Deposit 100 hUSDC” and approve the request in the wallet.",
           "run": [
-            { "kind": "click", "target": { "role": "button", "name": "Deposit 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" }
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            }
           ]
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The wallet was asked to deposit into the vault.",
-          "expect": { "kind": "signed", "holds": "deposit(" }
+          "expect": {
+            "kind": "signed",
+            "holds": "deposit("
+          }
         },
-        { "type": "check", "by": "code", "claim": "The deposit was mined.", "expect": { "kind": "mined", "holds": "deposit(" } },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The deposit was mined.",
+          "expect": {
+            "kind": "mined",
+            "holds": "deposit("
+          }
+        },
         {
           "type": "check",
           "by": "code",
           "claim": "The page says 100 hUSDC was deposited.",
-          "expect": { "kind": "shows", "text": "Deposited 100 hUSDC." }
+          "expect": {
+            "kind": "shows",
+            "text": "Deposited 100 hUSDC."
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The wallet balance fell by 100.",
-          "expect": { "kind": "changes", "figure": "Wallet balance", "by": -100, "on": "/" }
+          "expect": {
+            "kind": "changes",
+            "figure": "Wallet balance",
+            "by": -100,
+            "on": "/"
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The deposited amount rose by 100.",
-          "expect": { "kind": "changes", "figure": "Deposited", "by": 100, "on": "/" }
+          "expect": {
+            "kind": "changes",
+            "figure": "Deposited",
+            "by": 100,
+            "on": "/"
+          }
         },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "The overview shows a position of 100 hUSDC deposited with vault shares to match, and no error anywhere on the page."
+          "by": "code",
+          "claim": "The overview shows a position of 100 hUSDC deposited with vault shares to match, and no error anywhere on the page.",
+          "expect": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "figures",
+                "left": {
+                  "label": "Deposited"
+                },
+                "is": "equal",
+                "right": 100
+              },
+              {
+                "kind": "figures",
+                "left": {
+                  "multiply": [
+                    {
+                      "label": "Vault shares"
+                    },
+                    {
+                      "label": "Share price"
+                    }
+                  ]
+                },
+                "is": "equal",
+                "right": {
+                  "label": "Deposited"
+                },
+                "within": "0.5%"
+              },
+              {
+                "kind": "no-error"
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "cleanup": []
     },
     {
       "id": "deposit-by-model",
       "name": "Deposit 100 hUSDC, done by a model",
       "goal": "A user with hUSDC in the wallet deposits 100 of it into the vault.",
       "startPath": "/vault",
+      "values": {},
       "steps": [
-        { "type": "action", "by": "llm", "do": "Type 100 into the “Amount to deposit” field." },
-        { "type": "action", "by": "llm", "do": "Click “Approve 100 hUSDC” and approve the request in the wallet." },
         {
-          "type": "check",
-          "by": "llm",
-          "claim": "The wallet was asked to let the vault spend exactly 100 hUSDC, the amount on the button."
+          "type": "action",
+          "by": "code",
+          "do": "Type 100 into the “Amount to deposit” field.",
+          "run": [
+            {
+              "kind": "fill",
+              "target": {
+                "role": "textbox",
+                "name": "Amount to deposit"
+              },
+              "value": "100"
+            }
+          ]
         },
-        { "type": "action", "by": "llm", "do": "Click “Deposit 100 hUSDC” and approve the request in the wallet." },
-        { "type": "check", "by": "code", "claim": "The deposit was mined.", "expect": { "kind": "mined", "holds": "deposit(" } },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Approve 100 hUSDC” and approve the request in the wallet.",
+          "run": [
+            {
+              "note": "Click \"Approve 100 hUSDC\" to let the vault spend 100 hUSDC",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Approve 100 hUSDC"
+              }
+            },
+            {
+              "note": "Approve eth_sendTransaction to 0x5fbd…0aa3",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+                "functionName": "approve",
+                "spenderMustBe": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512"
+              }
+            }
+          ]
+        },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "The page says 100 hUSDC was deposited and shows 100 hUSDC as the user's deposit."
+          "by": "code",
+          "claim": "The wallet was asked to let the vault spend exactly 100 hUSDC, the amount on the button.",
+          "expect": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "signed",
+                "holds": "approve("
+              },
+              {
+                "kind": "any",
+                "of": [
+                  {
+                    "kind": "signed",
+                    "holds": "100000000"
+                  },
+                  {
+                    "kind": "signed",
+                    "holds": "100000000000000000000"
+                  }
+                ]
+              },
+              {
+                "kind": "not-signed",
+                "holds": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              }
+            ]
+          }
+        },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Click “Deposit 100 hUSDC” and approve the request in the wallet.",
+          "run": [
+            {
+              "note": "Line 4: click Deposit 100 hUSDC",
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit 100 hUSDC"
+              }
+            },
+            {
+              "note": "Approve eth_sendTransaction to 0xe7f1…0512",
+              "kind": "wallet",
+              "respond": "approve",
+              "expect": {
+                "kind": "transaction",
+                "to": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+                "functionName": "deposit"
+              }
+            }
+          ]
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The deposit was mined.",
+          "expect": {
+            "kind": "mined",
+            "holds": "deposit("
+          }
+        },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The page says 100 hUSDC was deposited and shows 100 hUSDC as the user's deposit.",
+          "expect": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "shows",
+                "text": "Deposited 100 hUSDC."
+              },
+              {
+                "kind": "shows",
+                "text": "You have 100.00 hUSDC deposited"
+              }
+            ]
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The wallet balance fell by 100.",
-          "expect": { "kind": "changes", "figure": "Wallet balance", "by": -100, "on": "/" }
+          "expect": {
+            "kind": "changes",
+            "figure": "Wallet balance",
+            "by": -100,
+            "on": "/"
+          }
         }
-      ]
+      ],
+      "cleanup": []
     },
     {
       "id": "deposit-rejected",
       "name": "Reject the deposit in the wallet",
       "goal": "A user who rejects the deposit in the wallet is told so, keeps their hUSDC and can try again.",
       "startPath": "/vault",
+      "values": {},
       "steps": [
         {
           "type": "action",
           "by": "code",
           "do": "Type 100 into “Amount to deposit”, click “Approve 100 hUSDC” and approve the request in the wallet.",
           "run": [
-            { "kind": "fill", "target": { "label": "Amount to deposit" }, "value": "100" },
-            { "kind": "click", "target": { "role": "button", "name": "Approve 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" },
-            { "kind": "wait", "until": "text", "text": "Approved 100 hUSDC. Now confirm the deposit." }
+            {
+              "kind": "fill",
+              "target": {
+                "label": "Amount to deposit"
+              },
+              "value": "100"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Approve 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "Approved 100 hUSDC. Now confirm the deposit."
+            }
           ]
         },
         {
@@ -160,52 +437,111 @@
           "by": "code",
           "do": "Click “Deposit 100 hUSDC” and reject the request in the wallet.",
           "run": [
-            { "kind": "click", "target": { "role": "button", "name": "Deposit 100 hUSDC" } },
-            { "kind": "wallet", "respond": "reject" }
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "reject"
+            }
           ]
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The page says the request was rejected.",
-          "expect": { "kind": "shows", "text": "You rejected the request in your wallet." }
+          "expect": {
+            "kind": "shows",
+            "text": "You rejected the request in your wallet."
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The deposit button can be clicked again.",
-          "expect": { "kind": "button", "name": "Deposit 100 hUSDC", "is": "enabled" }
+          "expect": {
+            "kind": "button",
+            "name": "Deposit 100 hUSDC",
+            "is": "enabled"
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The wallet balance didn't move.",
-          "expect": { "kind": "changes", "figure": "Wallet balance", "by": 0, "on": "/" }
+          "expect": {
+            "kind": "changes",
+            "figure": "Wallet balance",
+            "by": 0,
+            "on": "/"
+          }
         },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "Nothing was deposited: the overview shows no hUSDC deposited."
+          "by": "code",
+          "claim": "Nothing was deposited: the overview shows no hUSDC deposited.",
+          "expect": {
+            "kind": "figures",
+            "left": {
+              "label": "Deposited"
+            },
+            "is": "equal",
+            "right": 0
+          }
         }
-      ]
+      ],
+      "cleanup": []
     },
     {
       "id": "withdraw",
       "name": "Withdraw 40 of 100 hUSDC",
       "goal": "A user with 100 hUSDC in the vault takes 40 of it back.",
       "startPath": "/vault",
+      "values": {},
       "steps": [
         {
           "type": "action",
           "by": "code",
           "do": "Deposit 100 hUSDC: type 100 into “Amount to deposit”, approve it, then deposit it, approving both requests in the wallet.",
           "run": [
-            { "kind": "fill", "target": { "label": "Amount to deposit" }, "value": "100" },
-            { "kind": "click", "target": { "role": "button", "name": "Approve 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" },
-            { "kind": "click", "target": { "role": "button", "name": "Deposit 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" },
-            { "kind": "wait", "until": "text", "text": "Deposited 100 hUSDC." }
+            {
+              "kind": "fill",
+              "target": {
+                "label": "Amount to deposit"
+              },
+              "value": "100"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Approve 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "Deposited 100 hUSDC."
+            }
           ]
         },
         {
@@ -213,49 +549,115 @@
           "by": "code",
           "do": "Type 40 into “Amount to withdraw”, click “Withdraw” and approve the request in the wallet.",
           "run": [
-            { "kind": "fill", "target": { "label": "Amount to withdraw" }, "value": "40" },
-            { "kind": "click", "target": { "role": "button", "name": "Withdraw" } },
-            { "kind": "wallet", "respond": "approve" }
+            {
+              "kind": "fill",
+              "target": {
+                "label": "Amount to withdraw"
+              },
+              "value": "40"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Withdraw"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            }
           ]
         },
-        { "type": "check", "by": "code", "claim": "The withdrawal was mined.", "expect": { "kind": "mined", "holds": "withdraw(" } },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The withdrawal was mined.",
+          "expect": {
+            "kind": "mined",
+            "holds": "withdraw("
+          }
+        },
         {
           "type": "check",
           "by": "code",
           "claim": "The page says 40 hUSDC was withdrawn.",
-          "expect": { "kind": "shows", "text": "Withdrew 40 hUSDC." }
+          "expect": {
+            "kind": "shows",
+            "text": "Withdrew 40 hUSDC."
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "60 hUSDC is left in the vault.",
-          "expect": { "kind": "changes", "figure": "Deposited", "by": 60, "on": "/" }
+          "expect": {
+            "kind": "changes",
+            "figure": "Deposited",
+            "by": 60,
+            "on": "/"
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The wallet is 60 hUSDC down from where it began.",
-          "expect": { "kind": "changes", "figure": "Wallet balance", "by": -60, "on": "/" }
+          "expect": {
+            "kind": "changes",
+            "figure": "Wallet balance",
+            "by": -60,
+            "on": "/"
+          }
         }
-      ]
+      ],
+      "cleanup": []
     },
     {
       "id": "claim",
       "name": "Claim rewards",
       "goal": "A user with a deposit claims the rewards it earned.",
       "startPath": "/vault",
+      "values": {},
       "steps": [
         {
           "type": "action",
           "by": "code",
           "do": "Deposit 100 hUSDC: type 100 into “Amount to deposit”, approve it, then deposit it, approving both requests in the wallet.",
           "run": [
-            { "kind": "fill", "target": { "label": "Amount to deposit" }, "value": "100" },
-            { "kind": "click", "target": { "role": "button", "name": "Approve 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" },
-            { "kind": "click", "target": { "role": "button", "name": "Deposit 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" },
-            { "kind": "wait", "until": "text", "text": "Deposited 100 hUSDC." }
+            {
+              "kind": "fill",
+              "target": {
+                "label": "Amount to deposit"
+              },
+              "value": "100"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Approve 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Deposit 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "Deposited 100 hUSDC."
+            }
           ]
         },
         {
@@ -263,117 +665,275 @@
           "by": "code",
           "do": "Open Rewards, click “Claim rewards” and approve the request in the wallet.",
           "run": [
-            { "kind": "click", "target": { "role": "link", "name": "Rewards" } },
-            { "kind": "click", "target": { "role": "button", "name": "Claim rewards" } },
-            { "kind": "wallet", "respond": "approve" }
+            {
+              "kind": "click",
+              "target": {
+                "role": "link",
+                "name": "Rewards"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Claim rewards"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            }
           ]
         },
         {
           "type": "check",
           "by": "code",
           "claim": "Claiming asked the wallet for nothing that involves the Helper contract.",
-          "expect": { "kind": "not-signed", "holds": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9" }
+          "expect": {
+            "kind": "not-signed",
+            "holds": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+          }
         },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "Claiming asked the wallet for one thing only, the claim itself: no approval and no permit."
+          "by": "code",
+          "claim": "Claiming asked the wallet for one thing only, the claim itself: no approval and no permit.",
+          "expect": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "signed",
+                "holds": "claim(",
+                "latest": true
+              },
+              {
+                "kind": "not-signed",
+                "holds": "approve(",
+                "latest": true
+              },
+              {
+                "kind": "not-signed",
+                "holds": "Permit",
+                "latest": true
+              }
+            ]
+          }
         },
-        { "type": "check", "by": "code", "claim": "The claim was mined.", "expect": { "kind": "mined", "holds": "claim(" } },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The claim was mined.",
+          "expect": {
+            "kind": "mined",
+            "holds": "claim("
+          }
+        },
         {
           "type": "check",
           "by": "code",
           "claim": "The page says the rewards were claimed.",
-          "expect": { "kind": "shows", "text": "Claimed 5.00 hUSDC." }
+          "expect": {
+            "kind": "shows",
+            "text": "Claimed 5.00 hUSDC."
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The wallet ends 95 hUSDC down: 100 deposited, 5 claimed.",
-          "expect": { "kind": "changes", "figure": "Wallet balance", "by": -95, "on": "/" }
+          "expect": {
+            "kind": "changes",
+            "figure": "Wallet balance",
+            "by": -95,
+            "on": "/"
+          }
         }
-      ]
+      ],
+      "cleanup": []
     },
     {
       "id": "sign-in",
       "name": "Sign in",
       "goal": "A connected user signs in by signing a message.",
       "startPath": "/",
+      "values": {},
       "steps": [
         {
           "type": "action",
           "by": "code",
           "do": "Click “Sign in”, then “Sign message”, and approve the request in the wallet.",
           "run": [
-            { "kind": "click", "target": { "role": "button", "name": "Sign in" } },
-            { "kind": "click", "target": { "role": "button", "name": "Sign message" } },
-            { "kind": "wallet", "respond": "approve" }
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Sign in"
+              }
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Sign message"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            }
           ]
         },
         {
           "type": "check",
           "by": "code",
           "claim": "Signing in didn't ask for a token permit.",
-          "expect": { "kind": "not-signed", "holds": "Permit" }
+          "expect": {
+            "kind": "not-signed",
+            "holds": "Permit"
+          }
         },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "The wallet was asked to sign a plain sign-in message that gives nobody the right to move tokens."
+          "by": "code",
+          "claim": "The wallet was asked to sign a plain sign-in message that gives nobody the right to move tokens.",
+          "expect": {
+            "kind": "all",
+            "of": [
+              {
+                "kind": "not-signed",
+                "holds": "Permit"
+              },
+              {
+                "kind": "not-signed",
+                "holds": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              }
+            ]
+          }
         },
         {
           "type": "check",
           "by": "code",
           "claim": "The page shows the user as signed in.",
-          "expect": { "kind": "shows", "text": "Signed in" }
+          "expect": {
+            "kind": "shows",
+            "text": "Signed in"
+          }
         }
-      ]
+      ],
+      "cleanup": []
     },
     {
       "id": "revoke",
       "name": "Revoke the vault's approval",
       "goal": "A user who approved the vault takes the approval back in Settings.",
       "startPath": "/vault",
+      "values": {},
       "steps": [
         {
           "type": "action",
           "by": "code",
           "do": "Type 100 into “Amount to deposit”, click “Approve 100 hUSDC” and approve the request in the wallet.",
           "run": [
-            { "kind": "fill", "target": { "label": "Amount to deposit" }, "value": "100" },
-            { "kind": "click", "target": { "role": "button", "name": "Approve 100 hUSDC" } },
-            { "kind": "wallet", "respond": "approve" },
-            { "kind": "wait", "until": "text", "text": "Approved 100 hUSDC. Now confirm the deposit." }
+            {
+              "kind": "fill",
+              "target": {
+                "label": "Amount to deposit"
+              },
+              "value": "100"
+            },
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Approve 100 hUSDC"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            },
+            {
+              "kind": "wait",
+              "until": "text",
+              "text": "Approved 100 hUSDC. Now confirm the deposit."
+            }
           ]
         },
-        { "type": "action", "by": "llm", "do": "Open the Settings page." },
+        {
+          "type": "action",
+          "by": "code",
+          "do": "Open the Settings page.",
+          "run": [
+            {
+              "note": "Open the Settings page",
+              "kind": "click",
+              "target": {
+                "role": "link",
+                "name": "Settings"
+              }
+            }
+          ]
+        },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "Settings shows that the vault can spend 100 hUSDC."
+          "by": "code",
+          "claim": "Settings shows that the vault can spend 100 hUSDC.",
+          "expect": {
+            "kind": "shows",
+            "text": "100",
+            "row": "hUSDC the vault can spend"
+          }
         },
         {
           "type": "action",
           "by": "code",
           "do": "Click “Revoke approval” and approve the request in the wallet.",
           "run": [
-            { "kind": "click", "target": { "role": "button", "name": "Revoke approval" } },
-            { "kind": "wallet", "respond": "approve" }
+            {
+              "kind": "click",
+              "target": {
+                "role": "button",
+                "name": "Revoke approval"
+              }
+            },
+            {
+              "kind": "wallet",
+              "respond": "approve"
+            }
           ]
         },
-        { "type": "check", "by": "code", "claim": "The revoke was mined.", "expect": { "kind": "mined" } },
+        {
+          "type": "check",
+          "by": "code",
+          "claim": "The revoke was mined.",
+          "expect": {
+            "kind": "mined"
+          }
+        },
         {
           "type": "check",
           "by": "code",
           "claim": "The page says the approval was revoked.",
-          "expect": { "kind": "shows", "text": "Approval revoked." }
+          "expect": {
+            "kind": "shows",
+            "text": "Approval revoked."
+          }
         },
         {
           "type": "check",
-          "by": "llm",
-          "claim": "Settings now shows that the vault can spend 0 hUSDC."
+          "by": "code",
+          "claim": "Settings now shows that the vault can spend 0 hUSDC.",
+          "expect": {
+            "kind": "figures",
+            "left": {
+              "label": "hUSDC the vault can spend"
+            },
+            "is": "equal",
+            "right": 0
+          }
         }
-      ]
+      ],
+      "cleanup": []
     }
   ]
 }

@@ -57,7 +57,7 @@ describe.skipIf(!ready)("harbor-vault seeded signing bugs", () => {
     await chain?.close();
   });
 
-  const input = (request: SigningInput["request"], ui: SigningInput["ui"]): SigningInput => ({ request, chains: chain, ui: { pageUrl: PAGE, ...ui }, baselines: {} });
+  const input = (request: SigningInput["request"], ui: SigningInput["ui"]): SigningInput => ({ request, chains: chain, ui: { pageUrl: PAGE, ...ui } });
   const check = (r: SigningReview, id: SigningReview["checks"][number]["id"]) => r.checks.find((c) => c.id === id)!;
   const log = (name: string, r: SigningReview) =>
     console.log(`\n[${name}] ${r.verdict}: ${r.title}\n  ${r.summary}\n  ${r.explanation}\n  ` + r.checks.map((c) => `${c.id}=${c.status}`).join(" ") + `\n  simulation: ${check(r, "simulation").detail}`);
@@ -74,14 +74,13 @@ describe.skipIf(!ready)("harbor-vault seeded signing bugs", () => {
   }, 60_000);
 
   it("a wallet drained of gas (the low-gas edge case) still simulates what the call does", async () => {
-    await chain.setBalance(CHAIN_ID, USER, 0n);
+    await chain.setBalance(USER, 0n);
     try {
       const r = await reviewer.review(input(tx(contracts.hUSDC, F.approveData(contracts.HarborVault, F.usdc(100))), { buttonLabel: "Approve 100 hUSDC" }));
       expect(check(r, "simulation").status).toBe("pass");
-      expect(r.simulation?.balanceChanges.filter((b) => b.token === "native")).toEqual([]);
       expect(await chain.client().getBalance({ address: USER })).toBe(0n);
     } finally {
-      await chain.setBalance(CHAIN_ID, USER, 10n ** 20n);
+      await chain.setBalance(USER, 10n ** 20n);
     }
   });
 
@@ -130,7 +129,7 @@ describe.skipIf(!ready)("harbor-vault seeded signing bugs", () => {
     expect(r.title).toBe("Sign in to 127.0.0.1:5173");
   }, 60_000);
 
-  it("a deposit without allowance reverts on the fork and the review says so", async () => {
+  it("a deposit without allowance would revert and the review says so", async () => {
     const data = encodeFunctionData({ abi: vaultAbi, functionName: "deposit", args: [F.usdc(100), USER] });
     const r = await reviewer.review(input(tx(contracts.HarborVault, data), { buttonLabel: "Deposit 100 hUSDC" }));
     log("deposit-reverts", r);

@@ -1,6 +1,6 @@
 /**
  * Signing review: what a wallet request does, where it goes, what it grants,
- * whether it matches the UI, and what changed since the last accepted run.
+ * and whether it matches the UI.
  */
 import type { SigningReviewer } from "../types.js";
 import { Reviewer, type ReviewerOptions } from "./reviewer.js";

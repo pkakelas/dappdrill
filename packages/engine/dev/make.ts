@@ -1,11 +1,11 @@
 /**
  * Makes one test from a goal and adds it to a suite file once it is proven.
  *
- *   pnpm make <url> <suite.json> "<goal>" [--start /path] [--chain id[=rpc]]… [--target file] [--headed] [--dry] [--seen "<what looked wrong>"]
+ *   pnpm make <url> <suite.json> "<goal>" [--start /path] [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed] [--dry] [--seen "<what looked wrong>"]
  *
  * The suite file gives the setup and what is known about the app (its notes); it is made when it
  * isn't there. A proven test and what was learned on the way are written back into it, unless
- * --dry. --target is a target.json kept for the app (see dev/target.ts).
+ * --dry. The account flags and --target are told in dev/target.ts.
  * With --seen the goal is to find out about something that looked wrong: its test is only added
  * when it fails every time.
  *
@@ -14,17 +14,17 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { OUTCOME_LABEL, sentence, type Test, type TestResult } from "@dappdrill/core";
+import { OUTCOME_LABEL, type Test, type TestResult } from "@dappdrill/core";
 import { makeTest } from "../src/api.js";
-import { addToSuite, fromCwd, loadTarget, outDir, readSuite, secs, usd } from "./target.js";
+import { addToSuite, fromCwd, loadTarget, outDir, printWritten, readSuite, secs, TARGET_FLAGS, TARGET_USAGE, usd } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
-  options: { start: { type: "string" }, chain: { type: "string", multiple: true }, target: { type: "string" }, headed: { type: "boolean" }, dry: { type: "boolean" }, seen: { type: "string" } },
+  options: { ...TARGET_FLAGS, start: { type: "string" }, headed: { type: "boolean" }, dry: { type: "boolean" }, seen: { type: "string" } },
 });
 const [url, suiteFile, goal] = positionals;
 if (!url || !suiteFile || !goal) {
-  console.error('usage: pnpm make <url> <suite.json> "<goal>" [--start /path] [--chain id[=rpc]]… [--target file] [--headed] [--dry] [--seen "<what looked wrong>"]');
+  console.error(`usage: pnpm make <url> <suite.json> "<goal>" [--start /path] ${TARGET_USAGE} [--headed] [--dry] [--seen "<what looked wrong>"]`);
   process.exit(2);
 }
 
@@ -44,13 +44,10 @@ function printTest(test: Test, last?: TestResult): void {
   for (const [name, v] of Object.entries(test.values)) console.log(`  {{${name}}}: ${v.from} to ${v.to}`);
   for (const [i, line] of test.steps.entries()) {
     const r = last?.steps[i];
-    const how = r ? `${r.status.padEnd(7)} ${secs(r.durationMs)} ${usd(r.costUsd)}` : "";
-    console.log(`  ${String(i + 1).padStart(2)}  ${line.type.padEnd(6)} ${line.by.padEnd(4)} ${how}  ${sentence(line)}`);
-    if (line.type === "check" && line.by === "code") console.log(`        ${JSON.stringify(line.expect)}`);
-    if (line.type === "action" && line.by === "code") console.log(`        ${line.run.length ? `${line.run.length} recorded` : "not recorded"}`);
+    printWritten(i + 1, line, r && `${r.status.padEnd(7)} ${secs(r.durationMs)} ${usd(r.costUsd)}`);
     if (r?.note && r.status !== "pass") console.log(`        ${r.note}`);
   }
-  for (const c of test.cleanup) console.log(`   c  action llm   ${c.do}`);
+  test.cleanup.forEach((line, i) => printWritten(`c${i + 1}`, line));
 }
 
 if (made.test) printTest(made.test, made.runs.at(-1));

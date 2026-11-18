@@ -1,22 +1,25 @@
 /**
  * Proving a drafted test: it is run until two runs in a row of the very same test go the same way
- * with nothing redone. A line that doesn't pass on the way is put right when the test was wrong,
- * and stands when the app was: a test that fails the same way every time because the app doesn't
- * do what the goal asks is a bug found, and is kept. Before it is, someone who didn't write it gets
- * to say whether the app really is at fault (doubt.ts).
+ * with no model. A run gets a model only while a line isn't code yet, or after a recording stopped
+ * working: the model does the line, what it did is recorded, and a check left as a sentence is
+ * written as code from what the page showed. Such a run proves nothing. A line that doesn't pass on
+ * the way is put right when the test was wrong, and stands when the app was: a test that fails the
+ * same way every time because the app doesn't do what the goal asks is a bug found, and is kept.
+ * Before it is, someone who didn't write it gets to say whether the app really is at fault (doubt.ts).
  */
-import { OUTCOME_LABEL, sentence, withRecordings, type Test, type TestResult } from "@dappdrill/core";
+import { isCode, OUTCOME_LABEL, sentence, withRecordings, type CodeAssert, type Test, type TestResult } from "@dappdrill/core";
 import type { Doubt, DoubtInput } from "./doubt.js";
 import type { Finding } from "./draft.js";
 import { applyRepair, type Repair, type RepairInput } from "./repair.js";
 
-export const MAX_RUNS = 7;
+/** Runs of one test before it is given up. */
+const MAX_RUNS = 7;
 /** Changes to the test. Running again to find out, or leaving a line to fail, isn't one: the runs limit those. */
-export const MAX_REPAIRS = 4;
-/** Runs in a row that must go the same way. */
+const MAX_REPAIRS = 4;
+/** Runs in a row, with no model, that must go the same way. */
 export const PROVEN_AFTER = 2;
-/** How often an action may be recorded before its recording is given up and a model does it every time. */
-export const MAX_RECORDINGS = 3;
+/** How often a model may do an action before the test is given up: no recording of it works on the next run. */
+const MAX_RECORDINGS = 3;
 
 export interface ProveInput {
   test: Test;
@@ -24,11 +27,18 @@ export interface ProveInput {
   problems: Finding[];
   /** What is known about the app. What a repair learns is added, so the next run has it. */
   notes: string[];
-  /** One run of the test from a clean start. */
-  run(test: Test): Promise<TestResult>;
-  /** The account carries over from run to run (a live chain), so what a run leaves behind, the next one starts from. */
+  /** One run of the test from a clean start. With `byModel` a model does what has no code, and what it did comes back recorded. */
+  run(test: Test, more: { byModel: boolean }): Promise<TestResult>;
+  /** A check that is only a sentence, written as code from the run in which a model answered it (repair.ts). */
+  asCode(asked: { test: Test; run: TestResult; line: number }): Promise<{ expect: CodeAssert } | { cannot: string }>;
+  /** The account is kept from run to run, so what a run leaves behind, the next one starts from. */
   shared?: boolean;
   repair(asked: Omit<RepairInput, "artifactsDir" | "ours">): Promise<Repair>;
+  /**
+   * Looks in the app for why a line went wrong, changing nothing (cause.ts). Done once a line, when a
+   * repair would run the test again without knowing why, or give it up.
+   */
+  lookInto?(asked: { test: Test; run: TestResult; line: number }): Promise<string | undefined>;
   /** A second opinion on a line the test is about to be kept failing on. Without it the repair's word is taken. */
   doubt?(asked: Omit<DoubtInput, "artifactsDir" | "ours">): Promise<Doubt>;
   /** Why no more runs may start (the spending limit), once that is so. */
@@ -62,9 +72,14 @@ export interface Proved {
   runs: TestResult[];
 }
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+export const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 /** A line as the reader knows it: by its sentence. Its number means nothing to them. */
-const quoted = (test: Test, i: number) => `“${sentence(test.steps[i]!)}”`;
+export const quoted = (test: Test, i: number) => `“${sentence(test.steps[i]!)}”`;
+/** The test with the check at `line` written as code. */
+export const withCodeCheck = (test: Test, line: number, expect: CodeAssert): Test => ({
+  ...test,
+  steps: test.steps.map((s, i) => (i === line ? { type: "check" as const, by: "code" as const, claim: sentence(s), expect } : s)),
+});
 
 export async function prove(input: ProveInput): Promise<Proved> {
   const say = input.say ?? (() => {});
@@ -78,10 +93,18 @@ export async function prove(input: ProveInput): Promise<Proved> {
   let steady = 0;
   /** The lines left to fail because the app is wrong there, by their sentence, with what was found. */
   const standing = new Map<string, Found | undefined>();
+  /** How often a model did each action, by its sentence. */
   const recordings = new Map<string, number>();
+  /** The action whose recording stopped working in the last run, by its sentence: the next run gets a model to do it again. */
+  let broke: string | undefined;
+  /** Cleanup lines with no code that the last run needed, by their sentence. A model gets one run to do each and record it. */
+  let untidied: string[] = [];
+  const tidied = new Set<string>();
   const undecided = new Map<string, number>();
   /** Lines left to fail that a second look agreed with, by their sentence. */
   const upheld = new Set<string>();
+  /** Lines whose cause was looked for in the app. */
+  const looked = new Set<string>();
   let repairs = 0;
   /** Runs in a row in which no line was done. */
   let emptyRuns = 0;
@@ -123,7 +146,13 @@ export async function prove(input: ProveInput): Promise<Proved> {
     const over = input.overBudget?.();
     if (over) return done(over);
     const before = out.test;
-    const result = await input.run(before);
+    // A model only for what isn't code yet, or isn't any more. An action no recording holds for is given up.
+    const needed = [...before.steps.filter((l) => !isCode(l)).map(sentence), ...(broke ? [broke] : []), ...untidied];
+    const worn = needed.find((key) => (recordings.get(key) ?? 0) >= MAX_RECORDINGS);
+    if (worn) return done(`“${worn}” was done by a model ${MAX_RECORDINGS} times, and what was recorded never worked on the next run.`);
+    const byModel = needed.length > 0;
+    broke = undefined;
+    const result = await input.run(before, { byModel });
     out.runs.push(result);
     say(`Run ${out.runs.length}: ${OUTCOME_LABEL[result.outcome]}, ${(result.durationMs / 1000).toFixed(0)} s, $${result.costUsd.toFixed(2)}${result.reason ? `. ${result.reason}` : ""}`);
 
@@ -137,12 +166,47 @@ export async function prove(input: ProveInput): Promise<Proved> {
     worded.push(result);
     for (const [i, s] of result.steps.entries()) if (s.status === "pass" && before.steps[i]) passedOnce.add(sentence(before.steps[i]!));
 
-    const test = (out.test = keepRecordings(before, result, recordings, out.repairs));
-    // A recording that had to be made again isn't steady, even when it came out the same.
-    const changed = !same(test, before) || result.steps.some((s) => s.redone !== undefined);
+    for (const [i, s] of result.steps.entries()) {
+      const line = before.steps[i]!;
+      if (line.type === "action" && s.by === "llm" && s.status === "pass") recordings.set(line.do, (recordings.get(line.do) ?? 0) + 1);
+    }
+    let test = (out.test = withRecordings(before, result));
+    // A check a model answered from its sentence is written as code now, from the page it was answered on.
+    for (let line = test.steps.length - 1; byModel && line >= 0; line--) {
+      const l = test.steps[line]!;
+      const how = result.steps[line]!;
+      if (l.type !== "check" || l.by !== "llm" || (how.status !== "pass" && how.status !== "fail")) continue;
+      const written = await input.asCode({ test, run: result, line });
+      if ("expect" in written) {
+        test = out.test = withCodeCheck(test, line, written.expect);
+        continue;
+      }
+      const without = applyRepair(test, { verdict: "test", why: written.cannot, edits: [{ line: line + 1, op: "remove" }] });
+      if ("wrong" in without) return done(`${quoted(test, line)} can't be checked by code, and the test has no other check. ${written.cannot}`);
+      out.repairs.push(`${quoted(test, line)} was taken out: no check by code can say it. ${written.cannot}`);
+      say(`Taking out ${quoted(test, line)}: no check by code can say it. ${written.cannot}`);
+      // Its line is gone from the test, so the lines of this run no longer stand for the test's: it is run again.
+      reworded(without.test);
+      continue runs;
+    }
+    // A run a model had a hand in proves nothing, even when the test came out of it the same.
+    const changed = [...result.steps, ...result.cleanup].some((s) => s.by === "llm" && s.status !== "skipped") || !same(test, before);
+
+    // With no model, a recording that no longer fits the page stops the run. A model does that action again in the next.
+    if (result.repairable) {
+      const at = result.steps.findIndex((s) => s.status !== "pass");
+      broke = sentence(before.steps[at]!);
+      say(`The recording of ${quoted(before, at)} didn't work: ${result.steps[at]!.note}`);
+      steady = 0;
+      continue;
+    }
 
     // On a shared account the next run starts from what this one left: after a cleanup that didn't finish, no run can be counted on.
-    const untidy = input.shared ? result.cleanup.findIndex((c) => c.status !== "pass") : -1;
+    // A cleanup line with no code is one no model was there to do: the next run has one, once.
+    const undone = (c: TestResult["cleanup"][number], i: number) => c.status !== "pass" && !byModel && before.cleanup[i] !== undefined && !isCode(before.cleanup[i]!);
+    untidied = result.cleanup.flatMap((c, i) => (undone(c, i) && !tidied.has(before.cleanup[i]!.do) ? [before.cleanup[i]!.do] : []));
+    for (const key of untidied) tidied.add(key);
+    const untidy = input.shared ? result.cleanup.findIndex((c, i) => c.status !== "pass" && !undone(c, i)) : -1;
     if (untidy >= 0) {
       const how = result.cleanup[untidy]!;
       const what = `the cleanup of “${test.name}” didn't finish (“${before.cleanup[untidy]?.do}”: ${how.note || how.status})`;
@@ -170,15 +234,29 @@ export async function prove(input: ProveInput): Promise<Proved> {
         return done(why);
       }
       const flips = how.status === "pass" || worded.slice(0, -1).some((r) => r.steps[line]?.status === "pass");
-      const fix = await input.repair({ test, runs: worded, line, flips, earlier: out.repairs, notes: input.notes, problems: out.findings });
+      const asked = { test, runs: worded, line, flips, earlier: out.repairs, notes: input.notes, problems: out.findings };
+      let fix = await input.repair(asked);
       const key = sentence(test.steps[line]!);
+
+      // Before running again without knowing why, or giving up: what the app shows about it.
+      const repairedBefore = out.repairs.length > 0;
+      const unsure = fix.verdict === "cant-tell" || fix.verdict === "in-the-way" || (fix.verdict === "test" && !fix.edits.length) || (fix.again && repairedBefore);
+      if (unsure && input.lookInto && !looked.has(key)) {
+        looked.add(key);
+        const cause = await input.lookInto({ test, run: result, line }).catch(() => undefined);
+        if (cause) {
+          say(`Looked into why ${quoted(test, line)} went wrong: ${cause}`);
+          fix = await input.repair({ ...asked, earlier: [...out.repairs], cause });
+          out.repairs.push(`Looked into why ${quoted(test, line)} went wrong: ${cause}`);
+        }
+      }
 
       if (fix.verdict === "in-the-way") {
         say(`Something is in the way at ${quoted(test, line)}: ${fix.why}`);
         return blocked(`${quoted(test, line)}: ${fix.why}`, fix.blocker ?? fix.why);
       }
       // A repair that didn't change what goes wrong: the next one won't either.
-      if (fix.again && out.repairs.length) {
+      if (fix.again && repairedBefore) {
         say(`Giving up: repairs didn't change what goes wrong at ${quoted(test, line)}`);
         return done(`Repairs didn't change what goes wrong at ${quoted(test, line)}: ${fix.why}`);
       }
@@ -207,6 +285,14 @@ export async function prove(input: ProveInput): Promise<Proved> {
       let finding = fix.known ? out.findings[fix.known - 1] : undefined;
       if (!finding && fix.finding) out.findings.push((finding = { ...fix.finding, proven: false }));
 
+      if (!fix.edits.length && test.steps[line]!.type === "action") {
+        // With no model, an action the app won't take can't be told from a recording that stopped working.
+        repairs++;
+        out.repairs.push(`The app is wrong at ${quoted(test, line)}: ${fix.why} An action can't be left to fail, and no check was put before it to say what is wrong.`);
+        say(`The app is wrong at ${quoted(test, line)}, and no check says so yet: ${fix.why}`);
+        steady = 0;
+        continue runs;
+      }
       if (!fix.edits.length) {
         // The app is wrong and the line stands. The lines after it in this run are looked at next.
         standing.set(key, finding);
@@ -276,10 +362,9 @@ export async function prove(input: ProveInput): Promise<Proved> {
 }
 
 /**
- * The first line that didn't go the way it is expected to, or -1. A line left to fail has to fail,
- * every other line has to pass. Once a line left to fail has failed, the lines the run didn't get
- * to are as expected, and so is everything after an action that couldn't be done: its checks have
- * nothing to look at.
+ * The first line that didn't go the way it is expected to, or -1. A check left to fail has to fail,
+ * every other line has to pass. Once a check left to fail has failed, the lines the run didn't get
+ * to are as expected.
  */
 function unexpected(test: Test, result: TestResult, standing: Map<string, unknown>): number {
   let stopped = false;
@@ -289,28 +374,10 @@ function unexpected(test: Test, result: TestResult, standing: Map<string, unknow
     if (!standing.has(sentence(line))) {
       if (status !== "pass" && !unreached) return i;
     } else if (status === "fail") {
-      if (line.type === "action") return -1;
       stopped = true;
     } else if (!unreached) return i;
   }
   return -1;
-}
-
-/**
- * The test with the run's recordings written in. An action whose recording had to be made too
- * often, or couldn't be kept, becomes a model's: it can't be the same on every run.
- */
-function keepRecordings(test: Test, result: TestResult, counts: Map<string, number>, log: string[]): Test {
-  const recorded = withRecordings(test, result);
-  const steps = recorded.steps.map((line, i) => {
-    if (line.type !== "action" || line.by !== "code" || result.steps[i]?.by !== "llm" || result.steps[i]!.status !== "pass") return line;
-    const times = (counts.get(line.do) ?? 0) + 1;
-    counts.set(line.do, times);
-    if (times < MAX_RECORDINGS) return line;
-    log.push(`${quoted(test, i)} is a model's from now on: its recording didn't hold over ${MAX_RECORDINGS} runs.`);
-    return { type: "action" as const, by: "llm" as const, do: line.do };
-  });
-  return { ...recorded, steps };
 }
 
 function describeEdits(test: Test, edits: Repair["edits"]): string {

@@ -1,6 +1,6 @@
 /**
- * One job at a time on an app's live chain. A fork is a copy per run, but a live account is one
- * account: two runs on it at once would cancel each other's orders and read each other's balances.
+ * One job at a time on an app's kept account: two runs on it at once would cancel each other's
+ * orders and read each other's balances. Making and repairing take it too, since they write the tests.
  * The lock is a Postgres session lock held on one reserved connection, so it goes with the worker
  * that holds it when that worker dies.
  */

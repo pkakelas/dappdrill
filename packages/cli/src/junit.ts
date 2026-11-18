@@ -1,11 +1,12 @@
 import type { TestResult } from "@dappdrill/core";
 import type { TestsFile } from "./files.js";
-import { dangerous, reviewLine } from "./outcomes.js";
+import { dangerous, reviewLine, whyNot } from "./outcomes.js";
 
 /**
  * JUnit XML: one suite for the app, one case per test that ran. CI keeps a case's history by its
  * name. JUnit has one word per case, so a Dangerous signature on a passing test is a failure, and a
- * test that couldn't be verified is an error: it didn't fail, and nobody can say it passed.
+ * test that couldn't be verified is an error: it didn't fail, and nobody can say it passed. One that
+ * needs repairing says so in the error's message.
  */
 export function renderJunit(file: TestsFile, results: TestResult[]): string {
   const byId = new Map(results.map((r) => [r.testId, r]));
@@ -17,7 +18,7 @@ export function renderJunit(file: TestsFile, results: TestResult[]): string {
     s.tests++;
     s.time += time;
     const flags = dangerous(r).map((d) => `Dangerous signature: ${d.title}`);
-    const message = esc([r.outcome === "passed" ? undefined : r.reason, ...flags].filter(Boolean).join(" "));
+    const message = esc([r.outcome === "passed" ? undefined : whyNot(r), ...flags].filter(Boolean).join(" "));
     let body = "";
     if (r.outcome === "failed" || flags.length > 0) {
       s.failures++;

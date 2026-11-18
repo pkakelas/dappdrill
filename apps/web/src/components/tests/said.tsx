@@ -1,7 +1,7 @@
 import { cx } from "@/components/ui";
 import { Evidence, shortSigned } from "./signed";
 
-type Tone = "good" | "bad" | "warn" | "live" | "fork" | "quiet";
+type Tone = "good" | "bad" | "warn" | "live" | "violet" | "quiet";
 
 /** A note the test maker said, in parts: what happened, the test's line it is about, and why. */
 export interface Said {
@@ -13,8 +13,8 @@ export interface Said {
   detail?: string;
 }
 
-const TEXT: Record<Tone, string> = { good: "text-good", bad: "text-bad", warn: "text-warn", live: "text-live", fork: "text-fork", quiet: "text-muted-foreground" };
-const DOT: Record<Tone, string> = { good: "bg-good-bar", bad: "bg-bad-mid", warn: "bg-warn-bar", live: "bg-live", fork: "bg-fork", quiet: "bg-foreground/30" };
+const TEXT: Record<Tone, string> = { good: "text-good", bad: "text-bad", warn: "text-warn", live: "text-live", violet: "text-violet-600", quiet: "text-muted-foreground" };
+const DOT: Record<Tone, string> = { good: "bg-good-bar", bad: "bg-bad-mid", warn: "bg-warn-bar", live: "bg-live", violet: "bg-violet-600", quiet: "bg-foreground/30" };
 
 const LINE = "“([^”]*)”";
 const REST = "([\\s\\S]*)";
@@ -29,12 +29,12 @@ const SHAPES: [RegExp, (m: string[]) => Said][] = [
   [new RegExp(`^A second look agrees the app is at fault at ${LINE}: ${REST}`), (m) => ({ label: "Bug confirmed", tone: "bad", line: m[1], detail: m[2] })],
   [new RegExp(`^A second look at ${LINE} didn't put it on the app: ${REST}`), (m) => ({ label: "Not a bug after all", tone: "warn", line: m[1], detail: m[2] })],
   [new RegExp(`^Couldn't tell about ${LINE}: ${REST}`), (m) => ({ label: "Couldn't tell", tone: "warn", line: m[1], detail: m[2] })],
-  [new RegExp(`^Repaired ${LINE}: ${REST}`), (m) => ({ label: "Repaired a line", tone: "fork", line: m[1], detail: m[2] })],
-  [new RegExp(`^Reworded ${LINE}: ${REST}`), (m) => ({ label: "Reworded a line", tone: "fork", line: m[1], detail: m[2] })],
+  [new RegExp(`^Repaired ${LINE}: ${REST}`), (m) => ({ label: "Repaired a line", tone: "violet", line: m[1], detail: m[2] })],
+  [new RegExp(`^Reworded ${LINE}: ${REST}`), (m) => ({ label: "Reworded a line", tone: "violet", line: m[1], detail: m[2] })],
   [new RegExp(`^A repair wasn't taken: ${REST}`), (m) => ({ label: "Repair not taken", tone: "quiet", detail: m[1] })],
 ];
 
-export function readSaid(text: string): Said {
+function readSaid(text: string): Said {
   for (const [shape, read] of SHAPES) {
     const m = shape.exec(text);
     if (m) return read([...m]);

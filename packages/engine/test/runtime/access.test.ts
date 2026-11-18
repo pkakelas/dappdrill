@@ -33,7 +33,7 @@ const seen: { host: string; path: string; headers: IncomingHttpHeaders }[] = [];
 
 beforeAll(async () => {
   fx = await startFixture();
-  chains = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], {});
+  chains = startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }], {});
   // One server answers for every *.localhost name; the Host header tells them apart.
   server = createServer((req, res) => {
     seen.push({ host: (req.headers.host ?? "").split(":")[0]!, path: req.url ?? "", headers: req.headers });

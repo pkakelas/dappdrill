@@ -77,19 +77,6 @@ export const BUILTIN_ABI: Abi = parseAbi([
   "function upgradeTo(address newImplementation)",
   "function upgradeToAndCall(address newImplementation, bytes data) payable",
 ]);
-
-/** Event ABI used to read receipts. */
-export const TRANSFER_EVENTS_ABI = parseAbi([
-  "event Transfer(address indexed from, address indexed to, uint256 value)",
-  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
-  "event Approval(address indexed owner, address indexed spender, uint256 value)",
-  "event ApprovalForAll(address indexed owner, address indexed operator, bool approved)",
-  "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
-  "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)",
-  "event Deposit(address indexed dst, uint256 wad)",
-  "event Withdrawal(address indexed src, uint256 wad)",
-]);
-
 export const PERMIT2_ADDRESS: Address = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 export const MULTICALL3_ADDRESS: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
 

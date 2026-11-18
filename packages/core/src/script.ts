@@ -3,7 +3,8 @@ import { z } from "zod";
 /**
  * How a step finds its element. Resolved in order: testId, the control inside the box `near`
  * names, role+name, label, placeholder, text, css. Recorded from the accessibility tree so
- * replays survive cosmetic changes.
+ * replays survive cosmetic changes. With `row`, all of that is looked for only inside the row
+ * that holds the row's text.
  */
 export const Locator = z.object({
   testId: z.string().optional(),
@@ -18,6 +19,11 @@ export const Locator = z.object({
    */
   near: z.string().optional(),
   css: z.string().optional(),
+  /**
+   * A text of the row the element is in ("{{price}}", "Apple"), when the page has one such element per
+   * row of a table or a list: "Cancel" on the order priced {{price}}, wherever that row stands today.
+   */
+  row: z.string().optional(),
   /** Pick the nth match (0-based) when several elements match. */
   nth: z.number().int().nonnegative().optional(),
   /** Restrict the search to a dialog (wallet pickers usually live in one). */
@@ -44,6 +50,11 @@ const base = {
   id: z.string().optional(),
   /** Plain-English description shown in the UI ("Click Deposit"). */
   note: z.string().optional(),
+  /**
+   * Done only when the page asks for it: "confirm if the page asks", "approve the wallet request if one
+   * comes". A replay looks for a few seconds and goes on without it when it isn't there. A wallet request
+   * that does come is still held to what the step expects.
+   */
   optional: z.boolean().optional(),
 };
 
@@ -85,36 +96,13 @@ export const Step = z.discriminatedUnion("kind", [
 ]);
 export type Step = z.infer<typeof Step>;
 
-export const ParamDef = z.object({
-  name: z.string(),
-  default: z.string(),
-  description: z.string().optional(),
-});
-export type ParamDef = z.infer<typeof ParamDef>;
-
-export const ScriptOrigin = z.enum(["discovered", "described", "recorded", "code"]);
-export type ScriptOrigin = z.infer<typeof ScriptOrigin>;
-
-const ScriptBase = z.object({
+/** Recorded steps to replay in order: the recording of one line of a test. Replays make no model calls. */
+export const ReplayScript = z.object({
   id: z.string(),
   name: z.string(),
-  origin: ScriptOrigin,
   /** Absolute URL, or a path relative to the app URL. */
   startUrl: z.string(),
-  params: z.array(ParamDef).default([]),
   steps: z.array(Step),
-  /** Chain the test expects the wallet to be on. */
-  chainId: z.number().int().optional(),
-});
-
-/** A deterministic, replayable script. Replays make no model calls. */
-export const ReplayScript = ScriptBase.extend({
-  /**
-   * Scripts replayed first, with default params, to put the chain in the state
-   * this one needs (a deposit before a withdraw). Copies, so a script file is
-   * self-contained. Edge cases apply only to the script itself.
-   */
-  setup: z.array(ScriptBase).optional(),
 });
 export type ReplayScript = z.infer<typeof ReplayScript>;
 
@@ -136,19 +124,13 @@ export function applyParams(text: string, values: Record<string, string>): strin
   return text.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (m, name: string) => values[name] ?? m);
 }
 
-export function paramValues(script: ReplayScript, inputs: Record<string, string> = {}): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const p of script.params) out[p.name] = inputs[p.name] ?? p.default;
-  return { ...out, ...inputs };
-}
-
 /** Short human description of a step, used in logs, reports and the test editor. */
 export function describeStep(step: Step): string {
   if (step.note) return step.note;
   const t = (l?: Locator) => (l ? (l.name ?? l.text ?? l.label ?? l.placeholder ?? l.near ?? l.testId ?? l.css ?? "element") : "page");
   switch (step.kind) {
     case "goto": return `Open ${step.url}`;
-    case "click": return `Click "${t(step.target)}"`;
+    case "click": return `Click "${t(step.target)}"${step.target.row ? ` in the row with "${step.target.row}"` : ""}`;
     case "fill": return `Type "${step.value}" into "${t(step.target)}"`;
     case "select": return `Choose "${step.value}" in "${t(step.target)}"`;
     case "press": return `Press ${step.key}`;

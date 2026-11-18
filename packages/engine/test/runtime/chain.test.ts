@@ -1,19 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { parseUnits } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import type { ChainController } from "../../src/types.js";
-import { InjectedRpcFault, startChains } from "../../src/chain/controller.js";
-import { readBalance } from "../../src/chain/deal-erc20.js";
+import { startChains } from "../../src/chain/controller.js";
 import { rpcCall } from "../../src/chain/rpc.js";
-import { ACCOUNTS, CHAIN_ID, startBareChain, startFixture, type Fixture } from "./fixture.js";
+import { CHAIN_ID, startBareChain, startFixture, type Fixture } from "./fixture.js";
 
 let fx: Fixture;
 let chains: ChainController;
-const A = privateKeyToAccount(ACCOUNTS.A).address;
 
 beforeAll(async () => {
   fx = await startFixture();
-  chains = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], {});
+  chains = startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }], {});
 }, 60_000);
 
 afterAll(async () => {
@@ -21,104 +17,39 @@ afterAll(async () => {
   await fx?.close();
 });
 
-describe("startChains (fork)", () => {
-  it("records the pinned fork block and serves the forked chain locally", async () => {
-    const [cfg] = chains.configs();
-    expect(cfg?.forkBlock).toMatch(/^\d+$/);
-    expect(chains.rpcUrl(CHAIN_ID)).not.toBe(fx.rpcUrl);
-    expect(chains.mode(CHAIN_ID)).toBe("fork");
+describe("startChains", () => {
+  it("reaches each chain through its own RPC", async () => {
+    expect(chains.configs()).toEqual([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }]);
+    expect(chains.rpcUrl(CHAIN_ID)).toBe(fx.rpcUrl);
     expect(await chains.request(CHAIN_ID, "eth_chainId", [])).toBe("0x7a69");
+    expect(await chains.client(CHAIN_ID).getChainId()).toBe(CHAIN_ID);
   });
 
-  it("dealErc20 finds the balance slot and writes stay on the fork", async () => {
-    const amount = parseUnits("123456", 6);
-    await chains.dealErc20(CHAIN_ID, fx.token, A, amount);
-    const rpc = (m: string, p: unknown[]) => chains.request(CHAIN_ID, m, p);
-    expect(await readBalance(rpc, fx.token, A)).toBe(amount);
-    // the "real" chain is untouched
-    expect(await readBalance((m, p) => rpcCall(fx.rpcUrl, m, p), fx.token, A)).toBe(parseUnits("1000", 6));
+  it("takes a mainnet chain like any other", async () => {
+    const main = startChains([{ id: 1, rpcUrl: fx.rpcUrl }], {});
+    expect(main.has(1)).toBe(true);
+    expect(main.rpcUrl(1)).toBe(fx.rpcUrl);
+    await main.close();
   });
 
-  it("snapshot / revert pins state", async () => {
-    const snap = await chains.snapshot(CHAIN_ID);
-    await chains.setBalance(CHAIN_ID, A, 1n);
-    expect(await chains.request(CHAIN_ID, "eth_getBalance", [A, "latest"])).toBe("0x1");
-    await chains.revert(CHAIN_ID, snap);
-    expect(await chains.request(CHAIN_ID, "eth_getBalance", [A, "latest"])).not.toBe("0x1");
-  });
-
-  it("applies latency and failure faults to request() only", async () => {
-    chains.setFaults({ latencyMs: 300 });
-    const t = Date.now();
-    await chains.request(CHAIN_ID, "eth_blockNumber", []);
-    expect(Date.now() - t).toBeGreaterThanOrEqual(280);
-
-    chains.setFaults({ failureRate: 1 });
-    await expect(chains.request(CHAIN_ID, "eth_blockNumber", [])).rejects.toBeInstanceOf(InjectedRpcFault);
-    await expect(chains.snapshot(CHAIN_ID)).resolves.toBeTypeOf("string");
-    chains.setFaults({});
-    await expect(chains.request(CHAIN_ID, "eth_blockNumber", [])).resolves.toBeTypeOf("string");
-  });
-
-  it("automine off + mine", async () => {
-    await chains.setAutomine(CHAIN_ID, false);
-    const before = BigInt((await chains.request(CHAIN_ID, "eth_blockNumber", [])) as string);
-    await chains.mine(CHAIN_ID);
-    const after = BigInt((await chains.request(CHAIN_ID, "eth_blockNumber", [])) as string);
-    expect(after).toBe(before + 1n);
-    await chains.setAutomine(CHAIN_ID, true);
-  });
-});
-
-describe("startChains heartbeat", () => {
-  it("mines empty blocks on the wall clock, and pauses while automine is off", async () => {
-    const beating = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], { heartbeatMs: 150 });
-    try {
-      const head = async () => {
-        const b = (await beating.request(CHAIN_ID, "eth_getBlockByNumber", ["latest", false])) as { number: string; timestamp: string };
-        return { number: Number(b.number), timestamp: Number(b.timestamp) };
-      };
-      const start = await head();
-      await new Promise((r) => setTimeout(r, 700));
-      const later = await head();
-      expect(later.number).toBeGreaterThan(start.number);
-      expect(Math.abs(later.timestamp - Date.now() / 1000)).toBeLessThan(5);
-
-      await beating.setAutomine(CHAIN_ID, false);
-      await new Promise((r) => setTimeout(r, 200));
-      const paused = await head();
-      await new Promise((r) => setTimeout(r, 600));
-      expect((await head()).number).toBe(paused.number);
-      await beating.setAutomine(CHAIN_ID, true);
-    } finally {
-      await beating.close();
-    }
-  });
-});
-
-describe("startChains (live)", () => {
-  it("refuses mainnet chains unless allowed, and forwards reads otherwise", async () => {
-    await expect(startChains([{ id: 1, rpcUrl: fx.rpcUrl, mode: "live" }], {})).rejects.toThrow(/real money/);
-    const live = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "live" }], {});
-    expect(live.rpcUrl(CHAIN_ID)).toBe(fx.rpcUrl);
-    expect(await live.request(CHAIN_ID, "eth_chainId", [])).toBe("0x7a69");
-    await expect(live.setBalance(CHAIN_ID, A, 1n)).rejects.toThrow(/needs a fork/);
-    await live.close();
+  it("refuses the same chain twice, and a chain it doesn't have", async () => {
+    expect(() => startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }, { id: CHAIN_ID, rpcUrl: fx.rpcUrl }], {})).toThrow();
+    await expect(chains.request(4242, "eth_chainId", [])).rejects.toMatchObject({ code: 4901 });
   });
 });
 
 describe("addFromApp", () => {
   const OTHER = 4242;
 
-  it("forks a chain the app offers a matching RPC for, once, and reports it", async () => {
+  it("takes on a chain the app offers a matching RPC for, once, and reports it", async () => {
     const other = await startBareChain(OTHER);
     const added: number[] = [];
-    const ctl = await startChains([], { onAdded: async (c) => void added.push(c.id) });
+    const ctl = startChains([], { onAdded: async (c) => void added.push(c.id) });
     try {
       const req = { id: OTHER, name: "Other", rpcUrls: ["wss://ignored.example", other.rpcUrl] };
       const [a, b] = await Promise.all([ctl.addFromApp(req), ctl.addFromApp(req)]);
-      expect(a).toMatchObject({ id: OTHER, name: "Other", rpcUrl: other.rpcUrl, mode: "fork", fromApp: true });
-      expect(b.forkBlock).toBe(a.forkBlock);
+      expect(a).toEqual({ id: OTHER, name: "Other", rpcUrl: other.rpcUrl, fromApp: true });
+      expect(b).toEqual(a);
       expect(added).toEqual([OTHER]);
       expect(ctl.has(OTHER)).toBe(true);
       expect(await ctl.request(OTHER, "eth_chainId", [])).toBe("0x1092");
@@ -130,8 +61,8 @@ describe("addFromApp", () => {
     }
   }, 60_000);
 
-  it("remembers a chain it can't start in missing()", async () => {
-    const ctl = await startChains([], {});
+  it("remembers a chain it can't reach in missing()", async () => {
+    const ctl = startChains([], {});
     try {
       await expect(ctl.addFromApp({ id: OTHER, name: "Other", rpcUrls: [fx.rpcUrl] })).rejects.toThrow(`didn't answer as chain ${OTHER}`);
       await expect(ctl.addFromApp({ id: 4343, rpcUrls: [] })).rejects.toThrow(/no RPC URL/);
@@ -151,10 +82,10 @@ describe("addFromApp with hosts the page called", () => {
 
   it("finds the RPC among the page's hosts when the app offers none", async () => {
     const other = await startBareChain(OTHER);
-    const ctl = await startChains([], {});
+    const ctl = startChains([], {});
     try {
       const cfg = await ctl.addFromApp({ id: OTHER, rpcUrls: [], rpcHints: ["ftp://nope.example", fx.rpcUrl, other.rpcUrl] });
-      expect(cfg).toMatchObject({ id: OTHER, rpcUrl: other.rpcUrl, mode: "fork", fromApp: true });
+      expect(cfg).toMatchObject({ id: OTHER, rpcUrl: other.rpcUrl, fromApp: true });
     } finally {
       await ctl.close();
       await other.close();
@@ -163,7 +94,7 @@ describe("addFromApp with hosts the page called", () => {
 
   it("reports once when none of the hosts answer for the chain", async () => {
     const reported: number[] = [];
-    const ctl = await startChains([], { onMissing: async (m) => void reported.push(m.chainId) });
+    const ctl = startChains([], { onMissing: async (m) => void reported.push(m.chainId) });
     try {
       const req = { id: OTHER, rpcUrls: [], rpcHints: [fx.rpcUrl] };
       await expect(ctl.addFromApp(req)).rejects.toThrow(`the one host the page called didn't answer as chain ${OTHER}`);

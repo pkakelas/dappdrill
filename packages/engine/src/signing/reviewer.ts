@@ -3,25 +3,24 @@
  * Never throws for a weird request: anything unexpected degrades to a "check"
  * verdict with the checks marked unverified.
  */
-import { createPublicClient, http as httpTransport, type Address, type PublicClient } from "viem";
+import type { Address } from "viem";
 import { chainInfo, fingerprint, newId, SigningReview, type ApprovalGrant, type DecodedArg, type DecodedRequest } from "@dappdrill/core";
 import type { SigningInput, SigningReviewer } from "../types.js";
 import { approvalsFromCalls, approvalsFromTyped } from "./approvals.js";
-import { addressesOf, buildChecks, diffBaseline } from "./checks.js";
+import { addressesOf, buildChecks } from "./checks.js";
 import { Contracts, type TokenInfo } from "./contract.js";
-import { decodeMessage } from "./decode-message.js";
+import { decodeMessage, siweDomainMatches } from "./decode-message.js";
 import { decodeCall, flattenCalls, type DecodedCall } from "./decode-tx.js";
 import { decodeTypedData } from "./decode-typed.js";
 import { erc7730TypedData } from "./erc7730.js";
-import { hasStake, nativeValue, outgoing, type Facts, type Subject } from "./facts.js";
+import { nativeValue, type Facts, type Subject } from "./facts.js";
 import { hostOf, plain } from "./format.js";
 import { Http, withTimeout } from "./http.js";
 import { KnownBad } from "./known-bad.js";
 import { writeProse } from "./prose.js";
 import { parseRequest, type ParsedRequest } from "./request.js";
 import { simulate } from "./simulate.js";
-import { siweDomainMatches } from "./decode-message.js";
-import { matchByModel, matchByRules, type RequestSummary, type UiMatchResult } from "./ui-match.js";
+import { matchByRules, type RequestSummary, type UiMatchResult } from "./ui-match.js";
 import { decideVerdict } from "./verdict.js";
 
 export interface ReviewerOptions {
@@ -37,8 +36,6 @@ export class Reviewer implements SigningReviewer {
   private readonly knownBad: KnownBad;
   private readonly etherscanApiKey?: string;
   private readonly timeout: number;
-  /** Edge cases replay the same request many times; the model sees each label and request once. */
-  private readonly byModel = new Map<string, Promise<UiMatchResult>>();
 
   constructor(opts: ReviewerOptions = {}) {
     this.http = new Http({ fetch: opts.fetch, cacheDir: opts.cacheDir });
@@ -60,16 +57,12 @@ export class Reviewer implements SigningReviewer {
     const chainId = request.chainId;
     const parsed = parseRequest(request);
     const chainAvailable = safeHas(input, chainId);
-    const config = chainAvailable ? input.chains.configs().find((c) => c.id === chainId) : undefined;
     const client = chainAvailable ? input.chains.client(chainId) : undefined;
-    const upstream = config && input.chains.mode(chainId) === "fork" ? createPublicClient({ transport: httpTransport(config.rpcUrl, { timeout: this.timeout }) }) : undefined;
     const contracts = new Contracts({
       http: this.http,
       chainId,
       client,
-      upstream,
       etherscanApiKey: this.etherscanApiKey,
-      headBlock: config?.forkBlock ? BigInt(config.forkBlock) : undefined,
       lookupTimeoutMs: this.timeout,
     });
     const nativeSymbol = chainInfo(chainId)?.nativeSymbol ?? "ETH";
@@ -125,13 +118,12 @@ export class Reviewer implements SigningReviewer {
       tokens,
       knownBad: { hits: [], unavailable: [] },
       erc7730,
-      fingerprint: fp,
     };
 
     // 3. Simulation and blocklists.
     const [simulation, knownBad] = await Promise.all([
       parsed.kind === "transaction" && parsed.from
-        ? simulate({ chains: input.chains, chainId, from: parsed.from, calls: parsed.calls, contracts, approvals, nativeSymbol })
+        ? simulate({ chains: input.chains, chainId, from: parsed.from, calls: parsed.calls })
         : undefined,
       withTimeout(this.knownBad.check(addressesOf(facts), facts.pageHost), 45_000, { hits: [], unavailable: ["blocklists (timed out)"] }),
     ]);
@@ -139,11 +131,9 @@ export class Reviewer implements SigningReviewer {
     facts.knownBad = knownBad;
 
     // 4. UI comparison, checks, verdict, prose.
-    const ui = await this.uiMatch(facts);
-    const checks = buildChecks(facts, ui);
+    const checks = buildChecks(facts, uiMatch(facts));
     const decision = decideVerdict(facts, checks);
     const prose = writeProse(facts, checks, decision);
-    const previous = input.baselines[fp];
 
     return SigningReview.parse({
       id: newId("sgr"),
@@ -157,12 +147,11 @@ export class Reviewer implements SigningReviewer {
       summary: prose.summary,
       ui: input.ui,
       decoded,
-      simulation: simulation ? { status: simulation.status, balanceChanges: simulation.balanceChanges, revertReason: simulation.revertReason, gasUsed: simulation.gasUsed } : undefined,
+      simulation: simulation ? { status: simulation.status, revertReason: simulation.revertReason } : undefined,
       approvals,
       checks,
       explanation: prose.explanation,
       advice: prose.advice,
-      baseline: previous ? { previousAt: previous.createdAt, changes: diffBaseline(previous, { decoded, approvals, chainId }) } : undefined,
       fingerprint: fp,
       createdAt: new Date().toISOString(),
     });
@@ -181,27 +170,13 @@ export class Reviewer implements SigningReviewer {
     const found = await Promise.all([...addresses].map((a) => contracts.token(a as Address)));
     return found.filter((t): t is TokenInfo => !!t && t.standard !== "none");
   }
+}
 
-  private async uiMatch(facts: Facts): Promise<UiMatchResult> {
-    const { ui, llm, artifactsDir } = facts.input;
-    const summary = requestSummary(facts);
-    const decimals = (token: string) => facts.tokens.find((t) => t.address.toLowerCase() === token.toLowerCase())?.decimals;
-    const byRules = matchByRules(ui.buttonLabel, summary, decimals);
-    if (byRules?.status === "fail" || !llm) return byRules ?? { status: "unverified", detail: "The label doesn't say enough to compare with the request, and no model was available.", via: "none" };
-    const key = `${ui.buttonLabel ?? ""}\n${ui.context ?? ""}\n${summary.description}`;
-    if (!this.byModel.has(key)) {
-      const asked = withTimeout(matchByModel(llm, ui, summary, artifactsDir), 60_000, { status: "unverified" as const, detail: "The model check timed out.", via: "none" as const });
-      this.byModel.set(key, asked);
-      // Only a real answer is worth reusing.
-      void asked.then((r) => r.status === "unverified" && this.byModel.delete(key), () => this.byModel.delete(key));
-    }
-    const byModel = await this.byModel.get(key)!;
-    if (!byRules) return byModel;
-    // The rules found concrete agreement; the model can only soften it to a warning.
-    if (byModel.status === "fail" && byRules.status === "pass") return { ...byModel, status: "warn", detail: `${byRules.detail} The model disagrees: ${byModel.detail}` };
-    if (byModel.status === "unverified") return byRules;
-    return byModel.status === "pass" ? { ...byRules, detail: `${byRules.detail} ${byModel.detail}`, via: "model", evidence: byModel.evidence } : byModel;
-  }
+/** The button's label against the request, by rules. A label too vague for them stays unverified: no model is asked. */
+function uiMatch(facts: Facts): UiMatchResult {
+  const decimals = (token: string) => facts.tokens.find((t) => t.address.toLowerCase() === token.toLowerCase())?.decimals;
+  const byRules = matchByRules(facts.input.ui.buttonLabel, requestSummary(facts), decimals);
+  return byRules ?? { status: "unverified", detail: "The label doesn't say enough to compare with the request.", via: "none" };
 }
 
 function safeHas(input: SigningInput, chainId: number): boolean {
@@ -215,26 +190,16 @@ function safeHas(input: SigningInput, chainId: number): boolean {
 function requestSummary(facts: Facts): RequestSummary {
   const call = facts.calls[0];
   const siwe = facts.message?.siwe;
-  const description =
-    facts.parsed.kind === "transaction"
-      ? `${facts.input.request.method} → ${call?.to ?? "contract creation"} ${call?.signature ?? "(no calldata)"}${call?.args.length ? ` with ${call.args.map((a) => `${a.name}=${a.display ?? a.value}`).join(", ")}` : ""}${nativeValue(facts) > 0n ? `, value ${nativeValue(facts)} wei` : ""}${facts.allCalls.length > 1 ? `; nested: ${facts.allCalls.slice(1).map((c) => c.signature ?? c.functionName ?? "?").join(", ")}` : ""}`
-      : facts.parsed.kind === "typedData"
-        ? `${facts.input.request.method} ${facts.typed?.primaryType} (${facts.typed?.kind}) for domain ${JSON.stringify(facts.typed?.domain)}; fields: ${facts.typed?.args.slice(0, 20).map((a) => `${a.name}=${a.value}`).join(", ")}`
-        : facts.parsed.kind === "message"
-          ? `${facts.input.request.method}: ${facts.message?.isHash ? "opaque 32-byte hash" : `"${(facts.message?.text ?? "").slice(0, 500)}"`}`
-          : `${facts.input.request.method}: could not be decoded`;
   return {
     kind: facts.parsed.kind === "unknown" ? "message" : facts.parsed.kind,
     functionName: call?.functionName,
     nameGuessed: call?.abiSource === "signature-db",
     primaryType: facts.typed?.primaryType,
     approvals: facts.approvals,
-    outgoing: outgoing(facts),
     valueWei: nativeValue(facts),
     nativeSymbol: facts.nativeSymbol,
     siwe: siwe ? { domain: siwe.domain, matchesPage: siweDomainMatches(siwe.domain, facts.pageHost), pageHost: facts.pageHost } : undefined,
     isHash: facts.message?.isHash,
-    description,
   };
 }
 
@@ -307,5 +272,3 @@ function safeStringify(v: unknown): string {
     return String(v);
   }
 }
-
-export { hasStake };

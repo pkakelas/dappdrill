@@ -9,7 +9,7 @@ import { LineStatus, Suite, type Action, type LineResult } from "./suite.js";
 export const SuiteSettings = Suite.omit({ tests: true });
 export type SuiteSettings = z.infer<typeof SuiteSettings>;
 
-/** What a new app's suite starts with: a user whose wallet is connected. */
+/** What a new app's suite starts with: a user whose wallet is connected. Not code yet: making the first test records it. */
 export const CONNECTED: NonNullable<SuiteSettings["setup"]> = {
   startPath: "/",
   steps: [{ type: "action", by: "llm", do: "Connect the wallet to the app (it is listed as MetaMask) and close any first-visit prompt in the way. If the app shows the wallet as connected already, do nothing." }],
@@ -80,8 +80,12 @@ export const SetupStuck = z.object({
   sentence: z.string().optional(),
   /** What went wrong there. */
   reason: z.string(),
-  /** What the owner can put right, when it is that: test funds on a chain that can't be forked. */
-  fix: z.enum(["funds"]).optional(),
+  /**
+   * What would put it right, when that is known. "funds": the test account holds too little to pay, which is
+   * the owner's to do. "repair": a run with no model stopped on a line that has no code, or whose recording no
+   * longer fits the page.
+   */
+  fix: z.enum(["funds", "repair"]).optional(),
 });
 export type SetupStuck = z.infer<typeof SetupStuck>;
 
@@ -94,7 +98,7 @@ export const MakeState = z.object({
   /** The latest picture of the look's browser. */
   frame: z.string().optional(),
   goals: z.array(MakeGoal).default([]),
-  /** Why there are no goals, when the look came back with none. */
+  /** Why making ended early: the look came back with no goals, or no more goals were started (the spending limit, or goal after goal that couldn't be made). */
   why: z.string().optional(),
   /** The setup didn't finish, so making stopped there: the goals still waiting were never tried. */
   stuck: SetupStuck.optional(),
@@ -102,13 +106,13 @@ export const MakeState = z.object({
 export type MakeState = z.infer<typeof MakeState>;
 
 /**
- * The setup with what a run recorded written in: every code action a model did keeps the browser
- * actions it took, to be replayed from now on.
+ * The setup, or the reset, with what a making or repairing run recorded written in: every action a model
+ * did becomes a code action with the browser actions it took, to be replayed from now on.
  */
 export function setupWithRecordings(setup: NonNullable<SuiteSettings["setup"]>, lines: LineResult[]): NonNullable<SuiteSettings["setup"]> {
   const steps = setup.steps.map((line: Action, i): Action => {
     const went = lines[i];
-    return line.by === "code" && went?.status === "pass" && went.recorded?.length ? { ...line, run: went.recorded } : line;
+    return went?.status === "pass" && went.recorded?.length ? { type: "action", by: "code", do: line.do, run: went.recorded } : line;
   });
   return { ...setup, steps };
 }

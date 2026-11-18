@@ -11,7 +11,7 @@ import { makeEach, spending, TOGETHER, type MadeTests, type MakeTestsInput, type
 import { lookForGoals } from "./look.js";
 import { makeTest } from "./maker.js";
 
-export { makeEach, MAX_SUSPICIONS, TOGETHER, type Attempt, type StoppedBy, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
+export { makeEach, MAX_SUSPICIONS, MAX_UNMADE, TOGETHER, type Attempt, type StoppedBy, type MadeTests, type MakeTestsInput, type MakeTestsProgress } from "./each.js";
 
 /** Cost events on the sink carry what the whole make has spent so far, the look and every test made. */
 export async function makeTests(input: MakeTestsInput, sink: DrillEventSink = () => {}, progress: MakeTestsProgress = {}): Promise<MadeTests> {
@@ -21,9 +21,10 @@ export async function makeTests(input: MakeTestsInput, sink: DrillEventSink = ()
   spent.add(looked.costUsd);
   await sink({ type: "cost", usd: spent.spent() });
   await progress.onLooked?.(looked);
-  const together = looked.live ? 1 : (input.together ?? TOGETHER);
-  // Every test is made on the chains the look ended with, copied at the same blocks, and with the tokens it gave the wallet.
-  const target = { ...input.target, chains: looked.chains, tokens: looked.tokens };
+  // A kept account is one user: two tests made on it at once would meet each other's orders.
+  const together = input.target.account === "kept" ? 1 : (input.together ?? TOGETHER);
+  // Every test is made on the chains the look ended with.
+  const target = { ...input.target, chains: looked.chains };
   // The fast model tells whether what stopped one goal would stop the next.
   const fast = createLlm({ role: "fast" });
   const total: DrillEventSink = (event) => sink(event.type === "cost" ? { type: "cost", usd: spent.spent() } : event);

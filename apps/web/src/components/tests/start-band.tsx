@@ -28,9 +28,8 @@ function Step({ icon, tint, title, last, children }: { icon: LucideIcon; tint: k
  * An app with no tests yet: the site in our browser, what making its tests will do, and the two ways to start.
  * It has the shape of the band that shows while tests are made, so starting swaps one for the other in place.
  */
-export function StartBand({ appId, url, site, wallet, chainId, live }: { appId: string; url: string; site: SiteInfo; wallet?: WalletProfileId; chainId?: number; live?: string }) {
-  const chain = chainId === undefined ? undefined : chainName(chainId);
-  const where = live ? `on ${live} for real, since it can't be forked` : chain ? `on a local ${chain} fork, never mainnet` : "on a local fork, never mainnet";
+export function StartBand({ appId, url, site, wallet, chainId }: { appId: string; url: string; site: SiteInfo; wallet?: WalletProfileId; chainId?: number }) {
+  const where = chainId === undefined ? "on the chain the app uses" : `on ${chainName(chainId)}`;
   return (
     <section aria-label="Make tests" className="grid gap-8 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-12">
       <div className="aspect-[16/10] md:aspect-auto md:min-h-80">
@@ -56,7 +55,7 @@ export function StartBand({ appId, url, site, wallet, chainId, live }: { appId: 
           <Step icon={ScanSearch} tint="live" title="We look over the app">
             And list what users come here to do. Nothing is signed.
           </Step>
-          <Step icon={MousePointerClick} tint="fork" title="We do each one, like a user">
+          <Step icon={MousePointerClick} tint="violet" title="We do each one, like a user">
             With a {wallet ? WALLET_NAME[wallet] : "test"} wallet {where}.
           </Step>
           <Step icon={BadgeCheck} tint="good" title="Each becomes a test you can read" last>

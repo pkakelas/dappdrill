@@ -34,49 +34,22 @@ export interface AddChainRequest {
 }
 
 export interface ChainController {
-  /** Chains in use, with pinned fork blocks filled in. */
+  /** Chains in use. */
   configs(): ChainConfig[];
   has(chainId: number): boolean;
-  mode(chainId: number): "fork" | "live";
-  /** URL the wallet and the page's RPC traffic are routed to (local Anvil for forks). */
+  /** URL the wallet sends through. */
   rpcUrl(chainId: number): string;
   client(chainId: number): PublicClient;
-  /** Forward a JSON-RPC call to the chain, applying current faults (latency/failures). */
+  /** Forward a JSON-RPC call to the chain. */
   request(chainId: number, method: string, params: unknown[]): Promise<unknown>;
-  /** ERC-20 tokens whose balance of `holder` was asked for through request(): what the app shows the wallet holds. */
-  tokensRead?(chainId: number, holder: Hex): Hex[];
-
-  // Fork-only controls. Throw in live mode.
-  setBalance(chainId: number, address: Hex, wei: bigint): Promise<void>;
-  /** Give `address` an ERC-20 balance by writing the token's storage. */
-  dealErc20(chainId: number, token: Hex, address: Hex, amount: bigint): Promise<void>;
-  setAutomine(chainId: number, on: boolean): Promise<void>;
-  mine(chainId: number): Promise<void>;
-  snapshot(chainId: number): Promise<string>;
-  revert(chainId: number, snapshotId: string): Promise<void>;
-  impersonate(chainId: number, address: Hex): Promise<void>;
-
-  /** Faults applied to every RPC call (page and wallet) until cleared. */
-  setFaults(faults: { latencyMs?: number; failureRate?: number }): void;
 
   /**
-   * Start a chain the app asked the wallet for mid-run: forked when it can be,
-   * else live (never live on mainnet without allowMainnetLive). Throws with the
-   * reason when it can't, and remembers that chain in missing().
+   * Take on a chain the app asked the wallet for mid-run. Throws with the reason
+   * when it can't be reached, and remembers that chain in missing().
    */
   addFromApp(request: AddChainRequest): Promise<ChainConfig>;
-  /** Chains the app asked for that addFromApp couldn't start. */
+  /** Chains the app asked for that addFromApp couldn't take on. */
   missing(): MissingChain[];
-
-  /**
-   * The wallet signed typed data for `contract` on a copy: look on the real chain, a few times over the
-   * next minutes, for the app's server having used it there. When it has, the chain's config gets `relays`.
-   */
-  watchSignature?(chainId: number, contract: Hex, account: Hex): void;
-  /** Look once more for every signature watched so far, before the run reports its chains. */
-  lookForRelays?(): Promise<void>;
-  /** Another run of the same pass saw this chain's copy fall behind (see watchSignature). */
-  markRelayed?(chainId: number): void;
 
   close(): Promise<void>;
 }
@@ -90,7 +63,7 @@ export interface WalletPolicy {
   autoSwitch: boolean;
   /** Answer the first wallet_switchEthereumChain with 4902 (unknown chain). */
   unknownChainOnce: boolean;
-  /** Approve every signing request immediately (used while exploring when the agent opts in). */
+  /** Approve every signing request immediately. */
   autoSign: boolean;
 }
 
@@ -108,7 +81,6 @@ export interface WalletController {
   address(): Hex;
   chainId(): number;
   policy(): WalletPolicy;
-  setPolicy(patch: Partial<WalletPolicy>): void;
   /** Every request seen in this session, in order. */
   requests(): WalletRequest[];
   /** Resolves with the next signing request that hasn't been answered yet. */
@@ -121,8 +93,6 @@ export interface WalletController {
   switchAccount(to: "A" | "B"): Promise<void>;
   /** Change network from the wallet side and emit chainChanged. */
   switchChain(chainId: number): Promise<void>;
-  /** Forget the dApp's connection, as a fresh visitor's wallet would. */
-  disconnect(): Promise<void>;
   /** Called for every request as it arrives. */
   onRequest(cb: (req: WalletRequest) => void): () => void;
 }
@@ -151,7 +121,8 @@ export interface DrillSession {
 export interface SigningInput {
   request: WalletRequest;
   chains: ChainController;
-  ui: { buttonLabel?: string; pageUrl?: string; screenshot?: string; context?: string };
+  ui: { buttonLabel?: string; pageUrl?: string; screenshot?: string };
+  /** The recorded wallet step the request answers, when it comes from a replay. */
   script?: {
     id: string;
     name: string;
@@ -159,12 +130,6 @@ export interface SigningInput {
     expectation?: WalletExpectation;
     params: Record<string, string>;
   };
-  /** Accepted reviews from earlier runs, keyed by fingerprint. */
-  baselines: Record<string, SigningReview>;
-  /** Used for the "matches the button" comparison. Optional so the reviewer runs without a model. */
-  llm?: Llm;
-  /** Absolute path of the artifacts dir (to read the screenshot for the UI check). */
-  artifactsDir?: string;
 }
 
 export interface SigningReviewer {

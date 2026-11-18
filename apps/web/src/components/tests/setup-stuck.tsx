@@ -24,8 +24,7 @@ function Part({ label, children }: { label: string; children: ReactNode }) {
  */
 export function SetupStuckNotice({ appId, stuck, kept, left, chain, canMake }: { appId: string; stuck: SetupStuck; kept: number; left: number; chain?: string; canMake: boolean }) {
   const funds = stuck.fix === "funds";
-  const where = chain ?? "the app's chain";
-  const title = funds ? `Test funds aren't set up for ${where}` : stuck.line ? "We couldn't get past the setup" : "The app wouldn't let us in";
+  const title = funds ? `The test account has too little${chain ? ` on ${chain}` : ""}` : stuck.line ? "We couldn't get past the setup" : "The app wouldn't let us in";
   const after = kept
     ? `Making tests stopped there. ${plural(kept, "test")} made before it ${kept === 1 ? "is" : "are"} kept${left ? `, and ${plural(left, "goal")} ${left === 1 ? "wasn't" : "weren't"} tried` : ""}.`
     : "Every test starts with the setup, so no tests were made.";
@@ -41,7 +40,7 @@ export function SetupStuckNotice({ appId, stuck, kept, left, chain, canMake }: {
       </div>
 
       <dl className="flex flex-col gap-3 sm:pl-12">
-        <Part label="What happened">{funds ? `${chain ?? "This chain"} can't be forked, so tests sign there for real. This app has no funded key and no note on how to get test funds, so the wallet wasn't connected.` : stuck.reason}</Part>
+        <Part label="What happened">{stuck.reason}</Part>
         {!funds && stuck.sentence && (
           <Part label="It stopped at">
             <span title={stuck.sentence} className="line-clamp-2">
@@ -49,12 +48,12 @@ export function SetupStuckNotice({ appId, stuck, kept, left, chain, canMake }: {
             </span>
           </Part>
         )}
-        <Part label="What to do">{funds ? "Add a private key that holds test tokens there, or say how to get test funds (also when the test wallet already holds some). Then make the tests again." : "Check the setup's steps, or add a note on how to get in. Then make the tests again."}</Part>
+        <Part label="What to do">{funds ? "Send the account what it needs, add a private key that holds funds, or say how a new account gets test funds. Then make the tests again." : "Check the setup's steps, or add a note on how to get in. Then make the tests again."}</Part>
       </dl>
 
       <div className="flex flex-wrap items-center gap-2 sm:pl-12">
         <Button asChild size="sm">
-          <Link href={`/apps/${appId}/settings#${funds ? "funding" : "setup"}`}>{funds ? "Set up test funds" : "Open the setup"}</Link>
+          <Link href={`/apps/${appId}/settings#${funds ? "account" : "setup"}`}>{funds ? "Open the account" : "Open the setup"}</Link>
         </Button>
         {canMake && (
           <form action={makeTestsAction.bind(null, appId)}>

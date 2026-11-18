@@ -24,15 +24,13 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { env } from "@/lib/env";
-import { plural, timeAgo } from "@/lib/format";
+import { DAY, plural, timeAgo } from "@/lib/format";
 import { can, canManageMember, grantable, ROLE_LABEL, toRole } from "@/lib/permissions";
 import { currentOrg, orgApps } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Organization" };
 
 type Integration = typeof integrations.$inferSelect;
-
-const DAY = 24 * 60 * 60 * 1000;
 
 /** What a row can do, on its right: what went wrong shows beside the button that tried. */
 const ASIDE = "flex flex-wrap items-center justify-end gap-2";
@@ -164,7 +162,7 @@ export default async function OrganizationPage() {
         </p>
       </SettingsSection>
 
-      <SettingsSection id="wallets" title="Test wallets" hint="Created and funded on every fork. They never hold real funds.">
+      <SettingsSection id="wallets" title="Test wallets" hint="What a kept account signs with when its app has no key of its own. They hold only what you send them.">
         <List>
           <Row title="Test account A" detail={<Addr value={wallets?.accountAAddress} chars={6} />} aside={wallets && <CopyButton text={wallets.accountAAddress} label="Copy" />} />
           <Row
@@ -221,7 +219,7 @@ export default async function OrganizationPage() {
         </List>
         {apps[0] && (
           <p className="text-sm text-muted-foreground">
-            Testing on a chain that can&apos;t be forked? Add a funded testnet key in the{" "}
+            An app can have an account of its own instead: add its private key in the{" "}
             <Link href={`/apps/${apps[0].id}/settings`} className="underline underline-offset-4 hover:text-foreground">
               app&apos;s settings
             </Link>

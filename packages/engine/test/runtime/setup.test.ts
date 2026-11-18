@@ -27,7 +27,7 @@ let port: number;
 
 beforeAll(async () => {
   fx = await startFixture();
-  chains = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], {});
+  chains = startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }], {});
   server = createServer((req, res) => {
     res.setHeader("access-control-allow-origin", "*");
     if (req.url === "/") {
@@ -38,7 +38,7 @@ beforeAll(async () => {
           fetch("http://flags.localhost:${port}/config.json?t=1").then((r) => r.json()),
           fetch("http://api.localhost:${port}/markets").then((r) => r.status),
         ]).then(([config, status]) => {
-          document.title = [localStorage.getItem("forkEnabled"), config.uiVersion, status].join(" ");
+          document.title = [localStorage.getItem("testMode"), config.uiVersion, status].join(" ");
         });
       </script>`);
     }
@@ -67,7 +67,7 @@ describe("test setup and traffic", () => {
       url,
       chains: [{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }],
       accounts: ACCOUNTS,
-      storage: { forkEnabled: "true" },
+      storage: { testMode: "true" },
       responses: [{ url: `http://flags.localhost:${port}/config.json`, body: '{"uiVersion":"2.0"}' }],
     });
     const artifactsDir = await mkdtemp(path.join(os.tmpdir(), "dappdrill-setup-"));

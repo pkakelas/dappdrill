@@ -61,25 +61,16 @@ export async function signEthSign(account: PrivateKeyAccount, params: unknown): 
 
 /** The chain typed data is bound to (its domain's chainId), when it names one. */
 export function typedDataChainId(params: unknown[]): number | undefined {
-  return typedDataDomain(params).chainId;
-}
-
-/** The chain and contract typed data is bound to, where its domain names them. */
-export function typedDataDomain(params: unknown[]): { chainId?: number; verifyingContract?: Hex } {
   const payload = params[1];
   let typed: any;
   try {
     typed = typeof payload === "string" ? JSON.parse(payload) : payload;
   } catch {
-    return {};
+    return undefined;
   }
   const raw = typed?.domain?.chainId;
   const id = raw === undefined || raw === null || raw === "" ? NaN : Number(raw);
-  const contract = typed?.domain?.verifyingContract;
-  return {
-    ...(Number.isSafeInteger(id) && id > 0 ? { chainId: id } : {}),
-    ...(typeof contract === "string" && /^0x[0-9a-fA-F]{40}$/.test(contract) ? { verifyingContract: contract as Hex } : {}),
-  };
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 }
 
 export async function signTypedData(account: PrivateKeyAccount, params: unknown, activeChainId?: number): Promise<Hex> {
@@ -114,7 +105,7 @@ export async function signTypedData(account: PrivateKeyAccount, params: unknown,
 }
 
 /** Fill in what the dApp left out, like MetaMask's confirmation screen does. */
-export async function prepareTransaction(chains: ChainController, chainId: number, from: Hex, tx: TxRequest, opts: { feeBump?: bigint } = {}): Promise<PreparedTx> {
+export async function prepareTransaction(chains: ChainController, chainId: number, from: Hex, tx: TxRequest): Promise<PreparedTx> {
   if (tx.from && tx.from.toLowerCase() !== from.toLowerCase()) {
     throw WalletErrors.invalidParams(`from ${tx.from} is not the selected account`);
   }
@@ -147,10 +138,6 @@ export async function prepareTransaction(chains: ChainController, chainId: numbe
     const baseFee = block?.baseFeePerGas ? BigInt(block.baseFeePerGas) : BigInt((await rpc("eth_gasPrice", [])) as string);
     maxPriorityFeePerGas = 1_000_000_000n; // 1 gwei tip, MetaMask's "market" default on quiet chains
     maxFeePerGas = baseFee * 2n + maxPriorityFeePerGas;
-  }
-  if (opts.feeBump) {
-    maxFeePerGas = (maxFeePerGas * opts.feeBump) / 100n;
-    maxPriorityFeePerGas = (maxPriorityFeePerGas * opts.feeBump) / 100n;
   }
   return { chainId, nonce, to, value, data, gas, maxFeePerGas, maxPriorityFeePerGas };
 }

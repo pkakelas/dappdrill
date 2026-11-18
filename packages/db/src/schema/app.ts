@@ -56,15 +56,24 @@ export interface AppSettings {
   wallets: WalletProfileId[];
   /** Empty = auto-detect. */
   chains: ChainConfig[];
+  /**
+   * new: every test starts on accounts of its own. kept: every run uses the same account, put back before each
+   * test by the suite's reset lines. Missing on an app saved before the choice: kept when it has a key, else new.
+   */
+  account?: DrillTarget["account"];
+  /** What each new account is sent from the app's key before the setup. */
+  fund?: DrillTarget["fund"];
   /** How to get funds for testing ("needs test USDC", "mint at 0x..."). Never a private key: this isn't encrypted. */
   funding?: string;
-  allowMainnetLive?: boolean;
-  /** localStorage set on the app's origin before it loads (a fork mode, a feature flag). */
+  /** localStorage set on the app's origin before it loads (a test mode, a feature flag). */
   storage?: Record<string, string>;
-  /** Requests answered with a fixed body (a version check, a backend that disagrees with the fork). */
+  /** Requests answered with a fixed body (a version check, a backend the tests shouldn't depend on). */
   responses?: FixedResponse[];
-  /** ERC-20 balances the test wallet starts with on forks; the look picks them from what the app reads. */
-  tokens?: DrillTarget["tokens"];
+}
+
+/** The account choice of an app, for one saved before there was a choice too. */
+export function accountOf(app: { settings: AppSettings; liveKeyEnc: string | null }): DrillTarget["account"] {
+  return app.settings.account ?? (app.liveKeyEnc ? "kept" : "new");
 }
 
 export const apps = pgTable(
@@ -77,7 +86,7 @@ export const apps = pgTable(
     /** Hostname, used for domain verification. */
     host: text("host").notNull(),
     settings: jsonb("settings").$type<AppSettings>().notNull(),
-    /** Funded testnet key for live mode (encrypted). */
+    /** The owner's key that holds funds (encrypted): the kept account, or what pays each new account. */
     liveKeyEnc: text("live_key_enc"),
     liveKeyAddress: text("live_key_address"),
     /** JSON of headers sent only to the app's own site, e.g. its bot-protection bypass (encrypted). */
@@ -86,7 +95,7 @@ export const apps = pgTable(
     accessHeaderNames: jsonb("access_header_names").$type<string[]>().notNull().default([]),
     /** What the app's tests share: the setup done once before them, the notes about the app, and what may be signed. */
     suite: jsonb("suite").$type<SuiteSettings>().notNull().default({ notes: [], signing: "allowed" }),
-    /** Chains the look saw the app use (with the fork block), for runs when none are configured. */
+    /** Chains the look saw the app use, for runs when none are configured. */
     chains: jsonb("chains").$type<ChainConfig[]>().notNull().default([]),
     /** Daily run of every test, "HH:MM" UTC; null = off. */
     scheduleTime: text("schedule_time"),
@@ -113,7 +122,24 @@ export const domains = pgTable(
 
 export type JobStatus = "queued" | "running" | "done" | "failed" | "stopped";
 
-/** Tests being made for an app: a look for goals and a test for each, or one test from a goal somebody typed. */
+/** A repair as the app page draws it. It is kept in a `makes` row, beside what a make says and shows (`said`, `frame`). */
+export interface RepairState {
+  /** The run that asked for it. Missing when a person did. */
+  afterBatch?: string;
+  /** The setup or the reset was recorded again. */
+  setup?: boolean;
+  reset?: boolean;
+  tests: { testId: string; name: string; status: "waiting" | "repairing" | "repaired" | "not-repaired"; why?: string }[];
+  /** The tests to run once it is done: those repaired, and those that only waited on the setup or the reset. */
+  then: string[];
+  /** That run. */
+  batchId?: string;
+}
+
+/**
+ * Tests being made for an app: a look for goals and a test for each, or one test from a goal somebody typed.
+ * A repair of kept tests is a row here too, told apart by `state.repair`.
+ */
 export const makes = pgTable(
   "makes",
   {
@@ -125,7 +151,7 @@ export const makes = pgTable(
     /** How many of the look's goals get a test. */
     count: integer("count").notNull().default(10),
     /** Everything the app page draws of it. */
-    state: jsonb("state").$type<MakeState>().notNull().default({ stage: "looking", goals: [] }),
+    state: jsonb("state").$type<MakeState & { repair?: RepairState }>().notNull().default({ stage: "looking", goals: [] }),
     costUsd: real("cost_usd").notNull().default(0),
     error: text("error"),
     stopRequested: boolean("stop_requested").notNull().default(false),
@@ -163,8 +189,8 @@ export const tests = pgTable(
   (t) => [index("tests_app_idx").on(t.appId)],
 );
 
-/** "make": the run that proved a test when it was made. */
-export type Trigger = "manual" | "make" | "schedule";
+/** "make": the run that proved a test when it was made. "repair": the run of the tests a repair wrote again. */
+export type Trigger = "manual" | "make" | "schedule" | "repair";
 export type RunStatus = "queued" | "running" | "stopped" | Outcome;
 
 /** One result: one execution of one test. Results started together share a batch id, which is what the Runs page calls a run. */

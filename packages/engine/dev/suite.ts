@@ -1,9 +1,9 @@
 /**
  * Runs a suite file against an app and prints what every line did and how long it took.
  *
- *   pnpm suite <url> <suite.json> [--runs n] [--only text] [--chain id[=rpc]]… [--target file] [--headed]
+ *   pnpm suite <url> <suite.json> [--runs n] [--only text] [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed]
  *
- * --target is a target.json kept for the app (see dev/target.ts).
+ * The account flags and --target are told in dev/target.ts.
  *
  * Results and artifacts go under .drill/suites/<host>/<time>/, one result-<n>.json per run.
  */
@@ -12,15 +12,15 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { OUTCOME_LABEL, sentence, Suite, type Action, type Check, type LineResult, type SuiteResult } from "@dappdrill/core";
 import { runSuite } from "../src/api.js";
-import { fromCwd, loadTarget, outDir, secs, usd } from "./target.js";
+import { fromCwd, loadTarget, outDir, secs, TARGET_FLAGS, TARGET_USAGE } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
-  options: { runs: { type: "string" }, only: { type: "string" }, chain: { type: "string", multiple: true }, target: { type: "string" }, headed: { type: "boolean" } },
+  options: { ...TARGET_FLAGS, runs: { type: "string" }, only: { type: "string" }, headed: { type: "boolean" } },
 });
 const [url, suiteFile] = positionals;
 if (!url || !suiteFile) {
-  console.error("usage: pnpm suite <url> <suite.json> [--runs n] [--only text] [--chain id[=rpc]]… [--target file] [--headed]");
+  console.error(`usage: pnpm suite <url> <suite.json> [--runs n] [--only text] ${TARGET_USAGE} [--headed]`);
   process.exit(2);
 }
 
@@ -38,9 +38,7 @@ const text = (line: Action | Check, values: Record<string, string> = {}) =>
   sentence(line).replace(/\{\{(\w+)\}\}/g, (whole, name: string) => values[name] ?? whole);
 
 function printLine(n: number | string, line: Action | Check, r: LineResult, values?: Record<string, string>): void {
-  const who = r.by === "llm" ? (r.model ?? "llm").replace("claude-", "").replace(/-\d.*$/, "") : "code";
-  console.log(`  ${String(n).padStart(2)}  ${line.type.padEnd(6)} ${who.padEnd(6)} ${r.status.padEnd(7)} ${secs(r.durationMs)} ${usd(r.costUsd)}  ${text(line, values)}`);
-  if (r.redone) console.log(`        recorded actions failed: ${r.redone}`);
+  console.log(`  ${String(n).padStart(2)}  ${line.type.padEnd(6)} ${r.by.padEnd(4)} ${r.status.padEnd(7)} ${secs(r.durationMs)}  ${text(line, values)}`);
   if (r.note) console.log(`        ${r.note}`);
 }
 
@@ -56,9 +54,10 @@ for (let n = 1; n <= Number(flags.runs ?? 1); n++) {
     onTest: (r) => {
       const test = suite.tests.find((t) => t.id === r.testId)!;
       const inLines = r.steps.reduce((sum, s) => sum + s.durationMs, 0);
-      console.log(`\n${test.name}: ${OUTCOME_LABEL[r.outcome]}  ${secs(r.durationMs).trim()}, of which ${secs(inLines).trim()} in its lines  ${usd(r.costUsd).trim()}${r.rerun ? "  (run twice)" : ""}`);
+      console.log(`\n${test.name}: ${OUTCOME_LABEL[r.outcome]}  ${secs(r.durationMs).trim()}, of which ${secs(inLines).trim()} in its lines${r.rerun ? "  (run twice)" : ""}`);
       if (r.reason) console.log(`  ${r.reason}`);
       if (r.firstReason) console.log(`  The first time: ${r.firstReason}`);
+      r.reset.forEach((s, i) => printLine(`r${i + 1}`, suite.reset!.steps[i]!, s));
       r.steps.forEach((s, i) => printLine(i + 1, test.steps[i]!, s, r.values));
       r.cleanup.forEach((s, i) => printLine(`c${i + 1}`, test.cleanup[i]!, s, r.values));
       for (const review of r.signingReviews) console.log(`  signing review, ${review.verdict}: ${review.title}`);
@@ -66,7 +65,7 @@ for (let n = 1; n <= Number(flags.runs ?? 1); n++) {
   });
   runs.push(result);
   await writeFile(path.join(out, `result-${n}.json`), JSON.stringify(result, null, 2));
-  console.log(`\nRun ${n}: ${secs(result.durationMs).trim()}, $${result.costUsd.toFixed(4)}, ${result.tests.map((t) => OUTCOME_LABEL[t.outcome]).join(", ")}`);
+  console.log(`\nRun ${n}: ${secs(result.durationMs).trim()}, ${result.tests.map((t) => OUTCOME_LABEL[t.outcome]).join(", ")}`);
 }
 
 if (runs.length > 1) {
@@ -79,8 +78,7 @@ if (runs.length > 1) {
       const each = results.flatMap((r) => (r.steps[i] && r.steps[i]!.status !== "skipped" ? [r.steps[i]!] : []));
       if (!each.length) continue;
       const times = each.map((r) => r.durationMs);
-      const byModel = each.filter((r) => r.by === "llm").length;
-      console.log(`  ${String(i + 1).padStart(2)}  ${line.type.padEnd(6)} ${line.by.padEnd(4)} ${secs(median(times))} (${secs(Math.min(...times)).trim()}–${secs(Math.max(...times)).trim()})  ${each.filter((r) => r.status === "pass").length}/${each.length}${line.by === "code" && byModel ? `, a model did it ${byModel}×` : ""}  ${text(line)}`);
+      console.log(`  ${String(i + 1).padStart(2)}  ${line.type.padEnd(6)} ${line.by.padEnd(4)} ${secs(median(times))} (${secs(Math.min(...times)).trim()}–${secs(Math.max(...times)).trim()})  ${each.filter((r) => r.status === "pass").length}/${each.length}  ${text(line)}`);
     }
   }
 }

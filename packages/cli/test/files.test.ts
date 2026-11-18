@@ -1,20 +1,17 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TestResult } from "@dappdrill/core";
 import { printResult } from "../src/commands/run.js";
 import { buildTarget } from "../src/commands/target.js";
-import { UsageError, loadTests, parseChain, parseHeaders, parseResponses, parseStorage, parseToken, suiteOf } from "../src/files.js";
+import { UsageError, loadTests, parseAccount, parseChain, parseFund, parseHeaders, parseResponses, parseStorage, suiteOf } from "../src/files.js";
 
 describe("parseChain", () => {
   it("fills in the RPC of a known chain", () => {
-    expect(parseChain("8453")).toMatchObject({ id: 8453, name: "Base", mode: "fork" });
+    expect(parseChain("8453")).toMatchObject({ id: 8453, name: "Base" });
     expect(parseChain("8453").rpcUrl).toMatch(/^https:/);
-  });
-
-  it("runs chains that can't be forked live", () => {
-    expect(parseChain("129302")).toMatchObject({ id: 129302, mode: "live" });
+    expect(Object.keys(parseChain("129302")).sort()).toEqual(["id", "name", "rpcUrl"]);
   });
 
   it("keeps an explicit RPC, including one with '=' in it", () => {
@@ -27,18 +24,25 @@ describe("parseChain", () => {
   });
 });
 
-describe("parseToken", () => {
-  it("reads chain, token and a whole-token amount", () => {
-    expect(parseToken("1:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48=5000.5")).toEqual({
-      chainId: 1,
-      address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-      amount: "5000.5",
-    });
+describe("parseFund", () => {
+  const usdc = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+
+  it("reads the chain's coin, or a token by its address", () => {
+    expect(parseFund("84532:0.05")).toEqual({ chainId: 84532, amount: "0.05" });
+    expect(parseFund(`84532:${usdc}:100`)).toEqual({ chainId: 84532, token: usdc, amount: "100" });
   });
 
   it("rejects anything else", () => {
-    expect(() => parseToken("1:usdc=5")).toThrow(UsageError);
-    expect(() => parseToken("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48=5")).toThrow(/expected <chain id>/);
+    expect(() => parseFund("84532")).toThrow(/expected <chain id>/);
+    expect(() => parseFund("84532:usdc:5")).toThrow(UsageError);
+    expect(() => parseFund(`${usdc}:5`)).toThrow(UsageError);
+  });
+});
+
+describe("parseAccount", () => {
+  it("takes new or kept", () => {
+    expect(parseAccount("kept")).toBe("kept");
+    expect(() => parseAccount("live")).toThrow(/expected new or kept/);
   });
 });
 
@@ -61,7 +65,7 @@ describe("parseHeaders", () => {
 
 describe("parseStorage", () => {
   it("splits on the first =", () => {
-    expect(parseStorage(["forkEnabled=true", "forkRPCUrl=http://x/?a=b"])).toEqual({ forkEnabled: "true", forkRPCUrl: "http://x/?a=b" });
+    expect(parseStorage(["testMode=true", "apiUrl=http://x/?a=b"])).toEqual({ testMode: "true", apiUrl: "http://x/?a=b" });
     expect(() => parseStorage(["=nokey"])).toThrow(UsageError);
   });
 });
@@ -87,13 +91,21 @@ async function saved(value: unknown): Promise<string> {
 describe("loadTests", () => {
   it("reads a tests file, defaulting what can be left out", async () => {
     const tests = await loadTests(await saved({ url: "https://app.example", tests: [withdraw] }));
-    expect(tests).toMatchObject({ chains: [], tokens: [], notes: [], signing: "allowed" });
+    expect(tests).toMatchObject({ chains: [], account: "new", fund: [], notes: [], signing: "allowed" });
     expect(tests.tests[0]).toMatchObject({ name: "Withdraw everything", startPath: "/", cleanup: [] });
   });
 
-  it("gives the engine the suite without where the app is", async () => {
-    const suite = suiteOf(await loadTests(await saved({ url: "https://app.example", chains: [{ id: 8453, name: "Base", rpcUrl: "https://rpc.example" }], tests: [withdraw] })));
+  it("gives the engine the suite without where the app is or the account it runs on", async () => {
+    const suite = suiteOf(await loadTests(await saved({ url: "https://app.example", chains: [{ id: 8453, name: "Base", rpcUrl: "https://rpc.example" }], account: "kept", fund: [{ chainId: 8453, amount: "0.1" }], tests: [withdraw] })));
     expect(Object.keys(suite).sort()).toEqual(["notes", "signing", "tests"]);
+  });
+
+  it("reads a file written before tests ran on the app's own chains, leaving out what it no longer keeps", async () => {
+    const old = { url: "https://app.example", chains: [{ id: 8453, name: "Base", rpcUrl: "https://rpc.example", mode: "fork", forkBlock: "100", fromApp: true }], tokens: [{ chainId: 8453, address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", amount: "1000" }], tests: [withdraw] };
+    const tests = await loadTests(await saved(old));
+    expect(tests.chains).toEqual([{ id: 8453, name: "Base", rpcUrl: "https://rpc.example", fromApp: true }]);
+    expect(tests).not.toHaveProperty("tokens");
+    expect(tests.tests).toHaveLength(1);
   });
 
   it("says where a bad file is wrong, and refuses duplicate ids", async () => {
@@ -104,29 +116,49 @@ describe("loadTests", () => {
 });
 
 describe("buildTarget", () => {
-  const flags = { chain: [], token: [], initScript: [], header: [], storage: [], respond: [], out: "out" };
-  const usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
-  const file = {
-    chains: [{ id: 8453, name: "Base", rpcUrl: "https://rpc.example", mode: "fork" as const, forkBlock: "100", fromApp: true }],
-    tokens: [{ chainId: 8453, address: usdc, amount: "1000" }],
-  };
+  const flags = { chain: [], fund: [], initScript: [], header: [], storage: [], respond: [], out: "out" };
+  const key = `0x${"ab".repeat(32)}`;
+  const file = { chains: [{ id: 8453, name: "Base", rpcUrl: "https://rpc.example", fromApp: true }], account: "new" as const, fund: [] };
+  afterEach(() => vi.unstubAllEnvs());
 
-  it("runs on the file's chains at the blocks the tests were made at, unless --chain names others", async () => {
-    expect((await buildTarget("https://app.example", flags, "run", file)).chains).toMatchObject([{ id: 8453, forkBlock: "100" }]);
-    const asked = await buildTarget("https://app.example", { ...flags, chain: ["1"] }, "run", file);
+  it("runs on the file's chains, unless --chain names others", async () => {
+    expect((await buildTarget("https://app.example", flags, "tests", file)).chains).toMatchObject([{ id: 8453 }]);
+    const asked = await buildTarget("https://app.example", { ...flags, chain: ["1"] }, "tests", file);
     expect(asked.chains.map((c) => c.id)).toEqual([1]);
   });
 
-  it("makes tests on fresh copies, keeping the file's chains ready", async () => {
-    const target = await buildTarget("https://app.example", flags, "make", file);
+  it("makes tests by looking again, keeping the file's chains ready", async () => {
+    const target = await buildTarget("https://app.example", flags, "look", file);
     expect(target.chains).toEqual([]);
     expect(target.learnedChains).toMatchObject([{ id: 8453 }]);
-    expect(target.learnedChains[0]?.forkBlock).toBeUndefined();
   });
 
-  it("lets a --token replace what the file gives the wallet", async () => {
-    const target = await buildTarget("https://app.example", { ...flags, token: [`8453:${usdc.toLowerCase()}=5`] }, "run", file);
-    expect(target.tokens).toEqual([{ chainId: 8453, address: usdc.toLowerCase(), amount: "5" }]);
+  it("starts every test on a new account unless told otherwise, and needs no key for it", async () => {
+    vi.stubEnv("DAPPDRILL_KEY", "");
+    expect(await buildTarget("https://app.example", flags, "tests", file)).toMatchObject({ account: "new", fund: [] });
+    expect((await buildTarget("https://app.example", flags, "tests")).fundedKey).toBeUndefined();
+  });
+
+  it("sends each new account what --fund says from the key, the flags winning over the file", async () => {
+    const funded = { ...file, fund: [{ chainId: 8453, amount: "0.01" }] };
+    expect((await buildTarget("https://app.example", { ...flags, key }, "tests", funded)).fund).toEqual([{ chainId: 8453, amount: "0.01" }]);
+    const target = await buildTarget("https://app.example", { ...flags, key, fund: ["8453:0.05"] }, "tests", funded);
+    expect(target).toMatchObject({ account: "new", fundedKey: key, fund: [{ chainId: 8453, amount: "0.05" }] });
+    vi.stubEnv("DAPPDRILL_KEY", "");
+    await expect(buildTarget("https://app.example", flags, "tests", funded)).rejects.toThrow(/sent funds from a key/);
+  });
+
+  it("keeps the account the file says, with the key from --key or $DAPPDRILL_KEY", async () => {
+    vi.stubEnv("DAPPDRILL_KEY", "");
+    await expect(buildTarget("https://app.example", flags, "tests", { ...file, account: "kept" })).rejects.toThrow(/needs its key/);
+    vi.stubEnv("DAPPDRILL_KEY", key);
+    expect(await buildTarget("https://app.example", flags, "tests", { ...file, account: "kept" })).toMatchObject({ account: "kept", fundedKey: key });
+    expect((await buildTarget("https://app.example", { ...flags, account: "new" }, "tests", { ...file, account: "kept" })).account).toBe("new");
+  });
+
+  it("refuses a key that isn't one, without echoing it", async () => {
+    await expect(buildTarget("https://app.example", { ...flags, key: "hunter2" }, "tests", file)).rejects.toThrow(/^Bad key: expected a private key of 64 hex characters\.$/);
+    await expect(buildTarget("https://app.example", { ...flags, account: "live" }, "tests", file)).rejects.toThrow(UsageError);
   });
 });
 
@@ -150,5 +182,9 @@ describe("printResult", () => {
   it("says couldn't verify, with the reason", () => {
     expect(printed(result("unverified", { reason: "The RPC is down." }))).toEqual(["  ? Deposit  couldn't verify", "      The RPC is down."]);
     expect(printed(result("failed", { reason: "The balance didn't move." }))).toEqual(["  ✗ Deposit  3s", "      The balance didn't move."]);
+  });
+
+  it("says a test needs repairing, and with which command", () => {
+    expect(printed(result("unverified", { reason: "Line 2 isn't code yet.", repairable: true }))).toEqual(["  ? Deposit  couldn't verify", "      Line 2 isn't code yet.", "      Needs repairing: run dappdrill repair."]);
   });
 });

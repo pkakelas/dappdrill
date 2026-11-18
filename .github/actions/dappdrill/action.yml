@@ -1,5 +1,5 @@
 name: DappDrill
-description: Run your web3 app's DappDrill tests on local forks and comment the results on the PR.
+description: Run your web3 app's DappDrill tests and comment the results on the PR.
 branding:
   icon: check-circle
   color: blue
@@ -37,8 +37,6 @@ runs:
         corepack enable
         corepack pnpm install --frozen-lockfile --filter "@dappdrill/cli..."
         echo "DAPPDRILL_BIN=$PWD/packages/cli/bin/dappdrill.js" >> "$GITHUB_ENV"
-
-    - uses: foundry-rs/foundry-toolchain@v1
 
     - name: Install Chromium
       shell: bash

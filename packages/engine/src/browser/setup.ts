@@ -1,7 +1,7 @@
 /**
  * The owner's test setup for their app: localStorage it reads at startup (a
- * fork mode, a feature flag) and requests answered with a fixed body (a
- * version check, a backend that disagrees with the fork).
+ * test mode, a feature flag) and requests answered with a fixed body (a
+ * version check).
  */
 import type { BrowserContext } from "playwright";
 import type { FixedResponse } from "@dappdrill/core";

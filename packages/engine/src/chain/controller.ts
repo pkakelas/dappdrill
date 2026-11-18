@@ -1,85 +1,30 @@
 import { createPublicClient, http, type PublicClient } from "viem";
-import { MAINNET_CHAIN_IDS, chainInfo, chainName, type ChainConfig, type MissingChain } from "@dappdrill/core";
-import type { AddChainRequest, ChainController, Hex } from "../types.js";
-import { startAnvilFork, type AnvilFork } from "./anvil.js";
-import { dealErc20 as dealErc20Impl } from "./deal-erc20.js";
-import { JsonRpcError, probeChainId, rpcCall, sleep, toHex } from "./rpc.js";
-import { balanceReads } from "./balance-reads.js";
-import { LOOK_AFTER_MS, loggedSince, startOfWatch, type RelayWatch } from "./relayed.js";
-import { pickUpstream, upstreamCandidates } from "./upstream.js";
+import { chainInfo, type ChainConfig, type MissingChain } from "@dappdrill/core";
+import type { AddChainRequest, ChainController } from "../types.js";
+import { JsonRpcError, probeChainId, rpcCall } from "./rpc.js";
 
 export interface StartChainsOptions {
-  /** Funded key for live-mode chains. Without it, live chains are read-only. */
-  liveKey?: string;
-  /** Live mode refuses mainnet chain ids unless this is set. */
-  allowMainnetLive?: boolean;
-  /**
-   * Mine an empty block this often on every fork (while automine is on). A fork
-   * otherwise sits on its pinned block, so dApps see a clock minutes behind and
-   * wait forever for confirmations.
-   */
-  heartbeatMs?: number;
   log?: (message: string) => void;
-  /** Called once a chain the app asked for is running, before the wallet answers the app (fund it, report it). */
+  /** Called once a chain the app asked for is in use, before the wallet answers the app. */
   onAdded?: (config: ChainConfig) => Promise<void>;
-  /** Called when a chain the app asked for couldn't be started (the first time per chain). */
+  /** Called when a chain the app asked for couldn't be reached (the first time per chain). */
   onMissing?: (chain: MissingChain) => Promise<void>;
 }
 
 interface Entry {
   config: ChainConfig;
-  mode: "fork" | "live";
-  url: string;
-  fork?: AnvilFork;
   client?: PublicClient;
 }
 
-/** Error raised by an injected RPC fault. Looks like a node failure to the page and the wallet. */
-export class InjectedRpcFault extends JsonRpcError {
-  constructor() {
-    super(-32603, "Internal JSON-RPC error.", { code: -32000, message: "DappDrill: injected RPC failure" });
-  }
-}
-
-/**
- * Start one Anvil fork per fork-mode chain (in parallel) and wrap live chains
- * in a passthrough. Every call made through `request()` sees the configured
- * faults; the control calls used by the engine itself never do.
- */
-export async function startChains(configs: ChainConfig[], opts: StartChainsOptions = {}): Promise<ChainController> {
+/** The chains of a run, each reached through its own RPC. */
+export function startChains(configs: ChainConfig[], opts: StartChainsOptions = {}): ChainController {
   const ids = new Set<number>();
   for (const c of configs) {
     if (ids.has(c.id)) throw new Error(`chain ${c.id} is configured twice`);
     ids.add(c.id);
-    refuseMainnetLive(c, opts);
+    opts.log?.(`chain ${c.id}: ${c.rpcUrl}`);
   }
-  const started = await Promise.allSettled(configs.map((c) => startEntry(c, opts)));
-  const failed = started.find((s) => s.status === "rejected");
-  if (failed) {
-    // Don't leave the forks that did come up running.
-    await Promise.all(started.map((s) => (s.status === "fulfilled" ? s.value.fork?.close() : undefined)));
-    throw failed.reason;
-  }
-  return new Controller(
-    started.map((s) => (s as PromiseFulfilledResult<Entry>).value),
-    opts,
-  );
-}
-
-function refuseMainnetLive(c: ChainConfig, opts: StartChainsOptions): void {
-  if (c.mode === "live" && MAINNET_CHAIN_IDS.has(c.id) && !opts.allowMainnetLive) {
-    throw new Error(`${chainName(c.id)} (chain ${c.id}) holds real money; live mode on it needs allowMainnetLive`);
-  }
-}
-
-/**
- * Why a model working off the written steps may not approve a request: it would sign on a mainnet
- * that isn't forked. This holds even for an app that allows live mainnet.
- */
-export function refuseOnLiveMainnet(chains: ChainController, request: { chainId: number }): string | undefined {
-  if (!MAINNET_CHAIN_IDS.has(request.chainId)) return undefined;
-  if (chains.has(request.chainId) && chains.mode(request.chainId) === "fork") return undefined;
-  return `Refused: this would sign on live chain ${request.chainId}. Reject it and carry on without it.`;
+  return new Controller(configs, opts);
 }
 
 /** Hosts the page called that we try as RPCs for a chain the app wants. */
@@ -92,108 +37,46 @@ const MAX_HINTS = 6;
  */
 export async function configForApp(req: AddChainRequest): Promise<ChainConfig> {
   const info = chainInfo(req.id);
-  if (info) return { id: info.id, name: info.name, rpcUrl: info.rpcUrl, mode: info.forkable ? "fork" : "live", fromApp: true };
+  if (info) return { id: info.id, name: info.name, rpcUrl: info.rpcUrl, fromApp: true };
   const offered = req.rpcUrls.filter((u) => /^https?:\/\//i.test(u)).slice(0, 3);
   const hints = (req.rpcHints ?? []).filter((u) => /^https?:\/\//i.test(u) && !offered.includes(u)).slice(0, MAX_HINTS);
   const candidates = [...offered, ...hints];
   if (candidates.length === 0) throw new Error("the app gave no RPC URL for it");
   const ids = await Promise.all(candidates.map((url) => probeChainId(url)));
   const url = candidates.find((_, i) => ids[i] === req.id);
-  if (url) return { id: req.id, name: req.name, rpcUrl: url, mode: "fork", fromApp: true };
+  if (url) return { id: req.id, name: req.name, rpcUrl: url, fromApp: true };
   if (offered.length) throw new Error(`${offered[0]} didn't answer as chain ${req.id}`);
   const tried = hints.length === 1 ? "the one host the page called didn't answer" : `none of the ${hints.length} hosts the page called answered`;
   throw new Error(`the app gave no RPC URL for it, and ${tried} as chain ${req.id}`);
 }
 
-async function startEntry(config: ChainConfig, opts: StartChainsOptions): Promise<Entry> {
-  if (config.mode === "live") {
-    opts.log?.(`chain ${config.id}: live mode via ${config.rpcUrl}${opts.liveKey ? "" : " (no funded key: signs messages, sends no transactions)"}`);
-    return { config, mode: "live", url: config.rpcUrl };
-  }
-  // The RPC the fork reads from has to keep the fork's block for the whole run; see upstream.ts.
-  const upstream = await pickUpstream(config, opts.log);
-  if (config.forkBlock && config.relays) opts.log?.(`chain ${config.id}: the app's server uses this wallet's signatures on the real chain, which a copy at block ${config.forkBlock} would be behind; forking near the latest block`);
-  else if (config.forkBlock && !upstream.pinned) opts.log?.(`chain ${config.id}: block ${config.forkBlock} is no longer available upstream; forking near the latest block`);
-  const start = (forkBlock?: bigint) => startAnvilFork({ rpcUrl: upstream.rpcUrl, chainId: config.id, forkBlock });
-  const pinned = upstream.pinned && !config.relays ? BigInt(config.forkBlock!) : undefined;
-  let fork: AnvilFork;
-  try {
-    // A public RPC behind a load balancer now and then hasn't got the block yet, or drops a request:
-    // the same start once more, and only then a pinned block is given up for one near the tip.
-    fork = await start(pinned)
-      .catch(() => start(pinned))
-      .catch((err) => {
-        if (pinned === undefined) throw err;
-        opts.log?.(`chain ${config.id}: couldn't fork at block ${pinned} (${(err as Error).message.split("\n")[0]}); forking near the latest block`);
-        return start();
-      });
-  } catch (err) {
-    // Chains that aren't standard EVM nodes can't be forked: test them live, never on mainnet.
-    if (MAINNET_CHAIN_IDS.has(config.id)) throw err;
-    opts.log?.(`chain ${config.id}: can't fork ${upstream.via} (${(err as Error).message.split("\n")[0]}); falling back to live mode`);
-    return startEntry({ ...config, mode: "live", forkBlock: undefined }, opts);
-  }
-  opts.log?.(`chain ${config.id}: forked ${upstream.via} at block ${fork.forkBlock} on ${fork.url}`);
-  return {
-    config: { ...config, forkBlock: fork.forkBlock.toString() },
-    mode: "fork",
-    url: fork.url,
-    fork,
-  };
-}
-
 class Controller implements ChainController {
-  /** ERC-20 balances the app or the wallet asked for, as "chain:holder:token". */
-  private readonly read = new Set<string>();
   private readonly entries = new Map<number, Entry>();
-  private faults = { latencyMs: 0, failureRate: 0 };
-  private rng = seeded(0x5eed);
   private closed = false;
-  private readonly automineOff = new Set<number>();
-  private heartbeat?: NodeJS.Timeout;
-  private beating = false;
   private readonly adding = new Map<number, Promise<ChainConfig>>();
   private readonly missingChains = new Map<number, MissingChain>();
-  private readonly watches: RelayWatch[] = [];
 
-  constructor(entries: Entry[], private readonly opts: StartChainsOptions) {
-    for (const e of entries) this.entries.set(e.config.id, e);
-    this.startHeartbeat();
-  }
-
-  private startHeartbeat(): void {
-    if (this.heartbeat || !this.opts.heartbeatMs || ![...this.entries.values()].some((e) => e.mode === "fork")) return;
-    this.heartbeat = setInterval(() => {
-      // A stalled fork would otherwise pile up a mine call every tick.
-      if (this.beating) return;
-      this.beating = true;
-      void this.beat().finally(() => (this.beating = false));
-    }, this.opts.heartbeatMs);
-    this.heartbeat.unref();
+  constructor(configs: ChainConfig[], private readonly opts: StartChainsOptions) {
+    for (const config of configs) this.entries.set(config.id, { config });
   }
 
   addFromApp(req: AddChainRequest): Promise<ChainConfig> {
-    const running = this.entries.get(req.id);
-    if (running) return Promise.resolve({ ...running.config });
-    // The app often asks twice in a row (switch fails, add, retry); start the chain once.
+    const known = this.entries.get(req.id);
+    if (known) return Promise.resolve({ ...known.config });
+    // The app often asks twice in a row (switch fails, add, retry); look for the chain once.
     let p = this.adding.get(req.id);
     if (!p) {
-      p = this.startFromApp(req).finally(() => this.adding.delete(req.id));
+      p = this.add(req).finally(() => this.adding.delete(req.id));
       this.adding.set(req.id, p);
     }
     return p;
   }
 
-  private async startFromApp(req: AddChainRequest): Promise<ChainConfig> {
-    let entry: Entry;
+  private async add(req: AddChainRequest): Promise<ChainConfig> {
+    let config: ChainConfig;
     try {
-      const config = await configForApp(req);
-      refuseMainnetLive(config, this.opts);
-      entry = await startEntry(config, this.opts);
-      if (this.closed) {
-        await entry.fork?.close();
-        throw new Error("the run had already ended");
-      }
+      config = await configForApp(req);
+      if (this.closed) throw new Error("the run had already ended");
     } catch (err) {
       const reason = (err as Error).message.split("\n")[0]!;
       // An offered RPC is worth naming; hosts we only guessed at aren't.
@@ -204,57 +87,19 @@ class Controller implements ChainController {
       if (first) await this.opts.onMissing?.(missing).catch(() => {});
       throw err;
     }
-    this.entries.set(req.id, entry);
+    this.entries.set(req.id, { config });
     this.missingChains.delete(req.id);
-    this.startHeartbeat();
+    this.opts.log?.(`chain ${config.id}: ${config.rpcUrl} (the app asked for it)`);
     try {
-      await this.opts.onAdded?.({ ...entry.config });
+      await this.opts.onAdded?.({ ...config });
     } catch (err) {
-      this.opts.log?.(`chain ${req.id}: setting up the added chain failed: ${(err as Error).message}`);
+      this.opts.log?.(`chain ${req.id}: reporting the added chain failed: ${(err as Error).message}`);
     }
-    return { ...entry.config };
+    return { ...config };
   }
 
   missing(): MissingChain[] {
     return [...this.missingChains.values()];
-  }
-
-  watchSignature(chainId: number, contract: Hex, account: Hex): void {
-    const e = this.entries.get(chainId);
-    if (!e || e.mode !== "fork" || e.config.relays || this.closed) return;
-    if (this.watches.some((w) => w.chainId === chainId && w.contract.toLowerCase() === contract.toLowerCase() && w.account.toLowerCase() === account.toLowerCase())) return;
-    const watch: RelayWatch = { chainId, contract, account, from: startOfWatch(upstreamCandidates(e.config)) };
-    this.watches.push(watch);
-    for (const ms of LOOK_AFTER_MS) setTimeout(() => void this.look(watch), ms).unref();
-  }
-
-  markRelayed(chainId: number): void {
-    const e = this.entries.get(chainId);
-    if (e && e.mode === "fork") e.config = { ...e.config, relays: true };
-  }
-
-  async lookForRelays(): Promise<void> {
-    await Promise.all(this.watches.map((w) => this.look(w)));
-  }
-
-  private async look(w: RelayWatch): Promise<void> {
-    const e = this.entries.get(w.chainId);
-    if (!e || e.config.relays || this.closed) return;
-    const from = await w.from;
-    if (!from || !(await loggedSince(from.rpcUrl, w.contract, w.account, from.block).catch(() => false)) || e.config.relays) return;
-    e.config = { ...e.config, relays: true };
-    this.opts.log?.(
-      `chain ${w.chainId}: after the wallet signed for ${w.contract} on our copy of ${chainName(w.chainId)}, the app's server acted for ${w.account} on the real chain (the contract logged the account there since). The copy doesn't see that and is behind the real chain from now on; later runs fork it near its latest block.`,
-    );
-  }
-
-  /** One empty block per fork, stamped with the wall clock. Skipped while a test holds transactions pending. */
-  private async beat(): Promise<void> {
-    await Promise.all(
-      [...this.entries.values()]
-        .filter((e) => e.mode === "fork" && !this.automineOff.has(e.config.id))
-        .map((e) => rpcCall(e.url, "evm_mine", [], { timeoutMs: 5_000, retryDelaysMs: [] }).catch(() => {})),
-    );
   }
 
   configs(): ChainConfig[] {
@@ -265,82 +110,24 @@ class Controller implements ChainController {
     return this.entries.has(chainId);
   }
 
-  mode(chainId: number): "fork" | "live" {
-    return this.entry(chainId).mode;
-  }
-
   rpcUrl(chainId: number): string {
-    return this.entry(chainId).url;
+    return this.entry(chainId).config.rpcUrl;
   }
 
   client(chainId: number): PublicClient {
     const e = this.entry(chainId);
-    e.client ??= createPublicClient({ transport: http(e.url, { retryCount: 1 }) });
+    e.client ??= createPublicClient({ transport: http(e.config.rpcUrl, { retryCount: 1 }) });
     return e.client;
   }
 
   async request(chainId: number, method: string, params: unknown[]): Promise<unknown> {
     const e = this.entries.get(chainId);
     if (!e) throw new JsonRpcError(4901, `The provider is disconnected from chain ${chainId}.`);
-    if (this.faults.latencyMs > 0) await sleep(this.faults.latencyMs);
-    if (this.faults.failureRate > 0 && this.rng() < this.faults.failureRate) throw new InjectedRpcFault();
-    for (const r of balanceReads(method, params)) this.read.add(`${chainId}:${r.holder}:${r.token}`);
-    return rpcCall(e.url, method, params);
-  }
-
-  tokensRead(chainId: number, holder: Hex): Hex[] {
-    const prefix = `${chainId}:${holder.toLowerCase()}:`;
-    return [...this.read].filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length) as Hex);
-  }
-
-  /** Engine-side control call: never subject to faults, fork only. */
-  private control(chainId: number, method: string, params: unknown[] = []): Promise<unknown> {
-    const e = this.entry(chainId);
-    if (e.mode !== "fork") throw new Error(`${method} needs a fork; chain ${chainId} runs in live mode`);
-    return rpcCall(e.url, method, params);
-  }
-
-  async setBalance(chainId: number, address: Hex, wei: bigint): Promise<void> {
-    await this.control(chainId, "anvil_setBalance", [address, toHex(wei)]);
-  }
-
-  async dealErc20(chainId: number, token: Hex, address: Hex, amount: bigint): Promise<void> {
-    await dealErc20Impl((m, p) => this.control(chainId, m, p), token, address, amount);
-  }
-
-  async setAutomine(chainId: number, on: boolean): Promise<void> {
-    await this.control(chainId, "evm_setAutomine", [on]);
-    if (on) this.automineOff.delete(chainId);
-    else this.automineOff.add(chainId);
-  }
-
-  async mine(chainId: number): Promise<void> {
-    await this.control(chainId, "anvil_mine", ["0x1"]);
-  }
-
-  async snapshot(chainId: number): Promise<string> {
-    return (await this.control(chainId, "evm_snapshot")) as string;
-  }
-
-  async revert(chainId: number, snapshotId: string): Promise<void> {
-    const ok = await this.control(chainId, "evm_revert", [snapshotId]);
-    if (ok !== true) throw new Error(`snapshot ${snapshotId} on chain ${chainId} could not be reverted (already used?)`);
-  }
-
-  async impersonate(chainId: number, address: Hex): Promise<void> {
-    await this.control(chainId, "anvil_impersonateAccount", [address]);
-  }
-
-  setFaults(faults: { latencyMs?: number; failureRate?: number }): void {
-    this.faults = { latencyMs: faults.latencyMs ?? 0, failureRate: faults.failureRate ?? 0 };
-    this.rng = seeded(0x5eed);
+    return rpcCall(e.config.rpcUrl, method, params);
   }
 
   async close(): Promise<void> {
-    if (this.closed) return;
     this.closed = true;
-    if (this.heartbeat) clearInterval(this.heartbeat);
-    await Promise.all([...this.entries.values()].map((e) => e.fork?.close()));
   }
 
   private entry(chainId: number): Entry {
@@ -348,16 +135,4 @@ class Controller implements ChainController {
     if (!e) throw new Error(`chain ${chainId} is not part of this run (have ${[...this.entries.keys()].join(", ") || "none"})`);
     return e;
   }
-}
-
-/** mulberry32: deterministic failures make failing-rpc runs reproducible. */
-function seeded(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }

@@ -208,7 +208,7 @@ describe("decodeCall", () => {
 
 describe("ui-match rules", () => {
   const usdcGrant = (amount: bigint, unlimited = false) => ({ standard: "erc20" as const, token: F.USDC_MAINNET, symbol: "USDC", spender: F.VAULT, amount: amount.toString(), display: unlimited ? "Unlimited (2²⁵⁶ − 1)" : displayAmount(amount, { symbol: "USDC", decimals: 6 }), unlimited });
-  const base = { kind: "transaction" as const, functionName: "approve", approvals: [], outgoing: [], valueWei: 0n, nativeSymbol: "ETH", description: "" };
+  const base = { kind: "transaction" as const, functionName: "approve", approvals: [], valueWei: 0n, nativeSymbol: "ETH", description: "" };
   const decimals = () => 6;
 
   it("reads intents and amounts from labels", () => {

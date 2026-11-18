@@ -4,6 +4,7 @@
  * The web app always writes the row first, then enqueues its id:
  *   "tests.run" { batchId }   test_runs rows sharing the batch id (queueRuns in @dappdrill/db).
  *   "make.run"  { makeId }    a makes row, status "queued": with a goal, one test; without, a look and a test per goal.
+ *   "repair.run" { repairId } a makes row with `state.repair`, status "queued" (queueRepair in @dappdrill/db).
  * Stopping is not a job: the web sets stop_requested and the worker polls it.
  *
  * Artifacts: a job writes into ARTIFACTS_DIR/<kind>/<id>/ ("runs"/<batchId>, "makes"/<makeId>) and every
@@ -15,6 +16,7 @@ import { PgBoss } from "pg-boss";
 export interface JobPayloads {
   "tests.run": { batchId: string };
   "make.run": { makeId: string };
+  "repair.run": { repairId: string };
 }
 export type QueueName = keyof JobPayloads;
 

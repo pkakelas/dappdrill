@@ -26,8 +26,8 @@ export default function Terms() {
 
       <h2>The service</h2>
       <p>
-        DappDrill explores web3 apps, writes tests for them and runs those tests in a browser with a test wallet against local
-        forks of the chain. It reports what it finds, with recordings. We keep improving it, so features may change, and parts
+        DappDrill explores web3 apps, writes tests for them and runs those tests in a browser with a test wallet on the
+        chains the app uses. It reports what it finds, with recordings. We keep improving it, so features may change, and parts
         may be offered as early access while we work on them.
       </p>
 
@@ -57,9 +57,10 @@ export default function Terms() {
 
       <h2>Chains and funds</h2>
       <p>
-        Tests run on local forks with test funds. DappDrill does not send transactions to mainnet, and it is not a wallet: we
-        never hold, move or manage real assets for you. Where you set up live mode on a testnet, you supply the testnet key
-        and are responsible for it.
+        Tests run on the chains you choose for your app, testnet or mainnet, and send real transactions there. They use test
+        wallets, paid from a key you give us for that, or an account you give us to test with. You choose those chains and
+        keys and are responsible for them and for what they hold. DappDrill is not a wallet: apart from what the tests you
+        set up do with those keys, we never hold, move or manage assets for you.
       </p>
 
       <h2>Your content</h2>

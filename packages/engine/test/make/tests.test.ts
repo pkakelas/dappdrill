@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { noteText, Suite, Test } from "@dappdrill/core";
 import type { Made } from "../../src/make/maker.js";
-import { makeEach, MAX_SUSPICIONS } from "../../src/make/tests.js";
+import { makeEach, MAX_SUSPICIONS, MAX_UNMADE } from "../../src/make/tests.js";
 
 const test = (id: string) => Test.parse({ id, name: id, goal: id, steps: [{ type: "action", by: "llm", do: "Go." }, { type: "check", by: "llm", claim: "It went." }] });
 const made = (id: string, more: Partial<Made> = {}): Made => ({ test: test(id), proven: true, stands: "passed", notes: [], findings: [], repairs: [], dismissed: [], runs: [], draftUsd: 0, costUsd: 0, durationMs: 0, ...more });
@@ -35,7 +35,8 @@ describe("makeEach", () => {
     const many = [...["a", "A", "b"].map((what) => seen(what)), { ...seen("b in other words"), goal: seen("b").goal }, seen("c"), seen("d")];
     const into: string[] = [];
     await makeEach({ goals: goals("deposit"), notes: [], problems: many }, { suite: empty }, async ({ suspicion }) => {
-      if (suspicion) into.push(suspicion.what);
+      if (!suspicion) return made("deposit");
+      into.push(suspicion.what);
       return made("x", { proven: false, test: undefined, why: "Couldn't be done." });
     });
     expect(into).toEqual(["a", "b", "c"]);
@@ -112,8 +113,8 @@ describe("makeEach", () => {
     });
     expect(asked).toEqual(["buy NVDA", "read the history"]);
     expect(judged).toEqual([
-      { goal: "buy GOOGL", blockers: [blocker] },
-      { goal: "read the history", blockers: [blocker] },
+      { goal: "buy GOOGL", blockers: [`In the way: ${blocker}`] },
+      { goal: "read the history", blockers: [`In the way: ${blocker}`] },
     ]);
     expect(attempts[1]).toMatchObject({ goal: "buy GOOGL", kept: false, why: `Not tried: ${blocker}`, ask: "Is there a liquid market on staging?" });
     expect(attempts[1]!.made).toBeUndefined();
@@ -122,6 +123,60 @@ describe("makeEach", () => {
       { text: blocker, from: "unkept" },
     ]);
     expect(suite.tests.map((t) => t.id)).toEqual(["read the history"]);
+  });
+
+  it("doesn't try a goal that would only fail again on a fault a kept test already fails on", async () => {
+    const cancel = seen("cancelling leaves the order Open", true);
+    const judged: string[][] = [];
+    const stoppedBy = async (goal: string, stoppers: string[]) => {
+      judged.push(stoppers);
+      return goal === "edit an order" ? 0 : undefined;
+    };
+    const asked: string[] = [];
+    const { suite, attempts } = await makeEach({ goals: goals("cancel an order", "edit an order", "read the history"), notes: [], problems: [] }, { suite: empty, stoppedBy }, async ({ goal }) => {
+      asked.push(goal);
+      if (goal === "cancel an order") return made("cancel", { stands: "failed", findings: [cancel, seen("the fee rounds", false)] });
+      return made(goal);
+    });
+    expect(asked).toEqual(["cancel an order", "read the history", "A user sees that the fee rounds."]);
+    expect(judged[0]).toEqual(["A fault of the app, which the test “cancel” fails on every time: cancelling leaves the order Open. It doesn't."]);
+    expect(attempts[1]).toMatchObject({ goal: "edit an order", kept: false, why: "Not tried: it would fail on “cancelling leaves the order Open”, which the test “cancel” already fails on." });
+    expect(attempts[1]!.ask).toBeUndefined();
+    // The fee rounding was only suspected, so its own test was made; it passed, so there was nothing to keep.
+    expect(suite.tests.map((t) => t.id)).toEqual(["cancel", "read the history"]);
+  });
+
+  it("stops after so many goals in a row couldn't be made while none was kept, and not once one was", async () => {
+    const no = (goal: string) => made(goal, { proven: false, test: undefined, why: "The order expired." });
+    const asked: string[] = [];
+    const none = await makeEach({ goals: goals("a", "b", "c", "d", "e"), notes: [], problems: [seen("the fee is shown twice")] }, { suite: empty, together: 2 }, async ({ goal }) => (asked.push(goal), no(goal)));
+    expect(asked).toEqual(["a", "b", "c", "d"]);
+    expect(MAX_UNMADE).toBe(3);
+    // Two side by side: the third that ended stopped any more from starting, and the one beside it was let finish.
+    expect(none.stopped).toMatch(/^Stopped because the first goals tried couldn't be made/);
+    expect(none.attempts).toHaveLength(4);
+
+    // A goal not tried doesn't count, and one kept turns the cut-off off.
+    const blocker = "Nobody sells.";
+    const some = await makeEach({ goals: goals("a", "b", "c", "d", "e", "f"), notes: [], problems: [] }, { suite: empty, stoppedBy: async (goal) => (goal === "b" || goal === "c" ? 0 : undefined) }, async ({ goal }) =>
+      goal === "a" ? made(goal, { proven: false, test: undefined, blocker }) : goal === "e" ? made(goal) : no(goal),
+    );
+    expect(some.stopped).toBeUndefined();
+    expect(some.attempts.map((a) => [a.goal, a.made ? "tried" : "skipped"])).toEqual([["a", "tried"], ["b", "skipped"], ["c", "skipped"], ["d", "tried"], ["e", "tried"], ["f", "tried"]]);
+  });
+
+  it("waits for a goal still being made before stopping, and goes on when it is kept", async () => {
+    const asked: string[] = [];
+    const out = await makeEach({ goals: goals("slow", "b", "c", "d", "e"), notes: [], problems: [] }, { suite: empty, together: 2 }, async ({ goal }) => {
+      asked.push(goal);
+      if (goal !== "slow") return made(goal, { proven: false, test: undefined, why: "The order expired." });
+      await new Promise((r) => setTimeout(r, 20));
+      return made(goal);
+    });
+    // b, c and d ended without a test while slow was still being made; slow was kept, so e was tried.
+    expect(asked).toEqual(["slow", "b", "c", "d", "e"]);
+    expect(out.stopped).toBeUndefined();
+    expect(out.suite.tests.map((t) => t.id)).toEqual(["slow"]);
   });
 
   it("tries the goal when it can't be told whether it is stopped", async () => {

@@ -1,6 +1,6 @@
 import type { FixedResponse } from "./run.js";
 
-/** "forkEnabled=true" → ["forkEnabled", "true"]; undefined without a key. Splits on the first "=". */
+/** "termsAccepted=true" → ["termsAccepted", "true"]; undefined without a key. Splits on the first "=". */
 export function parseStorageEntry(spec: string): [string, string] | undefined {
   const i = spec.indexOf("=");
   return i > 0 ? [spec.slice(0, i).trim(), spec.slice(i + 1).trim()] : undefined;

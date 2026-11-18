@@ -6,9 +6,7 @@ import { DrillTarget, WalletRequest, type DrillEvent } from "@dappdrill/core";
 import type { ChainController } from "../../src/types.js";
 import { startChains } from "../../src/chain/controller.js";
 import { createSession, type EngineSession } from "../../src/browser/session.js";
-import { readBalance } from "../../src/chain/deal-erc20.js";
-import { rpcCall } from "../../src/chain/rpc.js";
-import { providerChain } from "../../src/browser/rpc-route.js";
+import { TOKEN_ABI } from "./contracts.js";
 import { ACCOUNTS, CHAIN_ID, startBareChain, startFixture, type Fixture } from "./fixture.js";
 
 let fx: Fixture;
@@ -18,7 +16,7 @@ const events: DrillEvent[] = [];
 
 beforeAll(async () => {
   fx = await startFixture();
-  chains = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], {});
+  chains = startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }], {});
   artifactsDir = await mkdtemp(path.join(os.tmpdir(), "dappdrill-session-"));
 }, 60_000);
 
@@ -155,13 +153,11 @@ describe("session", () => {
     }
   }, 60_000);
 
-  it("routes the page's own JSON-RPC (single + batch) to the fork and logs it", async () => {
+  it("records the page's own JSON-RPC (single + batch), which goes to the chain untouched", async () => {
     const session = await open();
     try {
       await connect(session);
-      // block number shown by the page comes from the fork, which is pinned at the real chain's tip
-      const forkBlock = Number(chains.configs()[0]!.forkBlock);
-      await expect.poll(() => session.page.locator("#block").textContent()).toBe(String(forkBlock));
+      await expect.poll(() => session.page.locator("#block").textContent()).toMatch(/^\d+$/);
       await expect.poll(() => session.page.locator("#balance").textContent()).toBe("1000.00");
       const pageRpc = session.rpc.filter((r) => r.via === "page");
       expect(pageRpc.map((r) => r.method)).toEqual(expect.arrayContaining(["eth_blockNumber", "eth_chainId", "eth_call"]));
@@ -173,46 +169,7 @@ describe("session", () => {
     }
   }, 60_000);
 
-  it("routes an app-only RPC proxy to the fork once the page asks it for eth_chainId", async () => {
-    // Like an app's own RPC proxy: it only answers requests from a page (with an Origin header).
-    const { createServer } = await import("node:http");
-    const proxy = createServer((req, res) => {
-      const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type" };
-      if (req.method === "OPTIONS") return void res.writeHead(204, cors).end();
-      if (!req.headers.origin) return void res.writeHead(403, cors).end("forbidden");
-      let body = "";
-      req.on("data", (c) => (body += c));
-      req.on("end", async () => {
-        const upstream = await fetch(fx.rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
-        res.writeHead(200, { ...cors, "content-type": "application/json" }).end(await upstream.text());
-      });
-    });
-    await new Promise<void>((r) => proxy.listen(0, "127.0.0.1", r));
-    const proxyUrl = `http://127.0.0.1:${(proxy.address() as { port: number }).port}/ethereum-mainnet`;
-    const session = await open();
-    try {
-      const A = session.wallet.accounts.A;
-      await chains.setBalance(CHAIN_ID, A, 4242n);
-      const read = await session.page.evaluate(
-        async ([url, account]) => {
-          const call = async (method: string, params: unknown[]) =>
-            (await (await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 7, method, params }) })).json()).result;
-          return { chainId: await call("eth_chainId", []), balance: await call("eth_getBalance", [account, "latest"]) };
-        },
-        [proxyUrl, A] as const,
-      );
-      expect(read.chainId).toBe("0x7a69");
-      // 4242 wei only exists on the fork.
-      expect(BigInt(read.balance)).toBe(4242n);
-      expect(BigInt((await rpcCall(fx.rpcUrl, "eth_getBalance", [A, "latest"])) as string)).not.toBe(4242n);
-      expect(session.rpc.filter((r) => r.url === proxyUrl && r.chainId === CHAIN_ID).map((r) => r.method)).toEqual(["eth_chainId", "eth_getBalance"]);
-    } finally {
-      await session.close();
-      await new Promise((r) => proxy.close(r));
-    }
-  }, 60_000);
-
-  it("approve + deposit go through the wallet onto the fork only; errors look like MetaMask", async () => {
+  it("approve + deposit go through the wallet onto the chain; errors look like MetaMask", async () => {
     const session = await open();
     try {
       await connect(session);
@@ -234,9 +191,9 @@ describe("session", () => {
       await expect.poll(() => session.page.locator("#shares").textContent()).toBe("5.00");
       expect(session.wallet.requests().filter((r) => r.kind === "sign" && r.outcome === "approved")).toHaveLength(2);
 
-      // the real chain never saw it
-      const real = await readBalance((m, p) => rpcCall(fx.rpcUrl, m, p), fx.token, session.wallet.accounts.A);
-      expect(real).toBe(1_000_000_000n);
+      // the chain itself has it
+      const held = await chains.client(CHAIN_ID).readContract({ abi: TOKEN_ABI, address: fx.token, functionName: "balanceOf", args: [session.wallet.accounts.A] });
+      expect(held).toBe(995_000_000n);
 
       // second deposit: reject it
       await session.page.getByRole("button", { name: "Deposit" }).click();
@@ -313,7 +270,7 @@ describe("session", () => {
 
   it("adds a chain the app asks for when its RPC answers as that chain, and rejects one it can't start", async () => {
     const other = await startBareChain(4242);
-    const own = await startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" }], {});
+    const own = startChains([{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }], {});
     const url = fx.pageUrl();
     const session = await createSession(target(url), own, { artifactsDir, sink: () => {}, video: false });
     try {
@@ -370,26 +327,20 @@ describe("session", () => {
     }
   }, 60_000);
 
-  it("deals the target's tokens on the fork and runs its init scripts before the page's code", async () => {
-    const snap = await chains.snapshot(CHAIN_ID);
+  it("runs the target's init scripts before the page's code", async () => {
     const url = fx.pageUrl([]);
     const t = DrillTarget.parse({
       url,
       chains: [{ id: CHAIN_ID, rpcUrl: fx.rpcUrl }],
       accounts: ACCOUNTS,
-      tokens: [{ chainId: CHAIN_ID, address: fx.token, amount: "2500.5" }],
       initScripts: ["window.__seen = { wallet: typeof window.ethereum, ready: document.readyState };"],
     });
     const session = await createSession(t, chains, { artifactsDir, sink: () => {}, video: false });
     try {
-      const onFork = (who: `0x${string}`) => readBalance((m, p) => rpcCall(chains.rpcUrl(CHAIN_ID), m, p), fx.token, who);
-      expect(await onFork(session.wallet.accounts.A)).toBe(2_500_500_000n);
-      expect(await onFork(session.wallet.accounts.B)).toBe(2_500_500_000n);
       await session.page.goto(url);
       expect(await session.page.evaluate(() => (window as any).__seen)).toEqual({ wallet: "object", ready: "loading" });
     } finally {
       await session.close();
-      await chains.revert(CHAIN_ID, snap);
     }
   }, 60_000);
 
@@ -439,18 +390,4 @@ describe("session", () => {
     expect(events.some((e) => e.type === "frame")).toBe(true);
     expect(events.some((e) => e.type === "wallet-request")).toBe(true);
   }, 60_000);
-});
-
-describe("providerChain", () => {
-  it("reads the network from hosted RPC providers' hostnames", () => {
-    expect(providerChain("https://eth-mainnet.g.alchemy.com/v2/someKey")).toBe(1);
-    expect(providerChain("https://base-mainnet.g.alchemy.com/v2/someKey")).toBe(8453);
-    expect(providerChain("https://arbitrum-mainnet.infura.io/v3/abc")).toBe(42161);
-    expect(providerChain("https://mainnet.infura.io/v3/abc")).toBe(1);
-    expect(providerChain("https://solana-mainnet.g.alchemy.com/v2/k")).toBeUndefined();
-    expect(providerChain("https://ethereum-rpc.publicnode.com")).toBeUndefined();
-    expect(providerChain("https://notinfura.io/v3/abc")).toBeUndefined();
-    expect(providerChain("https://lb.drpc.live/base/someKey")).toBe(8453);
-    expect(providerChain("https://lb.drpc.org/ogrpc?network=base")).toBeUndefined();
-  });
 });

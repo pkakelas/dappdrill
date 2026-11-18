@@ -16,6 +16,6 @@ describe("detectChains", () => {
   it("finds the chain a dApp reads from by watching its JSON-RPC traffic", async () => {
     const found = await detectChains(fx.pageUrl(), { settleMs: 2_000 });
     expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ id: CHAIN_ID, rpcUrl: fx.rpcUrl, mode: "fork" });
+    expect(found[0]).toMatchObject({ id: CHAIN_ID, rpcUrl: fx.rpcUrl });
   }, 60_000);
 });

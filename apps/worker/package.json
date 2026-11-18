@@ -3,15 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "scripts": {
     "typecheck": "tsc -p .",
     "test": "vitest run --passWithNoTests",
     "dev": "tsx watch --env-file=../../.env src/main.ts",
-    "start": "tsx --env-file=../../.env src/main.ts",
-    "smoke": "tsx --env-file=../../.env scripts/smoke.ts"
+    "start": "tsx --env-file=../../.env src/main.ts"
   },
   "dependencies": {
     "@dappdrill/core": "workspace:*",

@@ -25,7 +25,7 @@ export const config = {
   appUrl: (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
   dev: process.env.DAPPDRILL_DEV === "1",
   testsConcurrency: int("DAPPDRILL_TESTS_CONCURRENCY", 2),
-  /** Apps whose tests are being made at once; each makes up to three tests side by side, every one with its own browser and chain copies. */
+  /** Apps whose tests are being made at once, and as many again being repaired. On new accounts an app makes up to three tests side by side, each in its own browser. */
   makeConcurrency: int("DAPPDRILL_MAKE_CONCURRENCY", 1),
   stopPollMs: int("DAPPDRILL_STOP_POLL_MS", 2000),
 };
