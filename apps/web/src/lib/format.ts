@@ -67,4 +67,4 @@ export function plainError(error: string, url?: string): string {
   return first.replace(/^[\w.]+: /, "").trim();
 }
 
-export const TRIGGER_LABEL = { manual: "Run by you", make: "When the tests were made", schedule: "Daily run", repair: "After a repair" } as const;
+export const TRIGGER_LABEL = { manual: "Run by you", make: "When the tests were generated", schedule: "Daily run", repair: "After a repair" } as const;

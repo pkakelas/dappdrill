@@ -1,5 +1,4 @@
 import { cx } from "@/components/ui";
-import { Evidence, shortSigned } from "./signed";
 
 type Tone = "good" | "bad" | "warn" | "live" | "violet" | "quiet";
 
@@ -44,7 +43,7 @@ function readSaid(text: string): Said {
 
 /** The note in a few words, for where there is room for one line. */
 export function saidShort(text: string): string {
-  return readSaid(text).label ?? shortSigned(text);
+  return readSaid(text).label ?? text;
 }
 
 /** What happened, the line it was at, and why, all of it. */
@@ -60,7 +59,7 @@ export function SaidNote({ text }: { text: string }) {
         </p>
       )}
       {said.line && <p className="border-l-2 pl-2 text-pretty text-foreground/80">{said.line}</p>}
-      {said.detail && <Evidence text={said.detail} textClassName="text-pretty break-words text-muted-foreground" />}
+      {said.detail && <p className="text-pretty break-words text-muted-foreground">{said.detail}</p>}
     </div>
   );
 }

@@ -5,6 +5,7 @@
 import { urlOnApp, type CodeAssert, type CodeCheck, type FigureSide, type PageFigure, type WalletRequest } from "@dappdrill/core";
 import { settle } from "../agent/tools.js";
 import { decodeWalletRequest } from "../agent/wallet-decode.js";
+import { tokenUnits } from "../replay/expectation.js";
 import { readColumn, rowsHolding } from "../replay/rows.js";
 import { figureIn, labelled, noLabel, rawError, unitOf, type Shown } from "./figures.js";
 import { pageText, placeOf, reads, saidAndGone, saidSince, showsText, textsIn, type Where } from "./page.js";
@@ -64,15 +65,15 @@ async function once(run: Running, expect: CodeAssert, deadline: number): Promise
     case "signed": {
       if (!signs.length) return fail("The wallet wasn't asked to sign anything.");
       const holding = signs.filter((r) => holds(r, expect.holds));
-      if (!holding.length) return fail(`Nothing the wallet was asked holds “${expect.holds}”. ${asked(signs)}`);
+      if (!holding.length) return fail(`Nothing the wallet was asked holds “${expect.holds}”. ${await asked(run, signs)}`);
       const match = expect.was ? holding.find((r) => r.outcome === expect.was) : holding[0];
-      if (match) return pass(`The wallet was asked${expect.was ? `, and it was ${expect.was}` : ""}: ${decodeWalletRequest(match).summary}.`);
-      return fail(`The wallet was asked, and it was ${holding.at(-1)!.outcome}, not ${expect.was}: ${decodeWalletRequest(holding.at(-1)!).summary}.`);
+      if (match) return pass(`The wallet was asked to ${await words(run, match)}${expect.was ? `, and it was ${expect.was}` : ""}.`);
+      return fail(`The wallet was asked to ${await words(run, holding.at(-1)!)}, and it was ${holding.at(-1)!.outcome}, not ${expect.was}.`);
     }
     case "not-signed": {
       const match = expect.holds === undefined ? signs.at(-1) : signs.find((r) => holds(r, expect.holds!));
-      if (match) return fail(`The wallet was asked: ${decodeWalletRequest(match).summary}.`);
-      return pass(expect.holds === undefined ? "The wallet wasn't asked to sign anything." : `Nothing the wallet was asked holds “${expect.holds}”. ${signs.length ? asked(signs) : "It wasn't asked to sign anything."}`);
+      if (match) return fail(`The wallet was asked to ${await words(run, match)}.`);
+      return pass(expect.holds === undefined ? "The wallet wasn't asked to sign anything." : `Nothing the wallet was asked holds “${expect.holds}”. ${signs.length ? await asked(run, signs) : "It wasn't asked to sign anything."}`);
     }
     case "mined":
       return mined(run, signs, expect.holds, deadline);
@@ -130,14 +131,23 @@ async function said(run: Running, text: string): Promise<Found> {
   return fail(`The page didn't say “${text}”.${others.length ? ` It said: ${others.map((o) => `“${o}”`).join(", ")}.` : ""}`);
 }
 
-/** In the request as a person reads it, or in its data: the summary shortens addresses, the data has them whole. */
+/** In the request as the summary has it, or in its data: the summary shortens addresses, the data has them whole. */
 function holds(r: WalletRequest, what: string): boolean {
   const want = what.toLowerCase();
   if (decodeWalletRequest(r).summary.toLowerCase().includes(want)) return true;
   return (JSON.stringify(r.params) ?? "").toLowerCase().includes(want.replace(/^0x/, ""));
 }
 
-const asked = (signs: WalletRequest[]) => `It was asked: ${signs.map((r) => decodeWalletRequest(r).summary).join("; ")}.`;
+/**
+ * A request as a note says it to the owner, an amount of a token in the token's own units when the chain
+ * says what they are. The summary, with the method and the data as they came, is for the models and for `holds`.
+ */
+async function words(run: Running, r: WalletRequest): Promise<string> {
+  const decoded = decodeWalletRequest(r);
+  const units = decoded.token ? await tokenUnits(run.session.chains, r.chainId, decoded.token) : undefined;
+  return units ? decodeWalletRequest(r, units).words : decoded.words;
+}
+const asked = async (run: Running, signs: WalletRequest[]) => `It was asked to ${(await Promise.all(signs.map((r) => words(run, r)))).join("; and to ")}.`;
 
 /** A button by its name, else a link, else anything that reads exactly so: what a user would press. */
 async function button(run: Running, expect: Extract<CodeAssert, { kind: "button" }>): Promise<Found> {
@@ -161,17 +171,17 @@ async function mined(run: Running, signs: WalletRequest[], what: string | undefi
   const wanted = what === undefined ? signs : signs.filter((r) => holds(r, what));
   const sent = wanted.filter(sentHash).at(-1);
   if (!sent) {
-    if (wanted.length) return fail(`The wallet was asked, but nothing was sent: ${decodeWalletRequest(wanted.at(-1)!).summary}.`);
-    return fail(what === undefined || !signs.length ? "No transaction was sent." : `No transaction that holds “${what}” was sent. ${asked(signs)}`);
+    if (wanted.length) return fail(`The wallet was asked to ${await words(run, wanted.at(-1)!)}, but nothing was sent.`);
+    return fail(what === undefined || !signs.length ? "No transaction was sent." : `No transaction that holds “${what}” was sent. ${await asked(run, signs)}`);
   }
   const hash = sentHash(sent)!;
-  const tx = `${decodeWalletRequest(sent).summary} (${hash.slice(0, 10)}…)`;
+  const tx = `The transaction to ${await words(run, sent)} (${hash.slice(0, 10)}…)`;
   const receipt = await run.session.chains
     .client(sent.chainId)
     .waitForTransactionReceipt({ hash, timeout: Math.max(deadline - Date.now(), 1_000) })
     .catch(() => undefined);
-  if (!receipt) return unsure(`Not mined yet: ${tx}.`);
-  return receipt.status === "success" ? pass(`Mined in block ${receipt.blockNumber}: ${tx}.`) : fail(`Reverted in block ${receipt.blockNumber}: ${tx}.`);
+  if (!receipt) return unsure(`${tx} isn't mined yet.`);
+  return receipt.status === "success" ? pass(`${tx} was mined in block ${receipt.blockNumber}.`) : fail(`${tx} reverted in block ${receipt.blockNumber}.`);
 }
 
 type Changes = Extract<CodeAssert, { kind: "changes" }>;

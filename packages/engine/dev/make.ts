@@ -36,7 +36,15 @@ await mkdir(out, { recursive: true });
 
 const t0 = Date.now();
 const suspicion = flags.seen ? { what: flags.seen, expected: goal, saw: flags.seen } : undefined;
-const made = await makeTest({ target, suite, goal, startPath: flags.start, suspicion, artifactsDir: out, headless: !flags.headed }, undefined, (text) => console.log(`[${secs(Date.now() - t0).trim()}] ${text}`));
+const at = () => `[${secs(Date.now() - t0).trim()}]`;
+// Each thing a model does in the browser is printed as it is done, under what the maker says.
+const made = await makeTest(
+  { target, suite, goal, startPath: flags.start, suspicion, artifactsDir: out, headless: !flags.headed },
+  (e) => {
+    if (e.type === "did") console.log(`${at()}   ${e.text}`);
+  },
+  (text) => console.log(`${at()} ${text}`),
+);
 await writeFile(path.join(out, "made.json"), JSON.stringify(made, null, 2));
 
 function printTest(test: Test, last?: TestResult): void {

@@ -1,4 +1,4 @@
-import { VERDICT_LABEL, type SigningReview, type Verdict } from "@dappdrill/core";
+import type { SigningReview } from "@dappdrill/core";
 import { ChevronRight } from "lucide-react";
 import { Addr, cx } from "@/components/ui";
 
@@ -11,17 +11,17 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-const VERDICT_TEXT: Record<Verdict, string> = { dangerous: "text-bad", check: "text-warn", consistent: "text-muted-foreground" };
-const VERDICT_DOT: Record<Verdict, string> = { dangerous: "bg-bad-mid", check: "bg-warn-bar", consistent: "bg-foreground/30" };
-
-/** What the wallet was asked to sign during a run, each with its review folded under it. */
+/**
+ * What the wallet was asked to sign during a run, each with what the review found folded under it. No verdict
+ * shows here: a signature that is dangerous is a bug, and the test that fails on it says so.
+ */
 export function SigningReviews({ reviews }: { reviews: SigningReview[] }) {
   if (reviews.length === 0) return null;
   return (
     <section aria-label="Signed in the wallet" className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3 px-2">
         <h2 className="text-sm font-medium">Signed in the wallet</h2>
-        <span className="text-xs text-muted-foreground">{reviews.length === 1 ? "1 request" : `${reviews.length} requests`}, each reviewed</span>
+        <span className="text-xs text-muted-foreground">{reviews.length === 1 ? "1 request" : `${reviews.length} requests`}</span>
       </div>
       <ul className="divide-y rounded-xl border bg-card shadow-xs">
         {reviews.map((review) => (
@@ -34,7 +34,7 @@ export function SigningReviews({ reviews }: { reviews: SigningReview[] }) {
   );
 }
 
-/** A signature: what it does and the verdict, the evidence folded away. */
+/** A signature: what it does, and what the review found folded away. */
 function Review({ review }: { review: SigningReview }) {
   const d = review.decoded;
   const flagged = review.checks.filter((c) => c.status === "fail" || c.status === "warn");
@@ -43,13 +43,7 @@ function Review({ review }: { review: SigningReview }) {
       <summary className="flex cursor-pointer list-none items-start gap-3 rounded-xl px-4 py-3 outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.03] [&::-webkit-details-marker]:hidden">
         <ChevronRight className="mt-1 size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <span className="leading-snug font-medium">{review.title}</span>
-            <span className={cx("flex items-center gap-1.5 text-xs font-medium", VERDICT_TEXT[review.verdict])}>
-              <span aria-hidden="true" className={cx("size-1.5 rounded-full", VERDICT_DOT[review.verdict])} />
-              {VERDICT_LABEL[review.verdict]}
-            </span>
-          </span>
+          <span className="leading-snug font-medium">{review.title}</span>
           <span className="text-sm leading-snug text-pretty text-muted-foreground [overflow-wrap:anywhere]">{review.summary}</span>
         </span>
       </summary>

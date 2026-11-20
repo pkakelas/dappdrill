@@ -32,7 +32,7 @@ const BUILTIN_ABI = parseAbi([
   "function execute(bytes commands, bytes[] inputs, uint256 deadline)",
 ]);
 
-const ERC20_META_ABI = parseAbi(["function decimals() view returns (uint8)", "function asset() view returns (address)"]);
+const ERC20_META_ABI = parseAbi(["function decimals() view returns (uint8)", "function asset() view returns (address)", "function symbol() view returns (string)"]);
 
 /** Decode a wallet request well enough for the expectation check and the "wallet was asked for" line. */
 export function decodeBuiltin(req: WalletRequest): DecodedRequest {
@@ -216,4 +216,25 @@ export async function tokenDecimals(chains: ChainController, chainId: number, to
   }
   decimalsCache.set(key, decimals);
   return decimals;
+}
+
+const symbolCache = new Map<string, string | undefined>();
+
+/** What amounts of a token are counted in, for saying one to a person: its decimals and, when it has one that reads as text, its symbol. Nothing when the chain won't say. */
+export async function tokenUnits(chains: ChainController, chainId: number, token: string): Promise<{ decimals: number; symbol?: string } | undefined> {
+  try {
+    const decimals = await tokenDecimals(chains, chainId, token);
+    if (decimals === undefined) return undefined;
+    const key = `${chainId}:${token}`;
+    if (!symbolCache.has(key)) {
+      const symbol = await chains
+        .client(chainId)
+        .readContract({ address: token as ViemHex, abi: ERC20_META_ABI, functionName: "symbol" })
+        .catch(() => undefined);
+      symbolCache.set(key, symbol?.trim() || undefined);
+    }
+    return { decimals, symbol: symbolCache.get(key) };
+  } catch {
+    return undefined;
+  }
 }

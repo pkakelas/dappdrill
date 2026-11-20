@@ -5,7 +5,7 @@
  */
 import { formatEther } from "viem";
 import { z } from "zod";
-import { chainName, type Blocked, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
+import { chainName, nowIso, type Blocked, type Locator, type Step, type WalletRequest, describeBlock } from "@dappdrill/core";
 import { detectBotCheck } from "../browser/access.js";
 import { fillField } from "../replay/fill.js";
 import { waitQuiet } from "../replay/quiet.js";
@@ -104,6 +104,8 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
   // An app that redirects to another domain (app.spark.fi → app.spark.finance) lives on the one it landed on.
   const landed = page().url().startsWith("http") ? new URL(page().url()).origin : origin;
   const seenRequests = new Set<string>(session.wallet.requests().map((r) => r.id));
+  /** Says what was just done, for whoever watches the work: one short sentence naming the control. */
+  const did = (text: string) => void session.emit({ type: "did", text, dir: session.artifactsDir, at: nowIso() });
 
   /**
    * Wait for the page to settle, then describe the new state plus any new wallet request. By now the
@@ -176,6 +178,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
         }
         ctx.onClick?.();
         recorder.add({ kind: "click", target: locator, note: why ?? (label ? `Click "${label}"` : undefined), ...(optional ? { optional } : {}) });
+        did(`Clicked “${label || named(locator)}”`);
         return after(`Clicked ${ref}.`);
       },
     },
@@ -191,6 +194,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
           await el.press("Enter");
           recorder.add({ kind: "press", key: "Enter", target: locator });
         }
+        did(`Typed “${short(text)}” into “${named(locator)}”`);
         if (!filled.took) return after(`Typed "${text}" into ${ref}, but the field shows "${filled.shows}". The page may format or refuse what was typed; look before going on.`);
         return after(`Typed "${text}" into ${ref}.`);
       },
@@ -203,6 +207,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
         const { locator, el } = await target(ref);
         await el.selectOption({ label: value }, { timeout: 5_000 }).catch(() => el.selectOption(value, { timeout: 5_000 }));
         recorder.add({ kind: "select", target: locator, value });
+        did(`Chose “${short(value)}” in “${named(locator)}”`);
         return after(`Selected "${value}" in ${ref}.`);
       },
     },
@@ -219,6 +224,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
           await page().keyboard.press(key);
           recorder.add({ kind: "press", key });
         }
+        did(`Pressed ${key}`);
         return after(`Pressed ${key}.`);
       },
     },
@@ -231,6 +237,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
         if (abs.origin !== origin && abs.origin !== landed) return `Refused: ${abs.origin} is outside the app (${origin}). Stay on the app's pages.`;
         await page().goto(abs.href, { waitUntil: "domcontentloaded", timeout: 20_000 });
         recorder.add({ kind: "goto", url: abs.pathname + abs.search });
+        did(`Opened ${short(abs.pathname + abs.search)}`);
         return after(`Opened ${abs.href}.`);
       },
     },
@@ -249,6 +256,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
       schema: z.object({}),
       handler: async () => {
         await page().goBack({ waitUntil: "domcontentloaded", timeout: 10_000 }).catch(() => null);
+        did("Went back a page");
         return after("Went back.");
       },
     },
@@ -283,6 +291,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
         await ctx.beforeApprove?.(pending);
         await session.wallet.approve(pending.id);
         recorder.add({ kind: "wallet", respond: "approve", expect, note: `Approve ${decoded.summary.split(":")[0]}`, ...(optional ? { optional } : {}) });
+        did(`Signed in the wallet: ${decoded.asks}`);
         return after(`Approved ${pending.id} (${decoded.summary}).${match ? ` The amount matches what you typed ("${match.typed}").` : ""}`);
       },
     },
@@ -296,6 +305,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
         const decoded = decodeWalletRequest(pending);
         recorder.add({ kind: "wallet", respond: "reject", expect: decoded.expectation, note: `Reject ${decoded.summary.split(":")[0]}` });
         await session.wallet.reject(pending.id);
+        did(`Rejected in the wallet: ${decoded.asks}`);
         return after(`Rejected ${pending.id} (${decoded.summary}).`);
       },
     },
@@ -309,6 +319,7 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
         const { locator, el } = await target(ref);
         await el.fill(code, { timeout: 5_000 });
         recorder.add({ kind: "email-code", target: locator });
+        did(`Typed the emailed code into “${named(locator)}”`);
         return after(`Typed the emailed code into ${ref}.`);
       },
     },
@@ -325,6 +336,10 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
   ];
   return tools;
 }
+
+/** An element as a user would name it, for saying what was done to it. */
+const named = (l: Locator): string => short(l.name ?? l.label ?? l.text ?? l.placeholder ?? l.near ?? "a control");
+const short = (text: string): string => (text.length > 60 ? `${text.slice(0, 59)}…` : text);
 
 /** The session's inbox address, so the agent can type it into a login form. */
 export function inboxTool(inbox: Inbox): AgentTool {

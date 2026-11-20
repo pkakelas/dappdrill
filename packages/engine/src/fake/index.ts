@@ -219,6 +219,9 @@ async function run(test: Test, ends: Canned["ends"], going: Going, onLine?: (ind
   return { ...base, outcome: reason ? "failed" : "passed", reason, repairable: false };
 }
 
+/** What a model did in the browser, sent the way the browser tools send it. */
+const did = (dir: string, sink: DrillEventSink, text: string) => sink({ type: "did", text, dir, at: nowIso() });
+
 const makeTest: Engine["makeTest"] = async (input, sink = () => {}, say = () => {}) => {
   const t0 = Date.now();
   const going = goingOn(input, sink);
@@ -228,9 +231,10 @@ const makeTest: Engine["makeTest"] = async (input, sink = () => {}, say = () => 
   const done = (more: Partial<api.Made>): api.Made => ({ proven: false, notes: [], findings: [], repairs: [], dismissed: [], runs: [], draftUsd: 0.21, costUsd: 0.38, durationMs: Date.now() - t0, ...more });
 
   say(`Drafting: ${input.goal}`);
-  for (let i = 0; i < 4; i++) {
+  for (const done of [`Opened ${input.startPath ?? "/"}`, "Typed “100” into “Amount”", "Clicked “Deposit”", "Signed in the wallet: approve"]) {
     await beat(input.signal, 4);
     await frame(going.dir, sink, `${going.url}${input.startPath ?? "/"}`);
+    await did(going.dir, sink, done);
   }
   const test = testFor(canned);
   say(`Drafted “${test.name}”: ${test.steps.length} lines, $0.21`);
@@ -258,6 +262,7 @@ async function look(input: api.RunSuiteInput, sink: DrillEventSink, say: (text: 
   for (const page of ["/", "/vault", "/rewards", "/vault"]) {
     await beat(input.signal, 5);
     await frame(dir, sink, `${input.target.url}${page}`);
+    await did(dir, sink, `Opened ${page}`);
   }
   await beat(input.signal, 5);
   const have = new Set(input.suite.tests.map((t) => t.goal));

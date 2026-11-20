@@ -2,7 +2,6 @@ import { OUTCOME_LABEL, type LineStatus, type Outcome } from "@dappdrill/core";
 import type { TestRunRow } from "@dappdrill/db";
 import { Check, Minus, X } from "lucide-react";
 import { cx } from "@/components/ui";
-import { shortSigned } from "./signed";
 
 /** Anything a mark can show: a test's last result, a run in progress, a run somebody stopped, a test with no result. */
 export type TestState = Outcome | "running" | "queued" | "stopped" | "never";
@@ -116,5 +115,5 @@ export const LINE_LABEL: Record<LineStatus, string> = { pass: "Passed", fail: "F
 export function shortReason(reason: string, failed: boolean): string {
   const at = /^“([^”]+)”: /.exec(reason);
   if (at) return `${failed ? "Failed at" : "Couldn't verify"} “${at[1]}”`;
-  return shortSigned(reason);
+  return reason;
 }

@@ -1,18 +1,18 @@
-import { Compass, Link2, ListChecks, Play } from "lucide-react";
+import { Bug, Compass, ListChecks } from "lucide-react";
 import { Tile } from "@/components/tests/tile";
 import { cn } from "@/lib/utils";
 
+// The same three steps the app's page counts off while its first tests are generated (`makeStages` in tests/working.tsx).
 const STEPS = [
-  { icon: Link2, tint: "pink", title: "Add your app", detail: "Its URL, wallet and chain" },
-  { icon: Compass, tint: "live", title: "We use it", detail: "With a test wallet, like a real user" },
-  { icon: ListChecks, tint: "violet", title: "You get tests", detail: "In plain English, yours to edit" },
-  { icon: Play, tint: "good", title: "We run them", detail: "On the chains your app uses" },
+  { icon: Compass, tint: "live", title: "Explore your app", detail: "Like a real user, with a test wallet" },
+  { icon: ListChecks, tint: "violet", title: "Generate tests", detail: "One for each thing users do there" },
+  { icon: Bug, tint: "pink", title: "Review", detail: "The bugs we found, and our questions" },
 ] as const;
 
-/** The process in four numbered steps: a column on phones, a row from `sm` up. `centered` centres each step in its column of the row. */
+/** The process in three numbered steps: a column on phones, a row from `sm` up. `centered` centres each step in its column of the row. */
 export function HowItWorks({ centered, className }: { centered?: boolean; className?: string }) {
   return (
-    <ol className={cn("grid gap-5 sm:grid-cols-4 sm:gap-4", className)}>
+    <ol className={cn("grid gap-5 sm:grid-cols-3 sm:gap-4", className)}>
       {STEPS.map(({ icon, tint, title, detail }, index) => (
         <li
           key={title}
@@ -37,5 +37,5 @@ export function HowItWorks({ centered, className }: { centered?: boolean; classN
 
 /** Under the login and signup forms. Wider than the auth column, so it centres itself on the page. */
 export function AuthHowItWorks() {
-  return <HowItWorks centered className="relative left-1/2 mt-14 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 sm:max-w-3xl" />;
+  return <HowItWorks centered className="relative left-1/2 mt-14 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 sm:max-w-2xl" />;
 }

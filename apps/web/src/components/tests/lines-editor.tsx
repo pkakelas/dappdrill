@@ -38,13 +38,13 @@ function Rows({ rows, onChange, kinds, disabled }: { rows: Row[]; onChange: (row
           <li key={r.key} className="flex items-start gap-2">
             <span className="w-5 shrink-0 pt-2 text-right text-xs text-muted-foreground tabular-nums">{i + 1}</span>
             {kinds && (
-              <NativeSelect aria-label={`Line ${i + 1} is`} value={r.type} disabled={disabled} onChange={(e) => set(i, { type: e.target.value as Kind })} className="w-24 shrink-0">
+              <NativeSelect aria-label={`Step ${i + 1} is`} value={r.type} disabled={disabled} onChange={(e) => set(i, { type: e.target.value as Kind })} className="w-24 shrink-0">
                 <NativeSelectOption value="action">Do</NativeSelectOption>
                 <NativeSelectOption value="check">Check</NativeSelectOption>
               </NativeSelect>
             )}
             <Textarea
-              aria-label={`Line ${i + 1}`}
+              aria-label={`Step ${i + 1}`}
               rows={1}
               value={r.text}
               disabled={disabled}
@@ -53,13 +53,13 @@ function Rows({ rows, onChange, kinds, disabled }: { rows: Row[]; onChange: (row
               className="min-h-9 flex-1 resize-y bg-background py-1.5"
             />
             <div className="flex shrink-0 items-center">
-              <Button type="button" variant="ghost" size="icon-sm" disabled={disabled || i === 0} onClick={() => move(i, -1)} aria-label={`Move line ${i + 1} up`}>
+              <Button type="button" variant="ghost" size="icon-sm" disabled={disabled || i === 0} onClick={() => move(i, -1)} aria-label={`Move step ${i + 1} up`}>
                 <ArrowUp aria-hidden="true" />
               </Button>
-              <Button type="button" variant="ghost" size="icon-sm" disabled={disabled || i === rows.length - 1} onClick={() => move(i, 1)} aria-label={`Move line ${i + 1} down`}>
+              <Button type="button" variant="ghost" size="icon-sm" disabled={disabled || i === rows.length - 1} onClick={() => move(i, 1)} aria-label={`Move step ${i + 1} down`}>
                 <ArrowDown aria-hidden="true" />
               </Button>
-              <Button type="button" variant="ghost" size="icon-sm" disabled={disabled} onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label={`Remove line ${i + 1}`}>
+              <Button type="button" variant="ghost" size="icon-sm" disabled={disabled} onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label={`Remove step ${i + 1}`}>
                 <X aria-hidden="true" />
               </Button>
             </div>
@@ -69,7 +69,7 @@ function Rows({ rows, onChange, kinds, disabled }: { rows: Row[]; onChange: (row
       <div className="flex gap-2 pl-7">
         <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange([...rows, row("action", "")])}>
           <Plus aria-hidden="true" />
-          {kinds ? "Something to do" : "Add a line"}
+          {kinds ? "Something to do" : "Add a step"}
         </Button>
         {kinds && (
           <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange([...rows, row("check", "")])}>
@@ -154,17 +154,17 @@ export function TestEditor({ testId, test, back }: { testId: string; test: TestD
         <Input id="test-start" value={draft.startPath} disabled={pending} onChange={(e) => setDraft({ ...draft, startPath: e.target.value })} className="bg-background font-mono text-sm" />
       </Field>
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Lines</span>
+        <span className="text-sm font-medium">Steps</span>
         <Rows rows={rows} onChange={setRows} kinds disabled={pending} />
       </div>
-      <Footer error={error} pending={pending} note="A line you add or reword isn't code yet. The next repair writes it as code, and a run stops at it until then." onCancel={() => router.push(back)} />
+      <Footer error={error} pending={pending} note="A step you add or reword needs a repair before a run can do it." onCancel={() => router.push(back)} />
     </form>
   );
 }
 
 const WORDS = {
-  setup: { none: "No setup. Each test starts on its own page with nothing done first.", edit: "Edit the setup", add: "Add a setup", gone: "No lines means no setup." },
-  reset: { none: "No reset. Each test starts with the account as the last one left it.", edit: "Edit the reset", add: "Add a reset", gone: "No lines means no reset." },
+  setup: { none: "No setup. Each test starts on its own page with nothing done first.", edit: "Edit the setup", add: "Add a setup", gone: "No steps means no setup." },
+  reset: { none: "No reset. Each test starts with the account as the last one left it.", edit: "Edit the reset", add: "Add a reset", gone: "No steps means no reset." },
 };
 
 /**
@@ -241,10 +241,10 @@ export function SetupEditor({ appId, which = "setup", setup, canEdit }: { appId:
         <Input id={`${which}-start`} value={startPath} disabled={pending} onChange={(e) => setStartPath(e.target.value)} className="bg-background font-mono text-sm" />
       </Field>
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Lines</span>
+        <span className="text-sm font-medium">Steps</span>
         <Rows rows={rows} onChange={setRows} kinds={false} disabled={pending} />
       </div>
-      <Footer error={error} pending={pending} note={`A line you add or reword isn't code yet. The next repair writes it as code. ${words.gone}`} onCancel={() => setEditing(false)} />
+      <Footer error={error} pending={pending} note={`A step you add or reword needs a repair before a run can do it. ${words.gone}`} onCancel={() => setEditing(false)} />
     </form>
   );
 }

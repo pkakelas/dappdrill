@@ -46,6 +46,19 @@ export const Tried = z.object({
 });
 export type Tried = z.infer<typeof Tried>;
 
+/** How many of the latest things done are kept, for whoever watches. */
+export const DONE_KEPT = 8;
+
+/** Something done or said while tests are made, and when. */
+export const Done = z.object({ text: z.string(), at: z.string() });
+export type Done = z.infer<typeof Done>;
+
+/** Adds what was just done to a log, which keeps the latest few. */
+export function noteDone(log: Done[], text: string, at = new Date().toISOString()): void {
+  log.push({ text, at });
+  if (log.length > DONE_KEPT) log.splice(0, log.length - DONE_KEPT);
+}
+
 export const MakeGoal = z.object({
   goal: z.string().min(1),
   startPath: z.string().default("/"),
@@ -56,6 +69,8 @@ export const MakeGoal = z.object({
   status: z.enum(["waiting", "making", "kept", "not-kept"]).default("waiting"),
   /** The latest thing said while it is made. */
   said: z.string().optional(),
+  /** The latest things done and said while it is made, oldest first. Emptied when it ends. */
+  log: z.array(Done).optional(),
   /** The latest picture of its browser, relative to the make's artifacts. */
   frame: z.string().optional(),
   /** The test it became. */
@@ -95,6 +110,8 @@ export const MakeState = z.object({
   summary: z.string().optional(),
   /** The latest thing said during the look. */
   said: z.string().optional(),
+  /** The latest things done and said during the look, or a repair, oldest first. */
+  log: z.array(Done).optional(),
   /** The latest picture of the look's browser. */
   frame: z.string().optional(),
   goals: z.array(MakeGoal).default([]),

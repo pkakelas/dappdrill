@@ -1,7 +1,7 @@
 import { formatDuration, sentence, type LineResult } from "@dappdrill/core";
 import { accountOf, db, isRepair, makes, testOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, desc, eq } from "drizzle-orm";
-import { Bug, ChevronLeft, Wrench } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,14 +9,14 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { TestEditor } from "@/components/tests/lines-editor";
 import { RepairButton } from "@/components/tests/repair-button";
 import { SigningReviews } from "@/components/tests/run-details";
-import { Evidence } from "@/components/tests/signed";
-import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, STATE_TEXT, StateMark, shortReason } from "@/components/tests/status";
+import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, shortReason } from "@/components/tests/status";
 import { TestActions } from "@/components/tests/test-actions";
 import { TestRunView, type Around, type ViewLine } from "@/components/tests/test-run-view";
-import { Tile } from "@/components/tests/tile";
+import { Results, StatusNote, TestStatus, type StatusWord } from "@/components/tests/test-status";
 import { cx } from "@/components/ui";
+import { buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
-import { timeAgo, TRIGGER_LABEL } from "@/lib/format";
+import { timeAgo } from "@/lib/format";
 import { isCode, unwritten } from "@/lib/lines";
 import { requireApp } from "@/lib/session";
 
@@ -52,7 +52,11 @@ function around(prefix: string, lines: Line[], results: LineResult[] | undefined
   // Lines edited since the run no longer line up with its results. Nothing is there when they didn't have to be done.
   const ran = results && results.length === lines.length ? results : undefined;
   const failed = Boolean(ran?.some((s) => s.status !== "pass"));
-  return { lines: viewLines(prefix, lines, ran, url), open: failed, status: ran ? (failed ? " · didn't finish" : " · done") : "" };
+  return {
+    lines: viewLines(prefix, lines, ran, url),
+    open: failed,
+    status: ran ? (failed ? " · didn't finish" : " · done") : "",
+  };
 }
 
 /** The lines with how each went in the run on screen. While a run is on, the first line with no result yet is the one being done. */
@@ -83,7 +87,12 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const { test, app } = await load(appId, testId);
   const [history, [repair]] = await Promise.all([
     db().select().from(testRuns).where(eq(testRuns.testId, test.id)).orderBy(desc(testRuns.createdAt)).limit(15),
-    db().select().from(makes).where(and(eq(makes.appId, appId), isRepair)).orderBy(desc(makes.createdAt)).limit(1),
+    db()
+      .select()
+      .from(makes)
+      .where(and(eq(makes.appId, appId), isRepair))
+      .orderBy(desc(makes.createdAt))
+      .limit(1),
   ]);
 
   const spec = testOf(test);
@@ -116,117 +125,147 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   // A failure counts once a second run goes the same way; when the first went another way, that is worth a line.
   const firstOther = result?.rerun && result.firstReason && result.firstReason !== result.reason ? shortReason(result.firstReason, true) : undefined;
 
+  const lower = (r: TestRunRow) => STATE_LABEL[r.status].toLowerCase();
+
+  // How it stands in a word, the way the app's list says it: what stops a run first, then the bug, then the last result.
+  const step = wrong && run?.id === settled?.id ? ` at step ${lines.indexOf(wrong) + 1}` : "";
+  const word: StatusWord = state.active
+    ? { label: readLabel(state), mark: state.mark }
+    : repairing
+      ? { label: "Being repaired", mark: "running" }
+      : needsRepair
+        ? { label: "Needs repair", mark: "repair" }
+        : state.settled === "failed" && test.faults.length > 0
+          ? { label: "Bug found", mark: "failed" }
+          : { label: `${readLabel(state)}${step}`, mark: state.mark };
+  const inRepairs = word.mark === "repair" || repairing;
+  const meta = settled?.finishedAt && (
+    <>
+      {inRepairs && !settled.result?.repairable && `last result ${lower(settled)} `}
+      {timeAgo(settled.finishedAt)}
+      {!inRepairs && settled.result && ` · took ${formatDuration(settled.result.durationMs)}`}
+    </>
+  );
+
   return (
-    <div className="page flex flex-col gap-10">
+    <div className="page flex flex-col gap-8">
       {state.active && <AutoRefresh every={2000} />}
 
-      <header className="flex flex-col gap-6">
+      <header className="flex flex-col gap-5">
         <Link href={`/apps/${appId}`} className="-ml-1 inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="size-4" aria-hidden="true" />
           Tests
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-pretty">{test.name}</h1>
-            <p className="max-w-3xl leading-relaxed text-pretty text-muted-foreground">{test.goal}</p>
+            <p className="max-w-3xl text-pretty text-muted-foreground">{test.goal}</p>
           </div>
           <TestActions appId={appId} testId={test.id} active={Boolean(state.active)} />
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y py-3 text-sm">
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <StateMark state={state.mark} />
-            <span className={cx("font-medium", STATE_TEXT[state.mark])}>
-              {readLabel(state)}
-              {/* Where it went wrong; that line is picked below, with what it found. */}
-              {wrong && !state.active && run?.id === settled?.id && ` at line ${lines.indexOf(wrong) + 1}`}
-            </span>
-            {settled?.finishedAt && <span className="text-muted-foreground">· {timeAgo(settled.finishedAt)}</span>}
-            {settled?.result && <span className="text-muted-foreground">· took {formatDuration(settled.result.durationMs)}</span>}
-          </p>
-          {history.length > 1 && <Results here={here} runs={history} selected={run?.id} />}
         </div>
       </header>
 
       {editing ? (
-        <TestEditor testId={test.id} back={here} test={{ name: test.name, goal: test.goal, startPath: test.startPath, lines: spec.steps.map((l) => ({ type: l.type, text: sentence(l) })) }} />
+        <TestEditor
+          testId={test.id}
+          back={here}
+          test={{
+            name: test.name,
+            goal: test.goal,
+            startPath: test.startPath,
+            lines: spec.steps.map((l) => ({ type: l.type, text: sentence(l) })),
+          }}
+        />
       ) : (
         <>
-          {viewingOld && run && (
-            <div className="-mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted px-4 py-2.5 text-sm text-muted-foreground">
-              <span>
-                Showing the result from {timeAgo(run.createdAt)}: {STATE_LABEL[run.status].toLowerCase()}.
-              </span>
-              <Link href={here} className="font-medium text-foreground hover:underline">
-                Back to the latest
-              </Link>
-            </div>
-          )}
+          <TestStatus word={word} meta={meta} results={history.length > 1 && <Results here={here} runs={history} selected={run?.id} />}>
+            {inRepairs && !viewingOld && (
+              <StatusNote
+                action={
+                  repairing ? (
+                    <Link
+                      href={`/apps/${appId}`}
+                      className={buttonVariants({
+                        variant: "outline",
+                        size: "sm",
+                      })}
+                    >
+                      Watch the repair
+                    </Link>
+                  ) : (
+                    <RepairButton appId={appId} testIds={[test.id]} />
+                  )
+                }
+              >
+                <p className="text-muted-foreground">
+                  {repairing
+                    ? "We're doing its steps in the browser and recording them again. It is run once afterwards."
+                    : settled?.result?.repairable
+                      ? "A recorded step no longer fits the page, so a run stops there. A repair does the test in the browser, records that step again, and runs the test once."
+                      : "A step was added or reworded, so a run stops there. A repair does the test in the browser, records the step, and runs the test once."}
+                </p>
+                {notRepaired && <p>The last repair couldn&apos;t fix it: {notRepaired}</p>}
+              </StatusNote>
+            )}
 
-          {(needsRepair || repairing) && !viewingOld && (
-            <div role="status" className="-mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border bg-card px-5 py-4 text-sm shadow-xs">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Tile icon={Wrench} tint={repairing ? "live" : "warn"} />
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <p className="font-medium">{repairing ? "This test is being repaired" : "This test needs repairing"}</p>
-                  <p className="text-pretty text-muted-foreground">
-                    {repairing
-                      ? "Its lines are being written as code again, and it is run once afterwards."
-                      : settled?.result?.repairable
-                        ? "Its last run stopped at a line it has no working code for. A repair does the test in the browser and writes that line as code again."
-                        : "A line isn't code yet, so a run stops there. A repair does the test in the browser and writes the line as code."}
-                    {notRepaired && ` The last repair left it as it was: ${notRepaired}`}
-                  </p>
-                </div>
-              </div>
-              {repairing ? (
-                <Link href={`/apps/${appId}`} className="shrink-0 font-medium hover:underline">
-                  See the repair
-                </Link>
-              ) : (
-                <RepairButton appId={appId} testIds={[test.id]} />
-              )}
-            </div>
-          )}
+            {/* A reason that is a step's is said by that step, below. Only one that isn't (blocked, a dangerous signature, a page error) gets said here. */}
+            {result?.reason && run && !wrong && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
+              <StatusNote title={run.status === "failed" ? "Why it failed" : "Why it couldn't be verified"} tone={run.status === "failed" ? "bad" : "warn"}>
+                <p className="[overflow-wrap:anywhere]">{result.reason}</p>
+              </StatusNote>
+            )}
 
-          {/* A reason that is a line's is said by that line, below. Only one that isn't (blocked, a dangerous signature, a page error) gets said here. */}
-          {result?.reason && run && !wrong && (run.status === "unverified" || (run.status === "failed" && !onBug)) && (
-            <div role="status" className={cx("-mt-4 rounded-xl px-5 py-4 leading-relaxed", run.status === "failed" ? "bg-bad-soft text-bad-ink" : "bg-warn-soft text-warn-ink")}>
-              <Evidence text={result.reason} textClassName="text-pretty [overflow-wrap:anywhere]" />
-            </div>
-          )}
-          {firstOther && <p className="-mt-6 text-sm text-muted-foreground">It was run twice before it counted. The first time: {firstOther}.</p>}
+            {/* A failure on the bug the test was kept for is said once, as that bug. */}
+            {test.faults.length > 0 && (
+              <StatusNote title={word.label === "Bug found" ? undefined : state.settled === "passed" ? "Kept for a bug it found. It passes now." : "The bug this test was kept for"}>
+                {test.faults.map((f, i) => (
+                  <div key={i} className="flex flex-col gap-2">
+                    <p className={cx("text-pretty", word.label === "Bug found" ? "text-base font-medium" : "text-muted-foreground")}>{f.what}</p>
+                    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
+                      {f.expected && (
+                        <>
+                          <dt className="text-muted-foreground">Expected</dt>
+                          <dd className="text-pretty">{f.expected}</dd>
+                        </>
+                      )}
+                      {f.saw && (
+                        <>
+                          <dt className="text-muted-foreground">The app</dt>
+                          <dd className="min-w-0 text-pretty [overflow-wrap:anywhere]">{f.saw}</dd>
+                        </>
+                      )}
+                    </dl>
+                  </div>
+                ))}
+              </StatusNote>
+            )}
 
-          {/* A failure on the bug the test was kept for is said once, as that bug. */}
-          {test.faults.length > 0 && (
-            <section className={cx("-mt-4 flex flex-col gap-4 rounded-xl p-5", onBug ? "bg-bad-soft" : "border")}>
-              <h2 className={cx("flex items-center gap-2 text-sm font-medium", onBug ? "text-bad-ink" : "text-muted-foreground")}>
-                <Bug className="size-4" aria-hidden="true" />
-                {state.settled === "passed" ? "Kept because it failed on a bug in the app. It passes now." : "This test fails on a bug in the app"}
-              </h2>
-              {test.faults.map((f, i) => (
-                <div key={i} className="flex flex-col gap-2">
-                  <p className="font-medium text-pretty">{f.what}</p>
-                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-                    {f.expected && (
-                      <>
-                        <dt className="text-muted-foreground">Expected</dt>
-                        <dd className="text-pretty">{f.expected}</dd>
-                      </>
-                    )}
-                    {f.saw && (
-                      <>
-                        <dt className="text-muted-foreground">The app</dt>
-                        <dd className="min-w-0">
-                          <Evidence text={f.saw} textClassName="text-pretty" />
-                        </dd>
-                      </>
-                    )}
-                  </dl>
-                </div>
-              ))}
-            </section>
-          )}
+            {firstOther && (
+              <StatusNote>
+                <p className="text-muted-foreground">It was run twice before it counted. The first time: {firstOther}.</p>
+              </StatusNote>
+            )}
+
+            {viewingOld && run && (
+              <StatusNote
+                action={
+                  <Link
+                    href={here}
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
+                  >
+                    Back to the latest
+                  </Link>
+                }
+              >
+                <p className="text-muted-foreground">
+                  Showing the result from {timeAgo(run.createdAt)} below: {lower(run)}.
+                </p>
+              </StatusNote>
+            )}
+          </TestStatus>
 
           <TestRunView
             key={run?.id}
@@ -237,7 +276,14 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             cleanup={around("c", spec.cleanup, result?.cleanup, url)}
             video={running ? null : url(result?.video)}
             poster={url(result?.steps.findLast((s) => s.screenshot)?.screenshot)}
-            live={state.active && run?.id === latest?.id ? { frame: url(run?.liveFrame), queued: run?.status === "queued" } : undefined}
+            live={
+              state.active && run?.id === latest?.id
+                ? {
+                    frame: url(run?.liveFrame),
+                    queued: run?.status === "queued",
+                  }
+                : undefined
+            }
             stale={Boolean(result && !lined)}
             pick={wrong?.shot ? wrong.key : undefined}
           >
@@ -246,38 +292,5 @@ export default async function TestPage({ params, searchParams }: { params: Promi
         </>
       )}
     </div>
-  );
-}
-
-const DOT: Record<TestRunRow["status"], string> = {
-  passed: "bg-good-bar",
-  failed: "bg-bad-mid",
-  unverified: "bg-warn-bar",
-  running: "bg-live animate-pulse motion-reduce:animate-none",
-  queued: "border-2 border-live",
-  stopped: "bg-foreground/15",
-};
-
-/** This test's results as a row of marks, oldest first. Each opens that result here. */
-function Results({ here, runs, selected }: { here: string; runs: TestRunRow[]; selected?: string }) {
-  return (
-    <nav aria-label="Results" className="flex items-center gap-3">
-      <span className="text-xs text-muted-foreground">Last {runs.length} results</span>
-      <ol className="flex items-center gap-1">
-        {[...runs].reverse().map((r) => (
-          <li key={r.id} className="flex">
-            <Link
-              href={r.id === runs[0]!.id ? here : `${here}?run=${r.id}`}
-              aria-current={r.id === selected ? "true" : undefined}
-              aria-label={`${STATE_LABEL[r.status]}, ${timeAgo(r.createdAt)}`}
-              title={`${STATE_LABEL[r.status]} · ${TRIGGER_LABEL[r.trigger]} · ${timeAgo(r.createdAt)}`}
-              className={cx("flex size-4 items-center justify-center rounded-[5px] outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring", r.id === selected && "ring-1 ring-foreground/40")}
-            >
-              <span className={cx("size-2.5 rounded-[3px]", DOT[r.status])} />
-            </Link>
-          </li>
-        ))}
-      </ol>
-    </nav>
   );
 }

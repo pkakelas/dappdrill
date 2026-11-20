@@ -10,7 +10,7 @@ export const debug = (m: string) => {
 };
 
 /**
- * A session whose live frames go to the caller's sink. Several sessions with their own artifacts
+ * A session whose live frames, and what a model does in it, go to the caller's sink. Several sessions with their own artifacts
  * may be open under one sink, so a frame's path is the whole path of the file.
  */
 export function openSession(env: Env, artifactsDir: string, extra: Partial<SessionOptions> = {}): Promise<EngineSession> {
@@ -21,7 +21,7 @@ export function openSession(env: Env, artifactsDir: string, extra: Partial<Sessi
     log: debug,
     sink: async (e: DrillEvent) => {
       if (e.type === "frame") await env.sink({ ...e, path: path.join(artifactsDir, e.path) });
-      else if (e.type === "log" && e.level !== "info") await env.sink(e);
+      else if (e.type === "did" || (e.type === "log" && e.level !== "info")) await env.sink(e);
     },
     ...extra,
   });

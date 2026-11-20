@@ -17,7 +17,7 @@ function byDay(runs: RunSummary[], now = Date.now()) {
   return days;
 }
 
-/** Is the app getting better: a small bar per day, failures on top, in the row of figures at the top of the app. */
+/** Is the app getting better: a small bar per day, failures on top, beside the heading of the Runs page. */
 export function RunHistory({ runs }: { runs: RunSummary[] }) {
   const days = byDay(runs);
   const passed = days.reduce((n, d) => n + d.passed, 0);

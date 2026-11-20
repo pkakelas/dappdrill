@@ -53,6 +53,49 @@ describe("decodeWalletRequest", () => {
     expect(d.amounts).toContain(5_000_000n);
     expect(d.expectation.failIfUnlimited).toBe(true);
   });
+
+  it("says each request in words, for its owner", () => {
+    const TOKEN = "0x2222222222222222222222222222222222222222";
+    const words = (method: string, params: unknown) => decodeWalletRequest(req(method, params)).words;
+    const sent = (tx: object) => words("eth_sendTransaction", [{ to: TOKEN, ...tx }]);
+    const typed = (primaryType: string, message: object) => words("eth_signTypedData_v4", ["0xaa", JSON.stringify({ primaryType, domain: { name: "USD Coin" }, message })]);
+
+    expect(sent({ data: `0x095ea7b3${pad(VAULT)}${pad(12_500_000n)}` })).toBe("approve 0x1111…1111 to spend 12500000 of the token at 0x2222…2222");
+    expect(sent({ data: `0x095ea7b3${pad(VAULT)}${pad(maxUint256)}` })).toBe("approve 0x1111…1111 to spend an unlimited amount of the token at 0x2222…2222");
+    expect(sent({ data: `0xb6b55f25${pad(5_000_000n)}` })).toBe("call deposit(5000000) on 0x2222…2222");
+    expect(sent({ data: "0xdeadbeef00", value: "0x2386f26fc10000" })).toBe("send 0x2222…2222 a call we can't read (0xdeadbeef), with 0.01 of the chain's coin");
+    expect(sent({ value: "0x2386f26fc10000" })).toBe("send 0.01 of the chain's coin to 0x2222…2222");
+    expect(words("personal_sign", ["0x" + Buffer.from("Sign in to Tiny Vault").toString("hex"), "0xaa"])).toBe("sign the message “Sign in to Tiny Vault”");
+    expect(typed("Permit", { owner: "0xaa", spender: VAULT, value: "5000000", nonce: "0", deadline: "1794581262" })).toBe("sign a Permit (USD Coin) that lets 0x1111…1111 spend 5000000");
+    expect(typed("Permit", { owner: "0xaa", spender: VAULT, value: maxUint256.toString() })).toBe("sign a Permit (USD Coin) that lets 0x1111…1111 spend an unlimited amount");
+    expect(typed("Order", { maker: VAULT, size: "3" })).toBe("sign an Order (USD Coin): maker 0x1111…1111, size 3");
+    expect(words("wallet_switchEthereumChain", [{ chainId: "0x1" }])).toBe("answer wallet_switchEthereumChain");
+  });
+
+  it("says an amount in the token's units once they are given, and names the token to read them of", () => {
+    const TOKEN = "0x2222222222222222222222222222222222222222";
+    const usdc = { decimals: 6, symbol: "USDC" };
+    const sent = (data: string, units?: { decimals: number; symbol?: string }) => decodeWalletRequest(req("eth_sendTransaction", [{ to: TOKEN, data }]), units);
+    const typed = (primaryType: string, domain: object, message: object, units?: { decimals: number; symbol?: string }) => decodeWalletRequest(req("eth_signTypedData_v4", ["0xaa", JSON.stringify({ primaryType, domain, message })]), units);
+
+    const approve = `0x095ea7b3${pad(VAULT)}${pad(12_500_000n)}`;
+    expect(sent(approve).token).toBe(TOKEN);
+    expect(sent(approve, usdc).words).toBe("approve 0x1111…1111 to spend 12.5 USDC");
+    expect(sent(approve, { decimals: 6 }).words).toBe("approve 0x1111…1111 to spend 12.5 of the token at 0x2222…2222");
+    expect(sent(`0x095ea7b3${pad(VAULT)}${pad(maxUint256)}`, usdc).words).toBe("approve 0x1111…1111 to spend an unlimited amount of USDC");
+    expect(sent(`0xa9059cbb${pad(VAULT)}${pad(1n)}`).words).toBe("transfer 1 of the token at 0x2222…2222 to 0x1111…1111");
+    expect(sent(`0xa9059cbb${pad(VAULT)}${pad(1n)}`, usdc).words).toBe("transfer 0.000001 USDC to 0x1111…1111");
+    // A deposit doesn't say which token its amount is of, so it stays as the request has it.
+    expect(sent(`0xb6b55f25${pad(5_000_000n)}`, usdc)).toMatchObject({ token: undefined, words: "call deposit(5000000) on 0x2222…2222" });
+
+    const permit = { owner: "0xaa", spender: VAULT, value: "5000000" };
+    expect(typed("Permit", { name: "USD Coin", verifyingContract: TOKEN.toUpperCase().replace("0X", "0x") }, permit).token).toBe(TOKEN);
+    expect(typed("Permit", { name: "USD Coin", verifyingContract: TOKEN }, permit, usdc).words).toBe("sign a Permit (USD Coin) that lets 0x1111…1111 spend 5 USDC");
+    // Permit2 is verified by its own contract and names the token in the message.
+    const single = typed("PermitSingle", { name: "Permit2", verifyingContract: VAULT }, { details: { token: TOKEN, amount: "5000000" }, spender: VAULT }, usdc);
+    expect(single).toMatchObject({ token: TOKEN, words: "sign a PermitSingle (Permit2) that lets 0x1111…1111 spend 5 USDC" });
+    expect(typed("Order", { name: "Exchange", verifyingContract: VAULT }, { maker: VAULT, size: "3" }).token).toBeUndefined();
+  });
 });
 
 describe("matchTypedAmount", () => {

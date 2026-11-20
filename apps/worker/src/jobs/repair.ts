@@ -1,6 +1,6 @@
 import path from "node:path";
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
-import { sentence, type Action, type DrillEventSink, type Test, type TestResult } from "@dappdrill/core";
+import { noteDone, sentence, type Action, type DrillEventSink, type Test, type TestResult } from "@dappdrill/core";
 import { appTests, makes, queueRepair, queueRuns, repairAsk, testOf, testRuns, tests, touched, updateApp, type Db, type RepairState } from "@dappdrill/db";
 import type { Engine } from "@dappdrill/engine/fake";
 import type { PgBoss } from "pg-boss";
@@ -94,6 +94,7 @@ async function repair(db: Db, engine: Engine, app: AppRow, row: RepairRow, asked
     if (event.type === "log" && event.level !== "info") return log[event.level](event.message);
     if (event.type === "cost") costUsd = Math.max(costUsd, event.usd);
     else if (event.type === "frame") state.frame = path.relative(dir, event.path);
+    else if (event.type === "did") noteDone((state.log ??= []), event.text, event.at);
     else return;
     save();
   };
@@ -110,6 +111,7 @@ async function repair(db: Db, engine: Engine, app: AppRow, row: RepairRow, asked
     const done = await engine.repairSuite({ target: await buildTarget(db, app, "tests"), suite, artifactsDir: dir, signal, testIds: repair.tests.map((t) => t.testId) }, sink, {
       say: (text) => {
         state.said = text;
+        noteDone((state.log ??= []), text);
         save();
       },
       onStart: (testId) => {

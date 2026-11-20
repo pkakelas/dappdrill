@@ -47,7 +47,7 @@ export function Header({ apps, lastAppId, user, org, orgs, switchOrg }: ShellPro
   const base = here ? `/apps/${here.id}` : null;
   const active = (path: string) => {
     if (!base) return false;
-    if (path === "") return pathname === base || pathname.startsWith(`${base}/tests`);
+    if (path === "") return pathname === base || pathname.startsWith(`${base}/tests`) || pathname.startsWith(`${base}/goals`);
     return pathname.startsWith(base + path);
   };
   const initial = (user.name || user.email).trim().charAt(0).toUpperCase();

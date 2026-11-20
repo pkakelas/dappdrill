@@ -1,5 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
 import { cx } from "@/components/ui";
 
 export const TINT = {
@@ -17,18 +16,5 @@ export function Tile({ icon: Icon, tint, className }: { icon: LucideIcon; tint: 
     <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-lg", TINT[tint], className)}>
       <Icon className="size-[18px]" aria-hidden="true" />
     </span>
-  );
-}
-
-/** A section's heading, the way the New app page labels its rows: a tile, a title and a line of detail. */
-export function SectionHead({ icon, tint, title, detail }: { icon: LucideIcon; tint: keyof typeof TINT; title: string; detail?: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Tile icon={icon} tint={tint} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h2 className="text-sm leading-snug font-medium">{title}</h2>
-        {detail && <p className="text-sm text-pretty text-muted-foreground">{detail}</p>}
-      </div>
-    </div>
   );
 }

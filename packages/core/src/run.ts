@@ -94,6 +94,8 @@ export type StepResult = z.infer<typeof StepResult>;
 export type DrillEvent =
   | { type: "log"; level: "info" | "warn" | "error"; message: string; at: string }
   | { type: "frame"; path: string; url: string; at: string }
+  /** Something a model did in the browser, in words ("Clicked “Deposit”"). `dir` is the artifacts folder of the session it was done in. */
+  | { type: "did"; text: string; dir: string; at: string }
   | { type: "chains"; chains: ChainConfig[] }
   | { type: "wallet-request"; request: WalletRequest }
   | { type: "signing-review"; review: SigningReview }

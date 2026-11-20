@@ -1,6 +1,6 @@
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { MakeState, newId, sentence, setupWithRecordings, withNotes, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
+import { MakeState, newId, noteDone, sentence, setupWithRecordings, withNotes, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
 import { addTest, appTests, makes, testRuns, updateApp, type Db } from "@dappdrill/db";
 import type { Attempt, Looked } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
@@ -52,25 +52,27 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
   const stop = stopSignal(() => makeStopAsked(db, row.id), log);
   const signal = AbortSignal.any([shutdown, stop.signal]);
 
-  // A picture of a browser belongs to the look or to the make whose folder it is in.
+  // A picture of a browser, and what was done in one, belong to the look or to the make whose folder they are in.
   const sink: DrillEventSink = (event) => {
     if (event.type === "log" && event.level !== "info") return log[event.level](event.message);
     if (event.type === "cost") {
       reported = Math.max(reported, event.usd);
       return save();
     }
-    if (event.type !== "frame") return;
-    const rel = path.relative(dir, event.path);
-    const n = /^make-(\d+)\//.exec(rel)?.[1];
-    const goal = n ? state.goals[Number(n) - 1] : undefined;
-    if (goal) goal.frame = rel;
-    else if (!n) state.frame = rel;
+    if (event.type !== "frame" && event.type !== "did") return;
+    const rel = path.relative(dir, event.type === "frame" ? event.path : event.dir);
+    const n = /^make-(\d+)(\/|$)/.exec(rel)?.[1];
+    const of = n ? state.goals[Number(n) - 1] : state;
+    if (!of) return;
+    if (event.type === "frame") of.frame = rel;
+    else noteDone((of.log ??= []), event.text, event.at);
     save();
   };
   const say = (text: string, n?: number) => {
-    const goal = n ? state.goals[n - 1] : undefined;
-    if (goal) goal.said = text;
-    else if (!n) state.said = text;
+    const of = n ? state.goals[n - 1] : state;
+    if (!of) return;
+    of.said = text;
+    noteDone((of.log ??= []), text);
     save();
   };
 
@@ -82,7 +84,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
     costUsd += made?.costUsd ?? 0;
     if (made?.stuck) {
       // The setup stopped before the goal was touched: it is still to be tried, and the make says why once.
-      Object.assign(goal, { status: "waiting", said: undefined, frame: undefined, costUsd: made.costUsd, durationMs: made.durationMs } satisfies Partial<MakeGoal>);
+      Object.assign(goal, { status: "waiting", said: undefined, frame: undefined, log: undefined, costUsd: made.costUsd, durationMs: made.durationMs } satisfies Partial<MakeGoal>);
       state.stuck = made.stuck;
       log.info(`stopped at the setup, before “${attempt.goal}”: ${attempt.why}`);
       return save();
@@ -91,6 +93,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
       status: attempt.kept ? "kept" : "not-kept",
       whyNot: attempt.kept ? undefined : attempt.why,
       tried: attempt.kept ? undefined : tried(attempt),
+      log: undefined,
       costUsd: made?.costUsd ?? 0,
       durationMs: made?.durationMs ?? 0,
     } satisfies Partial<MakeGoal>);

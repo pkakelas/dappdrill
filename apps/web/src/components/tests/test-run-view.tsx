@@ -5,7 +5,6 @@ import { useState, type ReactNode } from "react";
 import { BrowserWindow, SiteLoading } from "@/components/site-preview";
 import { cx } from "@/components/ui";
 import { NotCode } from "./not-code";
-import { Evidence } from "./signed";
 import { StateMark, type TestState } from "./status";
 
 /** One line of the test as the run on screen left it, ready to draw. */
@@ -80,9 +79,9 @@ export function TestRunView({
   return (
     <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,32rem)]">
       <div className="flex min-w-0 flex-col gap-10">
-        <section aria-label="Lines" className="flex flex-col gap-3">
+        <section aria-label="Steps" className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between gap-3 px-2">
-            <h2 className="text-sm font-medium">Lines</h2>
+            <h2 className="text-sm font-medium">Steps</h2>
             <span className="text-xs text-muted-foreground">
               Starts on <span className="font-mono">{startPath}</span>
             </span>
@@ -93,7 +92,7 @@ export function TestRunView({
             </Fold>
           )}
           <ol className="flex flex-col">{lines.map(row)}</ol>
-          {stale && <p className="px-2 text-sm text-pretty text-muted-foreground">The test was edited after this result, so the lines don&apos;t show how each went. Run it again.</p>}
+          {stale && <p className="px-2 text-sm text-pretty text-muted-foreground">The test was edited after this result, so the steps don&apos;t show how each went. Run it again.</p>}
           {cleanup && cleanup.lines.length > 0 && (
             <Fold title="Cleanup" about="puts the account back afterwards" around={cleanup}>
               {cleanup.lines.map(row)}
@@ -119,7 +118,7 @@ export function TestRunView({
                     Video
                   </Seg>
                   <Seg on={Boolean(line)} onClick={() => setPicked(line?.key ?? all.find((l) => l.shot)?.key)}>
-                    Lines
+                    Steps
                   </Seg>
                 </div>
               )
@@ -140,9 +139,9 @@ export function TestRunView({
             ) : line ? (
               line.shot ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={line.key} src={line.shot} alt="The page at the line picked" className="absolute inset-0 size-full animate-in object-cover object-top duration-200 fade-in-0" />
+                <img key={line.key} src={line.shot} alt="The page at the step picked" className="absolute inset-0 size-full animate-in object-cover object-top duration-200 fade-in-0" />
               ) : (
-                <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">No picture of the page at this line.</p>
+                <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">No picture of the page at this step.</p>
               )
             ) : video ? (
               <video key={video} src={video} poster={poster ?? undefined} controls muted playsInline className="absolute inset-0 size-full bg-black object-contain" />
@@ -156,20 +155,20 @@ export function TestRunView({
           <div className="flex items-start gap-3 px-1">
             <StateMark state={line.state} label={line.label} className="mt-0.5" />
             <p className="min-w-0 flex-1 text-sm text-pretty">
-              <span className="text-muted-foreground">{at < first ? "Before the test" : at < first + lines.length ? `Line ${at - first + 1}` : "Cleanup"} · </span>
+              <span className="text-muted-foreground">{at < first ? "Before the test" : at < first + lines.length ? `Step ${at - first + 1}` : "Cleanup"} · </span>
               {line.text}
             </p>
             <div className="flex shrink-0">
-              <Nav label="Previous line" disabled={!all.slice(0, at).some((l) => l.shot)} onClick={() => step(-1)}>
+              <Nav label="Previous step" disabled={!all.slice(0, at).some((l) => l.shot)} onClick={() => step(-1)}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
               </Nav>
-              <Nav label="Next line" disabled={!all.slice(at + 1).some((l) => l.shot)} onClick={() => step(1)}>
+              <Nav label="Next step" disabled={!all.slice(at + 1).some((l) => l.shot)} onClick={() => step(1)}>
                 <ChevronRight className="size-4" aria-hidden="true" />
               </Nav>
             </div>
           </div>
         )}
-        {!live && !line && video && <p className="px-1 text-sm text-muted-foreground">The whole run. Pick a line to see the page at that point.</p>}
+        {!live && !line && video && <p className="px-1 text-sm text-muted-foreground">The whole run. Pick a step to see the page at that point.</p>}
       </aside>
     </div>
   );
@@ -187,9 +186,7 @@ function Row({ line, last, picked, onPick }: { line: ViewLine; last: boolean; pi
           {line.notCode && <NotCode />}
         </span>
         {/* What a passing check saw shows once its line is picked (folded when it can't be); a problem always shows whole. */}
-        {line.note && (line.tone !== "quiet" || picked || !line.shot) && (
-          <Evidence text={line.note} className="mt-0.5 text-sm" textClassName={cx("text-pretty [overflow-wrap:anywhere]", TONE[line.tone ?? "quiet"], !picked && line.tone === "quiet" && "line-clamp-2")} />
-        )}
+        {line.note && (line.tone !== "quiet" || picked || !line.shot) && <span className={cx("mt-0.5 text-sm text-pretty [overflow-wrap:anywhere]", TONE[line.tone ?? "quiet"], !picked && line.tone === "quiet" && "line-clamp-2")}>{line.note}</span>}
         {line.redone && <span className="text-sm text-pretty text-muted-foreground">The recorded actions stopped working, so it was worked out again: {line.redone}</span>}
         {line.did && line.did.length > 0 && <span className="text-xs text-pretty text-muted-foreground [overflow-wrap:anywhere]">{line.did.join(" · ")}</span>}
       </span>

@@ -93,7 +93,9 @@ describe("a check by code, on a page", () => {
   });
 
   const running = (more: Partial<Running> = {}) => {
-    const chains = { client: () => ({ waitForTransactionReceipt: async () => receipt ?? Promise.reject(new Error("timed out")) }) };
+    // One token answers for its units, as a chain would; any other address isn't a token.
+    const readContract = async ({ address, functionName }: { address: string; functionName: string }) => (address === USDC && functionName !== "asset" ? (functionName === "decimals" ? 6 : "USDC") : Promise.reject(new Error("reverted")));
+    const chains = { client: () => ({ readContract, waitForTransactionReceipt: async () => receipt ?? Promise.reject(new Error("timed out")) }) };
     return { session: { ...s, chains, said: { since: () => said } }, steps: [], since: 0, acted: Date.now(), before: new Map(), ...more } as unknown as Running;
   };
   /** How a check comes out, read once unless it says how long to wait. */
@@ -107,7 +109,8 @@ describe("a check by code, on a page", () => {
   const asked = (method: string, params: unknown, outcome: WalletRequest["outcome"], result?: string) =>
     void s.wallet.requests().push({ id: `r${s.wallet.requests().length}`, method, params, chainId: 31337, kind: "sign", at: "now", outcome, result });
   const SPENDER = "0x1111111111111111111111111111111111111111";
-  const permit = (value: string) => [s.wallet.address(), JSON.stringify({ primaryType: "Permit", domain: { name: "USD Coin" }, types: {}, message: { owner: s.wallet.address(), spender: SPENDER, value } })];
+  const USDC = "0x3333333333333333333333333333333333333333";
+  const permit = (value: string, verifyingContract?: string) => [s.wallet.address(), JSON.stringify({ primaryType: "Permit", domain: { name: "USD Coin", verifyingContract }, types: {}, message: { owner: s.wallet.address(), spender: SPENDER, value } })];
 
   describe("shows and hides", () => {
     it("reads the page the way a person does, across elements", async () => {
@@ -175,10 +178,11 @@ describe("a check by code, on a page", () => {
       asked("eth_signTypedData_v4", permit("25000000"), "rejected");
       expect(await status({ kind: "signed", holds: "Permit" })).toBe("pass");
       expect(await status({ kind: "signed", holds: "Permit", was: "rejected" })).toBe("pass");
-      expect((await decided({ kind: "signed", holds: "Permit", was: "approved" })).note).toMatch(/^The wallet was asked, and it was rejected, not approved: /);
+      expect((await decided({ kind: "signed", holds: "Permit", was: "approved" })).note).toBe("The wallet was asked to sign a Permit (USD Coin) that lets 0x1111…1111 spend 25000000, and it was rejected, not approved.");
+      expect((await decided({ kind: "not-signed", holds: "Permit" })).note).toBe("The wallet was asked to sign a Permit (USD Coin) that lets 0x1111…1111 spend 25000000.");
       expect(await status({ kind: "signed", holds: "25000000" })).toBe("pass");
       expect(await status({ kind: "signed", holds: SPENDER })).toBe("pass");
-      expect((await decided({ kind: "signed", holds: "Transfer" })).note).toMatch(/^Nothing the wallet was asked holds “Transfer”\. It was asked: /);
+      expect((await decided({ kind: "signed", holds: "Transfer" })).note).toMatch(/^Nothing the wallet was asked holds “Transfer”\. It was asked to sign a Permit /);
       expect(await status({ kind: "not-signed", holds: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" })).toBe("pass");
       expect(await status({ kind: "not-signed", holds: "Permit" })).toBe("fail");
       expect(await status({ kind: "not-signed" })).toBe("fail");
@@ -206,6 +210,13 @@ describe("a check by code, on a page", () => {
       expect(await status(amount)).toBe("fail");
     });
 
+    it("says an amount in the token's own units, when the chain says what they are", async () => {
+      asked("eth_signTypedData_v4", permit("25000000", USDC), "approved");
+      expect((await decided({ kind: "not-signed" })).note).toBe("The wallet was asked to sign a Permit (USD Coin) that lets 0x1111…1111 spend 25 USDC.");
+      // The amount as the request has it still finds the request.
+      expect(await status({ kind: "signed", holds: "25000000" })).toBe("pass");
+    });
+
     it("leaves out what the wallet was asked before this began", async () => {
       asked("eth_signTypedData_v4", permit("25000000"), "approved");
       expect(await status({ kind: "not-signed" }, { since: 1 })).toBe("pass");
@@ -216,16 +227,16 @@ describe("a check by code, on a page", () => {
     const tx = [{ to: SPENDER, data: "0xdeadbeef00" }];
     expect(await decided({ kind: "mined" })).toEqual({ status: "fail", note: "No transaction was sent." });
     asked("eth_sendTransaction", tx, "rejected");
-    expect((await decided({ kind: "mined" })).note).toMatch(/^The wallet was asked, but nothing was sent: /);
+    expect((await decided({ kind: "mined" })).note).toBe("The wallet was asked to send 0x1111…1111 a call we can't read (0xdeadbeef), but nothing was sent.");
     asked("eth_sendTransaction", tx, "approved", `0x${"ab".repeat(32)}`);
-    expect((await decided({ kind: "mined" })).note).toMatch(/^Not mined yet: .*\(0xabababab…\)\.$/);
+    expect((await decided({ kind: "mined" })).note).toMatch(/^The transaction to send .* \(0xabababab…\) isn't mined yet\.$/);
     expect(await status({ kind: "mined" })).toBe("unsure");
     receipt = { status: "success", blockNumber: 7n };
-    expect((await decided({ kind: "mined" })).note).toMatch(/^Mined in block 7: /);
+    expect((await decided({ kind: "mined" })).note).toMatch(/ was mined in block 7\.$/);
     expect(await status({ kind: "mined", holds: "0xdeadbeef" })).toBe("pass");
-    expect((await decided({ kind: "mined", holds: "approve" })).note).toMatch(/^No transaction that holds “approve” was sent\. It was asked: /);
+    expect((await decided({ kind: "mined", holds: "approve" })).note).toMatch(/^No transaction that holds “approve” was sent\. It was asked to send /);
     receipt = { status: "reverted", blockNumber: 8n };
-    expect(await decided({ kind: "mined" })).toMatchObject({ status: "fail", note: expect.stringMatching(/^Reverted in block 8: /) });
+    expect(await decided({ kind: "mined" })).toMatchObject({ status: "fail", note: expect.stringMatching(/ reverted in block 8\.$/) });
   });
 
   describe("changes", () => {
