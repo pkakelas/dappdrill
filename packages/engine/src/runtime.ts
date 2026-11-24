@@ -2,6 +2,7 @@
 export { startChains, type StartChainsOptions } from "./chain/controller.js";
 export { detectChains, type DetectChainsOptions } from "./chain/detect.js";
 export { createSession, type SessionOptions, type EngineSession } from "./browser/session.js";
+export { launchBrowser, launchOptions } from "./browser/launch.js";
 export { Wallet, type WalletOptions, type PendingSignRequest } from "./wallet/controller.js";
 export { walletInitScript, type InjectConfig } from "./wallet/inject.js";
 export { replayScript, type ReplayScriptOptions, type ReplayScriptResult, type ReplayHooks } from "./replay/replay.js";

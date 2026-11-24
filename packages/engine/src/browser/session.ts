@@ -5,13 +5,14 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import type { Browser, BrowserContext, Page } from "playwright";
 import { newId, nowIso, type ConsoleEntry, type DrillEventSink, type DrillTarget, type RpcLogEntry, type WalletProfileId } from "@dappdrill/core";
 import type { ChainController, DrillSession, WalletPolicy } from "../types.js";
 import { Wallet } from "../wallet/controller.js";
 import { BINDING_NAME, walletInitScript, type BridgeRequest, type InjectConfig } from "../wallet/inject.js";
 import { toHex } from "../chain/rpc.js";
 import { installAccessHeaders, USER_AGENT } from "./access.js";
+import { launchBrowser } from "./launch.js";
 import { recordRpc } from "./rpc-log.js";
 import { Said } from "./said.js";
 import { installResponses, installStorage } from "./setup.js";
@@ -96,7 +97,7 @@ export async function createSession(target: DrillTarget, chains: ChainController
     log,
   });
 
-  const browser = await chromium.launch({ headless: opts.headless ?? true });
+  const browser = await launchBrowser(opts.headless ?? true);
   try {
     const context = await browser.newContext({
       viewport: VIEWPORT,

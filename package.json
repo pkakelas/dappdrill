@@ -20,7 +20,8 @@
     "make": "corepack pnpm --filter @dappdrill/engine exec tsx dev/make.ts",
     "look": "corepack pnpm --filter @dappdrill/engine exec tsx dev/look.ts",
     "tests": "corepack pnpm --filter @dappdrill/engine exec tsx dev/tests.ts",
-    "repair": "corepack pnpm --filter @dappdrill/engine exec tsx dev/repair.ts"
+    "repair": "corepack pnpm --filter @dappdrill/engine exec tsx dev/repair.ts",
+    "probe": "corepack pnpm --filter @dappdrill/engine exec tsx dev/probe.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

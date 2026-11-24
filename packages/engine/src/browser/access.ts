@@ -43,6 +43,24 @@ export async function installAccessHeaders(context: BrowserContext, appUrl: stri
   );
 }
 
+/**
+ * What Cloudflare's own /cdn-cgi/trace says for this page's session: the edge, and whether the
+ * request was challenged ("sliver"). A clean sliver is a clue, not a verdict — the trace endpoint
+ * is often left out of bot rules, so it can pass while the app route does not. Absent unless the
+ * answer is really Cloudflare's.
+ */
+export async function cloudflareTrace(page: Page): Promise<string | undefined> {
+  const base = page.url();
+  if (!/^https?:/.test(base)) return undefined;
+  const res = await page.request.get(new URL("/cdn-cgi/trace", base).href).catch(() => undefined);
+  if (!res || !res.ok()) return undefined;
+  const text = await res.text().catch(() => "");
+  const fl = /^fl=(.+)$/m.exec(text)?.[1];
+  const sliver = /^sliver=(.+)$/m.exec(text)?.[1];
+  if (fl === undefined && sliver === undefined) return undefined;
+  return `Cloudflare edge${fl ? ` fl=${fl}` : ""}${sliver ? `, sliver=${sliver}` : ""}`;
+}
+
 const PROVIDER_FRAMES: [RegExp, string][] = [
   [/challenges\.cloudflare\.com/i, "Cloudflare"],
   [/hcaptcha\.com/i, "hCaptcha"],

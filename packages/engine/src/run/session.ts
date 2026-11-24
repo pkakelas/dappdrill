@@ -1,7 +1,7 @@
 /** Opening a browser session in an engine call's environment. */
 import path from "node:path";
 import { newId, type Blocked, type DrillEvent } from "@dappdrill/core";
-import { detectBotCheck } from "../browser/access.js";
+import { cloudflareTrace, detectBotCheck } from "../browser/access.js";
 import { createSession, type EngineSession, type SessionOptions } from "../runtime.js";
 import type { Env } from "./env.js";
 
@@ -30,9 +30,17 @@ export function openSession(env: Env, artifactsDir: string, extra: Partial<Sessi
 /** Challenges often load a moment after the page; look twice before calling the page clean. */
 export async function landingBotCheck(session: EngineSession): Promise<Blocked | undefined> {
   const first = await detectBotCheck(session.page);
-  if (first) return first;
+  if (first) return withTrace(session, first);
   await session.page.waitForTimeout(2_500);
-  return (await detectBotCheck(session.page)) ?? (await emptyPage(session));
+  const again = (await detectBotCheck(session.page)) ?? (await emptyPage(session));
+  return again && withTrace(session, again);
+}
+
+/** Names Cloudflare's edge and sliver on a Cloudflare block, so "did a fix work" is visible per run. */
+async function withTrace(session: EngineSession, block: Blocked): Promise<Blocked> {
+  if (block.provider !== "Cloudflare") return block;
+  const trace = await cloudflareTrace(session.page).catch(() => undefined);
+  return trace ? { ...block, reason: `${block.reason} (${trace})` } : block;
 }
 
 export const EMPTY_PAGE = "The app's page stayed empty, so nothing could be tried on it.";

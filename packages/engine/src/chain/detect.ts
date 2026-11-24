@@ -3,8 +3,8 @@
  * probe mode: record the JSON-RPC endpoints the page POSTs to (resolved to
  * chain ids with eth_chainId) and the chains it asks the wallet to switch to.
  */
-import { chromium } from "playwright";
 import { chainInfo, type ChainConfig } from "@dappdrill/core";
+import { launchBrowser } from "../browser/launch.js";
 import { BINDING_NAME, walletInitScript, type BridgeRequest, type BridgeResponse } from "../wallet/inject.js";
 import { WalletErrors } from "../wallet/errors.js";
 import { probeChainId, rpcCall, toHex, toRpcError } from "./rpc.js";
@@ -29,7 +29,7 @@ export async function detectChains(url: string, opts: DetectChainsOptions = {}):
   let current = 1;
   let passthrough = 0;
 
-  const browser = await chromium.launch({ headless: opts.headless ?? true });
+  const browser = await launchBrowser(opts.headless ?? true);
   try {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     await context.exposeBinding(BINDING_NAME, async (_source, req: BridgeRequest): Promise<BridgeResponse> => {
