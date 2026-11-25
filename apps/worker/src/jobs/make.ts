@@ -1,6 +1,6 @@
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { MakeState, newId, noteDone, sentence, setupWithRecordings, withNotes, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
+import { MakeState, newId, noteDone, sentence, setupWithRecordings, withFoundChains, withNotes, type ChainConfig, type DrillEventSink, type Tried, type Fault, type LineResult, type MakeGoal, type Suite, type TestResult } from "@dappdrill/core";
 import { addTest, appTests, makes, testRuns, updateApp, type Db } from "@dappdrill/db";
 import type { Attempt, Looked } from "@dappdrill/engine";
 import type { Engine } from "@dappdrill/engine/fake";
@@ -59,6 +59,8 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
       reported = Math.max(reported, event.usd);
       return save();
     }
+    // A chain the app asked the wallet for, while it was explored or while a test was made.
+    if (event.type === "chains") return keepChains(db, app.id, event.chains).catch((e) => log.warn(`could not keep the chains the app uses: ${errorMessage(e)}`));
     if (event.type !== "frame" && event.type !== "did") return;
     const rel = path.relative(dir, event.type === "frame" ? event.path : event.dir);
     const n = /^make-(\d+)(\/|$)/.exec(rel)?.[1];
@@ -197,6 +199,14 @@ async function keepLooked(db: Db, appId: string, looked: Looked): Promise<void> 
   await keepSetup(db, appId, looked.setup);
   if (!looked.goals.length) return;
   await updateApp(db, appId, () => ({ chains: looked.chains }));
+}
+
+/** Adds the chains the app was seen to use to the ones kept for it, so the next make and every run start with them. */
+async function keepChains(db: Db, appId: string, found: ChainConfig[]): Promise<void> {
+  await updateApp(db, appId, ({ chains }) => {
+    const next = withFoundChains(chains, found);
+    return next ? { chains: next } : undefined;
+  });
 }
 
 /**

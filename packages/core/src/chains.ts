@@ -50,3 +50,12 @@ export const ChainConfig = z.object({
   fallback: z.boolean().optional(),
 });
 export type ChainConfig = z.infer<typeof ChainConfig>;
+
+/**
+ * The chains kept for an app with the ones it was just seen to use, or nothing when none of them is new.
+ * A chain is only ever added here, and the Ethereum fallback goes once a chain of the app's own is known.
+ */
+export function withFoundChains(kept: ChainConfig[], found: ChainConfig[]): ChainConfig[] | undefined {
+  const added = found.filter((c) => !c.fallback && !kept.some((k) => k.id === c.id));
+  return added.length ? [...kept.filter((c) => !c.fallback), ...added] : undefined;
+}
