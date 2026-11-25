@@ -68,6 +68,10 @@ such a line.
 Accounts: `DrillTarget.account` is `new` (fresh keys on every start, account A paid what `fund` lists from
 `fundedKey`, then the setup) or `kept` (`fundedKey` or the kept accounts are the user, the setup once, the suite's
 `reset` lines before each test). Apps that make a user of every wallet they see belong on a kept account.
+A test may say what its own new account starts with (`Test.fund`, in place of the app's list; empty for an account
+that holds nothing). New accounts paid by a key are made from that key and an id of the run (kept in the run's
+`test-accounts.json`), and what a test leaves on one is sent back to the key before the next account is paid
+(`run/sweep.ts`), so a suite runs again and again on the same funds.
 
 Organizations: apps, test wallets, domains and integrations belong to an organization (Better Auth's
 organization plugin; tables `organization`, `member`, `invitation`). Roles are owner / admin / member, and
@@ -106,6 +110,7 @@ corepack pnpm dev                        # web (3000) + worker
 corepack pnpm site                       # marketing site (3100)
 corepack pnpm fixture                    # Harbor Vault test dApp: anvil :8545 + site :5173; prints the --key and --fund flags to test it with
 corepack pnpm cli make http://localhost:5173   # the CLI as users get it: make | run | repair
+corepack pnpm collect <run id> --key <hex> --chain id[=rpc]   # send back to the funding key what the accounts of a run that was cut short still hold; --fund chainId:token:amount names an ERC-20 to look for
 corepack pnpm typecheck
 corepack pnpm suite <url> <suite.json>  # run a suite file with no model (fixtures/harbor-vault/tests.json, fixtures/pod/tests.json) and print each line's result and time; --runs n, --only text
 corepack pnpm repair <url> <suite.json> # write the suite file's lines as code again, with models: the setup and reset, then every test with a line that isn't code, or --only text; --dry
@@ -119,6 +124,7 @@ format: they print each line's result and time (and its cost, where models work)
 `.drill/`. They share the account flags told in `packages/engine/dev/target.ts`: `--account new|kept`,
 `--key <hex>` (the funded key), `--fund chainId[:token]:amount` (what a new account is paid, repeatable),
 `--chain id[=rpc]`, and `--target <a kept target.json: its accounts, chains and inbox>`, which means a kept account.
+`make` also takes `--starts-with chainId[:token]:amount|nothing` for what that one test's account starts with.
 
 Use `scripts/pnpm-locked.sh <pnpm args>` instead of bare pnpm when adding dependencies
 (several agents may share this checkout).

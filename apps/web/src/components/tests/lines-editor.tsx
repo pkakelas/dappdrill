@@ -6,6 +6,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import { saveSetupAction } from "@/actions/apps";
 import { saveTestAction } from "@/actions/tests";
 import { NotCode } from "@/components/tests/not-code";
+import { StartsWith, type StartChoices, type Starts } from "@/components/tests/starts-with";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,13 +116,16 @@ export interface TestDraft {
   goal: string;
   startPath: string;
   lines: { type: Kind; text: string }[];
+  /** What its new account starts with. Null: what the app sends every new account. */
+  fund: Starts;
 }
 
 /**
  * A test as fields, opened from its page's menu. A line left as it was keeps its code; a new or reworded
- * one has none until the next repair writes it. Saving or cancelling goes back to `back`.
+ * one has none until the next repair writes it. Saving or cancelling goes back to `back`. `starts` is there
+ * on an app whose tests each get a new account: what this one's starts with can then be said.
  */
-export function TestEditor({ testId, test, back }: { testId: string; test: TestDraft; back: string }) {
+export function TestEditor({ testId, test, back, starts }: { testId: string; test: TestDraft; back: string; starts?: StartChoices }) {
   const [draft, setDraft] = useState(test);
   const [rows, setRows] = useState<Row[]>(() => test.lines.map((l) => row(l.type, l.text)));
   const [error, setError] = useState<string>();
@@ -130,7 +134,7 @@ export function TestEditor({ testId, test, back }: { testId: string; test: TestD
 
   const save = () =>
     start(async () => {
-      const r = await saveTestAction(testId, { ...draft, lines: rows.filter((l) => l.text.trim()).map(({ type, text }) => ({ type, text: text.trim() })) });
+      const r = await saveTestAction(testId, { ...draft, fund: starts ? draft.fund : undefined, lines: rows.filter((l) => l.text.trim()).map(({ type, text }) => ({ type, text: text.trim() })) });
       if (r.error) return setError(r.error);
       router.push(back);
       router.refresh();
@@ -153,6 +157,7 @@ export function TestEditor({ testId, test, back }: { testId: string; test: TestD
       <Field id="test-start" label="Starts on" hint="The page the test opens, after the app's setup.">
         <Input id="test-start" value={draft.startPath} disabled={pending} onChange={(e) => setDraft({ ...draft, startPath: e.target.value })} className="bg-background font-mono text-sm" />
       </Field>
+      {starts && <StartsWith id="test-starts-with" value={draft.fund} onChange={(fund) => setDraft({ ...draft, fund })} choices={starts} disabled={pending} />}
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Steps</span>
         <Rows rows={rows} onChange={setRows} kinds disabled={pending} />

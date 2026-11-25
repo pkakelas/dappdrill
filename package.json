@@ -21,6 +21,7 @@
     "look": "corepack pnpm --filter @dappdrill/engine exec tsx dev/look.ts",
     "tests": "corepack pnpm --filter @dappdrill/engine exec tsx dev/tests.ts",
     "repair": "corepack pnpm --filter @dappdrill/engine exec tsx dev/repair.ts",
+    "collect": "corepack pnpm --filter @dappdrill/engine exec tsx dev/collect.ts",
     "probe": "corepack pnpm --filter @dappdrill/engine exec tsx dev/probe.ts"
   },
   "devDependencies": {

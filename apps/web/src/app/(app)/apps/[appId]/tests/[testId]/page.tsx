@@ -1,4 +1,4 @@
-import { formatDuration, sentence, type LineResult } from "@dappdrill/core";
+import { formatDuration, fundText, sentence, type LineResult } from "@dappdrill/core";
 import { accountOf, db, isRepair, makes, testOf, testRuns, tests, type TestRunRow } from "@dappdrill/db";
 import { and, desc, eq } from "drizzle-orm";
 import { ChevronLeft } from "lucide-react";
@@ -19,6 +19,7 @@ import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo } from "@/lib/format";
 import { isCode, unwritten } from "@/lib/lines";
 import { requireApp } from "@/lib/session";
+import { startChoices } from "@/lib/starts";
 
 type Params = { appId: string; testId: string };
 type Line = ReturnType<typeof testOf>["steps"][number];
@@ -112,6 +113,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   const onBug = run?.status === "failed" && test.faults.length > 0;
   const editing = edit !== undefined && !state.active;
   const here = `/apps/${appId}/tests/${test.id}`;
+  // On new accounts a test may say what its own starts with, in place of what the app sends every one.
+  const starts = startChoices(app);
 
   const running = run?.status === "running";
   const lines = viewLines("l", spec.steps, lined, url, result?.values, running);
@@ -160,6 +163,7 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-pretty">{test.name}</h1>
             <p className="max-w-3xl text-pretty text-muted-foreground">{test.goal}</p>
+            {starts && spec.fund && <p className="text-sm text-muted-foreground">Its account starts with {spec.fund.length ? spec.fund.map(fundText).join(" and ") : "nothing"}.</p>}
           </div>
           <TestActions appId={appId} testId={test.id} active={Boolean(state.active)} />
         </div>
@@ -174,7 +178,9 @@ export default async function TestPage({ params, searchParams }: { params: Promi
             goal: test.goal,
             startPath: test.startPath,
             lines: spec.steps.map((l) => ({ type: l.type, text: sentence(l) })),
+            fund: spec.fund ? spec.fund.map((f) => ({ chainId: f.chainId, token: f.token ?? "", amount: f.amount })) : null,
           }}
+          starts={starts}
         />
       ) : (
         <>

@@ -20,6 +20,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { hostOf } from "@/lib/domains";
+import { NO_PAYER, readFund } from "@/lib/funds";
 import { withOwnerHints } from "@/lib/hints";
 import { startMake } from "@/lib/make";
 import { readChainId } from "@/lib/rpc";
@@ -79,13 +80,6 @@ const RpcUrl = z
   .pipe(z.string().url("That doesn't look like a URL."));
 const NO_CHAIN = "No chain answered at that URL.";
 
-const Token = z.string().trim().regex(/^0x[0-9a-fA-F]{40}$/, "A token is its contract address: 0x and 40 hex characters.");
-const Amount = z
-  .string()
-  .trim()
-  .regex(/^\d+(\.\d+)?$/, "An amount to send is a number, like 0.05 or 100.")
-  .refine((a) => Number(a) > 0, "An amount to send is more than zero.");
-
 type Account = Required<Pick<AppSettings, "account" | "fund">>;
 
 /**
@@ -94,24 +88,12 @@ type Account = Required<Pick<AppSettings, "account" | "fund">>;
  */
 function readAccount(form: FormData): Account | { error: string } {
   const account = form.get("account") === "kept" ? "kept" : "new";
-  const fund: Account["fund"] = [];
-  if (account === "kept") return { account, fund };
-  const [chains, tokens, amounts] = ["fundChain", "fundToken", "fundAmount"].map((name) => form.getAll(name).map((v) => String(v).trim())) as [string[], string[], string[]];
-  for (const [i, amountIn] of amounts.entries()) {
-    const tokenIn = tokens[i] ?? "";
-    if (!amountIn && !tokenIn) continue;
-    const chainId = Number(chains[i]);
-    if (!Number.isInteger(chainId) || chainId <= 0) return { error: "Choose the chain for what each new account is sent." };
-    const amount = Amount.safeParse(amountIn);
-    if (!amount.success) return { error: amount.error.issues[0]!.message };
-    const token = tokenIn ? Token.safeParse(tokenIn) : undefined;
-    if (token && !token.success) return { error: token.error.issues[0]!.message };
-    fund.push({ chainId, ...(token ? { token: token.data } : {}), amount: amount.data });
-  }
-  return { account, fund };
+  if (account === "kept") return { account, fund: [] };
+  const [chains, tokens, amounts] = ["fundChain", "fundToken", "fundAmount"].map((name) => form.getAll(name).map((v) => String(v))) as [string[], string[], string[]];
+  const fund = readFund(amounts.map((amount, i) => ({ chainId: Number(chains[i]), token: tokens[i] ?? "", amount })));
+  return "error" in fund ? fund : { account, fund };
 }
 
-const NO_PAYER = "Add the private key that pays each new account, or take out what to send.";
 const DEFAULT_WALLET: WalletProfileId = "metamask";
 
 /** Settings: tells the form which chain an RPC belongs to while the user is still typing. */

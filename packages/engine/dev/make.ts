@@ -1,11 +1,13 @@
 /**
  * Makes one test from a goal and adds it to a suite file once it is proven.
  *
- *   pnpm make <url> <suite.json> "<goal>" [--start /path] [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed] [--dry] [--seen "<what looked wrong>"]
+ *   pnpm make <url> <suite.json> "<goal>" [--start /path] [--starts-with chainId[:token]:amount|nothing]… [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed] [--dry] [--seen "<what looked wrong>"]
  *
  * The suite file gives the setup and what is known about the app (its notes); it is made when it
  * isn't there. A proven test and what was learned on the way are written back into it, unless
  * --dry. The account flags and --target are told in dev/target.ts.
+ * With --starts-with the test's new account is sent that, written as --fund is, in place of what --fund
+ * sends every new account, and the test keeps it: `--starts-with nothing` is an account that holds nothing.
  * With --seen the goal is to find out about something that looked wrong: its test is only added
  * when it fails every time.
  *
@@ -16,15 +18,15 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { OUTCOME_LABEL, type Test, type TestResult } from "@dappdrill/core";
 import { makeTest } from "../src/api.js";
-import { addToSuite, fromCwd, loadTarget, outDir, printWritten, readSuite, secs, TARGET_FLAGS, TARGET_USAGE, usd } from "./target.js";
+import { addToSuite, fromCwd, loadTarget, outDir, printWritten, readFunds, readSuite, secs, TARGET_FLAGS, TARGET_USAGE, usd } from "./target.js";
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
-  options: { ...TARGET_FLAGS, start: { type: "string" }, headed: { type: "boolean" }, dry: { type: "boolean" }, seen: { type: "string" } },
+  options: { ...TARGET_FLAGS, start: { type: "string" }, "starts-with": { type: "string", multiple: true }, headed: { type: "boolean" }, dry: { type: "boolean" }, seen: { type: "string" } },
 });
 const [url, suiteFile, goal] = positionals;
 if (!url || !suiteFile || !goal) {
-  console.error(`usage: pnpm make <url> <suite.json> "<goal>" [--start /path] ${TARGET_USAGE} [--headed] [--dry] [--seen "<what looked wrong>"]`);
+  console.error(`usage: pnpm make <url> <suite.json> "<goal>" [--start /path] [--starts-with chainId[:token]:amount|nothing]… ${TARGET_USAGE} [--headed] [--dry] [--seen "<what looked wrong>"]`);
   process.exit(2);
 }
 
@@ -36,12 +38,21 @@ await mkdir(out, { recursive: true });
 
 const t0 = Date.now();
 const suspicion = flags.seen ? { what: flags.seen, expected: goal, saw: flags.seen } : undefined;
+const startsWith = flags["starts-with"];
+const fund =
+  startsWith &&
+  readFunds(
+    startsWith.filter((f) => f !== "nothing"),
+    "--starts-with",
+  );
 const at = () => `[${secs(Date.now() - t0).trim()}]`;
 // Each thing a model does in the browser is printed as it is done, under what the maker says.
 const made = await makeTest(
-  { target, suite, goal, startPath: flags.start, suspicion, artifactsDir: out, headless: !flags.headed },
+  { target, suite, goal, startPath: flags.start, fund, suspicion, artifactsDir: out, headless: !flags.headed },
   (e) => {
     if (e.type === "did") console.log(`${at()}   ${e.text}`);
+    // What went back to the funding key, and what couldn't.
+    if (e.type === "log" && (e.level !== "info" || e.message.startsWith("Sent back"))) console.log(`${at()}   ${e.message}`);
   },
   (text) => console.log(`${at()} ${text}`),
 );

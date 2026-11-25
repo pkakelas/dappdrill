@@ -1,4 +1,4 @@
-import type { Action, ChainConfig, Check, DrillTarget, Fault, FixedResponse, MakeState, Outcome, RunValue, SuiteSettings, TestResult, WalletProfileId } from "@dappdrill/core";
+import type { Action, ChainConfig, Check, DrillTarget, Fault, FixedResponse, Fund, MakeState, Outcome, RunValue, SuiteSettings, TestResult, WalletProfileId } from "@dappdrill/core";
 import {
   boolean,
   index,
@@ -182,6 +182,8 @@ export const tests = pgTable(
     cleanup: jsonb("cleanup").$type<Action[]>().notNull().default([]),
     /** The faults of the app this test was kept for: it fails until they are fixed. */
     faults: jsonb("faults").$type<Fault[]>().notNull().default([]),
+    /** What the test's new account starts with. Null: what the app sends every new account. */
+    fund: jsonb("fund").$type<Fund[]>(),
     position: integer("position").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),

@@ -8,16 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { looksLikeKey } from "@/lib/secrets";
+import { StartsWith, type StartChoices, type Starts } from "./starts-with";
 
 const EMPTY = { does: "", sees: "" };
 
 /**
  * Add a test, at the end of the list of tests: say what a user does and what they should see. It opens in
  * place. The worker does it once in the app, writes it as lines, and runs it until it goes the same way twice.
+ * `starts` is there on an app whose tests each get a new account: what this test's starts with can then be said.
  */
-export function AddTest({ appId, label = "Add a test" }: { appId: string; label?: string }) {
+export function AddTest({ appId, label = "Add a test", starts }: { appId: string; label?: string; starts?: StartChoices }) {
   const [open, setOpen] = useState(false);
   const [answers, setAnswers] = useState(EMPTY);
+  const [fund, setFund] = useState<Starts>(null);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const { does, sees } = answers;
@@ -28,9 +31,10 @@ export function AddTest({ appId, label = "Add a test" }: { appId: string; label?
     if (!ready || hasKey || pending) return;
     start(async () => {
       const goal = sees.trim() ? `${does.trim().replace(/[.\s]+$/, "")}. They should see: ${sees.trim()}` : does.trim();
-      const r = await makeTestAction(appId, goal);
+      const r = await makeTestAction(appId, goal, undefined, starts ? fund : null);
       if (r.error) return setError(r.error);
       setAnswers(EMPTY);
+      setFund(null);
       setError(undefined);
       setOpen(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -83,6 +87,7 @@ export function AddTest({ appId, label = "Add a test" }: { appId: string; label?
         </Label>
         <Input id="add-sees" maxLength={250} disabled={pending} value={sees} onChange={(e) => setAnswers({ ...answers, sees: e.target.value })} placeholder="e.g. Deposited falls by 2.50 USDC" className="bg-background" />
       </div>
+      {starts && <StartsWith id="add-starts-with" value={fund} onChange={setFund} choices={starts} disabled={pending} />}
       {(hasKey || error) && (
         <p role="alert" className="text-sm text-bad">
           {hasKey ? "That looks like a private key. This text isn't encrypted, so take it out." : error}

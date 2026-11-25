@@ -23,6 +23,7 @@ import { can } from "@/lib/permissions";
 import { readBalance } from "@/lib/rpc";
 import { readSite } from "@/lib/site";
 import { requireApp, type App } from "@/lib/session";
+import { startChoices } from "@/lib/starts";
 
 /** The tab's title says where the work is, for someone who left the page open and went elsewhere. */
 export async function generateMetadata({ params }: { params: Promise<{ appId: string }> }): Promise<Metadata> {
@@ -230,14 +231,14 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
               <span className="text-sm text-muted-foreground tabular-nums">{tests.length}</span>
               {fresh.size > 0 && <span className="text-sm text-muted-foreground">· {fresh.size} ready just now</span>}
             </div>
-            <TestList end={<AddTest appId={appId} />}>
+            <TestList end={<AddTest appId={appId} starts={startChoices(app)} />}>
               {listed.map((t) => (
                 <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} stands={stands.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} fresh={fresh.has(t.id)} />
               ))}
             </TestList>
           </section>
         ) : (
-          !make && <Start appId={appId} url={app.url} site={(await readSite(app.url)) ?? { url: app.url, framable: false }} wallet={app.settings.wallets[0]} chainId={chain?.id} canMake={manage} />
+          !make && <Start appId={appId} url={app.url} site={(await readSite(app.url)) ?? { url: app.url, framable: false }} wallet={app.settings.wallets[0]} chainId={chain?.id} canMake={manage} starts={startChoices(app)} />
         )}
       </div>
     </div>

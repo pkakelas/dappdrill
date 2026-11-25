@@ -1,7 +1,7 @@
 /** What the dev commands share: the app's target from the command line, where results go, writing to a suite file and printing a line. */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { chainInfo, DrillTarget, sentence, Suite, type Action, type ChainConfig, type Check, type Note, type Test } from "@dappdrill/core";
+import { chainInfo, DrillTarget, sentence, Suite, type Action, type ChainConfig, type Check, type Fund, type Note, type Test } from "@dappdrill/core";
 
 /** The suite in a file, or `fresh` when there is no file yet. */
 export async function readSuite(file: string, fresh: unknown = {}): Promise<Suite> {
@@ -68,11 +68,7 @@ export async function loadTarget(url: string, flags: TargetFlags): Promise<Drill
     account: flags.account ?? (flags["keep-wallet"] || flags.target ? "kept" : "new"),
     accounts: kept.accounts,
     fundedKey: flags.key,
-    fund: (flags.fund ?? []).map((f) => {
-      const parts = f.split(":");
-      if (parts.length < 2 || parts.length > 3) throw new Error(`--fund ${f}: write it as chainId:amount or chainId:token:amount.`);
-      return { chainId: Number(parts[0]), token: parts.length === 3 ? parts[1] : undefined, amount: parts.at(-1)! };
-    }),
+    fund: readFunds(flags.fund ?? [], "--fund"),
     learnedChains: kept.chains,
     inbox: kept.inbox,
     chains: (flags.chain ?? []).map((c) => {
@@ -81,6 +77,15 @@ export async function loadTarget(url: string, flags: TargetFlags): Promise<Drill
       if (!rpcUrl) throw new Error(`--chain ${c}: chain ${id} isn't one we know, so give its RPC as ${id}=<url>.`);
       return { id: Number(id), rpcUrl };
     }),
+  });
+}
+
+/** What an account is sent, as the flags write it: `31337:10` or `31337:0xToken:1000`. */
+export function readFunds(written: string[], flag: string): Fund[] {
+  return written.map((f) => {
+    const parts = f.split(":");
+    if (parts.length < 2 || parts.length > 3) throw new Error(`${flag} ${f}: write it as chainId:amount or chainId:token:amount.`);
+    return { chainId: Number(parts[0]), token: parts.length === 3 ? parts[1] : undefined, amount: parts.at(-1)! };
   });
 }
 

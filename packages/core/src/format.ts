@@ -1,10 +1,16 @@
-import type { Blocked, MissingChain } from "./run.js";
+import { chainInfo, chainName } from "./chains.js";
+import type { Blocked, Fund, MissingChain } from "./run.js";
 
 /** 0x9f3a…c2e1 */
 export function shortAddress(addr: string | undefined, chars = 4): string {
   if (!addr) return "";
   if (addr.length <= 2 + chars * 2) return addr;
   return `${addr.slice(0, 2 + chars)}…${addr.slice(-chars)}`;
+}
+
+/** "0.05 ETH on Base Sepolia", or the token by its address when its symbol isn't known. */
+export function fundText(f: Fund): string {
+  return `${f.amount} ${f.symbol ?? (f.token ? `of the token ${shortAddress(f.token)}` : (chainInfo(f.chainId)?.nativeSymbol ?? "of the chain's coin"))} on ${chainName(f.chainId)}`;
 }
 
 export function formatDuration(ms: number): string {

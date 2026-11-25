@@ -1,16 +1,20 @@
 /**
  * Running a suite: each test in a browser of its own, on a clean start. With new accounts that is a
- * wallet nobody has seen, paid from the owner's key and taken through the setup. On a kept account the
- * setup is done once and the suite's reset lines put the account back before each test. A failure is run
- * once more before it counts, and a run that broke on our side is tried once more quietly before the test
- * is called Couldn't verify.
+ * wallet nobody has seen, paid from the owner's key what the test starts with and taken through the
+ * setup; what the test leaves on it is sent back to that key. On a kept account the setup is done once
+ * and the suite's reset lines put the account back before each test. A failure is run once more before
+ * it counts, and a run that broke on our side is tried once more quietly before the test is called
+ * Couldn't verify.
  */
+import { randomBytes } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { privateKeyToAccount } from "viem/accounts";
-import { noteText, type DrillEventSink, type DrillTarget, type LineResult, type SetupStuck, type Suite, type SuiteResult, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
+import { noteText, nowIso, type DrillEventSink, type DrillTarget, type Fund, type LineResult, type SetupStuck, type Suite, type SuiteResult, type Test, type TestResult, type WalletRequest } from "@dappdrill/core";
 import type { Hex } from "../types.js";
-import { fundAccount, newAccounts, openEnv, withAccounts, withoutFallback, type Env } from "./env.js";
+import { fundAccount, newAccounts, openEnv, withAccounts, withoutFallback, type Accounts, type AccountSeed, type Env } from "./env.js";
 import { debug, plain } from "./session.js";
+import { sendBack } from "./sweep.js";
 import { runSetup, runTest, SETUP_GOAL, type RunOptions } from "./test.js";
 
 export interface RunSuiteInput {
@@ -56,12 +60,16 @@ export interface OpenSuite {
   /** What is known about the app and what may be approved. On a kept account also where the setup left the browser. */
   opts: RunOptions;
   /**
-   * A clean start. New accounts: a wallet of its own, paid and set up; the one made when the suite opened
-   * goes to the first caller. Kept account: the same env, after the suite's reset lines when it has them.
+   * A clean start. New accounts: a wallet of its own, paid `fund` (the app's own list when left out) and
+   * set up; the one made when the suite opened goes to the first caller that asks for what it was paid.
+   * Kept account: the same env, after the suite's reset lines when it has them.
    */
-  fresh(onLine?: RunOptions["onLine"]): Promise<Fresh>;
-  /** fresh() then runTest. `more` is laid over the start's opts: a prove run passes `{ byModel: false }`. */
+  fresh(onLine?: RunOptions["onLine"], fund?: Fund[]): Promise<Fresh>;
+  /** fresh() with what the test starts with, then runTest. `more` is laid over the start's opts: a prove run passes `{ byModel: false }`. */
   run(test: Test, more?: Partial<Pick<RunOptions, "onLine" | "byModel">>): Promise<TestResult>;
+  /** A start taken with fresh() is done with: what its new account holds goes back to the key while the next one starts. run() does this itself. */
+  finished(start: Fresh): void;
+  /** Sends back what the new accounts still hold, then closes the chains. */
   close(): Promise<void>;
 }
 
@@ -72,12 +80,49 @@ export interface OpenSuiteOptions {
   onLine?: RunOptions["onLine"];
   /** A model does what has no code yet. Only while making or repairing: a run never sets it. */
   byModel?: boolean;
+  /** What the first start's new account is paid, when the first test to run says what it starts with. */
+  fund?: Fund[];
 }
 
 export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () => {}, more: OpenSuiteOptions = {}): Promise<OpenSuite> {
   const { suite, artifactsDir, signal } = input;
-  const env = await openEnv(input.target, sink, { headless: input.headless, signal });
+  const env = await openEnv(input.target, sink, { headless: input.headless, signal, fundChains: [...(more.fund ?? []), ...suite.tests.flatMap((t) => t.fund ?? [])].map((f) => f.chainId) });
   const kept = env.target.account === "kept";
+  const { fundedKey } = env.target;
+  const say = (message: string, level: "info" | "warn" = "info") => env.sink({ type: "log", level, message, at: nowIso() });
+
+  // New accounts paid by a key are made from it and an id of this run's own, so they can be emptied again.
+  const seed: AccountSeed | undefined = !kept && fundedKey ? { fundedKey, runId: randomBytes(6).toString("hex") } : undefined;
+  if (seed) {
+    await say(`This run's test accounts are made from the funding key under the id ${seed.runId}. What a test leaves on one is sent back to that key.`);
+    // Kept with the run, for collecting what a run that was cut short left behind (dev/collect.ts).
+    await mkdir(artifactsDir, { recursive: true });
+    await writeFile(path.join(artifactsDir, "test-accounts.json"), `${JSON.stringify({ runId: seed.runId, fundedBy: privateKeyToAccount(seed.fundedKey as Hex).address })}\n`);
+  }
+  /** Every new account made here, and the ERC-20s any of them was paid. */
+  const made: Accounts[] = [];
+  const paid: Fund[] = [...env.target.fund, ...suite.tests.flatMap((t) => t.fund ?? [])];
+  const another = (): Env => {
+    const accounts = newAccounts(seed, made.length + 1);
+    made.push(accounts);
+    return withAccounts(env, accounts);
+  };
+  /** Transfers back still on their way. The next account is paid once they have landed, so the key holds what it held. */
+  const returning = new Set<Promise<void>>();
+  const giveBack = (accounts: Accounts): void => {
+    if (!seed) return;
+    const going = sendBack(env.chains, seed.fundedKey, accounts, paid, say).finally(() => returning.delete(going));
+    returning.add(going);
+  };
+  const close = async () => {
+    try {
+      await Promise.all(returning);
+      // Once more over every account: a transfer that arrived after its test ended, a start nobody took.
+      if (seed) for (const accounts of made) await sendBack(env.chains, seed.fundedKey, accounts, paid, say);
+    } finally {
+      await env.close();
+    }
+  };
   // The suite's own rule comes before whatever the caller allows.
   const refused = () => "Refused: nothing may be approved in the wallet for this app. Reject it and carry on without it.";
   const asked = (on: Env) => more.refuseApprove && ((request: WalletRequest) => more.refuseApprove!(request, on));
@@ -91,12 +136,14 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
 
   let starts = 0;
   /** A start from nothing on `on`: a new account is paid first, then the setup is done in a browser of its own. */
-  const begin = async (on: Env, onLine?: RunOptions["onLine"]): Promise<Fresh> => {
+  const begin = async (on: Env, fund: Fund[], onLine?: RunOptions["onLine"]): Promise<Fresh> => {
     const n = ++starts;
     const opts = optsOn(on);
     if (!kept) {
+      if (fund.some((f) => !paid.includes(f))) paid.push(...fund);
       try {
-        await fundAccount(env.chains, env.target, privateKeyToAccount(on.target.accounts!.A as Hex).address);
+        await Promise.all(returning);
+        await fundAccount(env.chains, { fundedKey, fund }, privateKeyToAccount(on.target.accounts!.A as Hex).address);
       } catch (e) {
         if (signal?.aborted) throw e;
         const reason = e instanceof Error ? e.message : String(e);
@@ -115,24 +162,26 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
     return { env: on, opts, setup: done.steps, why: `The setup didn't finish. ${done.why}`, stuck: done.stuck };
   };
 
+  const firstFund = more.fund ?? env.target.fund;
   let first: Fresh;
   try {
-    first = await begin(env, more.onLine);
+    first = await begin(kept ? env : another(), firstFund, more.onLine);
   } catch (e) {
-    await env.close();
+    await close();
     // Nothing is returned to count what the setup spent, so it goes on the sink.
     await Promise.resolve(sink({ type: "cost", usd: env.costUsd() })).catch(() => {});
     throw e;
   }
-  /** With new accounts: the first start, until a caller has taken it. */
+  /** With new accounts: the first start, until a caller that wants what it was paid has taken it. */
   let waiting: Fresh | undefined = first;
   let resets = 0;
 
-  const fresh: OpenSuite["fresh"] = async (onLine) => {
+  const fresh: OpenSuite["fresh"] = async (onLine, fund = env.target.fund) => {
     if (!kept) {
-      const made = waiting;
+      if (!waiting || !sameFund(fund, firstFund)) return begin(another(), fund, onLine);
+      const taken = waiting;
       waiting = undefined;
-      return made ?? begin(withAccounts(env, newAccounts()), onLine);
+      return taken;
     }
     if (first.why || !suite.reset) return first;
     const done = await runSetup(env, suite.reset, {
@@ -148,8 +197,9 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
   /** What breaks on our side gets one more try, on another clean start. */
   const run = async (test: Test, over: Parameters<OpenSuite["run"]>[1] = {}, retry = true): Promise<TestResult> => {
     const t0 = Date.now();
+    let start: Fresh | undefined;
     try {
-      const start = await fresh();
+      start = await fresh(undefined, test.fund);
       if (start.why) return unstarted(test, start, Date.now() - t0);
       const result = await runTest(start.env, test, { ...start.opts, onLine: over.onLine, byModel: over.byModel ?? start.opts.byModel });
       return { ...result, reset: start.reset ?? [] };
@@ -157,6 +207,9 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
       if (signal?.aborted) throw e;
       debug(`${test.name} broke on our side: ${plain(e)}`);
       if (!retry) return notRun(test, `It broke on our side: ${plain(e)}`, Date.now() - t0);
+    } finally {
+      // The test is over, however it went: what its account holds goes back while the next one starts.
+      if (start && !kept) giveBack(start.env.target.accounts!);
     }
     return run(test, over, false);
   };
@@ -170,19 +223,26 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
     stuckAt: first.stuck,
     fresh,
     run: (test, over) => run(test, over),
-    close: () => env.close(),
+    finished: (start) => {
+      if (!kept) giveBack(start.env.target.accounts!);
+    },
+    close,
   };
 }
 
+/** Two lists that pay an account the same. */
+const sameFund = (a: Fund[], b: Fund[]) => JSON.stringify(a) === JSON.stringify(b);
+
 export async function runSuite(input: RunSuiteInput, sink: DrillEventSink = () => {}, progress: SuiteProgress = {}): Promise<SuiteResult> {
   const t0 = Date.now();
-  const open = await openSuite(input, sink, { onLine: (i, r) => progress.onLine?.(undefined, i, r) });
+  const open = await openSuite(input, sink, { onLine: (i, r) => progress.onLine?.(undefined, i, r), fund: input.suite.tests[0]?.fund });
   const { env, setup } = open;
   try {
     const tests: TestResult[] = [];
     for (const test of input.suite.tests) {
-      // The next start would stop where the first did.
-      if (open.stuck) {
+      // The next start would stop where the first did, unless that was for funds this test doesn't ask for.
+      const ownFunds = input.target.account === "new" && open.stuckAt?.fix === "funds" && !sameFund(test.fund ?? input.target.fund, input.suite.tests[0]?.fund ?? input.target.fund);
+      if (open.stuck && !ownFunds) {
         tests.push(unstarted(test, { why: open.stuck, stuck: open.stuckAt }));
         continue;
       }

@@ -5,7 +5,7 @@
  * only kept when a second look agrees the app is at fault (doubt.ts).
  */
 import path from "node:path";
-import type { DrillEventSink, LineResult, SetupStuck, Test } from "@dappdrill/core";
+import type { DrillEventSink, Fund, LineResult, SetupStuck, Test } from "@dappdrill/core";
 import { openSuite, type RunSuiteInput } from "../run/suite.js";
 import { askOwner, type AskInput } from "./ask.js";
 import { findCause } from "./cause.js";
@@ -19,6 +19,8 @@ export interface MakeInput extends RunSuiteInput {
   goal: string;
   /** Where to begin looking. The test may start elsewhere. */
   startPath?: string;
+  /** What the test's new account starts with, when that isn't what the app sends every new account. The test keeps it. */
+  fund?: Fund[];
   /** What looked wrong earlier, when the goal is to find out whether it is. */
   suspicion?: Finding;
   /** The most this make may spend, in dollars: no run of it starts after that. */
@@ -45,7 +47,7 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
   const { suite, artifactsDir } = input;
   const spent = input.spending ?? spending(input.maxUsd);
   // Making is where a model does what has no code yet: the setup's lines too.
-  const open = await openSuite(input, sink, { byModel: true });
+  const open = await openSuite(input, sink, { byModel: true, fund: input.fund });
   const { env } = open;
   const settle = spent.follow(() => env.costUsd());
   let draftUsd = 0;
@@ -67,7 +69,7 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
     const why = tried.why ?? "It didn't go the same way twice.";
     if (input.signal?.aborted || spent.over()) return { why };
     try {
-      return await askOwner(env.fastLlm(), { ...tried, why, goal: input.goal, notes: open.opts.notes ?? [], ours: ours(env), artifactsDir, signal: input.signal });
+      return await askOwner(env.fastLlm(), { ...tried, why, goal: input.goal, notes: open.opts.notes ?? [], ours: ours(env, input.fund), artifactsDir, signal: input.signal });
     } catch {
       return { why };
     }
@@ -75,10 +77,10 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
   try {
     if (open.stuck) return done({ why: open.stuck, stuck: open.stuckAt ?? { reason: open.stuck } });
     const notes = open.opts.notes!;
-    const set = ours(env);
+    const set = ours(env, input.fund);
 
     say(`Drafting: ${input.goal}`);
-    const start = await open.fresh();
+    const start = await open.fresh(undefined, input.fund);
     if (start.why) return done({ why: start.why, stuck: start.stuck ?? { reason: start.why } });
     const draft = await draftTest(start, {
       goal: input.goal,
@@ -90,13 +92,16 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       artifactsDir: path.join(artifactsDir, "draft"),
       signal: input.signal,
     });
+    // The draft's account is done with: what it holds pays for the runs that prove the test.
+    open.finished(start);
     draftUsd = env.costUsd();
     // What it learned on the way, and what stopped it, may be what the next goal needs most.
     if ("gaveUp" in draft) return done({ notes: draft.notes, blocker: draft.blocker, ...(await asked({ why: draft.gaveUp, runs: [], repairs: [], dismissed: [], findings: [] })) });
     notes.push(...draft.notes);
     const taken = new Set(suite.tests.map((t) => t.id));
-    let test = draft.test;
-    for (let n = 2; taken.has(test.id); n++) test = { ...draft.test, id: `${draft.test.id}-${n}` };
+    const drafted: Test = input.fund ? { ...draft.test, fund: input.fund } : draft.test;
+    let test = drafted;
+    for (let n = 2; taken.has(test.id); n++) test = { ...drafted, id: `${drafted.id}-${n}` };
     say(`Drafted “${test.name}”: ${test.steps.length} lines, $${draftUsd.toFixed(2)}`);
 
     const proved = await prove({
@@ -108,8 +113,12 @@ export async function makeTest(input: MakeInput, sink: DrillEventSink = () => {}
       shared: env.target.account === "kept",
       repair: (asked) => repair(env.fastLlm(), { ...asked, ours: set, artifactsDir, signal: input.signal }),
       lookInto: async (asked) => {
-        const from = await open.fresh();
-        return from.why ? undefined : findCause(from, { ...asked, notes, artifactsDir: path.join(artifactsDir, "cause"), signal: input.signal });
+        const from = await open.fresh(undefined, input.fund);
+        try {
+          return from.why ? undefined : await findCause(from, { ...asked, notes, artifactsDir: path.join(artifactsDir, "cause"), signal: input.signal });
+        } finally {
+          open.finished(from);
+        }
       },
       // The thinking model: it is asked once or twice a test, and only for a test about to be kept as failing.
       doubt: (asked) => doubt(env.thinkLlm(), { ...asked, ours: set, artifactsDir, signal: input.signal }),

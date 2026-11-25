@@ -42,6 +42,17 @@ describe("Test", () => {
   });
 });
 
+describe("what a test's account starts with", () => {
+  const base = { id: "t", name: "T", goal: "G", steps: [{ type: "action", by: "llm", do: "Bridge 0.01 ETH." }] };
+
+  it("is the app's own list when the test says nothing, and may be nothing at all", () => {
+    expect(Test.parse(base).fund).toBeUndefined();
+    expect(Test.parse({ ...base, fund: [] }).fund).toEqual([]);
+    expect(Test.parse({ ...base, fund: [{ chainId: 84532, amount: "0.02" }] }).fund).toEqual([{ chainId: 84532, amount: "0.02" }]);
+    expect(Test.safeParse({ ...base, fund: [{ amount: "1" }] }).success).toBe(false);
+  });
+});
+
 describe("fillValues", () => {
   const written = Test.parse({
     id: "w",

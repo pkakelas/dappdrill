@@ -40,7 +40,7 @@ export async function runMake(db: Db, engine: Engine, boss: PgBoss, makeId: stri
 
 async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$inferSelect, shutdown: AbortSignal, log: Logger): Promise<void> {
   const dir = artifactsDir("makes", row.id);
-  const state = MakeState.parse(row.goal ? { stage: "making", goals: [{ goal: row.goal, status: "making" }] } : {});
+  const state = MakeState.parse(row.goal ? { stage: "making", goals: [{ goal: row.goal, status: "making" }], fund: row.state.fund } : {});
   /** What the look and each make came back with. */
   let costUsd = 0;
   /** What the engine says was spent so far, the makes that were stopped or broke included. */
@@ -118,7 +118,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
     // In here, so a test that can't be read ends the make failed, with why, rather than leaving it running.
     const suite = appSuite(app, await appTests(db, app.id));
     if (row.goal) {
-      const one = await engine.makeTest({ target: await buildTarget(db, app, "tests"), suite, goal: row.goal, artifactsDir: path.join(dir, "make-1"), signal }, sink, (text) => say(text, 1));
+      const one = await engine.makeTest({ target: await buildTarget(db, app, "tests"), suite, goal: row.goal, fund: state.fund, artifactsDir: path.join(dir, "make-1"), signal }, sink, (text) => say(text, 1));
       await keepSetup(db, app.id, one.setup);
       const kept = one.proven && !!one.test;
       // What a goal that wasn't kept learned, and what was in its way, is kept as less sure.

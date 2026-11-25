@@ -4,7 +4,7 @@
  * or something we set up ourselves.
  */
 import { z } from "zod";
-import { chainName, sentence, type Test, type TestResult } from "@dappdrill/core";
+import { chainName, sentence, type Fund, type Test, type TestResult } from "@dappdrill/core";
 import type { Env } from "../run/env.js";
 import type { Llm } from "../types.js";
 import type { Finding } from "./draft.js";
@@ -66,12 +66,12 @@ export async function doubt(llm: Llm, input: DoubtInput): Promise<Doubt> {
 }
 
 /** What we set up for the tests, said so that nobody takes its effects for the app's doing. */
-export function ours(env: Env): string {
+export function ours(env: Env, fund: Fund[] = env.target.fund): string {
   const { target } = env;
   if (target.account === "kept") {
     return "Set up by us, not by the app:\n- The test account is kept between runs. It holds what its owner gave it and what earlier runs left: their orders and transfers are not this run's.";
   }
-  const sent = target.fund.map((f) => `${f.amount} ${f.symbol ?? (f.token ? `of the token ${f.token}` : "of the chain's own coin")} on ${chainName(f.chainId)}`);
+  const sent = fund.map((f) => `${f.amount} ${f.symbol ?? (f.token ? `of the token ${f.token}` : "of the chain's own coin")} on ${chainName(f.chainId)}`);
   const holds = sent.length ? `We sent it ${sent.join(", ")}, and it holds nothing else` : "We sent it nothing, so it holds nothing";
   return `Set up by us, not by the app:\n- The test account was made for this run and has never used the app. ${holds}: what the app shows a user without funds, or with only these, is not its fault.`;
 }

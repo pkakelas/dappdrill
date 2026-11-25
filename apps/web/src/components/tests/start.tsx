@@ -6,13 +6,14 @@ import { ChainIcon, WALLET_NAME, WalletIcon } from "@/components/web3-icons";
 import { hostFromUrl } from "@/lib/format";
 import type { SiteInfo } from "@/lib/site";
 import { AddTest } from "./add-test";
+import type { StartChoices } from "./starts-with";
 import { Stages } from "./stages";
 
 /**
  * An app with no tests yet: the three steps ahead, the site in our browser, and the two ways to start. It has
  * the shape of what shows while tests are generated, so starting swaps one for the other in place.
  */
-export function Start({ appId, url, site, wallet, chainId, canMake }: { appId: string; url: string; site: SiteInfo; wallet?: WalletProfileId; chainId?: number; canMake: boolean }) {
+export function Start({ appId, url, site, wallet, chainId, canMake, starts }: { appId: string; url: string; site: SiteInfo; wallet?: WalletProfileId; chainId?: number; canMake: boolean; starts?: StartChoices }) {
   return (
     <section aria-label="Generate tests" className="flex flex-col gap-8">
       <Stages
@@ -51,7 +52,7 @@ export function Start({ appId, url, site, wallet, chainId, canMake }: { appId: s
           )}
           <div className="border-t pt-3">
             <div className="-mx-2">
-              <AddTest appId={appId} label="Or describe one test yourself" />
+              <AddTest appId={appId} label="Or describe one test yourself" starts={starts} />
             </div>
           </div>
         </div>

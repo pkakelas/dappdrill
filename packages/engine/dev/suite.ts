@@ -10,7 +10,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { OUTCOME_LABEL, sentence, Suite, type Action, type Check, type LineResult, type SuiteResult } from "@dappdrill/core";
+import { OUTCOME_LABEL, sentence, Suite, type Action, type Check, type DrillEvent, type LineResult, type SuiteResult } from "@dappdrill/core";
 import { runSuite } from "../src/api.js";
 import { fromCwd, loadTarget, outDir, secs, TARGET_FLAGS, TARGET_USAGE } from "./target.js";
 
@@ -46,7 +46,11 @@ const runs: SuiteResult[] = [];
 for (let n = 1; n <= Number(flags.runs ?? 1); n++) {
   console.log(`\nRun ${n}`);
   if (suite.setup) console.log("Setup");
-  const result = await runSuite({ target, suite, artifactsDir: path.join(out, `run-${n}`), headless: !flags.headed }, undefined, {
+  // What went back to the funding key, and what couldn't.
+  const sink = (e: DrillEvent) => {
+    if (e.type === "log" && (e.level !== "info" || e.message.startsWith("Sent back"))) console.log(`  ${e.message}`);
+  };
+  const result = await runSuite({ target, suite, artifactsDir: path.join(out, `run-${n}`), headless: !flags.headed }, sink, {
     onLine: (testId, i, r) => {
       // A test's lines print with its outcome, so a rerun doesn't print twice.
       if (!testId) printLine(i + 1, suite.setup!.steps[i]!, r);

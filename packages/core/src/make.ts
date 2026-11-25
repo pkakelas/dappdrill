@@ -3,6 +3,7 @@
  * goal handed to the maker and what came of it.
  */
 import { z } from "zod";
+import { Fund } from "./run.js";
 import { LineStatus, Suite, type Action, type LineResult } from "./suite.js";
 
 /** What a suite holds besides its tests: the setup, the notes, and what may be signed. Kept with the app. */
@@ -119,6 +120,8 @@ export const MakeState = z.object({
   why: z.string().optional(),
   /** The setup didn't finish, so making stopped there: the goals still waiting were never tried. */
   stuck: SetupStuck.optional(),
+  /** With one goal asked for by the owner: what its test's new account starts with, when they said. */
+  fund: z.array(Fund).optional(),
 });
 export type MakeState = z.infer<typeof MakeState>;
 

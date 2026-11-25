@@ -2,14 +2,14 @@
  * A clean start for each test: a new paid account, or the reset on a kept one. The chain is a real
  * Anvil; the walk through a setup, a reset or a test is stood in for, since it has tests of its own.
  */
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPublicClient, createWalletClient, http, parseEther, parseUnits, type Hex, type PublicClient } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { DrillTarget, LineResult, Suite, Test, type TestResult } from "@dappdrill/core";
-import type { Env } from "../../src/run/env.js";
+import { DrillTarget, LineResult, Suite, Test, type DrillEvent, type TestResult } from "@dappdrill/core";
+import { newAccounts, type Env } from "../../src/run/env.js";
 import { openSuite, runSuite } from "../../src/run/suite.js";
 import { runSetup, runTest } from "../../src/run/test.js";
 import { TOKEN_ABI } from "./contracts.js";
@@ -34,6 +34,16 @@ const target = (more: Partial<DrillTarget>) => DrillTarget.parse({ url: fx.siteU
 const address = (env: Env) => privateKeyToAccount(env.target.accounts!.A as Hex).address;
 const coin = (who: Hex) => pub.getBalance({ address: who });
 const tokens = (who: Hex) => pub.readContract({ address: fx.token, abi: TOKEN_ABI, functionName: "balanceOf", args: [who] });
+/** What a test's account holds: the chain's coin and the test token. */
+const holds = async (env: Env) => [await coin(address(env)), await tokens(address(env))];
+/** The test account gives away its test tokens, as a test that deposits them would. */
+async function spend(env: Env, amount: string): Promise<void> {
+  const wallet = createWalletClient({ account: privateKeyToAccount(env.target.accounts!.A as Hex), transport: http(fx.rpcUrl) });
+  const sent = await wallet.writeContract({ abi: TOKEN_ABI, address: fx.token, functionName: "transfer", args: [deployer.address, parseUnits(amount, 6)], chain: null });
+  await pub.waitForTransactionReceipt({ hash: sent, pollingInterval: 100 });
+}
+/** Less than this is what a transfer back leaves behind to pay for itself. */
+const DUST = parseEther("0.001");
 /** A key that holds the chain's coin and so many test tokens, to pay new accounts from. */
 async function payer(holds: string): Promise<Hex> {
   const key = generatePrivateKey();
@@ -75,7 +85,9 @@ describe("new accounts", () => {
       held.push(await tokens(address(env)));
       return { steps: lines.steps.map(() => pass), storageState: opts.saveTo };
     });
-    const open = await openSuite({ target: target({ account: "new", accounts: ACCOUNTS, fundedKey: await payer("100"), fund }), suite: Suite.parse({ setup }), artifactsDir }, () => {}, { byModel: true });
+    const key = await payer("100");
+    const open = await openSuite({ target: target({ account: "new", accounts: ACCOUNTS, fundedKey: key, fund }), suite: Suite.parse({ setup }), artifactsDir }, () => {}, { byModel: true });
+    const made: Hex[] = [];
     try {
       expect(open.stuck).toBeUndefined();
       expect(setupOrReset).toHaveBeenCalledTimes(1);
@@ -84,10 +96,14 @@ describe("new accounts", () => {
       const second = await open.fresh();
       expect(setupOrReset).toHaveBeenCalledTimes(2);
 
-      expect(first.env).toBe(open.env);
-      expect(second.env).not.toBe(open.env);
-      expect(second.env.chains).toBe(open.env.chains);
+      expect(first.env).not.toBe(open.env);
+      expect([first.env.chains, second.env.chains]).toEqual([open.env.chains, open.env.chains]);
       const [a, b] = [address(first.env), address(second.env)];
+      made.push(a, b);
+      // The keys can be made again from the funding key and the id kept with the run.
+      const { runId, fundedBy } = JSON.parse(await readFile(path.join(artifactsDir, "test-accounts.json"), "utf8"));
+      expect(fundedBy).toBe(privateKeyToAccount(key).address);
+      expect([first, second].map((s) => s.env.target.accounts)).toEqual([newAccounts({ fundedKey: key, runId }, 1), newAccounts({ fundedKey: key, runId }, 2)]);
       expect(new Set([a, b, privateKeyToAccount(ACCOUNTS.A).address]).size).toBe(3);
       for (const who of [a, b]) {
         expect(await coin(who)).toBe(parseEther("1"));
@@ -106,6 +122,78 @@ describe("new accounts", () => {
       // Closing a start leaves the chains open for the others.
       await second.env.close();
       expect(await open.env.chains.request(CHAIN_ID, "eth_chainId", [])).toBe("0x7a69");
+    } finally {
+      await open.close();
+    }
+    // Closing the suite sends back what its accounts held, whoever took them.
+    expect(await tokens(privateKeyToAccount(key).address)).toBe(parseUnits("100", 6));
+    for (const who of made) expect([(await coin(who)) < DUST, await tokens(who)]).toEqual([true, 0n]);
+  }, 60_000);
+
+  it("sends back what a test left, so a key that can pay one account pays every test in turn", async () => {
+    const key = await payer("30");
+    const home = privateKeyToAccount(key).address;
+    const before = await coin(home);
+    const said: DrillEvent[] = [];
+    const suite = Suite.parse({ setup, tests: [test("deposit"), test("withdraw"), test("claim")] });
+    const out = await runSuite({ target: target({ account: "new", fundedKey: key, fund }), suite, artifactsDir }, (e) => void said.push(e));
+    expect(out.tests.map((t) => t.outcome)).toEqual(["passed", "passed", "passed"]);
+    expect(await tokens(home)).toBe(parseUnits("30", 6));
+    // Three accounts were paid a coin each, and the key is out only what the transfers cost.
+    expect(before - (await coin(home)) < parseEther("0.01")).toBe(true);
+    for (const [env] of ran.mock.calls) expect([(await coin(address(env))) < DUST, await tokens(address(env))]).toEqual([true, 0n]);
+    const sentBack = said.flatMap((e) => (e.type === "log" && e.message.startsWith("Sent back") ? [e.message] : []));
+    expect(sentBack).toHaveLength(3);
+    expect(sentBack[0]).toMatch(/^Sent back 25 TUSD and 0\.9\d+ ETH on Local from the test account 0x/);
+    expect(said.some((e) => e.type === "log" && e.level === "warn")).toBe(false);
+  }, 90_000);
+
+  it("pays a test what it says it starts with in place of the app's list, and nothing when it says nothing", async () => {
+    const key = await payer("100");
+    const held: Record<string, bigint[]> = {};
+    ran.mockImplementation(async (env, t) => {
+      held[t.id] = await holds(env);
+      return result(t.id);
+    });
+    const own = [{ chainId: CHAIN_ID, token: fx.token, amount: "40", symbol: "TUSD" }];
+    const suite = Suite.parse({ setup, tests: [test("deposit"), { ...test("whale"), fund: own }, { ...test("empty"), fund: [] }, test("withdraw")] });
+    const out = await runSuite({ target: target({ account: "new", fundedKey: key, fund }), suite, artifactsDir });
+    expect(out.tests.map((t) => t.outcome)).toEqual(["passed", "passed", "passed", "passed"]);
+    expect(held).toEqual({
+      deposit: [parseEther("1"), parseUnits("25", 6)],
+      whale: [0n, parseUnits("40", 6)],
+      empty: [0n, 0n],
+      withdraw: [parseEther("1"), parseUnits("25", 6)],
+    });
+    // Tokens on an account with no coin still come back: the key pays for that transfer too.
+    expect(await tokens(privateKeyToAccount(key).address)).toBe(parseUnits("100", 6));
+  }, 90_000);
+
+  it("hands the start made at open only to a caller that asks for what it was paid", async () => {
+    const own = [{ chainId: CHAIN_ID, amount: "0.5" }];
+    const open = await openSuite({ target: target({ account: "new", fundedKey: await payer("100"), fund }), suite: Suite.parse({ setup }), artifactsDir }, () => {}, { fund: own });
+    try {
+      const other = await open.fresh();
+      expect(await holds(other.env)).toEqual([parseEther("1"), parseUnits("25", 6)]);
+      const first = await open.fresh(undefined, [{ chainId: CHAIN_ID, amount: "0.5" }]);
+      expect(await holds(first.env)).toEqual([parseEther("0.5"), 0n]);
+      expect(first.opts.storageState).toBe(path.join(artifactsDir, "setup-state.json"));
+      expect(other.opts.storageState).toBe(path.join(artifactsDir, "setup-state-2.json"));
+    } finally {
+      await open.close();
+    }
+  }, 60_000);
+
+  it("pays the next start from what a start said to be finished held, as the maker does after its draft", async () => {
+    // The key holds enough test tokens for one account at a time.
+    const open = await openSuite({ target: target({ account: "new", fundedKey: await payer("30"), fund }), suite: Suite.parse({ setup }), artifactsDir });
+    try {
+      const draft = await open.fresh();
+      expect(await tokens(address(draft.env))).toBe(parseUnits("25", 6));
+      open.finished(draft);
+      const next = await open.fresh();
+      expect(next.why).toBeUndefined();
+      expect([await tokens(address(draft.env)), await tokens(address(next.env))]).toEqual([0n, parseUnits("25", 6)]);
     } finally {
       await open.close();
     }
@@ -139,7 +227,11 @@ describe("new accounts", () => {
   }, 60_000);
 
   it("calls a test Couldn't verify when its account couldn't be paid, and says what the owner can put right", async () => {
-    // Enough for the first account and not the second.
+    // Enough for the first account and not the second, once the first test has spent what it was paid.
+    ran.mockImplementationOnce(async (env, t) => {
+      await spend(env, "25");
+      return result(t.id);
+    });
     const out = await runSuite({ target: target({ account: "new", fundedKey: await payer("30"), fund }), suite: Suite.parse({ setup, tests: [test("deposit"), test("withdraw")] }), artifactsDir });
     expect(out.tests.map((t) => t.outcome)).toEqual(["passed", "unverified"]);
     expect(out.tests[1]!.reason).toMatch(/^The key that funds the test accounts \(.*\) couldn't send 25 TUSD on Local: /);

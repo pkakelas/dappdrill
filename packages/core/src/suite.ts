@@ -6,6 +6,7 @@
  * it is written as code while the test is made or repaired, which is when models are used.
  */
 import { z } from "zod";
+import { Fund } from "./run.js";
 import { SigningReview } from "./signing.js";
 import { Step } from "./script.js";
 
@@ -196,6 +197,12 @@ export const Test = z.object({
    * account that isn't reset. A test that got through its actions has put things back itself.
    */
   cleanup: z.array(Action).default([]),
+  /**
+   * What this test's new account starts with, in place of what the app sends every new account. Empty
+   * for a test that needs an account holding nothing. Left out, the app's own list is used. A kept
+   * account holds what it holds, so this says nothing there.
+   */
+  fund: z.array(Fund).optional(),
 });
 export type Test = z.infer<typeof Test>;
 

@@ -5,9 +5,9 @@
  */
 import os from "node:os";
 import path from "node:path";
-import { encodeFunctionData, erc20Abi, parseEther, parseUnits, toHex } from "viem";
+import { concat, encodeFunctionData, erc20Abi, keccak256, parseEther, parseUnits, stringToHex, toHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { chainInfo, chainName, missingChainLine, nowIso, shortAddress, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget } from "@dappdrill/core";
+import { chainInfo, fundText, missingChainLine, nowIso, shortAddress, type ChainConfig, type DrillEvent, type DrillEventSink, type DrillTarget, type Fund } from "@dappdrill/core";
 import { createLlm } from "../agent/index.js";
 import { openInbox } from "../inbox/index.js";
 import { detectChains, startChains } from "../runtime.js";
@@ -34,14 +34,14 @@ export interface Env {
   close(): Promise<void>;
 }
 
-type Accounts = NonNullable<DrillTarget["accounts"]>;
+export type Accounts = NonNullable<DrillTarget["accounts"]>;
 
 /** Used when the page makes no JSON-RPC calls we can see (apps behind their own backend). */
 const FALLBACK_CHAIN = 1;
 /** How long a payment to a new account gets to be mined. */
 const FUNDED_WITHIN_MS = 120_000;
 
-export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { headless?: boolean; signal?: AbortSignal }): Promise<Env> {
+export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { headless?: boolean; signal?: AbortSignal; fundChains?: number[] }): Promise<Env> {
   const stopIfAborted = () => opts.signal?.throwIfAborted();
   const headless = opts.headless ?? true;
   const llms: Llm[] = [];
@@ -70,9 +70,9 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
     }
   }
   // A chain new accounts are paid on is needed whether or not the page showed it.
-  for (const f of input.fund) {
-    const info = chainInfo(f.chainId);
-    if (info && !configs.some((c) => c.id === f.chainId)) configs = [...configs, { id: info.id, name: info.name, rpcUrl: info.rpcUrl }];
+  for (const id of [...input.fund.map((f) => f.chainId), ...(opts.fundChains ?? [])]) {
+    const info = chainInfo(id);
+    if (info && !configs.some((c) => c.id === id)) configs = [...configs, { id: info.id, name: info.name, rpcUrl: info.rpcUrl }];
   }
 
   stopIfAborted();
@@ -115,7 +115,22 @@ export async function openEnv(input: DrillTarget, sink: DrillEventSink, opts: { 
   };
 }
 
-export const newAccounts = (): Accounts => ({ A: generatePrivateKey(), B: generatePrivateKey() });
+/** What a run's new accounts are made from when a key pays them: that key, and an id of the run's own. */
+export interface AccountSeed {
+  fundedKey: string;
+  runId: string;
+}
+
+/**
+ * Keys for a start. With a seed they are the same every time for the same key, run id and `n`, so whoever
+ * holds the funding key can collect what a test left behind even after the run is gone (`pnpm collect`).
+ * With none they are keys nobody can make again.
+ */
+export function newAccounts(seed?: AccountSeed, n = 0): Accounts {
+  if (!seed) return { A: generatePrivateKey(), B: generatePrivateKey() };
+  const key = (which: "A" | "B") => keccak256(concat([seed.fundedKey as Hex, stringToHex(`dappdrill:${seed.runId}:${n}:${which}`)]));
+  return { A: key("A"), B: key("B") };
+}
 
 /**
  * The accounts a call starts with. Kept: the owner's funded key as account A when there is one, else the
@@ -144,7 +159,7 @@ const paying = new Map<string, Promise<void>>();
  * take the same nonce, and each payment is waited for until it is mined. With no key or nothing listed
  * the account stays empty. Throws with a sentence for the owner when a payment couldn't be made.
  */
-export function fundAccount(chains: ChainController, target: Pick<DrillTarget, "fundedKey" | "fund">, to: Hex): Promise<void> {
+export function fundAccount(chains: ChainController, target: { fundedKey?: string; fund: Fund[] }, to: Hex): Promise<void> {
   if (!target.fundedKey || !target.fund.length) return Promise.resolve();
   const payer = privateKeyToAccount(target.fundedKey as Hex);
   const turn = (paying.get(payer.address) ?? Promise.resolve()).catch(() => {}).then(() => pay(chains, payer, target.fund, to));
@@ -152,9 +167,9 @@ export function fundAccount(chains: ChainController, target: Pick<DrillTarget, "
   return turn;
 }
 
-async function pay(chains: ChainController, payer: PrivateKeyAccount, fund: DrillTarget["fund"], to: Hex): Promise<void> {
+async function pay(chains: ChainController, payer: PrivateKeyAccount, fund: Fund[], to: Hex): Promise<void> {
   for (const f of fund) {
-    const what = `${f.amount} ${f.symbol ?? (f.token ? `of the token ${shortAddress(f.token)}` : (chainInfo(f.chainId)?.nativeSymbol ?? "of the chain's coin"))} on ${chainName(f.chainId)}`;
+    const what = fundText(f);
     try {
       if (!chains.has(f.chainId)) throw new Error("that chain isn't one of the app's chains");
       const client = chains.client(f.chainId);

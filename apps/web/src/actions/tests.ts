@@ -1,12 +1,13 @@
 "use server";
 
-import { sentence, Test, type Action, type Check } from "@dappdrill/core";
-import { appTests, db, makes, queueRepair, queueRuns, repairAsk, settledRuns, testOf, testRuns, tests, touched, type Trigger } from "@dappdrill/db";
+import { sentence, Test, type Action, type Check, type Fund } from "@dappdrill/core";
+import { accountOf, appTests, db, makes, queueRepair, queueRuns, repairAsk, settledRuns, testOf, testRuns, tests, touched, type apps, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { enqueue } from "@/lib/jobs";
+import { NO_PAYER, readFund, type FundRow } from "@/lib/funds";
 import { isCode, unwritten } from "@/lib/lines";
 import { startMake } from "@/lib/make";
 import { looksLikeKey } from "@/lib/secrets";
@@ -112,15 +113,31 @@ async function dismissGoal(appId: string, { makeId, index }: GoalRef) {
 }
 
 /**
- * Makes one test from a goal in the user's words: it is done once, written as lines, then run until it goes the same way twice.
- * `retries` is the goal without a test this one tries again, which leaves the list once the new make has started.
+ * What a test's new account starts with, as its forms send it: nothing said (null) is what the app sends every
+ * new account, no rows is an account that holds nothing. Only an app on new accounts with a key to pay from can say.
  */
-export async function makeTestAction(appId: string, goal: string, retries?: GoalRef): Promise<{ error?: string }> {
-  const { user } = await requireApp(appId);
+function startsWith(app: typeof apps.$inferSelect, rows: FundRow[] | null | undefined): { fund?: Fund[] } | { error: string } {
+  if (!rows || accountOf(app) !== "new") return {};
+  const fund = readFund(rows.slice(0, 8));
+  if ("error" in fund) return fund;
+  if (fund.length > 0 && !app.liveKeyEnc) return { error: NO_PAYER };
+  return { fund };
+}
+
+/**
+ * Makes one test from a goal in the user's words: it is done once, written as lines, then run until it goes the same way twice.
+ * `retries` is the goal without a test this one tries again, which leaves the list once the new make has started: the new make
+ * starts with what that one did. `starts` is what the test's new account starts with, when the user said.
+ */
+export async function makeTestAction(appId: string, goal: string, retries?: GoalRef, starts?: FundRow[] | null): Promise<{ error?: string }> {
+  const { user, app } = await requireApp(appId);
   const parsed = Goal.safeParse(goal);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   if (looksLikeKey(parsed.data)) return { error: "That looks like a private key. Take it out: this text isn't encrypted." };
-  if (!(await startMake(appId, user.id, parsed.data))) return { error: BUSY };
+  const own = startsWith(app, starts);
+  if ("error" in own) return own;
+  const [tried] = retries && !own.fund ? await db().select().from(makes).where(and(eq(makes.id, retries.makeId), eq(makes.appId, appId))) : [];
+  if (!(await startMake(appId, user.id, parsed.data, own.fund ?? tried?.state.fund))) return { error: BUSY };
   if (retries) await dismissGoal(appId, retries);
   refresh(appId);
   return {};
@@ -181,6 +198,11 @@ const Edit = z.object({
     .array(z.object({ type: z.enum(["action", "check"]), text: z.string().trim().min(1, "A line can't be empty.").max(600) }))
     .min(1, "A test needs at least one line.")
     .max(60),
+  /** What its new account starts with. Null: what the app sends every new account. */
+  fund: z
+    .array(z.object({ chainId: z.number().optional(), token: z.string(), amount: z.string() }))
+    .nullable()
+    .optional(),
 });
 export type TestEdit = z.input<typeof Edit>;
 
@@ -194,6 +216,10 @@ export async function saveTestAction(testId: string, input: TestEdit): Promise<{
   const parsed = Edit.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const edit = parsed.data;
+  const { app } = await requireApp(row.appId);
+  // Left out of the form (a kept account), what the test had stays.
+  const own = edit.fund === undefined ? { fund: row.fund ?? undefined } : startsWith(app, edit.fund);
+  if ("error" in own) return own;
   if (edit.lines.some((l) => looksLikeKey(l.text))) return { error: "A line looks like a private key. Take it out: this text isn't encrypted." };
 
   const before = testOf(row);
@@ -207,7 +233,7 @@ export async function saveTestAction(testId: string, input: TestEdit): Promise<{
   if (!next.success) return { error: next.error.issues[0]?.message };
   await db()
     .update(tests)
-    .set({ name: next.data.name, goal: next.data.goal, startPath: next.data.startPath, steps: next.data.steps, ...touched() })
+    .set({ name: next.data.name, goal: next.data.goal, startPath: next.data.startPath, steps: next.data.steps, fund: own.fund ?? null, ...touched() })
     .where(eq(tests.id, testId));
   refresh(row.appId);
   return {};

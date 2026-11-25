@@ -3,7 +3,7 @@ import { createWalletClient, http, parseEther, parseUnits } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { ChainConfig } from "@dappdrill/core";
 import { startChains } from "../../src/chain/controller.js";
-import { accountsFor, fundAccount, withAccounts, withoutFallback, type Env } from "../../src/run/env.js";
+import { accountsFor, fundAccount, newAccounts, withAccounts, withoutFallback, type Env } from "../../src/run/env.js";
 import type { ChainController } from "../../src/types.js";
 import { TOKEN_ABI } from "./contracts.js";
 import { ACCOUNTS, CHAIN_ID, DEPLOYER_KEY, startFixture, type Fixture } from "./fixture.js";
@@ -35,6 +35,22 @@ describe("accountsFor", () => {
     expect(accountsFor({ account: "kept", accounts: ACCOUNTS })).toEqual(ACCOUNTS);
     expect(accountsFor({ account: "kept", accounts: ACCOUNTS, fundedKey: key })).toEqual({ A: key, B: ACCOUNTS.B });
     expect(accountsFor({ account: "kept", fundedKey: key }).A).toBe(key);
+  });
+});
+
+describe("newAccounts", () => {
+  const seed = { fundedKey: `0x${"1".repeat(64)}`, runId: "a1b2c3" };
+
+  it("makes the same keys again from the funding key, the run's id and the start's number", () => {
+    const first = newAccounts(seed, 1);
+    expect(newAccounts({ ...seed }, 1)).toEqual(first);
+    expect(first.A).toMatch(/^0x[0-9a-f]{64}$/);
+    const others = [first.B, newAccounts(seed, 2).A, newAccounts({ ...seed, runId: "a1b2c4" }, 1).A, newAccounts({ ...seed, fundedKey: `0x${"2".repeat(64)}` }, 1).A, seed.fundedKey];
+    expect(new Set([first.A, ...others]).size).toBe(6);
+  });
+
+  it("makes keys nobody can make again when no key pays them", () => {
+    expect(newAccounts().A).not.toBe(newAccounts().A);
   });
 });
 

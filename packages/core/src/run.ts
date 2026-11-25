@@ -16,6 +16,13 @@ export const FixedResponse = z.object({
 });
 export type FixedResponse = z.infer<typeof FixedResponse>;
 
+/**
+ * Something a new account is sent before a test: the chain's own coin when `token` is missing, else the
+ * ERC-20 at that address. Amounts in whole units ("0.05", "100").
+ */
+export const Fund = z.object({ chainId: z.number().int(), token: z.string().optional(), amount: z.string(), symbol: z.string().optional() });
+export type Fund = z.infer<typeof Fund>;
+
 /** Everything the engine needs to open an app with a test wallet. No database involved. */
 export const DrillTarget = z.object({
   url: z.string().url(),
@@ -35,10 +42,10 @@ export const DrillTarget = z.object({
   /** The owner's key that holds funds. On a kept account it is account A. With new accounts it only pays each one `fund`. */
   fundedKey: z.string().optional(),
   /**
-   * What each new account is sent from `fundedKey` before the setup: the chain's own coin when `token` is
-   * missing, else the ERC-20 at that address. Amounts in whole units ("0.05", "100").
+   * What each new account is sent from `fundedKey` before the setup, unless the test says what it starts
+   * with. What a test leaves on its accounts is sent back to that key afterwards.
    */
-  fund: z.array(z.object({ chainId: z.number().int(), token: z.string().optional(), amount: z.string(), symbol: z.string().optional() })).default([]),
+  fund: z.array(Fund).default([]),
   /** How to get test funds inside the app, in the owner's words (a faucet button, a claim page). */
   funding: z.string().optional(),
   /** Disposable inbox for email-code logins (embedded wallets). */
