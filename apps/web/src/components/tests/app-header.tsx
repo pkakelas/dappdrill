@@ -8,6 +8,9 @@ import { hostFromUrl, plural, timeAgo } from "@/lib/format";
 import { AppIcon } from "./app-icon";
 import { LiveDot } from "./status";
 
+/** How many chain icons the header shows side by side; the count beside them says the rest. */
+const CHAIN_ICONS = 4;
+
 /** The account with a key of its own that the tests use, or that pays for each new one. */
 export interface TestAccount {
   kept: boolean;
@@ -93,7 +96,8 @@ export function AppHeader({
   name,
   url,
   wallet,
-  chainId,
+  chains,
+  chainUnseen,
   account,
   standing,
   lastRun,
@@ -103,7 +107,10 @@ export function AppHeader({
   name: string;
   url: string;
   wallet?: WalletProfileId;
-  chainId?: number;
+  /** The chains the owner named or the app was seen to use, the first being the one the wallet starts on. */
+  chains: number[];
+  /** The app was explored and asked the wallet for no chain, so nothing is known yet. */
+  chainUnseen?: boolean;
   account?: TestAccount;
   /** Unset while there are no tests to count. */
   standing?: Standing;
@@ -131,13 +138,29 @@ export function AppHeader({
                   </span>
                 </>
               )}
-              {chainId !== undefined && (
+              {chains.length > 0 && (
                 <>
                   {DOT}
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                    <ChainIcon chain={{ id: chainId }} className="size-4 rounded-full" />
-                    {chainName(chainId)}
+                  <span title={chains.length > 1 ? chains.map(chainName).join(", ") : undefined} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="flex gap-1">
+                      {chains.slice(0, CHAIN_ICONS).map((id) => (
+                        <ChainIcon key={id} chain={{ id }} className="size-4 rounded-full" />
+                      ))}
+                    </span>
+                    {chains.length === 1 ? chainName(chains[0]!) : plural(chains.length, "chain")}
                   </span>
+                </>
+              )}
+              {chainUnseen && (
+                <>
+                  {DOT}
+                  <Link
+                    href={`/apps/${appId}/settings#chains`}
+                    title="Your app hasn't asked the wallet for a chain yet, so the wallet starts on Ethereum. We add each chain as the app asks for it, or you can name them in Settings."
+                    className="whitespace-nowrap hover:text-foreground hover:underline hover:underline-offset-4"
+                  >
+                    No chain seen yet
+                  </Link>
                 </>
               )}
               {account && (

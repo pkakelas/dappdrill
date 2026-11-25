@@ -75,7 +75,12 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const listed = [...tests].sort((a, b) => Number(ready.has(b.id)) - Number(ready.has(a.id)) || STANDS_ORDER.indexOf(stands.get(a.id)!) - STANDS_ORDER.indexOf(stands.get(b.id)!));
 
   // Runs spend what the app's own account holds, so the owner should see which it is and what is left on it.
-  const chain = app.settings.chains[0] ?? app.chains[0];
+  // The chains a run starts with: the ones the owner named and those the app asked the wallet for, or all it was seen to use.
+  const { chains: named } = app.settings;
+  const used = (named.length ? [...named, ...app.chains.filter((c) => c.fromApp && !named.some((n) => n.id === c.id))] : app.chains).filter((c) => !c.fallback);
+  // Explored, and the app asked for no chain: Ethereum was our own guess, so it isn't shown as the app's.
+  const chainUnseen = used.length === 0 && app.chains.length > 0;
+  const chain = used[0];
   const account = app.liveKeyAddress ? await testAccount(app, app.liveKeyAddress, chain) : undefined;
   const manage = can(role, "apps.manage");
 
@@ -83,6 +88,8 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   // The setup didn't finish: said once, in place of the plainer notice that generating stopped.
   const stuck = !making && make?.status === "done" ? make.state.stuck : undefined;
   const stopped = !making && make && !stuck && (make.status === "failed" || (make.status === "done" && !make.goal && (make.state.goals.length === 0 || Boolean(make.state.why))));
+  // The site's bot check turned us away, which is not the same as an app with nothing to test: the engine says so with this word.
+  const botCheck = stopped && make.status === "done" ? /^Blocked: (.+)$/s.exec(make.state.why ?? "")?.[1] : undefined;
   // What a run can't do as it is. We repair these ourselves after a run; what is left here is what that couldn't.
   const startUnwritten = ![...(app.suite.setup?.steps ?? []), ...(accountOf(app) === "kept" ? (app.suite.reset?.steps ?? []) : [])].every(isCode);
   const toRepair = !busy && tests.length > 0 && (standing.repair > 0 || startUnwritten);
@@ -122,7 +129,8 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
           name={app.name}
           url={app.url}
           wallet={app.settings.wallets[0]}
-          chainId={chain?.id}
+          chains={used.map((c) => c.id)}
+          chainUnseen={chainUnseen}
           account={account}
           standing={tests.length > 0 ? standing : undefined}
           lastRun={lastRun}
@@ -156,7 +164,26 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
               </Need>
             )}
 
-            {stopped && make && (
+            {botCheck && (
+              <Need
+                title="Your site's bot check stopped us"
+                actions={
+                  <>
+                    {manage && (
+                      <Button asChild size="sm">
+                        <Link href={`/apps/${appId}/settings#access`}>Open bot protection</Link>
+                      </Button>
+                    )}
+                    {generate}
+                  </>
+                }
+              >
+                <p className="text-foreground">{botCheck}</p>
+                <p>We never solve a bot check, so nothing was tried. Let us in with a header your firewall allows, then generate the tests.</p>
+              </Need>
+            )}
+
+            {stopped && make && !botCheck && (
               <Need title={make.status === "done" && make.state.goals.length === 0 ? "We found nothing to test" : "Generating tests stopped early"} actions={generate}>
                 <p>{make.status === "failed" ? (make.error ? plainError(make.error, app.url) : "Something went wrong on our side.") : (make.state.why ?? "The app showed nothing a user could do.")}</p>
               </Need>

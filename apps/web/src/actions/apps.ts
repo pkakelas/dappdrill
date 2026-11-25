@@ -19,7 +19,6 @@ import { redirect } from "next/navigation";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
-import { CHAINS } from "@/lib/chains";
 import { hostOf } from "@/lib/domains";
 import { withOwnerHints } from "@/lib/hints";
 import { startMake } from "@/lib/make";
@@ -113,8 +112,9 @@ function readAccount(form: FormData): Account | { error: string } {
 }
 
 const NO_PAYER = "Add the private key that pays each new account, or take out what to send.";
+const DEFAULT_WALLET: WalletProfileId = "metamask";
 
-/** /new: tells the form which chain an RPC belongs to while the user is still typing. */
+/** Settings: tells the form which chain an RPC belongs to while the user is still typing. */
 export async function checkRpcAction(input: string): Promise<{ chainId?: number; error?: string }> {
   await requireUser();
   const url = RpcUrl.safeParse(input);
@@ -132,33 +132,14 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
   if ("error" in a) return a;
   const url = Url.safeParse(form.get("url"));
   if (!url.success) return { error: url.error.issues[0]?.message };
-  const customized = form.get("customized") === "1";
+  const wallet = WalletProfileId.safeParse(form.get("wallet") ?? DEFAULT_WALLET);
+  if (!wallet.success) return { error: "Choose a primary wallet." };
   const hints = String(form.get("hints") ?? "").trim().slice(0, 4000);
   const funding = String(form.get("funding") ?? "").trim().slice(0, 1000);
   if (looksLikeKey(hints) || looksLikeKey(funding)) return { error: KEY_IN_TEXT, inline: true };
   const keyIn = String(form.get("fundedKey") ?? "").trim();
   const account = readAccount(form);
   if ("error" in account) return account;
-  let wallets: AppSettings["wallets"] = ["metamask"];
-  const chains: ChainConfig[] = [];
-
-  if (customized) {
-    const wallet = WalletProfileId.safeParse(form.get("wallet"));
-    if (!wallet.success) return { error: "Choose a primary wallet." };
-    wallets = [wallet.data];
-    const chainId = form.get("chain");
-    if (form.has("rpcUrl")) {
-      const rpc = RpcUrl.safeParse(form.get("rpcUrl"));
-      if (!rpc.success) return { error: rpc.error.issues[0]?.message, inline: true };
-      const id = await readChainId(rpc.data);
-      if (id === undefined) return { error: NO_CHAIN, inline: true };
-      chains.push({ id, name: chainInfo(id)?.name, rpcUrl: rpc.data });
-    } else if (chainId) {
-      const info = CHAINS.find((c) => c.id === Number(chainId));
-      if (!info) return { error: "Choose a supported chain." };
-      chains.push({ id: info.id, name: info.name, rpcUrl: info.rpcUrl });
-    }
-  }
 
   const [existing] = await db().select().from(apps).where(and(eq(apps.organizationId, a.org.id), eq(apps.url, url.data)));
   const key = keyIn ? readKey(keyIn) : undefined;
@@ -168,7 +149,8 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
   const funds = funding ? { funding } : {};
   // On an app that exists, the form's untouched choice (a new account, nothing sent) doesn't replace the saved one.
   const chosen = !existing || key || account.account === "kept" || account.fund.length > 0 ? account : {};
-  const settingsBase: AppSettings = { wallets, chains, ...chosen, ...funds };
+  // The form's untouched wallet doesn't replace the saved one either.
+  const primary = !existing || wallet.data !== DEFAULT_WALLET ? { wallets: [wallet.data] } : {};
 
   let appId = existing?.id;
   if (!existing) {
@@ -182,13 +164,14 @@ export async function createAppAction(_prev: ActionResult, form: FormData): Prom
         name: nameFromHost(host),
         url: url.data,
         host,
-        settings: settingsBase,
+        // No chains are asked for: the ones the app uses are found as it is explored, and Settings can name them.
+        settings: { wallets: [wallet.data], chains: [], ...chosen, ...funds },
         // Every test starts as a user whose wallet is connected; what the owner answered is the app's first notes.
         suite: { setup: CONNECTED, notes: withOwnerHints([], hints), signing: "allowed" },
         ...key,
       });
-  } else if (can(a.role, "apps.manage") && (customized || hints || funding || key || "account" in chosen)) {
-    const settings = customized ? { ...existing.settings, ...settingsBase } : { ...existing.settings, ...chosen, ...funds };
+  } else if (can(a.role, "apps.manage") && ("wallets" in primary || hints || funding || key || "account" in chosen)) {
+    const settings = { ...existing.settings, ...primary, ...chosen, ...funds };
     // The suite is changed as the row holds it now: a make may be writing notes to it.
     await updateApp(db(), existing.id, (now) => ({ settings, ...(hints ? { suite: { ...now.suite, notes: withOwnerHints(now.suite.notes, hints) } } : {}), ...key }));
   }
