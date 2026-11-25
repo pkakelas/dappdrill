@@ -11,7 +11,7 @@
  */
 import { parseArgs } from "node:util";
 import { cloudflareTrace, detectBotCheck, installAccessHeaders, USER_AGENT } from "../src/browser/access.js";
-import { launchBrowser, launchOptions } from "../src/browser/launch.js";
+import { launchContext, launchOptions } from "../src/browser/launch.js";
 
 const { positionals, values } = parseArgs({ allowPositionals: true, options: { header: { type: "string", multiple: true } } });
 const [url] = positionals;
@@ -32,9 +32,8 @@ for (const line of values.header ?? []) {
 console.log(`launch: ${JSON.stringify(launchOptions(true))}`);
 if (Object.keys(headers).length) console.log(`headers to the app's site: ${Object.keys(headers).join(", ")}`);
 
-const browser = await launchBrowser(true);
+const { context, close } = await launchContext(true, { userAgent: USER_AGENT, locale: "en-US" });
 try {
-  const context = await browser.newContext({ userAgent: USER_AGENT, locale: "en-US" });
   await installAccessHeaders(context, url, headers);
   const page = await context.newPage();
   const res = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch(() => undefined);
@@ -46,5 +45,5 @@ try {
   console.log(block ? `BLOCKED by ${block.provider ?? "a challenge"}: ${block.reason}` : "clean: no bot check on the landing page");
   process.exitCode = block ? 2 : 0;
 } finally {
-  await browser.close().catch(() => {});
+  await close().catch(() => {});
 }

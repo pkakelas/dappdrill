@@ -4,7 +4,7 @@
  * chain ids with eth_chainId) and the chains it asks the wallet to switch to.
  */
 import { chainInfo, type ChainConfig } from "@dappdrill/core";
-import { launchBrowser } from "../browser/launch.js";
+import { launchContext } from "../browser/launch.js";
 import { BINDING_NAME, walletInitScript, type BridgeRequest, type BridgeResponse } from "../wallet/inject.js";
 import { WalletErrors } from "../wallet/errors.js";
 import { probeChainId, rpcCall, toHex, toRpcError } from "./rpc.js";
@@ -29,9 +29,8 @@ export async function detectChains(url: string, opts: DetectChainsOptions = {}):
   let current = 1;
   let passthrough = 0;
 
-  const browser = await launchBrowser(opts.headless ?? true);
+  const { context, close } = await launchContext(opts.headless ?? true, { viewport: { width: 1280, height: 800 } });
   try {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     await context.exposeBinding(BINDING_NAME, async (_source, req: BridgeRequest): Promise<BridgeResponse> => {
       try {
         return await probeHandle(req);
@@ -56,7 +55,7 @@ export async function detectChains(url: string, opts: DetectChainsOptions = {}):
     await page.waitForLoadState("networkidle", { timeout: opts.settleMs ?? 10_000 }).catch(() => {});
     await page.waitForTimeout(Math.min(3_000, opts.settleMs ?? 10_000));
   } finally {
-    await browser.close().catch(() => {});
+    await close().catch(() => {});
   }
 
   async function probeHandle(req: BridgeRequest): Promise<BridgeResponse> {

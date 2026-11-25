@@ -5,14 +5,14 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import type { Browser, BrowserContext, Page } from "playwright";
+import type { BrowserContext, Page } from "playwright";
 import { newId, nowIso, type ConsoleEntry, type DrillEventSink, type DrillTarget, type RpcLogEntry, type WalletProfileId } from "@dappdrill/core";
 import type { ChainController, DrillSession, WalletPolicy } from "../types.js";
 import { Wallet } from "../wallet/controller.js";
 import { BINDING_NAME, walletInitScript, type BridgeRequest, type InjectConfig } from "../wallet/inject.js";
 import { toHex } from "../chain/rpc.js";
 import { installAccessHeaders, USER_AGENT } from "./access.js";
-import { launchBrowser } from "./launch.js";
+import { launchContext } from "./launch.js";
 import { recordRpc } from "./rpc-log.js";
 import { Said } from "./said.js";
 import { installResponses, installStorage } from "./setup.js";
@@ -97,24 +97,23 @@ export async function createSession(target: DrillTarget, chains: ChainController
     log,
   });
 
-  const browser = await launchBrowser(opts.headless ?? true);
+  const { context, close } = await launchContext(opts.headless ?? true, {
+    viewport: VIEWPORT,
+    userAgent: USER_AGENT,
+    locale: "en-US",
+    recordVideo: opts.video === false ? undefined : { dir: dirs.videos, size: VIEWPORT },
+    ignoreHTTPSErrors: true,
+    storageState: opts.storageState,
+  });
   try {
-    const context = await browser.newContext({
-      viewport: VIEWPORT,
-      userAgent: USER_AGENT,
-      locale: "en-US",
-      recordVideo: opts.video === false ? undefined : { dir: dirs.videos, size: VIEWPORT },
-      ignoreHTTPSErrors: true,
-      storageState: opts.storageState,
-    });
     // No screenshots in the trace: the video has the pictures, and with them a trace held thousands of frames (over 200 MB, seconds to save).
     if (opts.trace !== false) await context.tracing.start({ screenshots: opts.video === false, snapshots: true });
 
-    const session = new Session(id, target, chains, wallet, browser, context, opts, dirs, log);
+    const session = new Session(id, target, chains, wallet, close, context, opts, dirs, log);
     await session.init(profile, opts.twoWallets ? otherWallet(profile) : undefined, startChainId);
     return session;
   } catch (err) {
-    await browser.close().catch(() => {});
+    await close();
     throw err;
   }
 }
@@ -141,7 +140,7 @@ class Session implements EngineSession {
     readonly target: DrillTarget,
     readonly chains: ChainController,
     readonly wallet: Wallet,
-    private readonly browser: Browser,
+    private readonly closeBrowser: () => Promise<void>,
     readonly context: BrowserContext,
     private readonly opts: SessionOptions,
     private readonly dirs: { videos: string; traces: string; screenshots: string; frames: string },
@@ -291,7 +290,7 @@ class Session implements EngineSession {
         this.log(`video save failed: ${(e as Error).message}`);
       }
     }
-    await this.browser.close().catch(() => {});
+    await this.closeBrowser().catch(() => {});
     await pruneFrames(this.dirs.frames, this.id);
     return { video, trace };
   }
