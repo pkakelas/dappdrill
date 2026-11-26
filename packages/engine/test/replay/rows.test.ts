@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { describeStep } from "@dappdrill/core";
 import { locatorFor, takeSnapshot } from "../../src/agent/snapshot.js";
+import { launchContext } from "../../src/browser/launch.js";
 import { resolveLocator } from "../../src/replay/locators.js";
 import { readColumn, rowsHolding } from "../../src/replay/rows.js";
 import { createStubSession, type StubSession } from "../agent/fixture/session.js";
@@ -122,5 +123,18 @@ describe("readColumn", () => {
     await s.page.setContent(`<div>${line("Asset", "Worth")}${line("Apple", "$100.00")}${line("Tesla", "$250.25")}</div>`);
     expect(await readColumn(body(), "Worth")).toEqual({ cells: ["$100.00", "$250.25"] });
     expect(await readColumn(body(), "Worth", "Tesla")).toEqual({ cells: ["$250.25"] });
+  });
+
+  it("finds rows in a browser launched through Patchright, which keeps selector engines of its own", async () => {
+    vi.stubEnv("DAPPDRILL_STEALTH", "1");
+    const launched = await launchContext(true);
+    try {
+      const page = await launched.context.newPage();
+      await page.setContent(ORDERS);
+      expect(await rowsHolding(page, "AAPL").count()).toBe(2);
+    } finally {
+      await launched.close();
+      vi.unstubAllEnvs();
+    }
   });
 });

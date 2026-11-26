@@ -230,11 +230,19 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
     },
     {
       name: "goto",
-      description: "Navigate to a URL or path on the app's own origin. Other origins are refused.",
+      description: "Navigate to a URL or path on the app's own origin. The address the page is already at reloads it. Other origins are refused.",
       schema: z.object({ url: z.string() }),
       handler: async ({ url }) => {
         const abs = new URL(url, page().url());
         if (abs.origin !== origin && abs.origin !== landed) return `Refused: ${abs.origin} is outside the app (${origin}). Stay on the app's pages.`;
+        // The page's own address is a reload, recorded as one: the address may be this run's alone (a swap's, an order's).
+        const here = new URL(page().url());
+        if (abs.origin + abs.pathname + abs.search === here.origin + here.pathname + here.search) {
+          await page().reload({ waitUntil: "domcontentloaded", timeout: 20_000 });
+          recorder.add({ kind: "reload" });
+          did("Reloaded the page");
+          return after(`Reloaded ${abs.href}.`);
+        }
         await page().goto(abs.href, { waitUntil: "domcontentloaded", timeout: 20_000 });
         recorder.add({ kind: "goto", url: abs.pathname + abs.search });
         did(`Opened ${short(abs.pathname + abs.search)}`);

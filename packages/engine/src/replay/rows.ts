@@ -4,6 +4,7 @@
  * where the row stands today. Rows are a Playwright selector engine, `row="text"`, so they are looked
  * for again on every try like any other locator.
  */
+import { selectors as patchrightSelectors } from "patchright";
 import { selectors, type Locator as PwLocator, type Page } from "playwright";
 
 /**
@@ -73,10 +74,14 @@ function rowEngine() {
   return { query: (root: Element | Document, selector: string) => all(root, selector)[0] ?? null, queryAll: all };
 }
 
-// tsx keeps function names with a `__name` helper the page doesn't have. Registered once for every browser of this process.
-void selectors.register("row", { content: `(() => { const __name = (f) => f; return (${rowEngine.toString()})(); })()` }).catch((e: unknown) => {
-  if (!String(e).includes("already registered")) throw e;
-});
+// tsx keeps function names with a `__name` helper the page doesn't have. Registered once for every browser of this process,
+// with both libraries that may launch one (launch.ts): each keeps its own selector engines.
+const engine = { content: `(() => { const __name = (f) => f; return (${rowEngine.toString()})(); })()` };
+for (const lib of [selectors, patchrightSelectors]) {
+  void lib.register("row", engine).catch((e: unknown) => {
+    if (!String(e).includes("already registered")) throw e;
+  });
+}
 
 /** The rows inside `scope` that hold the text: none, one, or several when the text isn't the row's own. */
 export function rowsHolding(scope: Page | PwLocator, text: string): PwLocator {

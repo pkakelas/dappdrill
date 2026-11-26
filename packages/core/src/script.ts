@@ -60,6 +60,8 @@ const base = {
 
 export const Step = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("goto"), url: z.string() }),
+  /** The page it is on, loaded again: a page whose address was made in this run (an order's, a swap's) has no address to write down. */
+  z.object({ ...base, kind: z.literal("reload") }),
   z.object({ ...base, kind: z.literal("click"), target: Locator }),
   /** `value` may contain {{param}} placeholders. */
   z.object({ ...base, kind: z.literal("fill"), target: Locator, value: z.string() }),
@@ -130,6 +132,7 @@ export function describeStep(step: Step): string {
   const t = (l?: Locator) => (l ? (l.name ?? l.text ?? l.label ?? l.placeholder ?? l.near ?? l.testId ?? l.css ?? "element") : "page");
   switch (step.kind) {
     case "goto": return `Open ${step.url}`;
+    case "reload": return "Reload the page";
     case "click": return `Click "${t(step.target)}"${step.target.row ? ` in the row with "${step.target.row}"` : ""}`;
     case "fill": return `Type "${step.value}" into "${t(step.target)}"`;
     case "select": return `Choose "${step.value}" in "${t(step.target)}"`;

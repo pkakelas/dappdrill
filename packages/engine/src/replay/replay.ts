@@ -185,6 +185,11 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
       await waitQuiet(page, QUIET_MS, () => session.wallet.peekSigns().length > 0);
       await gotoUrl(session, step.url, params, timeout);
       return;
+    case "reload":
+      await waitQuiet(page, QUIET_MS, () => session.wallet.peekSigns().length > 0);
+      await page.reload({ waitUntil: "domcontentloaded", timeout: Math.max(timeout, 30_000) });
+      await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
+      return;
     case "click": {
       const el = await resolveLocator(page, step.target, timeout);
       await el.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
