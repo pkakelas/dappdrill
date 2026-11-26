@@ -100,7 +100,8 @@ export type StepResult = z.infer<typeof StepResult>;
  */
 export type DrillEvent =
   | { type: "log"; level: "info" | "warn" | "error"; message: string; at: string }
-  | { type: "frame"; path: string; url: string; at: string }
+  /** A picture of the page as it is now. `testId` says whose page, in a run of a suite, where several tests may be going at the same time. */
+  | { type: "frame"; path: string; url: string; at: string; testId?: string }
   /** Something a model did in the browser, in words ("Clicked “Deposit”"). `dir` is the artifacts folder of the session it was done in. */
   | { type: "did"; text: string; dir: string; at: string }
   | { type: "chains"; chains: ChainConfig[] }

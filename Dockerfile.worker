@@ -4,9 +4,10 @@
 # (Xvfb, in memory), so DAPPDRILL_HEADLESS=0 works with no screen attached.
 #
 #   docker build -f Dockerfile.worker -t dappdrill-worker .
-#   docker run --rm --shm-size=1g dappdrill-worker corepack pnpm probe https://app.example.com   # is a bot check in the way?
-#   docker run -d --shm-size=1g --env-file .env -v dappdrill-artifacts:/app/data dappdrill-worker # the worker
-# Add -e DAPPDRILL_STEALTH=1 for an app that needs it.
+#   docker run --rm --shm-size=2g dappdrill-worker corepack pnpm probe https://app.example.com   # is a bot check in the way?
+#   docker run -d --shm-size=2g --env-file .env -v dappdrill-artifacts:/app/data dappdrill-worker # the worker
+# Add -e DAPPDRILL_STEALTH=1 for an app that needs it. A suite runs four tests at the same time, each in a browser
+# of its own (DAPPDRILL_AT_ONCE), which is what the shared memory is for.
 FROM node:24-bookworm-slim
 
 # Xvfb is the display; tini passes signals on, so the worker stops its jobs cleanly, and reaps the browser's processes.

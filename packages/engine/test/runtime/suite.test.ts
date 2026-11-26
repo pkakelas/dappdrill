@@ -256,6 +256,81 @@ describe("new accounts", () => {
   }, 60_000);
 });
 
+describe("tests at the same time", () => {
+  /** A test that takes a moment, so the ones beside it show. `most` is how many were going at once. */
+  function slowly(ms = 150) {
+    const seen = { now: 0, most: 0 };
+    ran.mockImplementation(async (_env, t) => {
+      seen.most = Math.max(seen.most, ++seen.now);
+      await new Promise((done) => setTimeout(done, ms));
+      seen.now--;
+      return result(t.id);
+    });
+    return seen;
+  }
+  const six = ["a", "b", "c", "d", "e", "f"];
+
+  it("runs so many tests at once on new accounts, each on an account of its own, and keeps the list's order in the result", async () => {
+    const seen = slowly();
+    const finished: string[] = [];
+    const out = await runSuite({ target: target({ account: "new" }), suite: Suite.parse({ setup, tests: six.map(test) }), artifactsDir, atOnce: 3 }, () => {}, { onTest: (r) => void finished.push(r.testId) });
+    expect(seen.most).toBe(3);
+    expect(out.tests.map((t) => [t.testId, t.outcome])).toEqual(six.map((id) => [id, "passed"]));
+    expect([...finished].sort()).toEqual(six);
+    expect(new Set(ran.mock.calls.map((c) => address(c[0]))).size).toBe(6);
+  }, 60_000);
+
+  it("runs four at once when nobody says how many", async () => {
+    const seen = slowly();
+    await runSuite({ target: target({ account: "new" }), suite: Suite.parse({ setup, tests: six.map(test) }), artifactsDir });
+    expect(seen.most).toBe(4);
+  }, 60_000);
+
+  it("runs one after another on a kept account, whatever it is asked", async () => {
+    const seen = slowly(30);
+    const out = await runSuite({ target: target({ account: "kept", accounts: ACCOUNTS }), suite: Suite.parse({ setup, tests: six.map(test) }), artifactsDir, atOnce: 3 });
+    expect(seen.most).toBe(1);
+    expect(out.tests.map((t) => t.testId)).toEqual(six);
+  }, 60_000);
+
+  it("starts a test the key couldn't pay once another test has sent back what it held", async () => {
+    // The key holds enough test tokens for one account at a time, and three tests want them at once.
+    const key = await payer("30");
+    const fund = [{ chainId: CHAIN_ID, amount: "1" }, { chainId: CHAIN_ID, token: fx.token, amount: "25", symbol: "TUSD" }];
+    const seen = slowly(300);
+    const out = await runSuite({ target: target({ account: "new", fundedKey: key, fund }), suite: Suite.parse({ setup, tests: ["a", "b", "c"].map(test) }), artifactsDir, atOnce: 3 });
+    expect(out.tests.map((t) => [t.testId, t.outcome, t.reason])).toEqual(["a", "b", "c"].map((id) => [id, "passed", undefined]));
+    expect(seen.most).toBe(1);
+    expect(await tokens(privateKeyToAccount(key).address)).toBe(parseUnits("30", 6));
+  }, 120_000);
+
+  it("names the test on each live frame, so a caller following several knows whose page it shows", async () => {
+    ran.mockImplementation(async (env, t) => {
+      await env.sink({ type: "frame", path: `${t.id}.jpg`, url: "http://app.test/", at: "now" });
+      return result(t.id);
+    });
+    const frames: [string, string | undefined][] = [];
+    await runSuite({ target: target({ account: "new" }), suite: Suite.parse({ tests: ["a", "b"].map(test) }), artifactsDir }, (e) => void (e.type === "frame" && frames.push([e.path, e.testId])));
+    expect(frames.sort()).toEqual([["a.jpg", "a"], ["b.jpg", "b"]]);
+  }, 60_000);
+
+  it("stops taking tests once the run is stopped, and waits for the ones going before it ends", async () => {
+    const stop = new AbortController();
+    let ended = 0;
+    ran.mockImplementation(async (_env, t, opts) => {
+      if (t.id === "a") stop.abort();
+      await new Promise((done) => setTimeout(done, 100));
+      ended++;
+      if (opts.signal?.aborted) throw new Error("stopped");
+      return result(t.id);
+    });
+    await expect(runSuite({ target: target({ account: "new" }), suite: Suite.parse({ tests: six.map(test) }), artifactsDir, atOnce: 2, signal: stop.signal })).rejects.toThrow();
+    // The two that had started ran to their end; none of the other four began.
+    expect(ended).toBe(ran.mock.calls.length);
+    expect(ran.mock.calls.length).toBeLessThanOrEqual(2);
+  }, 60_000);
+});
+
 describe("a kept account", () => {
   const fund = [{ chainId: CHAIN_ID, amount: "1" }];
   const kept = (more: Partial<DrillTarget> = {}) => target({ account: "kept", accounts: ACCOUNTS, fundedKey: DEPLOYER_KEY, fund, ...more });

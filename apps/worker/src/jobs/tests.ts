@@ -16,9 +16,9 @@ import { appTurn } from "./turn.js";
 const FRAME_EVERY_MS = 1000;
 
 /**
- * tests.run: run a batch of tests one after another, in the order they show on the page. No model is
- * used: a test that stopped on a line that isn't code, or whose recording no longer fits the page, is
- * handed to a repair afterwards.
+ * tests.run: run a batch of tests, in the order they show on the page: several at the same time on new
+ * accounts, one after another on a kept one. No model is used: a test that stopped on a line that isn't
+ * code, or whose recording no longer fits the page, is handed to a repair afterwards.
  */
 export async function runTestBatch(db: Db, engine: Engine, boss: PgBoss, batchId: string, signal: AbortSignal): Promise<void> {
   const log = logger(`batch ${batchId}`);
@@ -57,12 +57,15 @@ async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[],
   const stop = stopSignal(async () => (await db.select({ id: testRuns.id }).from(testRuns).where(and(eq(testRuns.batchId, batchId), eq(testRuns.stopRequested, true))).limit(1)).length > 0, log);
   const signal = AbortSignal.any([shutdown, stop.signal]);
 
-  /** The test running now, and its lines so far. */
-  let current: { testId: string; steps: LineResult[] } | undefined;
-  const frame = throttle(FRAME_EVERY_MS, async ({ testId, file }: { testId: string; file: string }) => setRun(testId, { liveFrame: file }));
+  /** The tests running now: the lines of each so far, and its latest picture on its way to the page. */
+  const running = new Map<string, { steps: LineResult[]; frame: ReturnType<typeof throttle<string>> }>();
   const sink: DrillEventSink = (event) => {
     if (event.type === "log" && event.level !== "info") log[event.level](event.message);
-    else if (event.type === "frame" && current) frame.push({ testId: current.testId, file: path.relative(dir, event.path) });
+    else if (event.type === "frame") {
+      // A frame says whose page it shows. One that doesn't is the only running test's.
+      const testId = event.testId ?? (running.size === 1 ? [...running.keys()][0] : undefined);
+      if (testId) running.get(testId)?.frame.push(path.relative(dir, event.path));
+    }
   };
 
   const done = new Map<string, TestResult>();
@@ -77,19 +80,22 @@ async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[],
     await engine.runSuite({ target: { ...(await buildTarget(db, app, "tests")), ...(url ? { url } : {}) }, suite, artifactsDir: dir, signal }, sink, {
       onStart: (testId) => {
         // A test that failed starts a second time: its lines begin again.
-        const first = current?.testId !== testId;
-        current = { testId, steps: byId.get(testId)!.steps.map((line) => LineResult.parse({ status: "skipped", by: line.by })) };
-        progress(testId, { status: "running", ...(first ? { startedAt: new Date() } : {}), result: soFar(current) });
+        const before = running.get(testId);
+        const now = { steps: byId.get(testId)!.steps.map((line) => LineResult.parse({ status: "skipped", by: line.by })), frame: before?.frame ?? throttle(FRAME_EVERY_MS, (file: string) => setRun(testId, { liveFrame: file })) };
+        running.set(testId, now);
+        progress(testId, { status: "running", ...(before ? {} : { startedAt: new Date() }), result: soFar({ testId, steps: now.steps }) });
       },
       onLine: (testId, index, line) => {
-        if (!testId || current?.testId !== testId) return;
-        current.steps[index] = line;
-        progress(testId, { result: soFar(current) });
+        const now = testId ? running.get(testId) : undefined;
+        if (!testId || !now) return;
+        now.steps[index] = line;
+        progress(testId, { result: soFar({ testId, steps: now.steps }) });
       },
       onTest: async (result) => {
         done.set(result.testId, result);
-        current = undefined;
-        await frame.flush();
+        const was = running.get(result.testId);
+        running.delete(result.testId);
+        await was?.frame.flush();
         await setRun(result.testId, { status: result.outcome, result, finishedAt: new Date() });
         log.info(`${byId.get(result.testId)!.name}: ${result.outcome}${result.repairable ? ", needs repairing" : ""}`);
       },
@@ -102,7 +108,7 @@ async function runBatch(db: Db, engine: Engine, app: AppRow, runs: TestRunRow[],
   } finally {
     stop.end();
   }
-  await frame.flush();
+  await Promise.all([...running.values()].map((r) => r.frame.flush()));
   await finishLeftovers(db, [...runOf.values()].filter((r) => !done.has(r.testId)), broke);
 
   await notifyBatch(db, app, [...runOf.values()].map((r) => r.id), url).catch((e) => log.warn(`notifications failed: ${errorMessage(e)}`));

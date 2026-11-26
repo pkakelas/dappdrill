@@ -45,6 +45,7 @@ targetOptions(
     .argument("[file]", "tests file", TESTS_FILE)
     .option("--url <url>", "run against this URL instead, e.g. a preview deploy")
     .option("--only <text>", "only tests whose name contains this")
+    .option("--at-once <n>", "how many tests run at the same time on new accounts (4 when left out)")
     .option("--junit <file>", "write JUnit XML"),
 )
   .addHelpText("after", EXIT_CODES)

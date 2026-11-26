@@ -1,7 +1,7 @@
 /**
  * Runs a suite file against an app and prints what every line did and how long it took.
  *
- *   pnpm suite <url> <suite.json> [--runs n] [--only text] [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed]
+ *   pnpm suite <url> <suite.json> [--runs n] [--only text] [--at-once n] [--account new|kept] [--key hex] [--fund chainId[:token]:amount]… [--chain id[=rpc]]… [--target file] [--keep-wallet] [--headed]
  *
  * The account flags and --target are told in dev/target.ts.
  *
@@ -16,11 +16,11 @@ import { fromCwd, loadTarget, outDir, secs, TARGET_FLAGS, TARGET_USAGE } from ".
 
 const { positionals, values: flags } = parseArgs({
   allowPositionals: true,
-  options: { ...TARGET_FLAGS, runs: { type: "string" }, only: { type: "string" }, headed: { type: "boolean" } },
+  options: { ...TARGET_FLAGS, runs: { type: "string" }, only: { type: "string" }, "at-once": { type: "string" }, headed: { type: "boolean" } },
 });
 const [url, suiteFile] = positionals;
 if (!url || !suiteFile) {
-  console.error(`usage: pnpm suite <url> <suite.json> [--runs n] [--only text] ${TARGET_USAGE} [--headed]`);
+  console.error(`usage: pnpm suite <url> <suite.json> [--runs n] [--only text] [--at-once n] ${TARGET_USAGE} [--headed]`);
   process.exit(2);
 }
 
@@ -50,7 +50,7 @@ for (let n = 1; n <= Number(flags.runs ?? 1); n++) {
   const sink = (e: DrillEvent) => {
     if (e.type === "log" && (e.level !== "info" || e.message.startsWith("Sent back"))) console.log(`  ${e.message}`);
   };
-  const result = await runSuite({ target, suite, artifactsDir: path.join(out, `run-${n}`), headless: !flags.headed }, sink, {
+  const result = await runSuite({ target, suite, artifactsDir: path.join(out, `run-${n}`), headless: !flags.headed, atOnce: flags["at-once"] ? Number(flags["at-once"]) : undefined }, sink, {
     onLine: (testId, i, r) => {
       // A test's lines print with its outcome, so a rerun doesn't print twice.
       if (!testId) printLine(i + 1, suite.setup!.steps[i]!, r);

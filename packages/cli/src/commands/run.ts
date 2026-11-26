@@ -11,6 +11,7 @@ import { commandOn, dim, interruptSignal, pickTests, red, secs, warnSink, yellow
 export interface RunFlags extends TargetFlags {
   url?: string;
   only?: string;
+  atOnce?: string;
   junit?: string;
 }
 
@@ -38,7 +39,7 @@ export async function runTests(file: TestsFile, target: DrillTarget, flags: RunF
   let results = finished;
   let stopped = false;
   try {
-    const ran = await engine.runSuite({ target, suite: { ...suiteOf(file), tests: picked }, artifactsDir: join(out, "artifacts"), headless: !flags.headed, signal }, warnSink, {
+    const ran = await engine.runSuite({ target, suite: { ...suiteOf(file), tests: picked }, artifactsDir: join(out, "artifacts"), headless: !flags.headed, signal, atOnce: flags.atOnce ? Number(flags.atOnce) : undefined }, warnSink, {
       onTest: (r) => {
         finished.push(r);
         printResult(picked.find((t) => t.id === r.testId)!.name.padEnd(width), r);

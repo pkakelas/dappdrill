@@ -4,7 +4,8 @@
  * setup; what the test leaves on it is sent back to that key. On a kept account the setup is done once
  * and the suite's reset lines put the account back before each test. A failure is run once more before
  * it counts, and a run that broke on our side is tried once more quietly before the test is called
- * Couldn't verify.
+ * Couldn't verify. On new accounts several tests run at the same time; a kept account is one user, so
+ * its tests go one after another.
  */
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -23,8 +24,17 @@ export interface RunSuiteInput {
   artifactsDir: string;
   headless?: boolean;
   signal?: AbortSignal;
+  /**
+   * How many tests run at the same time on new accounts, each in a browser of its own: 4 when left out,
+   * or what DAPPDRILL_AT_ONCE says. On a kept account it is always one.
+   */
+  atOnce?: number;
 }
 
+/** How many tests run at the same time when nobody says. */
+const AT_ONCE = 4;
+
+/** What a run tells its caller. With several tests at the same time, the lines of one come between the lines of another. */
 export interface SuiteProgress {
   /** A test is about to run. A test that failed starts a second time. */
   onStart?: (testId: string) => void;
@@ -45,6 +55,8 @@ export interface Fresh {
   /** Why there is no clean start. Nothing can be run on it then. */
   why?: string;
   stuck?: SetupStuck;
+  /** The key couldn't pay the new account. It may yet, once another test has sent back what it holds. */
+  unpaid?: boolean;
 }
 
 /** An app made ready for its tests: the chains known and the first start made. */
@@ -109,10 +121,11 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
   };
   /** Transfers back still on their way. The next account is paid once they have landed, so the key holds what it held. */
   const returning = new Set<Promise<void>>();
-  const giveBack = (accounts: Accounts): void => {
-    if (!seed) return;
+  const giveBack = (accounts: Accounts): Promise<void> => {
+    if (!seed) return Promise.resolve();
     const going = sendBack(env.chains, seed.fundedKey, accounts, paid, say).finally(() => returning.delete(going));
     returning.add(going);
+    return going;
   };
   const close = async () => {
     try {
@@ -142,12 +155,15 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
     if (!kept) {
       if (fund.some((f) => !paid.includes(f))) paid.push(...fund);
       try {
-        await Promise.all(returning);
+        // An account that is paid nothing has nothing to wait for.
+        if (fund.length) await Promise.all(returning);
         await fundAccount(env.chains, { fundedKey, fund }, privateKeyToAccount(on.target.accounts!.A as Hex).address);
       } catch (e) {
         if (signal?.aborted) throw e;
+        // A list paid in part: that part goes back, so the next try finds it with the key.
+        void giveBack(on.target.accounts!);
         const reason = e instanceof Error ? e.message : String(e);
-        return { env: on, opts, why: reason, stuck: { reason, fix: "funds" } };
+        return { env: on, opts, why: reason, stuck: { reason, fix: "funds" }, unpaid: true };
       }
     }
     if (!suite.setup) return { env: on, opts };
@@ -194,14 +210,30 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
     return { ...first, reset: done.steps, why: `The reset didn't finish. ${done.why}`, stuck: done.stuck };
   };
 
+  /** The runs going on that may hold the key's money, each until what its account held is back with the key. */
+  const holding = new Set<Promise<void>>();
+
   /** What breaks on our side gets one more try, on another clean start. */
   const run = async (test: Test, over: Parameters<OpenSuite["run"]>[1] = {}, retry = true): Promise<TestResult> => {
     const t0 = Date.now();
     let start: Fresh | undefined;
+    let back!: () => void;
+    const held = new Promise<void>((done) => (back = done));
+    const pays = !!seed && (test.fund ?? env.target.fund).length > 0;
     try {
-      start = await fresh(undefined, test.fund);
+      for (;;) {
+        if (pays) holding.add(held);
+        start = await fresh(undefined, test.fund);
+        if (!start.unpaid) break;
+        // The key couldn't pay it. With tests running beside this one, the key's money may be on their
+        // accounts: once one of them has sent it back, this one starts again.
+        holding.delete(held);
+        if (!holding.size) break;
+        await Promise.race(holding);
+        signal?.throwIfAborted();
+      }
       if (start.why) return unstarted(test, start, Date.now() - t0);
-      const result = await runTest(start.env, test, { ...start.opts, onLine: over.onLine, byModel: over.byModel ?? start.opts.byModel });
+      const result = await runTest(framesOf(start.env, test.id), test, { ...start.opts, onLine: over.onLine, byModel: over.byModel ?? start.opts.byModel });
       return { ...result, reset: start.reset ?? [] };
     } catch (e) {
       if (signal?.aborted) throw e;
@@ -209,7 +241,11 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
       if (!retry) return notRun(test, `It broke on our side: ${plain(e)}`, Date.now() - t0);
     } finally {
       // The test is over, however it went: what its account holds goes back while the next one starts.
-      if (start && !kept) giveBack(start.env.target.accounts!);
+      const going = start && !kept ? giveBack(start.env.target.accounts!) : Promise.resolve();
+      void going.finally(() => {
+        holding.delete(held);
+        back();
+      });
     }
     return run(test, over, false);
   };
@@ -224,7 +260,7 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
     fresh,
     run: (test, over) => run(test, over),
     finished: (start) => {
-      if (!kept) giveBack(start.env.target.accounts!);
+      if (!kept) void giveBack(start.env.target.accounts!);
     },
     close,
   };
@@ -233,19 +269,26 @@ export async function openSuite(input: RunSuiteInput, sink: DrillEventSink = () 
 /** Two lists that pay an account the same. */
 const sameFund = (a: Fund[], b: Fund[]) => JSON.stringify(a) === JSON.stringify(b);
 
+/** The same env, with every live frame saying which test it shows: several tests may be on the sink at the same time. */
+const framesOf = (env: Env, testId: string): Env => ({ ...env, sink: (e) => env.sink(e.type === "frame" ? { ...e, testId } : e) });
+
+/** How many tests go at the same time. A kept account is one user: two tests on it would undo each other. */
+function atOnceOf(input: RunSuiteInput): number {
+  if (input.target.account === "kept") return 1;
+  const asked = input.atOnce ?? Number(process.env.DAPPDRILL_AT_ONCE);
+  return Number.isFinite(asked) && asked >= 1 ? Math.floor(asked) : AT_ONCE;
+}
+
 export async function runSuite(input: RunSuiteInput, sink: DrillEventSink = () => {}, progress: SuiteProgress = {}): Promise<SuiteResult> {
   const t0 = Date.now();
   const open = await openSuite(input, sink, { onLine: (i, r) => progress.onLine?.(undefined, i, r), fund: input.suite.tests[0]?.fund });
   const { env, setup } = open;
   try {
-    const tests: TestResult[] = [];
-    for (const test of input.suite.tests) {
+    const list = input.suite.tests;
+    const one = async (test: Test): Promise<TestResult> => {
       // The next start would stop where the first did, unless that was for funds this test doesn't ask for.
-      const ownFunds = input.target.account === "new" && open.stuckAt?.fix === "funds" && !sameFund(test.fund ?? input.target.fund, input.suite.tests[0]?.fund ?? input.target.fund);
-      if (open.stuck && !ownFunds) {
-        tests.push(unstarted(test, { why: open.stuck, stuck: open.stuckAt }));
-        continue;
-      }
+      const ownFunds = input.target.account === "new" && open.stuckAt?.fix === "funds" && !sameFund(test.fund ?? input.target.fund, list[0]?.fund ?? input.target.fund);
+      if (open.stuck && !ownFunds) return unstarted(test, { why: open.stuck, stuck: open.stuckAt });
       const run = () => {
         // Stopped: no test starts, and no failed one runs again. What finished went to onTest already.
         input.signal?.throwIfAborted();
@@ -265,9 +308,26 @@ export async function runSuite(input: RunSuiteInput, sink: DrillEventSink = () =
           costUsd: result.costUsd + again.costUsd,
         };
       }
-      tests.push(result);
       progress.onTest?.(result);
-    }
+      return result;
+    };
+    // Each lane takes the next test of the list when it is done with one. The results keep the list's order.
+    const tests: TestResult[] = [];
+    let next = 0;
+    let broke: { why: unknown } | undefined;
+    const lane = async () => {
+      while (!broke && next < list.length) {
+        const i = next++;
+        try {
+          tests[i] = await one(list[i]!);
+        } catch (e) {
+          broke ??= { why: e };
+        }
+      }
+    };
+    // Every lane is waited for, so nothing is closed under a test that is still running.
+    await Promise.all(Array.from({ length: Math.min(atOnceOf(input), list.length) }, lane));
+    if (broke) throw broke.why;
     // The app may have asked the wallet for a chain nobody knew of: whoever keeps the chains is told.
     await env.sink({ type: "chains", chains: withoutFallback(env.chains.configs()) });
     return { setup, tests, durationMs: Date.now() - t0, costUsd: env.costUsd() };
