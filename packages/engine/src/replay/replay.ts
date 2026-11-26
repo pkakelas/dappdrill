@@ -19,6 +19,8 @@ const OPTIONAL_TIMEOUT_MS = 4_000;
 const OPTIONAL_SIGN_TIMEOUT_MS = 8_000;
 /** How long a wallet step waits for the app to ask. */
 const SIGN_TIMEOUT_MS = 30_000;
+/** How long the app has, after the last step, to make the request the wallet was told to refuse. */
+const REFUSE_TIMEOUT_MS = 10_000;
 /** How long a busy button ("Placing…") gets to finish after a click, before the next step. */
 const QUIET_MS = 15_000;
 /** A dApp's data comes from a chain and an indexer, and can take half a minute to show. */
@@ -154,6 +156,17 @@ export async function replayScript(session: EngineSession, script: ReplayScript,
     }
   }
 
+  // A refusal the app never asked for refused nothing, and none is left behind for whatever comes next.
+  for (const [index, step] of script.steps.entries()) {
+    if (step.kind !== "refuse" || result.steps[index]?.status !== "pass") continue;
+    const until = Date.now() + REFUSE_TIMEOUT_MS;
+    while (!result.error && session.wallet.refusing(step.what) && Date.now() < until && !opts.signal?.aborted) await session.page.waitForTimeout(200);
+    if (!session.wallet.refusing(step.what, false) || result.error) continue;
+    const error = step.what === "connect" ? "The app didn't ask the wallet to connect, so there was nothing to refuse" : "The app didn't ask the wallet to switch network, so there was nothing to refuse";
+    result.steps[index] = { ...result.steps[index]!, status: "fail", error };
+    result.error = `Step ${index + 1} (${describeStep(step)}): ${error}`;
+  }
+
   result.walletRequests = session.wallet.requests();
   result.completed = !result.error && result.steps.every((s) => s.status !== "fail") && !stopped;
   return result;
@@ -184,6 +197,9 @@ async function runStep(ctx: StepContext, env: RunEnv): Promise<string | undefine
       // Leaving while the app is still placing or sending throws that work away.
       await waitQuiet(page, QUIET_MS, () => session.wallet.peekSigns().length > 0);
       await gotoUrl(session, step.url, params, timeout);
+      return;
+    case "refuse":
+      session.wallet.refuseNext(step.what);
       return;
     case "reload":
       await waitQuiet(page, QUIET_MS, () => session.wallet.peekSigns().length > 0);

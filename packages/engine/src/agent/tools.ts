@@ -318,6 +318,19 @@ export function browserTools(ctx: ToolContext): AgentTool[] {
       },
     },
     {
+      name: "wallet_refuse_next",
+      description:
+        "The wallet approves a request to connect, or to switch network, the moment the app makes it. Call this BEFORE the click that makes the app ask, and the wallet answers that one request as a user pressing Cancel would (error 4001). For a test of what the app does when the user says no to connecting or to changing network.",
+      schema: z.object({ what: z.enum(["connect", "switch"]).describe("connect: the request to connect the wallet. switch: the request to switch (or add) a network") }),
+      handler: async ({ what }) => {
+        recorder.add({ kind: "refuse", what });
+        session.wallet.refuseNext(what);
+        const said = what === "connect" ? "connection" : "network switch";
+        did(`The wallet will refuse the next ${said}`);
+        return `The wallet will refuse the next ${said} the app asks for. Now do what makes the app ask.`;
+      },
+    },
+    {
       name: "inbox_code",
       description: "Wait for the login code emailed to the test inbox and type it into the given field. Only for email-code logins.",
       schema: z.object({ ref: z.string(), sinceSeconds: z.number().optional().describe("Only accept mail newer than this many seconds (default 120)") }),

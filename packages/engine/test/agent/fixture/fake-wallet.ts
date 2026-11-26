@@ -34,6 +34,9 @@ export class FakeWallet implements WalletController {
     this.listeners.push(cb);
     return () => { this.listeners = this.listeners.filter((l) => l !== cb); };
   }
+  private toRefuse = new Set<"connect" | "switch">();
+  refuseNext(what: "connect" | "switch") { this.toRefuse.add(what); }
+  refusing(what: "connect" | "switch", keep?: false) { return keep === false ? this.toRefuse.delete(what) : this.toRefuse.has(what); }
   async switchAccount(to: "A" | "B") { this.selected = to; }
   async switchChain(chainId: number) { this.chain = chainId; }
 
@@ -93,6 +96,10 @@ export class FakeWallet implements WalletController {
     this.log.push(req);
     for (const l of this.listeners) l(req);
 
+    if ((kind === "connect" || kind === "switch") && this.toRefuse.delete(kind)) {
+      req.outcome = "rejected";
+      return { error: { code: 4001, message: "User rejected the request" } };
+    }
     if (kind === "connect" || method === "eth_accounts") { req.outcome = "approved"; req.result = [this.address()]; return { result: req.result }; }
     if (method === "eth_chainId") { req.outcome = "approved"; req.result = `0x${this.chain.toString(16)}`; return { result: req.result }; }
     if (kind === "switch") { req.outcome = "approved"; return { result: null }; }

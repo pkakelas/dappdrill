@@ -84,6 +84,12 @@ export const Step = z.discriminatedUnion("kind", [
     respond: z.enum(["approve", "reject"]).default("approve"),
     expect: WalletExpectation.optional(),
   }),
+  /**
+   * The user will say no in the wallet to the next request to connect, or to switch network. It comes before
+   * the step that makes the app ask, since the wallet answers those the moment they come. A recording that
+   * ends with the app never having asked has nothing to refuse, and doesn't pass.
+   */
+  z.object({ ...base, kind: z.literal("refuse"), what: z.enum(["connect", "switch"]) }),
   z.object({
     ...base,
     kind: z.literal("expect"),
@@ -139,6 +145,7 @@ export function describeStep(step: Step): string {
     case "press": return `Press ${step.key}`;
     case "wait": return step.until === "text" ? `Wait for "${step.text}"` : step.until === "ms" ? `Wait ${step.ms}ms` : "Wait for the page to settle";
     case "wallet": return step.respond === "reject" ? "Reject in wallet" : "Approve in wallet";
+    case "refuse": return step.what === "connect" ? "Refuse the next connection in the wallet" : "Refuse the next network switch in the wallet";
     case "expect":
       return step.assert.type === "url" ? `URL contains "${step.assert.contains}"` : step.assert.type === "visible" ? `See "${step.assert.text}"` : `Don't see "${step.assert.text}"`;
     case "email-code": return `Enter the code from the test inbox into "${t(step.target)}"`;

@@ -76,6 +76,8 @@ export class Wallet implements WalletController {
   private readonly signWaiters: ((p: PendingSignRequest) => void)[] = [];
   private readonly listeners = new Set<(req: WalletRequest) => void>();
   private unknownChainDone = false;
+  /** What the user will say no to when it is next asked. */
+  private readonly toRefuse = new Set<"connect" | "switch">();
   private passthroughCalls = 0;
   private emitter: (event: string, args: unknown) => Promise<void> = async () => {};
   private rpcHints: () => string[] = () => [];
@@ -164,6 +166,21 @@ export class Wallet implements WalletController {
     p.req.error = `${err.code} ${err.message}`;
     p.settle({ error: err.toJSON() });
     this.notify(p.req);
+  }
+
+  refuseNext(what: "connect" | "switch"): void {
+    this.toRefuse.add(what);
+  }
+
+  refusing(what: "connect" | "switch", keep?: false): boolean {
+    return keep === false ? this.toRefuse.delete(what) : this.toRefuse.has(what);
+  }
+
+  /** The user says no to this request, when that was asked for. */
+  private refuse(what: "connect" | "switch"): void {
+    if (!this.toRefuse.delete(what)) return;
+    this.log(`wallet: refused the request to ${what === "connect" ? "connect" : "switch network"}, as asked`);
+    throw WalletErrors.userRejected();
   }
 
   async switchAccount(to: "A" | "B"): Promise<void> {
@@ -257,6 +274,7 @@ export class Wallet implements WalletController {
       case "wallet_requestPermissions": {
         const result = () => (method === "eth_requestAccounts" ? [this.address()] : this.permissions());
         if (this.connected) return { result: result() };
+        this.refuse("connect");
         const connect = async (): Promise<BridgeResponse> => {
           this.connected = true;
           return { result: result(), emit: [{ event: "accountsChanged", args: [this.address()] }] };
@@ -279,6 +297,7 @@ export class Wallet implements WalletController {
         }
         if (!this.chains.has(target)) throw WalletErrors.unrecognizedChain(toHex(target));
         if (target === this.chain) return { result: null };
+        this.refuse("switch");
         const doSwitch = async (): Promise<BridgeResponse> => {
           this.chain = target;
           record.chainId = target;
@@ -302,6 +321,7 @@ export class Wallet implements WalletController {
           }
         }
         if (target === this.chain) return { result: null };
+        this.refuse("switch");
         this.chain = target;
         return { result: null, emit: [{ event: "chainChanged", args: toHex(target) }] };
       }

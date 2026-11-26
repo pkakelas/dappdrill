@@ -89,6 +89,13 @@ export interface WalletController {
   approve(requestId: string): Promise<unknown>;
   /** Answer the dApp with an EIP-1193 error (4001 user rejected by default). */
   reject(requestId: string, code?: number, message?: string): Promise<void>;
+  /**
+   * The next request to connect, or to switch (or add) a network, is answered as a user pressing Cancel
+   * would (4001), once. These requests are otherwise approved the moment they come.
+   */
+  refuseNext(what: "connect" | "switch"): void;
+  /** Whether a refusal asked for with refuseNext is still waiting for its request. `false` takes it back. */
+  refusing(what: "connect" | "switch", keep?: false): boolean;
   /** Select account A or B and emit accountsChanged. */
   switchAccount(to: "A" | "B"): Promise<void>;
   /** Change network from the wallet side and emit chainChanged. */

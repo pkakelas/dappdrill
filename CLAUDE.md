@@ -5,8 +5,9 @@ test maker turns each goal into a test: a flat list of actions and checks. The c
 (a recorded action, a check by code) and its sentence explains it in plain words. A test is kept once it
 goes the same way twice in a row with no model. Tests run with our own wallet in the app's real environment:
 its own chains through their RPCs, with a new account paid from a funded key on every start, or one kept
-account that a reset puts back before each test. Every signature request is reviewed. Unhappy paths
-(reject, slow RPC, wrong network, low gas…) are not built on this runner yet. The plans and what was measured:
+account that a reset puts back before each test. Every signature request is reviewed. A test may have
+the user say no in the wallet (reject a signature, refuse to connect or to switch network); the other unhappy paths
+(slow RPC, low gas…) are not built on this runner yet. The plans and what was measured:
 `docs/plans/simple-tests.md`, and `docs/plans/real-environment-tests.md` for why there are no forks and no
 model in a run. Product context: `docs/product-context.md`. Layout reference:
 `docs/designs/*.html`, where the v2 UX notes in the product context win where the two differ.
@@ -61,7 +62,9 @@ Lines: an action is code when it has a recording (`run`), a check when it has an
 said, url, button, signed, not-signed, mined, changes, figures, no-error, and `any` / `all` of those; each may
 `wait`). A check can be as rich as the app needs: figures compared within a tolerance, a difference before and after,
 any of several outcomes, what the wallet was asked in the whole test or (`latest`) by the latest action alone. A
-recorded step may be optional (done only when the page asks for it) and may name the row it acts in. `by: "llm"`, or
+recorded step may be optional (done only when the page asks for it) and may name the row it acts in. The wallet
+approves a request to connect or to switch network the moment it comes, so a `refuse` step goes before the step that
+makes the app ask, in the same recording; a recording whose refusal the app never asked for doesn't pass. `by: "llm"`, or
 an action with no recording, means "not written as code yet", and only making and repairing (`byModel`) let a model do
 such a line.
 
@@ -72,6 +75,9 @@ A test may say what its own new account starts with (`Test.fund`, in place of th
 that holds nothing). New accounts paid by a key are made from that key and an id of the run (kept in the run's
 `test-accounts.json`), and what a test leaves on one is sent back to the key before the next account is paid
 (`run/sweep.ts`), so a suite runs again and again on the same funds.
+On new accounts a suite runs four tests at the same time, each in a browser of its own (`atOnce`, `--at-once n`, env
+`DAPPDRILL_AT_ONCE`); a test the key can't pay yet waits for another test's account to be sent back. On a kept
+account tests run one after another.
 
 Organizations: apps, test wallets, domains and integrations belong to an organization (Better Auth's
 organization plugin; tables `organization`, `member`, `invitation`). Roles are owner / admin / member, and
@@ -112,7 +118,7 @@ corepack pnpm fixture                    # Harbor Vault test dApp: anvil :8545 +
 corepack pnpm cli make http://localhost:5173   # the CLI as users get it: make | run | repair
 corepack pnpm collect <run id> --key <hex> --chain id[=rpc]   # send back to the funding key what the accounts of a run that was cut short still hold; --fund chainId:token:amount names an ERC-20 to look for
 corepack pnpm typecheck
-corepack pnpm suite <url> <suite.json>  # run a suite file with no model (fixtures/harbor-vault/tests.json, fixtures/pod/tests.json) and print each line's result and time; --runs n, --only text
+corepack pnpm suite <url> <suite.json>  # run a suite file with no model (fixtures/harbor-vault/tests.json, fixtures/pod/tests.json) and print each line's result and time; --runs n, --only text, --at-once n
 corepack pnpm repair <url> <suite.json> # write the suite file's lines as code again, with models: the setup and reset, then every test with a line that isn't code, or --only text; --dry
 corepack pnpm look <url> <suite.json>   # list the goals worth a test, and add what it learned about the app to the suite file's notes
 corepack pnpm make <url> <suite.json> "<goal>"   # make one test from a goal and add it to the suite file once it is proven; --start /path, --dry
