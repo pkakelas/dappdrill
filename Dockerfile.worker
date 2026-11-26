@@ -1,0 +1,53 @@
+# The worker, and the engine's own commands, on a server with no screen.
+#
+# Some apps' bot checks only pass a browser with a head. Here the browser is shown on a virtual display
+# (Xvfb, in memory), so DAPPDRILL_HEADLESS=0 works with no screen attached.
+#
+#   docker build -f Dockerfile.worker -t dappdrill-worker .
+#   docker run --rm --shm-size=1g dappdrill-worker corepack pnpm probe https://app.example.com   # is a bot check in the way?
+#   docker run -d --shm-size=1g --env-file .env -v dappdrill-artifacts:/app/data dappdrill-worker # the worker
+# Add -e DAPPDRILL_STEALTH=1 for an app that needs it.
+FROM node:24-bookworm-slim
+
+# Xvfb is the display; tini passes signals on, so the worker stops its jobs cleanly, and reaps the browser's processes.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends xvfb tini ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
+
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 CI=1
+WORKDIR /app
+RUN chown node:node /app
+USER node
+
+# The manifests first, so the packages and the browsers are built again only when they change.
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=node:node apps/site/package.json apps/site/
+COPY --chown=node:node apps/web/package.json apps/web/
+COPY --chown=node:node apps/worker/package.json apps/worker/
+COPY --chown=node:node fixtures/harbor-vault/package.json fixtures/harbor-vault/
+COPY --chown=node:node packages/cli/package.json packages/cli/
+COPY --chown=node:node packages/core/package.json packages/core/
+COPY --chown=node:node packages/db/package.json packages/db/
+COPY --chown=node:node packages/engine/package.json packages/engine/
+RUN corepack pnpm install --frozen-lockfile
+
+# Chromium for both launchers (launch.ts): Playwright's, and Patchright's for DAPPDRILL_STEALTH. Their system
+# libraries need root; the browsers themselves belong to the user that runs them.
+USER root
+RUN cd packages/engine \
+  && node_modules/.bin/playwright install-deps chromium \
+  && node_modules/.bin/patchright install-deps chromium \
+  && rm -rf /var/lib/apt/lists/*
+USER node
+RUN cd packages/engine \
+  && node_modules/.bin/playwright install chromium \
+  && node_modules/.bin/patchright install chromium
+
+COPY --chown=node:node . .
+RUN mkdir -p data
+
+# A shown browser on the virtual display. Take DAPPDRILL_STEALTH from the environment when an app needs it.
+ENV DAPPDRILL_HEADLESS=0 ARTIFACTS_DIR=/app/data/artifacts
+ENTRYPOINT ["tini", "--", "/app/scripts/with-display.sh"]
+CMD ["corepack", "pnpm", "--filter", "@dappdrill/worker", "exec", "tsx", "src/main.ts"]
