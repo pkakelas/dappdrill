@@ -9,15 +9,16 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { TestEditor } from "@/components/tests/lines-editor";
 import { RepairButton } from "@/components/tests/repair-button";
 import { SigningReviews } from "@/components/tests/run-details";
-import { LINE_LABEL, LINE_STATE, readLabel, readTest, STATE_LABEL, shortReason } from "@/components/tests/status";
+import { readLabel, readTest, STATE_LABEL, shortReason } from "@/components/tests/status";
 import { TestActions } from "@/components/tests/test-actions";
-import { TestRunView, type Around, type ViewLine } from "@/components/tests/test-run-view";
+import { TestRunView, type Around } from "@/components/tests/test-run-view";
 import { Results, StatusNote, TestStatus, type StatusWord } from "@/components/tests/test-status";
+import { viewLines } from "@/components/tests/view-lines";
 import { cx } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/button";
 import { artifactUrl } from "@/lib/artifacts";
 import { timeAgo } from "@/lib/format";
-import { isCode, unwritten } from "@/lib/lines";
+import { unwritten } from "@/lib/lines";
 import { requireApp } from "@/lib/session";
 import { startChoices } from "@/lib/starts";
 
@@ -41,12 +42,6 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
 const SETTLED = new Set<TestRunRow["status"]>(["passed", "failed", "unverified"]);
 
-/** A line's words with this run's values in place of their names, so the page reads as what was done. */
-function filled(text: string, values?: Record<string, string>) {
-  if (!values) return text;
-  return text.replace(/\{\{(\w+)\}\}/g, (whole, name: string) => values[name] ?? whole);
-}
-
 /** The reset or the cleanup as the run on screen left it: folded unless a line of it didn't pass. */
 function around(prefix: string, lines: Line[], results: LineResult[] | undefined, url: (p?: string | null) => string | null): Around | undefined {
   if (lines.length === 0) return undefined;
@@ -58,28 +53,6 @@ function around(prefix: string, lines: Line[], results: LineResult[] | undefined
     open: failed,
     status: ran ? (failed ? " · didn't finish" : " · done") : "",
   };
-}
-
-/** The lines with how each went in the run on screen. While a run is on, the first line with no result yet is the one being done. */
-function viewLines(prefix: string, lines: Line[], results: LineResult[] | undefined, url: (p?: string | null) => string | null, values?: Record<string, string>, running?: boolean): ViewLine[] {
-  const at = running && results ? results.findIndex((r) => r.status === "skipped") : -1;
-  return lines.map((line, i) => {
-    const r = results?.[i];
-    const bad = r?.status === "fail" || r?.status === "unsure";
-    return {
-      key: `${prefix}${i}`,
-      kind: line.type === "check" ? "check" : "action",
-      text: filled(sentence(line), values),
-      state: i === at ? "running" : r ? LINE_STATE[r.status] : "never",
-      label: i === at ? "Running" : r ? LINE_LABEL[r.status] : "No result",
-      note: r?.note && (bad || line.type === "check") ? r.note : undefined,
-      tone: r?.status === "fail" ? "bad" : r?.status === "unsure" ? "warn" : "quiet",
-      redone: r?.redone,
-      did: bad ? r?.did : undefined,
-      shot: url(r?.screenshot),
-      notCode: !isCode(line),
-    };
-  });
 }
 
 export default async function TestPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ run?: string; edit?: string }> }) {

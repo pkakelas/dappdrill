@@ -59,12 +59,33 @@ const OPEN_FAILED: [RegExp, string][] = [
   [/ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED/, "the network dropped"],
 ];
 
-/** An error from our side as a sentence: the browser's network errors in words, and never a call log. */
+/** Failures of our own workings, which say nothing to the app's owner. */
+const OURS = /agent run failed|not logged in|\/login|api[ _-]?key|rate limit|overloaded|ECONN|ENOENT|EPIPE|spawn |exit code|\bat \S+ \(/i;
+
+/** What is said of a failure of our own workings: nothing the app's owner can act on. */
+export const OUR_SIDE = "Something went wrong on our side.";
+
+/** An error from our side as a sentence: the browser's network errors in words, and never a call log or our own workings. */
 export function plainError(error: string, url?: string): string {
   const [first = error] = error.split(/\n|\s+Call log:/);
-  if (/page\.goto|net::ERR_/.test(first))
-    for (const [pattern, why] of OPEN_FAILED) if (pattern.test(first)) return `We couldn't open ${url ? hostFromUrl(url) : "the app"}: ${why}.`;
+  if (/page\.goto|net::ERR_/.test(first)) for (const [pattern, why] of OPEN_FAILED) if (pattern.test(first)) return `We couldn't open ${url ? hostFromUrl(url) : "the app"}: ${why}.`;
+  if (OURS.test(first)) return OUR_SIDE;
   return first.replace(/^[\w.]+: /, "").trim();
+}
+
+/**
+ * Words a run or a model wrote, made fit to read on a line: a whole address or hash shortened, and what only
+ * helps whoever repairs the test left out (the other buttons on the page, a wallet request's raw data, a figure in wei).
+ */
+export function tidy(text: string): string {
+  return text
+    .replace(/\s*The buttons there: [\s\S]*$/, "")
+    .replace(/:\s*\{"[\s\S]*\}\.?\s*$/, ".")
+    .replace(/\s*\(\d{6,} wei\)/g, "")
+    .replace(/^The wallet was asked: eth_signTypedData(_v\d)? /, "The wallet was asked to sign a ")
+    .replace(/\b0x([0-9a-fA-F]{4})[0-9a-fA-F]{32,}([0-9a-fA-F]{4})\b/g, "0x$1…$2")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export const TRIGGER_LABEL = { manual: "Run by you", make: "When the tests were generated", schedule: "Daily run", repair: "After a repair" } as const;

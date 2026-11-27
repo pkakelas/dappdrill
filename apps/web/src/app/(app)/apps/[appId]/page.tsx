@@ -1,5 +1,5 @@
 import { chainInfo, chainName, formatUnitsPlain, type ChainConfig } from "@dappdrill/core";
-import { accountOf, appTests, db, latestRuns, makes, settledRuns } from "@dappdrill/db";
+import { accountOf, appTests, db, latestRuns, makes, recentOutcomes, settledRuns } from "@dappdrill/db";
 import { and, desc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -9,15 +9,16 @@ import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { AddTest } from "@/components/tests/add-test";
 import { AppActions } from "@/components/tests/app-actions";
-import { AppHeader, type Standing, type TestAccount } from "@/components/tests/app-header";
-import { GoalNeed } from "@/components/tests/goal-actions";
+import { AppHeader, type TestAccount } from "@/components/tests/app-header";
+import { GoalNeed, LostNeed } from "@/components/tests/goal-actions";
 import { Need, NeedsYou } from "@/components/tests/needs-you";
 import { RepairButton } from "@/components/tests/repair-button";
 import { Start } from "@/components/tests/start";
 import { readTest } from "@/components/tests/status";
-import { standsAs, STANDS_ORDER, TestLine, TestList } from "@/components/tests/test-line";
+import { makingItem, standsAs, STANDS_ORDER, testItem } from "@/components/tests/test-item";
+import { TestList } from "@/components/tests/test-list";
 import { MakeWork, RepairWork, type RepairRow } from "@/components/tests/working";
-import { plainError, plural } from "@/lib/format";
+import { OUR_SIDE, plainError, plural, timeAgo } from "@/lib/format";
 import { isCode } from "@/lib/lines";
 import { can } from "@/lib/permissions";
 import { readBalance } from "@/lib/rpc";
@@ -53,7 +54,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const recent = rows.filter((m) => !m.state.repair);
   const [make] = recent;
   const ids = tests.map((t) => t.id);
-  const [latest, settled] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids)]);
+  const [latest, settled, outcomes] = await Promise.all([latestRuns(db(), ids), settledRuns(db(), ids), recentOutcomes(db(), ids)]);
   const reads = new Map(tests.map((t) => [t.id, readTest(latest.get(t.id), settled.get(t.id))]));
   const stands = new Map(tests.map((t) => [t.id, standsAs(t, reads.get(t.id)!, settled.get(t.id))]));
 
@@ -61,6 +62,9 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const active = recent.filter((m) => m.status === "queued" || m.status === "running").reverse();
   const making = active.find((m) => m.status === "running") ?? active[0];
   const next = active.filter((m) => m !== making);
+  // An app's tests generated from exploring it take the top of the page. A test added by hand is a line of the list while it is generated, with those waiting after it.
+  const whole = making && !making.goal ? making : undefined;
+  const adding = making && !whole ? [making, ...next] : [];
   // The app's first tests: nothing to report yet, so the page says what is happening and how long it takes.
   const first = Boolean(making && !making.goal && tests.length === 0);
   // The tests ready so far from what is being generated, listed first and marked New when there are older ones to tell them from.
@@ -70,8 +74,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const repairing = repairs.find((m) => m.status === "queued" || m.status === "running");
   const busy = Boolean(making || repairing);
 
-  const count = (as: string) => tests.filter((t) => stands.get(t.id) === as).length;
-  const standing: Standing = { bugs: count("bug"), failed: count("failed"), unverified: count("unverified"), repair: count("repair"), passed: count("passed"), notRun: count("never"), running: activeIds.length };
+  const broken = tests.filter((t) => stands.get(t.id) === "repair").length;
   const lastRun = [...settled.values()].reduce<Date | undefined>((at, r) => (r.finishedAt && (!at || r.finishedAt > at) ? r.finishedAt : at), undefined);
   const listed = [...tests].sort((a, b) => Number(ready.has(b.id)) - Number(ready.has(a.id)) || STANDS_ORDER.indexOf(stands.get(a.id)!) - STANDS_ORDER.indexOf(stands.get(b.id)!));
 
@@ -88,12 +91,15 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   // What waits for the owner, once nothing is being worked on that could change it.
   // The setup didn't finish: said once, in place of the plainer notice that generating stopped.
   const stuck = !making && make?.status === "done" ? make.state.stuck : undefined;
-  const stopped = !making && make && !stuck && (make.status === "failed" || (make.status === "done" && !make.goal && (make.state.goals.length === 0 || Boolean(make.state.why))));
+  // A failure of our own workings while the app was explored asks nothing of the owner: with tests on the page it isn't said, and with none it is the way to generate again.
+  // A test the owner added is theirs to try again, and is said further down.
+  const failed = make?.status === "failed" ? (make.error ? plainError(make.error, app.url) : OUR_SIDE) : undefined;
+  const stopped = !making && make && !stuck && (failed ? !make.goal && (failed !== OUR_SIDE || tests.length === 0) : make.status === "done" && !make.goal && (make.state.goals.length === 0 || Boolean(make.state.why)));
   // The site's bot check turned us away, which is not the same as an app with nothing to test: the engine says so with this word.
   const botCheck = stopped && make.status === "done" ? /^Blocked: (.+)$/s.exec(make.state.why ?? "")?.[1] : undefined;
   // What a run can't do as it is. We repair these ourselves after a run; what is left here is what that couldn't.
   const startUnwritten = ![...(app.suite.setup?.steps ?? []), ...(accountOf(app) === "kept" ? (app.suite.reset?.steps ?? []) : [])].every(isCode);
-  const toRepair = !busy && tests.length > 0 && (standing.repair > 0 || startUnwritten);
+  const toRepair = !busy && tests.length > 0 && (broken > 0 || startUnwritten);
   const [lastRepair] = repairs;
   const notRepaired = toRepair && lastRepair ? lastRepair.state.repair.tests.filter((t) => t.status === "not-repaired" && stands.get(t.testId) === "repair") : [];
   // What the tests generated since the app was last explored left without a test, until each is tried again or dismissed.
@@ -101,6 +107,8 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
   const open = (making ? [making] : since).flatMap((m) =>
     m.state.goals.flatMap((g, index) => (g.status === "not-kept" && !g.dismissed ? [{ goal: g.goal, ask: g.tried?.ask, why: g.whyNot, ref: { makeId: m.id, index }, href: `/apps/${appId}/goals/${m.id}/${index + 1}` }] : [])),
   );
+  // A test added by hand whose generating broke before anything came of it, until it is tried again or dismissed.
+  const lost = since.filter((m) => m.goal && m.status === "failed" && !m.state.dismissed);
   // A question comes first. Goals that wait on one question, or stopped for one reason, are one item.
   const grouped = new Map<string, typeof open>();
   for (const g of open) {
@@ -108,7 +116,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
     grouped.set(key, [...(grouped.get(key) ?? []), g]);
   }
   const goalNeeds = [...grouped].map(([key, goals]) => ({ key, goals, ask: goals[0]!.ask, why: goals.every((g) => g.why === goals[0]!.why) ? goals[0]!.why : undefined })).sort((a, b) => Number(Boolean(b.ask)) - Number(Boolean(a.ask)));
-  const needs = Number(Boolean(stuck)) + Number(Boolean(stopped)) + Number(toRepair) + goalNeeds.length;
+  const needs = Number(Boolean(stuck)) + Number(Boolean(stopped)) + Number(toRepair) + lost.length + goalNeeds.length;
 
   // Generating didn't get going, so the way on is to generate again: said beside what stopped it, in the words the header uses.
   const halted = Boolean(stuck || stopped);
@@ -133,12 +141,10 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
           chains={used.map((c) => c.id)}
           chainUnseen={chainUnseen}
           account={account}
-          standing={tests.length > 0 ? standing : undefined}
-          lastRun={lastRun}
           action={(tests.length > 0 || (make && !halted)) && <AppActions appId={appId} appUrl={app.url} tests={tests.length} running={activeIds.length > 0} making={Boolean(making)} canMake={manage} />}
         />
 
-        {making && <MakeWork appUrl={app.url} make={making} next={next} first={first} email={making.requestedBy === user.id ? user.email : undefined} />}
+        {whole && <MakeWork appUrl={app.url} make={whole} next={next} first={first} email={whole.requestedBy === user.id ? user.email : undefined} />}
         {repairing && <RepairWork appId={appId} appUrl={app.url} repair={repairing} />}
 
         {needs > 0 && (
@@ -186,13 +192,13 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
 
             {stopped && make && !botCheck && (
               <Need title={make.status === "done" && make.state.goals.length === 0 ? "We found nothing to test" : "Generating tests stopped early"} actions={generate}>
-                <p>{make.status === "failed" ? (make.error ? plainError(make.error, app.url) : "Something went wrong on our side.") : (make.state.why ?? "The app showed nothing a user could do.")}</p>
+                <p>{failed ?? make.state.why ?? "The app showed nothing a user could do."}</p>
               </Need>
             )}
 
             {toRepair && (
               <Need
-                title={standing.repair > 0 ? `${plural(standing.repair, "test")} can't run until ${standing.repair === 1 ? "it is" : "they're"} repaired` : "No test can run until the setup is repaired"}
+                title={broken > 0 ? `${plural(broken, "test")} can't run until ${broken === 1 ? "it is" : "they're"} repaired` : "No test can run until the setup is repaired"}
                 actions={<RepairButton appId={appId} label="Repair" />}
                 below={
                   notRepaired.length > 0 && (
@@ -210,11 +216,15 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
                 }
               >
                 <p>
-                  {standing.repair > 0 ? "Your app changed, or a step was edited, so a recorded step no longer fits the page." : "A step every test starts with isn't recorded yet."} A repair does the steps in the browser again, records them, and runs
-                  the tests once.{notRepaired.length > 0 && " The last repair couldn't fix these:"}
+                  {broken > 0 ? "Your app changed, or a step was edited, so a recorded step no longer fits the page." : "A step every test starts with isn't recorded yet."} A repair does the steps in the browser again, records them, and runs the
+                  tests once.{notRepaired.length > 0 && " The last repair couldn't fix these:"}
                 </p>
               </Need>
             )}
+
+            {lost.map((m) => (
+              <LostNeed key={m.id} makeId={m.id} name={makingItem(m).name} why={m.error ? plainError(m.error, app.url) : OUR_SIDE} />
+            ))}
 
             {goalNeeds.map((n) => (
               <GoalNeed key={n.key} appId={appId} goals={n.goals} ask={n.ask} why={n.why} locked={Boolean(making)} />
@@ -222,21 +232,17 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
           </NeedsYou>
         )}
 
-        {tests.length > 0 || (make && !making) ? (
-          <section aria-labelledby="tests" className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <h2 id="tests" className="text-base font-semibold tracking-tight">
-                Tests
-              </h2>
-              <span className="text-sm text-muted-foreground tabular-nums">{tests.length}</span>
-              {fresh.size > 0 && <span className="text-sm text-muted-foreground">· {fresh.size} ready just now</span>}
-            </div>
-            <TestList end={<AddTest appId={appId} starts={startChoices(app)} />}>
-              {listed.map((t) => (
-                <TestLine key={t.id} appId={appId} test={t} read={reads.get(t.id)!} stands={stands.get(t.id)!} run={settled.get(t.id) ?? latest.get(t.id)} live={latest.get(t.id)} fresh={fresh.has(t.id)} />
-              ))}
-            </TestList>
-          </section>
+        {tests.length > 0 || (make && !whole) ? (
+          <TestList
+            appId={appId}
+            appUrl={app.url}
+            items={listed.map((t) => testItem({ test: t, read: reads.get(t.id)!, stands: stands.get(t.id)!, settled: settled.get(t.id), latest: latest.get(t.id), recent: outcomes.get(t.id) ?? [], fresh: fresh.has(t.id) }))}
+            making={adding.map(makingItem)}
+            now={Date.now()}
+            lastRun={lastRun && timeAgo(lastRun)}
+            fresh={fresh.size}
+            add={<AddTest appId={appId} starts={startChoices(app)} box />}
+          />
         ) : (
           !make && <Start appId={appId} url={app.url} site={(await readSite(app.url)) ?? { url: app.url, framable: false }} wallet={app.settings.wallets[0]} chainId={chain?.id} canMake={manage} starts={startChoices(app)} />
         )}

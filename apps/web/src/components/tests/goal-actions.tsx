@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { dismissGoalAction, makeTestAction, type GoalRef } from "@/actions/tests";
+import { dismissGoalAction, dismissMakeAction, makeTestAction, retryMakeAction, type GoalRef } from "@/actions/tests";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { looksLikeKey } from "@/lib/secrets";
@@ -147,6 +147,51 @@ export function GoalNeed({ appId, goals, ask, why, locked }: { appId: string; go
           <Link href={one!.href} className="underline underline-offset-4 hover:text-foreground">
             See what we tried
           </Link>
+        </p>
+      )}
+    </Need>
+  );
+}
+
+/**
+ * A test the owner added whose generating broke before anything came of it, on the app's list of what needs its
+ * owner. There is nothing to answer: it is tried again as it was asked for, or let go.
+ */
+export function LostNeed({ makeId, name, why }: { makeId: string; name: string; why: string }) {
+  const [error, setError] = useState<string>();
+  const [retrying, retry] = useTransition();
+  const [dismissing, dismiss] = useTransition();
+  const pending = retrying || dismissing;
+
+  return (
+    <Need
+      title={name}
+      actions={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() =>
+              retry(async () => {
+                const r = await retryMakeAction(makeId);
+                if (r.error) setError(r.error);
+              })
+            }
+          >
+            {retrying ? "Starting…" : "Try again"}
+          </Button>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Dismiss ${name}`} title="Dismiss" disabled={pending} onClick={() => dismiss(() => dismissMakeAction(makeId))} className="text-muted-foreground">
+            <X aria-hidden="true" />
+          </Button>
+        </>
+      }
+    >
+      <p>We couldn&apos;t generate this test. {why}</p>
+      {error && (
+        <p role="alert" className="text-bad">
+          {error}
         </p>
       )}
     </Need>

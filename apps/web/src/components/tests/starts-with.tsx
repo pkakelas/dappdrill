@@ -1,9 +1,9 @@
 "use client";
 
 import { Plus, X } from "lucide-react";
+import { cx } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { FundRow } from "@/lib/funds";
 
@@ -15,6 +15,12 @@ export interface StartChoices {
   chains: { id: number; name: string }[];
   sends: string;
 }
+
+const MODES = [
+  { mode: "app", label: "The usual" },
+  { mode: "nothing", label: "Nothing" },
+  { mode: "own", label: "Funds of its own" },
+] as const;
 
 /**
  * What the account of one test starts with, on an app whose tests each get a new account: what every new
@@ -28,13 +34,26 @@ export function StartsWith({ id, value, onChange, choices, disabled }: { id: str
 
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>The account starts with</Label>
-      <div className="[&>div]:w-full">
-        <NativeSelect id={id} value={mode} disabled={disabled} onChange={(e) => onChange(e.target.value === "app" ? null : e.target.value === "nothing" ? [] : [blank()])} className="bg-background">
-          <NativeSelectOption value="app">What every new account is sent: {choices.sends}</NativeSelectOption>
-          <NativeSelectOption value="nothing">Nothing</NativeSelectOption>
-          <NativeSelectOption value="own">Funds of its own</NativeSelectOption>
-        </NativeSelect>
+      <span id={`${id}-label`} className="text-sm leading-none font-medium">
+        The account starts with
+      </span>
+      <div id={id} role="radiogroup" aria-labelledby={`${id}-label`} className="flex w-fit max-w-full rounded-lg bg-muted p-0.5">
+        {MODES.map((m) => (
+          <button
+            key={m.mode}
+            type="button"
+            role="radio"
+            aria-checked={mode === m.mode}
+            disabled={disabled}
+            onClick={() => mode !== m.mode && onChange(m.mode === "app" ? null : m.mode === "nothing" ? [] : [blank()])}
+            className={cx(
+              "h-7 cursor-pointer rounded-md px-3 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+              mode === m.mode ? "bg-background shadow-xs" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {m.label}
+          </button>
+        ))}
       </div>
       {mode === "own" && (
         <>
@@ -57,7 +76,7 @@ export function StartsWith({ id, value, onChange, choices, disabled }: { id: str
                 aria-label={`Token address, row ${i + 1}`}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="Token address, or empty for the chain's coin"
+                placeholder="Token address"
                 value={row.token}
                 disabled={disabled}
                 onChange={(e) => set(i, { token: e.target.value })}
@@ -83,10 +102,10 @@ export function StartsWith({ id, value, onChange, choices, disabled }: { id: str
       )}
       <p className="text-xs text-pretty text-muted-foreground">
         {mode === "own"
-          ? "Paid from the app's key before the test. Amounts are in whole units, like 0.05 or 100. What the test leaves on the account is sent back to that key."
+          ? "Paid from the app's key before the test, in whole units like 0.05 or 100. No token address means the chain's own coin. What the test leaves on the account is sent back to that key."
           : mode === "nothing"
             ? "For a test of what the app does when the user holds nothing."
-            : "Set in the app's settings. What the test leaves on the account is sent back to the key that paid."}
+            : `${choices.sends === "nothing" ? "Nothing" : choices.sends}, as set in the app's settings. What the test leaves on the account is sent back to the key that paid.`}
       </p>
     </div>
   );

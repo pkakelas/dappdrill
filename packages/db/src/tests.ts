@@ -2,7 +2,7 @@
  * Test operations shared by the web app and the worker.
  * Anything that needs a job returns ids; the caller sends the job.
  */
-import { and, asc, count, desc, eq, gte, inArray, max, min, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte, max, min, sql, type SQL } from "drizzle-orm";
 import { newId, Suite, Test, type Fault, type LineResult, type Verdict } from "@dappdrill/core";
 import type { Db } from "./client.js";
 import { apps, makes, testRuns, tests, type RepairState, type RunStatus, type Trigger } from "./schema/app.js";
@@ -70,6 +70,20 @@ async function newestRuns(db: Db, testIds: string[], extra?: SQL): Promise<Map<s
     .where(and(inArray(testRuns.testId, testIds), extra))
     .orderBy(testRuns.testId, desc(testRuns.createdAt));
   return new Map(rows.map((r) => [r.testId, r]));
+}
+
+/** How each test's latest finished runs went, newest first, up to `n` a test. */
+export async function recentOutcomes(db: Db, testIds: string[], n = 10): Promise<Map<string, RunStatus[]>> {
+  if (testIds.length === 0) return new Map();
+  const ranked = db
+    .select({ testId: testRuns.testId, status: testRuns.status, nth: sql<number>`row_number() over (partition by ${testRuns.testId} order by ${testRuns.createdAt} desc)`.as("nth") })
+    .from(testRuns)
+    .where(and(inArray(testRuns.testId, testIds), inArray(testRuns.status, FINISHED)))
+    .as("ranked");
+  const rows = await db.select().from(ranked).where(lte(ranked.nth, n)).orderBy(ranked.testId, ranked.nth);
+  const by = new Map<string, RunStatus[]>();
+  for (const r of rows) by.set(r.testId, [...(by.get(r.testId) ?? []), r.status]);
+  return by;
 }
 
 export interface Batch {
@@ -141,7 +155,10 @@ export async function runHistory(db: Db, appId: string, since: Date) {
  */
 export async function queueRuns(db: Db, appId: string, testIds: string[], trigger: Trigger, url?: string): Promise<string | undefined> {
   if (testIds.length === 0) return undefined;
-  const rows = await db.select({ id: tests.id }).from(tests).where(and(eq(tests.appId, appId), inArray(tests.id, testIds)));
+  const rows = await db
+    .select({ id: tests.id })
+    .from(tests)
+    .where(and(eq(tests.appId, appId), inArray(tests.id, testIds)));
   if (rows.length === 0) return undefined;
   const batchId = newId("batch");
   await db.insert(testRuns).values(rows.map((r) => ({ id: newId("run"), appId, testId: r.id, batchId, trigger, url: url ?? null })));
@@ -169,7 +186,11 @@ export function repairAsk(results: { testId: string; repairable: boolean; steps:
  */
 export async function queueRepair(db: Db, appId: string, ask: RepairAsk, by: { afterBatch?: string; userId?: string } = {}): Promise<string | undefined> {
   if (ask.then.length === 0 && ask.testIds.length === 0) return undefined;
-  const [busy] = await db.select({ id: makes.id }).from(makes).where(and(eq(makes.appId, appId), inArray(makes.status, ["queued", "running"]), isRepair)).limit(1);
+  const [busy] = await db
+    .select({ id: makes.id })
+    .from(makes)
+    .where(and(eq(makes.appId, appId), inArray(makes.status, ["queued", "running"]), isRepair))
+    .limit(1);
   if (busy) return undefined;
   const rows = await db.select({ id: tests.id, name: tests.name }).from(tests).where(eq(tests.appId, appId)).orderBy(asc(tests.position), asc(tests.createdAt));
   const repair: RepairState = {
@@ -184,7 +205,10 @@ export async function queueRepair(db: Db, appId: string, ask: RepairAsk, by: { a
 
 /** The position after the app's last test. */
 async function nextPosition(db: Db, appId: string): Promise<number> {
-  const [row] = await db.select({ n: max(tests.position) }).from(tests).where(eq(tests.appId, appId));
+  const [row] = await db
+    .select({ n: max(tests.position) })
+    .from(tests)
+    .where(eq(tests.appId, appId));
   return (row?.n ?? -1) + 1;
 }
 

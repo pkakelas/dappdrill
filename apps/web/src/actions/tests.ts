@@ -1,7 +1,7 @@
 "use server";
 
 import { sentence, Test, type Action, type Check, type Fund } from "@dappdrill/core";
-import { accountOf, appTests, db, makes, queueRepair, queueRuns, repairAsk, settledRuns, testOf, testRuns, tests, touched, type apps, type Trigger } from "@dappdrill/db";
+import { accountOf, addTest, appTests, db, makes, queueRepair, queueRuns, repairAsk, settledRuns, testOf, testRuns, tests, touched, type apps, type Trigger } from "@dappdrill/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -42,8 +42,14 @@ const refresh = (appId: string) => revalidatePath(`/apps/${appId}`, "layout");
 
 export async function runTestsAction(appId: string, testIds: string[]): Promise<void> {
   await requireApp(appId);
-  const own = await db().select({ id: tests.id }).from(tests).where(and(eq(tests.appId, appId), inArray(tests.id, testIds)));
-  await run(appId, own.map((t) => t.id));
+  const own = await db()
+    .select({ id: tests.id })
+    .from(tests)
+    .where(and(eq(tests.appId, appId), inArray(tests.id, testIds)));
+  await run(
+    appId,
+    own.map((t) => t.id),
+  );
   refresh(appId);
 }
 
@@ -59,12 +65,13 @@ const DeployUrl = z
   .max(2000)
   .pipe(z.url({ protocol: /^https?$/, error: "Give the deploy's address, starting with http:// or https://." }));
 
-/** Runs every test against another deploy of the app (a preview, staging) with the app's own tests and what they recorded. */
-export async function runAgainstUrlAction(appId: string, url: string): Promise<{ error?: string }> {
+/** Runs every test, or the ones named, against another deploy of the app (a preview, staging) with the app's own tests and what they recorded. */
+export async function runAgainstUrlAction(appId: string, url: string, testIds?: string[]): Promise<{ error?: string }> {
   await requireApp(appId);
   const parsed = DeployUrl.safeParse(url);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
-  await run(appId, await allIds(appId), "manual", parsed.data);
+  const all = await allIds(appId);
+  await run(appId, testIds ? all.filter((id) => testIds.includes(id)) : all, "manual", parsed.data);
   refresh(appId);
   return {};
 }
@@ -105,7 +112,10 @@ export interface GoalRef {
 
 /** Takes a goal off the app's list of goals without a test. Only a finished make's goals: the worker writes a running make's state. */
 async function dismissGoal(appId: string, { makeId, index }: GoalRef) {
-  const [make] = await db().select().from(makes).where(and(eq(makes.id, makeId), eq(makes.appId, appId)));
+  const [make] = await db()
+    .select()
+    .from(makes)
+    .where(and(eq(makes.id, makeId), eq(makes.appId, appId)));
   const goal = make?.state.goals[index];
   if (!make || !goal || goal.status !== "not-kept" || make.status === "queued" || make.status === "running") return;
   goal.dismissed = true;
@@ -136,7 +146,13 @@ export async function makeTestAction(appId: string, goal: string, retries?: Goal
   if (looksLikeKey(parsed.data)) return { error: "That looks like a private key. Take it out: this text isn't encrypted." };
   const own = startsWith(app, starts);
   if ("error" in own) return own;
-  const [tried] = retries && !own.fund ? await db().select().from(makes).where(and(eq(makes.id, retries.makeId), eq(makes.appId, appId))) : [];
+  const [tried] =
+    retries && !own.fund
+      ? await db()
+          .select()
+          .from(makes)
+          .where(and(eq(makes.id, retries.makeId), eq(makes.appId, appId)))
+      : [];
   if (!(await startMake(appId, user.id, parsed.data, own.fund ?? tried?.state.fund))) return { error: BUSY };
   if (retries) await dismissGoal(appId, retries);
   refresh(appId);
@@ -147,6 +163,38 @@ export async function dismissGoalAction(appId: string, goal: GoalRef): Promise<v
   await requireApp(appId);
   await dismissGoal(appId, goal);
   refresh(appId);
+}
+
+/** A test the owner added whose making broke on our side, and nothing came of it. A make that is going is the worker's to write. */
+async function lostMake(makeId: string) {
+  const [make] = await db().select().from(makes).where(eq(makes.id, makeId));
+  if (!make) return;
+  const { user } = await requireApp(make.appId);
+  return make.goal && make.status === "failed" && !make.state.dismissed ? { make, goal: make.goal, user } : undefined;
+}
+
+const letGo = (make: typeof makes.$inferSelect) =>
+  db()
+    .update(makes)
+    .set({ state: { ...make.state, dismissed: true } })
+    .where(eq(makes.id, make.id));
+
+/** Generates such a test again, as it was asked for and with what its account was to start with. The one that broke leaves the page. */
+export async function retryMakeAction(makeId: string): Promise<{ error?: string }> {
+  const lost = await lostMake(makeId);
+  if (!lost) return {};
+  if (!(await startMake(lost.make.appId, lost.user.id, lost.goal, lost.make.state.fund))) return { error: BUSY };
+  await letGo(lost.make);
+  refresh(lost.make.appId);
+  return {};
+}
+
+/** Takes such a test off what waits for the owner, without trying it again. */
+export async function dismissMakeAction(makeId: string): Promise<void> {
+  const lost = await lostMake(makeId);
+  if (!lost) return;
+  await letGo(lost.make);
+  refresh(lost.make.appId);
 }
 
 export async function stopMakeAction(makeId: string): Promise<void> {
@@ -172,7 +220,10 @@ export async function repairTestsAction(appId: string, testIds?: string[]): Prom
     const own = rows.filter((t) => testIds.includes(t.id)).map((t) => t.id);
     ask = { testIds: own, then: own };
   } else {
-    const settled = await settledRuns(db(), rows.map((t) => t.id));
+    const settled = await settledRuns(
+      db(),
+      rows.map((t) => t.id),
+    );
     const stopped = repairAsk([...settled.values()].flatMap((r) => (r.result ? [{ testId: r.testId, repairable: Boolean(r.result.repairable), steps: r.result.steps }] : [])));
     const waitingOnCode = rows.filter(unwritten).map((t) => t.id);
     // Every test starts with the setup and the reset, so all of them are run again once those are written.
@@ -239,9 +290,33 @@ export async function saveTestAction(testId: string, input: TestEdit): Promise<{
   return {};
 }
 
+/** A copy of the test at the end of the list, opened for editing: the way to a variant of a test that works. */
+export async function duplicateTestAction(testId: string): Promise<void> {
+  const row = await ownTest(testId);
+  const id = await addTest(db(), row.appId, { ...testOf(row), name: `${row.name.slice(0, 113)} (copy)` });
+  refresh(row.appId);
+  redirect(`/apps/${row.appId}/tests/${id}?edit`);
+}
+
+/** Deletes these tests of the app, with their results. */
+export async function deleteTestsAction(appId: string, testIds: string[]): Promise<void> {
+  await requireApp(appId);
+  if (testIds.length === 0) return;
+  const own = and(eq(tests.appId, appId), inArray(tests.id, testIds));
+  await db()
+    .update(testRuns)
+    .set({ stopRequested: true })
+    .where(and(eq(testRuns.appId, appId), inArray(testRuns.testId, testIds), eq(testRuns.status, "running")));
+  await db().delete(tests).where(own);
+  refresh(appId);
+}
+
 export async function deleteTestAction(testId: string): Promise<void> {
   const t = await ownTest(testId);
-  await db().update(testRuns).set({ stopRequested: true }).where(and(eq(testRuns.testId, testId), eq(testRuns.status, "running")));
+  await db()
+    .update(testRuns)
+    .set({ stopRequested: true })
+    .where(and(eq(testRuns.testId, testId), eq(testRuns.status, "running")));
   await db().delete(tests).where(eq(tests.id, testId));
   refresh(t.appId);
   redirect(`/apps/${t.appId}`);
