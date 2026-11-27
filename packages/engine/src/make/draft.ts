@@ -16,11 +16,14 @@ const MAX_TURNS = 60;
 /** Browser steps after which the walker is told to write up. */
 const WRITE_UP_AFTER = 40;
 
-/** Something the app did that a user wouldn't accept. */
+/**
+ * Something the app did that a user wouldn't accept. Its three parts are read by the app's owner, in a list and
+ * next to each other, by someone who never saw the test: each says one thing once, in the words the app uses.
+ */
 export const Finding = z.object({
-  what: z.string().describe("What is wrong, like a heading: “Withdraw stays disabled after a deposit”"),
-  expected: z.string().describe("What a user is entitled to expect, and what says so: the app's own words, quoted, or what the user asked for and was told had happened"),
-  saw: z.string().describe("What the app did instead, with the exact text or figures"),
+  what: z.string().describe("What is wrong, as a heading of at most 10 words that is understood without the test: “Withdraw stays disabled after a deposit”"),
+  expected: z.string().describe("One sentence of at most 25 words: what a user is entitled to expect, and what says so (the app's own words, quoted, or what the user asked for and was told had happened)"),
+  saw: z.string().describe("One sentence of at most 30 words: what the app did instead, with the exact text or figure that shows it. Not the steps that led there, and not what expected already says"),
   goal: z.string().optional().describe("A goal for a test of its own that fails for as long as this is wrong: who the user is, what they do and what they should get. “A user who bridged 0.01 ETH sees 0.01 ETH for it in the history.”"),
 });
 export type Finding = z.infer<typeof Finding>;
@@ -28,13 +31,13 @@ export type Finding = z.infer<typeof Finding>;
 /** A line as a model writes it: one sentence, and for a check the code that decides it. */
 export const DraftLine = z.object({
   type: z.enum(["action", "check"]),
-  text: z.string().min(1).describe("An action: what to do, naming the control and the value as the page writes them. A check: one claim that must be true at this point"),
+  text: z.string().min(1).describe("One short sentence. An action: what to do, naming the control and the value as the page writes them. A check: one claim that must be true at this point, and not why it should be"),
   expect: CodeAssert.optional().describe("For a check: what code reads to decide it. Left out only when no kind can say the claim"),
 });
 export type DraftLine = z.infer<typeof DraftLine>;
 
 const Written = z.object({
-  name: z.string().min(1).describe("What the user does, in a few words: “Deposit 100 hUSDC”"),
+  name: z.string().min(1).describe("What the user does, in at most 10 words, told apart from the app's other tests by what differs: “Deposit 100 hUSDC”, “Deposit more hUSDC than held is refused”. Not the whole goal"),
   startPath: z.string().describe("The path of the page the test starts on"),
   values: z
     .array(z.object({ name: z.string().regex(/^\w+$/), ...RunValue.shape }))
@@ -102,7 +105,7 @@ ACTIONS
 - What depends on how many things are there (“cancel every open order”) can't be replayed. Use the app's own control for all of them when it has one, or name the one this run made.
 
 CHECKS
-- After each action whose effect matters, and at the end to show the goal was reached. One claim each. A test usually has three to eight.
+- After each action whose effect matters, and at the end to show the goal was reached. One claim each, in one short sentence that says what must be true and not why (“The swap card still shows “Add Recipient”.”, not “… because no recipient was set”). A test usually has three to eight.
 - A check says what a user is entitled to expect, from the goal and from the app's own words: the amount asked for is the amount the wallet signs, a balance moves by what was moved, the page says it went through, the new thing is listed where the app lists such things. Don't write a check only because something happened to be on the page.
 - When the app did something a user wouldn't accept (a wrong amount, a message the page contradicts, a balance that didn't move), write the check for what should be true anyway and put what you saw under problems. Never bend the test around a fault.
 - Never put in a check a figure that will be different on the next run: a price, a balance, a growing count, a date, an id. Say how it moves, compare it with another figure on the page, or tie it to a value of the test.
@@ -117,6 +120,7 @@ VALUES
 NOTES AND PROBLEMS
 - notes: only what the next test for this app will need and couldn't see for itself on the page: something that tripped you, an order things have to be done in, a fault that is in the way. Not what the page plainly shows, not how the app behaves when all goes well, not what this test does, not a note you were given. Most tests add none.
 - problems: faults of the app, with the exact text or figures and what shows it is a fault: the app's own words that it goes against, figures that don't add up, something it said had happened that isn't there. Not what you only expected to be otherwise, and not what comes from what the test account was given (you are told what). Each with a goal a test of its own could be made from.
+- A problem is read by the app's owner, who never saw this test. Say it as you would to them, plainly and once: what is a heading, expected one sentence, saw one sentence, and none repeats another. Amounts as the app shows them (“1001 USDC”, never 1001000000 or a figure in wei), an address as 0x1234…abcd, a wallet request by what it asks (“a Permit signature for 1001 USDC”, “a transaction sending 0.01 ETH”), never by its method name.
 
 IN THE BROWSER
 - Use the page as a user would: look, click, type, select. Prefer what is visible over guessing URLs.
