@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 
 export type RunTarget = { appId: string } & ({ testIds: string[] } | { all: true });
 
-/** Play, or stop while any of the target's tests is queued or running: an icon on a test's line, a button with its label on a page. */
-export function RunButton({ target, active, label, size = "icon" }: { target: RunTarget; active: boolean; label: string; size?: "icon" | "sm" | "md" }) {
+/** Play, or stop while any of the target's tests is queued or running: an icon on a test's line, a button with its label on a page (`quiet`: outlined, where it isn't the one thing to do). */
+export function RunButton({ target, active, label, size = "icon", quiet }: { target: RunTarget; active: boolean; label: string; size?: "icon" | "sm" | "md"; quiet?: boolean }) {
   const [pending, start] = useTransition();
   const onClick = () =>
     start(async () => {
@@ -34,7 +34,7 @@ export function RunButton({ target, active, label, size = "icon" }: { target: Ru
       </Button>
     );
   return (
-    <Button type="button" variant={active ? "outline" : "default"} size={size === "sm" ? "sm" : "default"} onClick={onClick} disabled={pending}>
+    <Button type="button" variant={active || quiet ? "outline" : "default"} size={size === "sm" ? "sm" : "default"} onClick={onClick} disabled={pending}>
       {icon}
       {pending ? (active ? "Stopping…" : "Starting…") : active ? "Stop" : label}
     </Button>

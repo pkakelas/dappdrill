@@ -23,7 +23,8 @@ export function standsAs(test: TestRow, read: TestRead, settled?: TestRunRow): S
 /** The order of the list: what needs a look first, what passed last. */
 export const STANDS_ORDER: Stands[] = ["bug", "failed", "repair", "unverified", "never", "passed"];
 
-export type ItemLine = Pick<ViewLine, "key" | "kind" | "text" | "state" | "label" | "note" | "tone">;
+/** A line as the list draws it. `shot` is the page after it in the run the lines read from. */
+export type ItemLine = Pick<ViewLine, "key" | "kind" | "text" | "state" | "label" | "note" | "tone"> & { shot?: string };
 
 /** What a test's last run found that its lines don't say, for the test opened: a bug as it was written up, or what went wrong outside any line. */
 export interface Found {
@@ -120,7 +121,16 @@ export function testItem({ test, read, stands, settled, latest, recent, fresh }:
     note,
     when: run?.finishedAt ? [took, timeAgo(run.finishedAt)].filter(Boolean).join(" · ") : undefined,
     fresh,
-    lines: viewLines("l", test.steps, lined, url, result?.values, running).map(({ key, kind, text, state, label, note, tone }) => ({ key, kind, text: tidy(text), state, label, note: tone === "quiet" || !note ? undefined : tidy(note), tone })),
+    lines: viewLines("l", test.steps, lined, url, result?.values, running).map(({ key, kind, text, state, label, note, tone, shot }) => ({
+      key,
+      kind,
+      text: tidy(text),
+      state,
+      label,
+      note: tone === "quiet" || !note ? undefined : tidy(note),
+      tone,
+      shot: shot ?? undefined,
+    })),
     stale: Boolean(result && !lined),
     found,
     video: running ? null : url(result?.video),
