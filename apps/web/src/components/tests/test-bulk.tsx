@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Trash2, Wrench, X } from "lucide-react";
+import { Group, Play, Trash2, Wrench, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteTestsAction, repairTestsAction, runAgainstUrlAction, runTestsAction } from "@/actions/tests";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { plural } from "@/lib/format";
 import type { TestItem } from "./test-item";
 
-export type Picked = Pick<TestItem, "id" | "name" | "stands">;
+export type Picked = Pick<TestItem, "id" | "name" | "stands" | "group">;
 
 /** What a dialog was last opened for, so its words stay as they were while it closes. */
 function useLast<T>(value: T | undefined): T | undefined {
@@ -22,7 +22,7 @@ function useLast<T>(value: T | undefined): T | undefined {
  * What can be done to the tests picked in the list, on a bar that stays at the bottom of the window while
  * any is picked. `more` is how many of the tests shown aren't picked yet.
  */
-export function SelectionBar({ appId, picked, more, onAll, onClear, onDelete }: { appId: string; picked: Picked[]; more: number; onAll: () => void; onClear: () => void; onDelete: () => void }) {
+export function SelectionBar({ appId, picked, more, onAll, onClear, onDelete, onMove }: { appId: string; picked: Picked[]; more: number; onAll: () => void; onClear: () => void; onDelete: () => void; onMove: () => void }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
   const ids = picked.map((t) => t.id);
@@ -72,6 +72,10 @@ export function SelectionBar({ appId, picked, more, onAll, onClear, onDelete }: 
             Repair{broken.length < picked.length ? ` ${broken.length}` : ""}
           </Button>
         )}
+        <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onMove}>
+          <Group aria-hidden="true" />
+          Group
+        </Button>
         <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onDelete} className="text-bad hover:text-bad">
           <Trash2 aria-hidden="true" />
           Delete

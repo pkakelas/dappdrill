@@ -102,6 +102,9 @@ export async function makeTestsAction(appId: string): Promise<void> {
   refresh(appId);
 }
 
+/** The heading tests are listed under. Empty: under none. */
+const Group = z.string().trim().max(40, "Keep the group's name to 40 characters.");
+
 const Goal = z.string().trim().min(8, "Say what a user does and what they should see, in a sentence.").max(600);
 
 /** A goal a finished make left without a test, by the make and its place in the make's list. */
@@ -137,15 +140,18 @@ function startsWith(app: typeof apps.$inferSelect, rows: FundRow[] | null | unde
 /**
  * Makes one test from a goal in the user's words: it is done once, written as lines, then run until it goes the same way twice.
  * `retries` is the goal without a test this one tries again, which leaves the list once the new make has started: the new make
- * starts with what that one did. `starts` is what the test's new account starts with, when the user said.
+ * starts with what that one did. `starts` is what the test's new account starts with, when the user said, and
+ * `group` the heading the test is listed under.
  */
-export async function makeTestAction(appId: string, goal: string, retries?: GoalRef, starts?: FundRow[] | null): Promise<{ error?: string }> {
+export async function makeTestAction(appId: string, goal: string, retries?: GoalRef, starts?: FundRow[] | null, group?: string): Promise<{ error?: string }> {
   const { user, app } = await requireApp(appId);
   const parsed = Goal.safeParse(goal);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   if (looksLikeKey(parsed.data)) return { error: "That looks like a private key. Take it out: this text isn't encrypted." };
   const own = startsWith(app, starts);
   if ("error" in own) return own;
+  const under = Group.safeParse(group ?? "");
+  if (!under.success) return { error: under.error.issues[0]?.message };
   const [tried] =
     retries && !own.fund
       ? await db()
@@ -153,7 +159,7 @@ export async function makeTestAction(appId: string, goal: string, retries?: Goal
           .from(makes)
           .where(and(eq(makes.id, retries.makeId), eq(makes.appId, appId)))
       : [];
-  if (!(await startMake(appId, user.id, parsed.data, own.fund ?? tried?.state.fund))) return { error: BUSY };
+  if (!(await startMake(appId, user.id, parsed.data, own.fund ?? tried?.state.fund, under.data || tried?.state.group))) return { error: BUSY };
   if (retries) await dismissGoal(appId, retries);
   refresh(appId);
   return {};
@@ -243,6 +249,7 @@ export async function repairTestsAction(appId: string, testIds?: string[]): Prom
 
 const Edit = z.object({
   name: z.string().trim().min(1, "Give the test a name.").max(120),
+  group: Group.default(""),
   goal: z.string().trim().min(1, "Say what the user is after.").max(600),
   startPath: z.string().trim().max(500).regex(/^\//, "The start page is a path on the app, like /vault."),
   lines: z
@@ -280,11 +287,11 @@ export async function saveTestAction(testId: string, input: TestEdit): Promise<{
     if (same >= 0) return left.splice(same, 1)[0]!;
     return line.type === "action" ? { type: "action", by: "code", do: line.text, run: [] } : { type: "check", by: "llm", claim: line.text };
   });
-  const next = Test.safeParse({ ...before, name: edit.name, goal: edit.goal, startPath: edit.startPath, steps });
+  const next = Test.safeParse({ ...before, name: edit.name, group: edit.group || undefined, goal: edit.goal, startPath: edit.startPath, steps });
   if (!next.success) return { error: next.error.issues[0]?.message };
   await db()
     .update(tests)
-    .set({ name: next.data.name, goal: next.data.goal, startPath: next.data.startPath, steps: next.data.steps, fund: own.fund ?? null, ...touched() })
+    .set({ name: next.data.name, group: next.data.group ?? null, goal: next.data.goal, startPath: next.data.startPath, steps: next.data.steps, fund: own.fund ?? null, ...touched() })
     .where(eq(tests.id, testId));
   refresh(row.appId);
   return {};
@@ -296,6 +303,33 @@ export async function duplicateTestAction(testId: string): Promise<void> {
   const id = await addTest(db(), row.appId, { ...testOf(row), name: `${row.name.slice(0, 113)} (copy)` });
   refresh(row.appId);
   redirect(`/apps/${row.appId}/tests/${id}?edit`);
+}
+
+/** Lists these tests of the app under a heading, or under none (an empty name). Nothing in a run reads it, so the tests stay as they are. */
+export async function groupTestsAction(appId: string, testIds: string[], group: string): Promise<{ error?: string }> {
+  await requireApp(appId);
+  const name = Group.safeParse(group);
+  if (!name.success) return { error: name.error.issues[0]?.message };
+  if (testIds.length > 0)
+    await db()
+      .update(tests)
+      .set({ group: name.data || null })
+      .where(and(eq(tests.appId, appId), inArray(tests.id, testIds)));
+  refresh(appId);
+  return {};
+}
+
+/** Gives a group another name: its tests go under the new heading, with the tests already there, or under none (an empty name). */
+export async function renameGroupAction(appId: string, from: string, to: string): Promise<{ error?: string }> {
+  await requireApp(appId);
+  const name = Group.safeParse(to);
+  if (!name.success) return { error: name.error.issues[0]?.message };
+  await db()
+    .update(tests)
+    .set({ group: name.data || null })
+    .where(and(eq(tests.appId, appId), eq(tests.group, from)));
+  refresh(appId);
+  return {};
 }
 
 /** Deletes these tests of the app, with their results. */

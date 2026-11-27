@@ -241,7 +241,7 @@ export default async function AppPage({ params }: { params: Promise<{ appId: str
             now={Date.now()}
             lastRun={lastRun && timeAgo(lastRun)}
             fresh={fresh.size}
-            add={<AddTest appId={appId} starts={startChoices(app)} box />}
+            add={<AddTest appId={appId} starts={startChoices(app)} groups={[...new Set(tests.flatMap((t) => (t.group ? [t.group] : [])))].sort((a, b) => a.localeCompare(b))} box />}
           />
         ) : (
           !make && <Start appId={appId} url={app.url} site={(await readSite(app.url)) ?? { url: app.url, framable: false }} wallet={app.settings.wallets[0]} chainId={chain?.id} canMake={manage} starts={startChoices(app)} />

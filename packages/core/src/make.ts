@@ -122,6 +122,8 @@ export const MakeState = z.object({
   stuck: SetupStuck.optional(),
   /** With one goal asked for by the owner: what its test's new account starts with, when they said. */
   fund: z.array(Fund).optional(),
+  /** With one goal asked for by the owner: the heading its test is listed under, when they picked one. */
+  group: z.string().min(1).max(40).optional(),
   /** With one goal asked for by the owner, whose making broke on our side: the owner tried it again or dismissed it, so it no longer waits for them. */
   dismissed: z.boolean().optional(),
 });

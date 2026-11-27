@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { looksLikeKey } from "@/lib/secrets";
 import { StartsWith, type StartChoices, type Starts } from "./starts-with";
@@ -19,11 +20,13 @@ const EMPTY = { does: "", sees: "" };
  * writes it as lines, and runs it until it goes the same way twice. `box` is the first line of the app's list
  * of tests; without it, it is a plain line to press.
  * `starts` is there on an app whose tests each get a new account: what this test's starts with can then be said.
+ * `groups` are the headings the app's tests are listed under, when there are any: the new test can go under one.
  */
-export function AddTest({ appId, label = "Add a test", starts, box }: { appId: string; label?: string; starts?: StartChoices; box?: boolean }) {
+export function AddTest({ appId, label = "Add a test", starts, groups = [], box }: { appId: string; label?: string; starts?: StartChoices; groups?: string[]; box?: boolean }) {
   const [open, setOpen] = useState(false);
   const [answers, setAnswers] = useState(EMPTY);
   const [fund, setFund] = useState<Starts>(null);
+  const [group, setGroup] = useState("");
   // What the account starts with is one line until it is changed: most tests take what the app sends.
   const [changing, setChanging] = useState(false);
   const [error, setError] = useState<string>();
@@ -36,10 +39,11 @@ export function AddTest({ appId, label = "Add a test", starts, box }: { appId: s
     if (!ready || hasKey || pending) return;
     start(async () => {
       const goal = sees.trim() ? `${does.trim().replace(/[.\s]+$/, "")}. They should see: ${sees.trim()}` : does.trim();
-      const r = await makeTestAction(appId, goal, undefined, starts ? fund : null);
+      const r = await makeTestAction(appId, goal, undefined, starts ? fund : null, groups.includes(group) ? group : undefined);
       if (r.error) return setError(r.error);
       setAnswers(EMPTY);
       setFund(null);
+      setGroup("");
       setChanging(false);
       setError(undefined);
       setOpen(false);
@@ -111,6 +115,23 @@ export function AddTest({ appId, label = "Add a test", starts, box }: { appId: s
                 </Label>
                 <Input id="add-sees" maxLength={250} disabled={pending} value={sees} onChange={(e) => setAnswers({ ...answers, sees: e.target.value })} placeholder="e.g. Deposited falls by 2.50 USDC" />
               </div>
+              {groups.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="add-group">
+                    Group <span className="font-normal text-muted-foreground">Optional</span>
+                  </Label>
+                  <div className="[&>div]:w-full">
+                    <NativeSelect id="add-group" value={group} disabled={pending} onChange={(e) => setGroup(e.target.value)} className="bg-background">
+                      <NativeSelectOption value="">No group</NativeSelectOption>
+                      {groups.map((g) => (
+                        <NativeSelectOption key={g} value={g}>
+                          {g}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                </div>
+              )}
               {starts &&
                 (changing ? (
                   <StartsWith id="add-starts-with" value={fund} onChange={setFund} choices={starts} disabled={pending} />

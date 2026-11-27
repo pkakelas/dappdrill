@@ -1,6 +1,6 @@
 "use client";
 
-import { Bug, ChevronDown, Copy, Ellipsis, Globe, Pencil, SquareArrowOutUpRight, Trash2, Wrench } from "lucide-react";
+import { Bug, ChevronDown, Copy, Ellipsis, Globe, Group, Pencil, SquareArrowOutUpRight, Trash2, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { duplicateTestAction, repairTestsAction } from "@/actions/tests";
@@ -50,6 +50,7 @@ export function TestRow({
   onSelect,
   onDelete,
   onRunAgainst,
+  onMove,
 }: {
   appId: string;
   appUrl: string;
@@ -60,6 +61,7 @@ export function TestRow({
   onSelect: (on: boolean) => void;
   onDelete: () => void;
   onRunAgainst: () => void;
+  onMove: () => void;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
@@ -131,6 +133,10 @@ export function TestRow({
                   <DropdownMenuItem disabled={pending} onSelect={() => start(() => duplicateTestAction(item.id))}>
                     <Copy aria-hidden="true" />
                     Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onMove}>
+                    <Group aria-hidden="true" />
+                    Move to a group
                   </DropdownMenuItem>
                   <DropdownMenuItem disabled={active} onSelect={onRunAgainst}>
                     <Globe aria-hidden="true" />

@@ -162,6 +162,13 @@
       "when": 1795615171334,
       "tag": "0022_test_fund",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795778382319,
+      "tag": "0023_test_group",
+      "breakpoints": true
     }
   ]
 }

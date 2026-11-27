@@ -68,6 +68,12 @@ makes the app ask, in the same recording; a recording whose refusal the app neve
 an action with no recording, means "not written as code yet", and only making and repairing (`byModel`) let a model do
 such a line.
 
+Groups: a test may name the heading it is listed under with the tests like it (`Test.group`, what a user is doing
+there: "Bridging ETH"). The tests page lists each group under a heading that opens and closes, with how its tests
+stand and a run of its own, a group with something to look at first; with no group named the tests are one list.
+Tests are moved between groups from the list, one or several at once, and a group is there for as long as a test
+names it. Nothing in a run reads it.
+
 Accounts: `DrillTarget.account` is `new` (fresh keys on every start, account A paid what `fund` lists from
 `fundedKey`, then the setup) or `kept` (`fundedKey` or the kept accounts are the user, the setup once, the suite's
 `reset` lines before each test). Apps that make a user of every wallet they see belong on a kept account.

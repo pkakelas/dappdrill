@@ -85,6 +85,8 @@ export default async function TestPage({ params, searchParams }: { params: Promi
   // The run on screen failed and the test was kept for a bug: the bug is the explanation.
   const onBug = run?.status === "failed" && test.faults.length > 0;
   const editing = edit !== undefined && !state.active;
+  // The headings the app's tests are listed under, offered while a test is edited.
+  const groups = editing ? (await db().selectDistinct({ group: tests.group }).from(tests).where(eq(tests.appId, appId))).flatMap((t) => (t.group ? [t.group] : [])).sort() : [];
   const here = `/apps/${appId}/tests/${test.id}`;
   // On new accounts a test may say what its own starts with, in place of what the app sends every one.
   const starts = startChoices(app);
@@ -148,12 +150,14 @@ export default async function TestPage({ params, searchParams }: { params: Promi
           back={here}
           test={{
             name: test.name,
+            group: test.group ?? "",
             goal: test.goal,
             startPath: test.startPath,
             lines: spec.steps.map((l) => ({ type: l.type, text: sentence(l) })),
             fund: spec.fund ? spec.fund.map((f) => ({ chainId: f.chainId, token: f.token ?? "", amount: f.amount })) : null,
           }}
           starts={starts}
+          groups={groups}
         />
       ) : (
         <>

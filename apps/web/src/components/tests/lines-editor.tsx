@@ -113,6 +113,8 @@ function Footer({ error, pending, note, onCancel }: { error?: string; pending: b
 
 export interface TestDraft {
   name: string;
+  /** The heading it is listed under. Empty: under none. */
+  group: string;
   goal: string;
   startPath: string;
   lines: { type: Kind; text: string }[];
@@ -125,7 +127,7 @@ export interface TestDraft {
  * one has none until the next repair writes it. Saving or cancelling goes back to `back`. `starts` is there
  * on an app whose tests each get a new account: what this one's starts with can then be said.
  */
-export function TestEditor({ testId, test, back, starts }: { testId: string; test: TestDraft; back: string; starts?: StartChoices }) {
+export function TestEditor({ testId, test, back, starts, groups = [] }: { testId: string; test: TestDraft; back: string; starts?: StartChoices; groups?: string[] }) {
   const [draft, setDraft] = useState(test);
   const [rows, setRows] = useState<Row[]>(() => test.lines.map((l) => row(l.type, l.text)));
   const [error, setError] = useState<string>();
@@ -150,6 +152,14 @@ export function TestEditor({ testId, test, back, starts }: { testId: string; tes
     >
       <Field id="test-name" label="Name">
         <Input id="test-name" value={draft.name} disabled={pending} maxLength={120} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="bg-background" />
+      </Field>
+      <Field id="test-group" label="Group" hint="The heading it is listed under with the tests like it, such as Deposits. Leave it empty for none.">
+        <Input id="test-group" list="test-groups" value={draft.group} disabled={pending} maxLength={40} onChange={(e) => setDraft({ ...draft, group: e.target.value })} className="bg-background" />
+        <datalist id="test-groups">
+          {groups.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
       </Field>
       <Field id="test-goal" label="Goal" hint="What a user is trying to do, and what they should end up with.">
         <Textarea id="test-goal" rows={2} value={draft.goal} disabled={pending} onChange={(e) => setDraft({ ...draft, goal: e.target.value })} className="bg-background" />

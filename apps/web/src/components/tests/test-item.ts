@@ -40,6 +40,8 @@ export interface TestItem {
   id: string;
   name: string;
   goal: string;
+  /** The heading it is listed under with the tests like it. */
+  group?: string;
   stands: Stands;
   mark: TestState;
   /** How it stands in a few words, when its mark and its time don't say it all: nothing for a test that passed. */
@@ -109,6 +111,7 @@ export function testItem({ test, read, stands, settled, latest, recent, fresh }:
     id: test.id,
     name: tidy(test.name),
     goal: tidy(test.goal),
+    group: test.group ?? undefined,
     stands,
     mark: read.mark,
     label: words?.text,

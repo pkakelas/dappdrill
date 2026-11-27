@@ -40,7 +40,7 @@ export async function runMake(db: Db, engine: Engine, boss: PgBoss, makeId: stri
 
 async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$inferSelect, shutdown: AbortSignal, log: Logger): Promise<void> {
   const dir = artifactsDir("makes", row.id);
-  const state = MakeState.parse(row.goal ? { stage: "making", goals: [{ goal: row.goal, status: "making" }], fund: row.state.fund } : {});
+  const state = MakeState.parse(row.goal ? { stage: "making", goals: [{ goal: row.goal, status: "making" }], fund: row.state.fund, group: row.state.group } : {});
   /** What the look and each make came back with. */
   let costUsd = 0;
   /** What the engine says was spent so far, the makes that were stopped or broke included. */
@@ -101,7 +101,7 @@ async function make(db: Db, engine: Engine, app: AppRow, row: typeof makes.$infe
     } satisfies Partial<MakeGoal>);
     if (attempt.kept && made?.test) {
       const faults: Fault[] = made.stands === "failed" ? made.findings.filter((f) => f.proven).map(({ what, expected, saw }) => ({ what, expected, saw })) : [];
-      goal.testId = await addTest(db, app.id, made.test, faults);
+      goal.testId = await addTest(db, app.id, { ...made.test, group: made.test.group ?? state.group }, faults);
       goal.stands = made.stands;
       const proof = made.runs.at(-1);
       if (proof) await keepProof(db, app.id, goal.testId, batchId, proof, dir, `make-${n}`).catch((e) => log.warn(`could not keep the run that proved “${made.test!.name}”: ${errorMessage(e)}`));

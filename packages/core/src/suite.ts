@@ -184,6 +184,8 @@ export const Test = z.object({
   name: z.string().min(1),
   /** What a user is after, in a sentence. The models read it; nothing is judged against it. */
   goal: z.string().min(1),
+  /** The heading it is listed under with the tests like it: what a user is doing there, in a few words. Nothing in a run reads it. */
+  group: z.string().min(1).max(40).optional(),
   startPath: z.string().default("/"),
   /**
    * Numbers picked afresh on every run and written {{name}} anywhere in the test. On an account

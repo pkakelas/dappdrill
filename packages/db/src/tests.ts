@@ -30,7 +30,7 @@ export const isMake = sql`${makes.state} -> 'repair' is null`;
 
 /** The row as the engine's test. Its id is the row's. */
 export function testOf(t: TestRow): Test {
-  return Test.parse({ id: t.id, name: t.name, goal: t.goal, startPath: t.startPath, values: t.values, steps: t.steps, cleanup: t.cleanup, fund: t.fund ?? undefined });
+  return Test.parse({ id: t.id, name: t.name, goal: t.goal, group: t.group ?? undefined, startPath: t.startPath, values: t.values, steps: t.steps, cleanup: t.cleanup, fund: t.fund ?? undefined });
 }
 
 /** The app's suite: what it keeps with the app, and these tests. */
@@ -46,7 +46,7 @@ export async function appTests(db: Db, appId: string): Promise<TestRow[]> {
 /** Saves a test at the end of the app's list, under a new id. `faults` are what it was kept for failing on. */
 export async function addTest(db: Db, appId: string, test: Test, faults: Fault[] = []): Promise<string> {
   const id = newId("test");
-  await db.insert(tests).values({ id, appId, name: test.name, goal: test.goal, startPath: test.startPath, values: test.values, steps: test.steps, cleanup: test.cleanup, fund: test.fund, faults, position: await nextPosition(db, appId) });
+  await db.insert(tests).values({ id, appId, name: test.name, goal: test.goal, group: test.group, startPath: test.startPath, values: test.values, steps: test.steps, cleanup: test.cleanup, fund: test.fund, faults, position: await nextPosition(db, appId) });
   return id;
 }
 

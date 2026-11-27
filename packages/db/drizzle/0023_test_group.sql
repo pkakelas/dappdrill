@@ -1,0 +1,1 @@
+ALTER TABLE "tests" ADD COLUMN "group_name" text;

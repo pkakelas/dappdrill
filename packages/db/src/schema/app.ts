@@ -174,6 +174,8 @@ export const tests = pgTable(
     appId: text("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     goal: text("goal").notNull(),
+    /** The heading the test is listed under. Null: under none. */
+    group: text("group_name"),
     startPath: text("start_path").notNull().default("/"),
     /** Numbers picked afresh on every run, written {{name}} in the lines. */
     values: jsonb("values").$type<Record<string, RunValue>>().notNull().default({}),

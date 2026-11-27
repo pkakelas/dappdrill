@@ -1,13 +1,15 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ListChevronsDownUp, ListChevronsUpDown, Search } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { cx } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { plural } from "@/lib/format";
 import { LiveDot } from "./status";
 import { DeleteTests, RunAgainst, SelectionBar, type Picked } from "./test-bulk";
+import { GroupHead, MoveTests, NO_GROUP, RenameGroup, useFolded } from "./test-groups";
 import type { MakingItem, Stands, TestItem } from "./test-item";
 import { MakingRow } from "./test-making";
 import { TestRow } from "./test-row";
@@ -30,9 +32,13 @@ const SEARCH_FROM = 8;
 
 const is = (item: TestItem, kind: Kind) => (kind === "running" ? Boolean(item.now) : item.stands === kind);
 
+/** The ways a test stands that someone should look at. */
+const LOOK: Kind[] = ["bug", "failed", "repair", "unverified"];
+
 /**
  * The app's tests: how they stand as filters to press, then one card with the line that adds a test, the tests
- * being generated, and each test on a line that opens in place. Picking tests brings up what can be done to several at once.
+ * being generated, and each test on a line that opens in place. Once a test names a group, the tests are listed
+ * under their groups' headings, which open and close. Picking tests brings up what can be done to several at once.
  */
 export function TestList({ appId, appUrl, items, making = [], now, lastRun, fresh, add }: { appId: string; appUrl: string; items: TestItem[]; making?: MakingItem[]; now: number; lastRun?: string; fresh: number; add: ReactNode }) {
   const [filter, setFilter] = useState<Kind>();
@@ -41,6 +47,9 @@ export function TestList({ appId, appUrl, items, making = [], now, lastRun, fres
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const [deleting, setDeleting] = useState<Picked[]>();
   const [against, setAgainst] = useState<Picked>();
+  const [moving, setMoving] = useState<Picked[]>();
+  const [renaming, setRenaming] = useState<string>();
+  const [folded, setFolded] = useFolded(appId);
 
   const kinds = KINDS.map((k) => ({ ...k, count: items.filter((t) => is(t, k.kind)).length })).filter((k) => k.count > 0);
   // A filter whose last test went another way (it ran and passed) gives way to all of them.
@@ -50,6 +59,18 @@ export function TestList({ appId, appUrl, items, making = [], now, lastRun, fres
   const picked = shown.filter((t) => selected.has(t.id));
   // The tests being generated come first, where each will be once it is ready. They aren't tests yet, so a narrowed list leaves them out.
   const coming = at || words ? [] : making;
+
+  // The groups the tests name, and the tests shown under each: a group with something to look at first, the tests that name none last.
+  const groups = [...new Set(items.flatMap((t) => (t.group ? [t.group] : [])))].sort((a, b) => a.localeCompare(b)).map((name) => ({ name, count: items.filter((t) => t.group === name).length }));
+  const look = (tests: TestItem[]) => tests.some((t) => LOOK.some((k) => is(t, k)));
+  const sections = [...groups.map((g): string | undefined => g.name), undefined]
+    .map((name) => ({ name, tests: shown.filter((t) => t.group === name) }))
+    .filter((s) => s.tests.length > 0)
+    .sort((a, b) => Number(!a.name) - Number(!b.name) || Number(look(b.tests)) - Number(look(a.tests)));
+  // A narrowed list shows what it found, in whichever group it is.
+  const narrowed = Boolean(at || words);
+  const closed = (name?: string) => !narrowed && folded.has(name ?? "");
+  const allClosed = sections.every((s) => folded.has(s.name ?? ""));
 
   const toggle = (set: ReadonlySet<string>, id: string, on: boolean) => {
     const next = new Set(set);
@@ -63,6 +84,22 @@ export function TestList({ appId, appUrl, items, making = [], now, lastRun, fres
     if (to.query !== undefined) setQuery(to.query);
     setSelected(new Set());
   };
+
+  const row = (item: TestItem) => (
+    <TestRow
+      key={item.id}
+      appId={appId}
+      appUrl={appUrl}
+      item={item}
+      open={opened.has(item.id)}
+      onOpen={() => setOpened(toggle(opened, item.id, !opened.has(item.id)))}
+      selected={selected.has(item.id)}
+      onSelect={(on) => setSelected(toggle(selected, item.id, on))}
+      onDelete={() => setDeleting([item])}
+      onRunAgainst={() => setAgainst(item)}
+      onMove={() => setMoving([item])}
+    />
+  );
 
   return (
     <section aria-labelledby="tests" className="flex flex-col gap-3">
@@ -99,51 +136,95 @@ export function TestList({ appId, appUrl, items, making = [], now, lastRun, fres
               ))}
             </div>
           )}
-          {items.length >= SEARCH_FROM && (
-            <div className="relative w-full sm:w-60">
-              <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input type="search" aria-label="Search the tests" placeholder="Search tests" value={query} onChange={(e) => narrow({ query: e.target.value })} className="h-8 bg-card pl-8" />
+          {(items.length >= SEARCH_FROM || groups.length > 0) && (
+            <div className="flex w-full items-center gap-1.5 sm:w-auto">
+              {items.length >= SEARCH_FROM && (
+                <div className="relative min-w-0 flex-1 sm:w-60 sm:flex-none">
+                  <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input type="search" aria-label="Search the tests" placeholder="Search tests" value={query} onChange={(e) => narrow({ query: e.target.value })} className="h-8 bg-card pl-8" />
+                </div>
+              )}
+              {groups.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={narrowed}
+                  aria-label={allClosed ? "Open every group" : "Close every group"}
+                  title={allClosed ? "Open every group" : "Close every group"}
+                  onClick={() => setFolded(allClosed ? new Set() : new Set(sections.map((s) => s.name ?? "")))}
+                  className="ml-auto text-muted-foreground hover:text-foreground"
+                >
+                  {allClosed ? <ListChevronsUpDown aria-hidden="true" /> : <ListChevronsDownUp aria-hidden="true" />}
+                </Button>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* One card: the line that adds a test, then the tests. */}
-      <div className="divide-y rounded-xl border bg-card shadow-xs">
+      {/* One card: the line that adds a test, the tests being generated, then the tests, under their groups when they name any. */}
+      <div className="divide-y overflow-clip rounded-xl border bg-card shadow-xs">
         <div className="p-1.5">{add}</div>
-        {shown.length + coming.length > 0 ? (
+        {coming.length > 0 && (
           <ul className="divide-y">
             {coming.map((item) => (
               <MakingRow key={item.id} appUrl={appUrl} item={item} open={opened.has(item.id)} onOpen={() => setOpened(toggle(opened, item.id, !opened.has(item.id)))} now={now} />
             ))}
-            {shown.map((item) => (
-              <TestRow
-                key={item.id}
-                appId={appId}
-                appUrl={appUrl}
-                item={item}
-                open={opened.has(item.id)}
-                onOpen={() => setOpened(toggle(opened, item.id, !opened.has(item.id)))}
-                selected={selected.has(item.id)}
-                onSelect={(on) => setSelected(toggle(selected, item.id, on))}
-                onDelete={() => setDeleting([item])}
-                onRunAgainst={() => setAgainst(item)}
-              />
-            ))}
           </ul>
-        ) : (
-          items.length > 0 && (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-              {words ? `No test matches “${query.trim()}”${at ? " among these" : ""}.` : "No test stands this way now."}{" "}
-              <button type="button" onClick={() => narrow({ filter: undefined, query: "" })} className="font-medium text-foreground underline-offset-4 hover:underline">
-                Show all tests
-              </button>
-            </p>
-          )
+        )}
+        {groups.length > 0
+          ? sections.map((s) => (
+              <section key={s.name ?? ""} aria-label={s.name ?? NO_GROUP} className="divide-y">
+                <GroupHead
+                  appId={appId}
+                  name={s.name}
+                  testIds={s.tests.map((t) => t.id)}
+                  running={s.tests.filter((t) => t.now).length}
+                  open={!closed(s.name)}
+                  onToggle={() => setFolded(toggle(folded, s.name ?? "", !folded.has(s.name ?? "")))}
+                  onSelect={() => setSelected(new Set([...selected, ...s.tests.map((t) => t.id)]))}
+                  onRename={() => setRenaming(s.name)}
+                >
+                  {KINDS.flatMap((k) => {
+                    const n = s.tests.filter((t) => is(t, k.kind)).length;
+                    return n > 0
+                      ? [
+                          <span key={k.kind} className={cx("inline-flex items-center gap-1.5", k.tone ?? "text-muted-foreground")}>
+                            <Dot kind={k} />
+                            {k.kind === "passed" && n === s.tests.length ? "All passed" : k.words(n)}
+                          </span>,
+                        ]
+                      : [];
+                  })}
+                </GroupHead>
+                {!closed(s.name) && <ul className="divide-y">{s.tests.map(row)}</ul>}
+              </section>
+            ))
+          : shown.length > 0 && <ul className="divide-y">{shown.map(row)}</ul>}
+        {shown.length + coming.length === 0 && items.length > 0 && (
+          <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+            {words ? `No test matches “${query.trim()}”${at ? " among these" : ""}.` : "No test stands this way now."}{" "}
+            <button type="button" onClick={() => narrow({ filter: undefined, query: "" })} className="font-medium text-foreground underline-offset-4 hover:underline">
+              Show all tests
+            </button>
+          </p>
         )}
       </div>
 
-      {picked.length > 0 && <SelectionBar appId={appId} picked={picked} more={shown.length - picked.length} onAll={() => setSelected(new Set(shown.map((t) => t.id)))} onClear={() => setSelected(new Set())} onDelete={() => setDeleting(picked)} />}
+      {picked.length > 0 && (
+        <SelectionBar
+          appId={appId}
+          picked={picked}
+          more={shown.length - picked.length}
+          onAll={() => setSelected(new Set(shown.map((t) => t.id)))}
+          onClear={() => setSelected(new Set())}
+          onDelete={() => setDeleting(picked)}
+          onMove={() => setMoving(picked)}
+        />
+      )}
+      <MoveTests appId={appId} tests={moving} groups={groups} onClose={() => setMoving(undefined)} onDone={() => (setMoving(undefined), setSelected(new Set()))} />
+      <RenameGroup appId={appId} group={renaming} groups={groups} onClose={() => setRenaming(undefined)} />
       <DeleteTests appId={appId} tests={deleting} onClose={() => setDeleting(undefined)} onDone={() => (setDeleting(undefined), setSelected(new Set()))} />
       <RunAgainst appId={appId} appUrl={appUrl} test={against} onClose={() => setAgainst(undefined)} />
     </section>
